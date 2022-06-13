@@ -37,7 +37,7 @@ class Vk_Core {
 public:
     static Vk_Core& GetInstance();
     // static Vk_Core* GetInstance();
-    void SetSize( uint32_t aWidth, uint32_t aHeight );
+    void SetSize( const uint32_t aWidth, const uint32_t aHeight );
     void Run();
     void Reset();
     // TODO: maybe merge all the set function when initializing?
@@ -82,6 +82,7 @@ private:
     VkPresentModeKHR        myChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes );
     VkExtent2D              myChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
     VkShaderModule          myCreateShaderModule( const std::vector< char >& someShaderCode );
+    static void             myFramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
@@ -117,5 +118,6 @@ private:
     std::vector< VkFramebuffer > mySwapChainFrameBuffers;
 
     bool     myEnableValidationLayers;
-    uint32_t myCurrentFrame = 0;
+    bool     myFramebufferResized = false;
+    uint32_t myCurrentFrame       = 0;
 };

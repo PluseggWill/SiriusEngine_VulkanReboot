@@ -11,7 +11,7 @@ Vk_Core& Vk_Core::GetInstance() {
     return myInstance;
 }
 
-void Vk_Core::SetSize( uint32_t aWidth, uint32_t aHeight ) {
+void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
     myWidth  = aWidth;
     myHeight = aHeight;
 }
@@ -34,6 +34,8 @@ void Vk_Core::myInitWindow() {
     glfwWindowHint( GLFW_RESIZABLE, GLFW_FALSE );
 
     myWindow = glfwCreateWindow( myWidth, myHeight, "Vulkan Window", nullptr, nullptr );
+    glfwSetWindowUserPointer( myWindow, this );
+    glfwSetFramebufferSizeCallback( myWindow, myFramebufferResizeCallback );
 }
 
 void Vk_Core::myMainLoop() {
@@ -41,7 +43,7 @@ void Vk_Core::myMainLoop() {
         glfwPollEvents();
         myDrawFrame();
 
-        myCurrentFrame = ( myCurrentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
+        // myCurrentFrame = ( myCurrentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
     }
 
     vkDeviceWaitIdle( myDevice );
@@ -49,7 +51,7 @@ void Vk_Core::myMainLoop() {
 
 void Vk_Core::myClear() {
     // All other Vulkan resources should be cleaned up
-    // before the instance is detroyed.
+    // before the instance is destroyed.
 
     myCleanupSwapChain();
 
@@ -198,7 +200,7 @@ void Vk_Core::myCreateLogicalDevice() {
         throw std::runtime_error( "failed to create logical device!" );
     }
 
-    // Step #6?: Retrive queue handles
+    // Step #6?: Retrieve queue handles
     vkGetDeviceQueue( myDevice, indices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
     vkGetDeviceQueue( myDevice, indices.myPresentFamily.value(), 0, &myPresentQueue );
 }
@@ -233,8 +235,8 @@ void Vk_Core::myCreateSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    QueueFamilyIndices indices              = myFindQueueFamilies( myPhysicalDevice );
-    uint32_t           queueFamilyIndices[] = { indices.myGraphicsFamily.value(), indices.myPresentFamily.value() };
+    const QueueFamilyIndices indices              = myFindQueueFamilies( myPhysicalDevice );
+    const uint32_t           queueFamilyIndices[] = { indices.myGraphicsFamily.value(), indices.myPresentFamily.value() };
 
     if ( indices.myGraphicsFamily != indices.myPresentFamily ) {
         createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
@@ -353,7 +355,7 @@ void Vk_Core::myCreateGfxPipeline() {
     viewportState.scissorCount  = 1;
     viewportState.pScissors     = &scissor;
 
-    // Step #7: Resterizer
+    // Step #7: Rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable        = VK_FALSE;
@@ -544,11 +546,22 @@ void Vk_Core::myCreateCommandBuffers() {
 
 void Vk_Core::myDrawFrame() {
     vkWaitForFences( myDevice, 1, &myInFlightFences[ myCurrentFrame ], VK_TRUE, UINT64_MAX );
-    vkResetFences( myDevice, 1, &myInFlightFences[ myCurrentFrame ] );
 
     uint32_t imageIndex;
     // Once the image is available for the next frame, myImageAvailableSemaphore will be signaled and ready to be acquired
-    vkAcquireNextImageKHR( myDevice, mySwapChain, UINT64_MAX, myImageAvailableSemaphores[ myCurrentFrame ], VK_NULL_HANDLE, &imageIndex );
+    VkResult result = vkAcquireNextImageKHR( myDevice, mySwapChain, UINT64_MAX, myImageAvailableSemaphores[ myCurrentFrame ], VK_NULL_HANDLE, &imageIndex );
+
+    if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
+        // Swap chain incompatible, recreate the swap chain
+        myRecreateSwapChain();
+        return;
+    }
+    else if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
+        throw std::runtime_error( "failed to acquire swap chain image!" );
+    }
+
+    // Only reset the fence if we are submitting work
+    vkResetFences( myDevice, 1, &myInFlightFences[ myCurrentFrame ] );
 
     vkResetCommandBuffer( myCommandBuffers[ myCurrentFrame ], 0 );
     myRecordCommandBuffer( myCommandBuffers[ myCurrentFrame ], imageIndex );
@@ -583,7 +596,16 @@ void Vk_Core::myDrawFrame() {
     presentInfo.pImageIndices   = &imageIndex;
     presentInfo.pResults        = nullptr;
 
-    vkQueuePresentKHR( myPresentQueue, &presentInfo );
+    result = vkQueuePresentKHR( myPresentQueue, &presentInfo );
+    if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || myFramebufferResized ) {
+        myFramebufferResized = false;
+        myRecreateSwapChain();
+    }
+    else if ( result != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to present swap chain image!" );
+    }
+
+    myCurrentFrame = ( myCurrentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Vk_Core::myCreateSyncObjects() {
@@ -608,6 +630,13 @@ void Vk_Core::myCreateSyncObjects() {
 }
 
 void Vk_Core::myRecreateSwapChain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize( myWindow, &width, &height );
+    while ( width == 0 || height == 0 ) {
+        glfwGetFramebufferSize( myWindow, &width, &height );
+        glfwWaitEvents();
+    }
+
     vkDeviceWaitIdle( myDevice );
 
     myCleanupSwapChain();
@@ -877,6 +906,12 @@ void Vk_Core::myRecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t an
     if ( vkEndCommandBuffer( myCommandBuffers[ myCurrentFrame ] ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
     }
+}
+
+void Vk_Core::myFramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
+    auto app = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
+
+    app->myFramebufferResized = true;
 }
 
 #pragma endregion
