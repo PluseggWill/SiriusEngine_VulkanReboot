@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Header Files\RenderCore">
+      <UniqueIdentifier>{65056a28-ab47-48d7-b2fa-fcea5e4bc4fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Util">
+      <UniqueIdentifier>{f5848333-464c-47b7-8977-494d5332dd84}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\RenderCore">
+      <UniqueIdentifier>{e6b7dd05-f0fa-4fce-ba12-5f93c8e575c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Shader">
+      <UniqueIdentifier>{49330e1d-10f6-4ff6-a3ad-86b385f880b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Util">
+      <UniqueIdentifier>{2d2dcfeb-41a5-473d-8ceb-6eca9493bd86}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="VulkanDesktop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Core.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ValidationLayer.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Window.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_Loader.cpp">
+      <Filter>Source Files\Util</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Util\GlobalHeader.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Core.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ValidationLayer.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Window.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_Loader.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\TriangleFrag.frag">
+      <Filter>Source Files\Shader</Filter>
+    </None>
+    <None Include="Shader\TriangleVertex.vert">
+      <Filter>Source Files\Shader</Filter>
+    </None>
+  </ItemGroup>
+</Project>
