@@ -62,6 +62,12 @@
     <ClInclude Include="Util\Util_Loader.h">
       <Filter>Header Files\Util</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Gfx_DataStruct.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_Include.h">
+      <Filter>Header Files\Util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\TriangleFrag.frag">

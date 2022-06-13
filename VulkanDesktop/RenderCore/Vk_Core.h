@@ -1,37 +1,10 @@
 #pragma once
-#define GLFW_INCLUDE_VULKAN
-//#define VK_USE_PLATFORM_WIN32_KHR
-#include <GLFW/glfw3.h>
-//#define GLFW_EXPOSE_NATIVE_WIN32
-//#include <GLFW/glfw3native.h>
+#include "../Util/Util_Include.h"
 #include "../Util/Util_Loader.h"
-#include <algorithm>
-#include <cstdint>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <optional>
-#include <set>
-#include <stdexcept>
-#include <vector>
+#include "Gfx_DataStruct.h"
 
 //#define MAX_FRAMES_IN_FLIGHT = 2;
 const int MAX_FRAMES_IN_FLIGHT = 2;
-
-struct QueueFamilyIndices {
-    std::optional< uint32_t > myGraphicsFamily;
-    std::optional< uint32_t > myPresentFamily;
-
-    bool isComplete() {
-        return myGraphicsFamily.has_value() && myPresentFamily.has_value();
-    }
-};
-
-struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR          myCapabilities;
-    std::vector< VkSurfaceFormatKHR > myFormats;
-    std::vector< VkPresentModeKHR >   myPresentModes;
-};
 
 class Vk_Core {
 public:
