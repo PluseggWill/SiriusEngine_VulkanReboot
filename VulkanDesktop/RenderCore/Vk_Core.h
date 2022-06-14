@@ -41,6 +41,8 @@ private:
     void myCreateCommandBuffers();
     void myCreateSyncObjects();
     void myDrawFrame();
+    void myFillVerticesData();
+    void myCreateVertexBuffer();
     void myRecreateSwapChain();
     void myCleanupSwapChain();
 
@@ -56,6 +58,7 @@ private:
     VkExtent2D              myChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
     VkShaderModule          myCreateShaderModule( const std::vector< char >& someShaderCode );
     static void             myFramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
+    uint32_t                myFindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
 
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
@@ -78,8 +81,11 @@ private:
     VkRenderPass     myRenderPass;
     VkPipeline       myGfxPipeline;
     VkCommandPool    myCommandPool;
+    VkBuffer         myVertexBuffer;
+    VkDeviceMemory   myVertexBufferMemory;
 
     std::vector< VkCommandBuffer > myCommandBuffers;
+    std::vector< Vertex >          vertices;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
     std::vector< VkFence >         myInFlightFences;

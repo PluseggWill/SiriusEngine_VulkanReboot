@@ -55,6 +55,10 @@ void Vk_Core::myClear() {
 
     myCleanupSwapChain();
 
+    vkDestroyBuffer( myDevice, myVertexBuffer, nullptr );
+
+    vkFreeMemory( myDevice, myVertexBufferMemory, nullptr );
+
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         vkDestroySemaphore( myDevice, myImageAvailableSemaphores[ i ], nullptr );
         vkDestroySemaphore( myDevice, myRenderFinishedSemaphores[ i ], nullptr );
@@ -86,6 +90,8 @@ void Vk_Core::myInitVulkan() {
     myCreateGfxPipeline();
     myCreateFrameBuffers();
     myCreateCommandPool();
+    myFillVerticesData();
+    myCreateVertexBuffer();
     myCreateCommandBuffers();
     myCreateSyncObjects();
 }
@@ -667,6 +673,45 @@ void Vk_Core::myCleanupSwapChain() {
     vkDestroySwapchainKHR( myDevice, mySwapChain, nullptr );
 }
 
+void Vk_Core::myFillVerticesData() {
+    vertices = {
+        { { 0.0f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
+        { { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
+        { { -0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
+    };
+}
+
+void Vk_Core::myCreateVertexBuffer() {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size        = sizeof( vertices[ 0 ] ) * vertices.size();
+    bufferInfo.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if ( vkCreateBuffer( myDevice, &bufferInfo, nullptr, &myVertexBuffer ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create vertex buffer!" );
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements( myDevice, myVertexBuffer, &memRequirements );
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize  = memRequirements.size;
+    allocInfo.memoryTypeIndex = myFindMemoryType( memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT );
+
+    if ( vkAllocateMemory( myDevice, &allocInfo, nullptr, &myVertexBufferMemory ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to allocate vertex buffer memory!" );
+    }
+
+    vkBindBufferMemory( myDevice, myVertexBuffer, myVertexBufferMemory, 0 );
+
+    void* data;
+    vkMapMemory( myDevice, myVertexBufferMemory, 0, bufferInfo.size, 0, &data );
+    memcpy( data, vertices.data(), ( size_t )bufferInfo.size );
+    vkUnmapMemory( myDevice, myVertexBufferMemory );
+}
+
 #pragma region Functional Functions
 
 void Vk_Core::myCheckExtensionSupport() {
@@ -902,7 +947,11 @@ void Vk_Core::myRecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t an
 
     vkCmdBindPipeline( myCommandBuffers[ myCurrentFrame ], VK_PIPELINE_BIND_POINT_GRAPHICS, myGfxPipeline );
 
-    vkCmdDraw( myCommandBuffers[ myCurrentFrame ], 3, 1, 0, 0 );
+    VkBuffer     vertexBuffers[] = { myVertexBuffer };
+    VkDeviceSize offsets[]       = { 0 };
+    vkCmdBindVertexBuffers( myCommandBuffers[ myCurrentFrame ], 0, 1, vertexBuffers, offsets );
+
+    vkCmdDraw( myCommandBuffers[ myCurrentFrame ], static_cast< uint32_t >( vertices.size() ), 1, 0, 0 );
 
     vkCmdEndRenderPass( myCommandBuffers[ myCurrentFrame ] );
 
@@ -915,6 +964,19 @@ void Vk_Core::myFramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int 
     auto app = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
 
     app->myFramebufferResized = true;
+}
+
+uint32_t Vk_Core::myFindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties( myPhysicalDevice, &memProperties );
+
+    for ( uint32_t i = 0; i < memProperties.memoryTypeCount; i++ ) {
+        if ( ( aTypeFiler & ( 1 << i ) ) && ( memProperties.memoryTypes[ i ].propertyFlags & someProperties ) == someProperties ) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error( "failed to find suitable memory type!" );
 }
 
 #pragma endregion
