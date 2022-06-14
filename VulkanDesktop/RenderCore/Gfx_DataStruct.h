@@ -4,9 +4,10 @@
 struct QueueFamilyIndices {
     std::optional< uint32_t > myGraphicsFamily;
     std::optional< uint32_t > myPresentFamily;
+    std::optional< uint32_t > myTransferFamily;
 
-    bool isComplete() {
-        return myGraphicsFamily.has_value() && myPresentFamily.has_value();
+    bool isComplete() const {
+        return myGraphicsFamily.has_value() && myPresentFamily.has_value() && myTransferFamily.has_value();
     }
 };
 

@@ -38,14 +38,18 @@ private:
     void myCreateRenderPass();
     void myCreateFrameBuffers();
     void myCreateCommandPool();
-    void myCreateCommandBuffers();
+    void myCreateGraphicsCommandBuffers();
     void myCreateSyncObjects();
     void myDrawFrame();
     void myFillVerticesData();
     void myCreateVertexBuffer();
+    void myCreateIndexBuffer();
     void myRecreateSwapChain();
     void myCleanupSwapChain();
 
+    void                    myCreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
+    void                    myCopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
+    void                    myCopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    myCheckExtensionSupport();
     void                    myRecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     bool                    myCheckValidationLayerSupport();
@@ -73,6 +77,7 @@ private:
     VkDevice         myDevice;
     VkQueue          myGraphicsQueue;
     VkQueue          myPresentQueue;
+    VkQueue          myTransferQueue;
     VkSurfaceKHR     mySurface;
     VkSwapchainKHR   mySwapChain;
     VkFormat         mySwapChainImageFormat;
@@ -80,12 +85,15 @@ private:
     VkPipelineLayout myPipelineLayout;
     VkRenderPass     myRenderPass;
     VkPipeline       myGfxPipeline;
-    VkCommandPool    myCommandPool;
-    VkBuffer         myVertexBuffer;
-    VkDeviceMemory   myVertexBufferMemory;
+    VkCommandPool    myGraphicsCommandPool;
+    // TODO: Set up the tranfer command pool/buffer
+    VkCommandPool  myTransferCommandPool;
+    VkBuffer       myVertexBuffer;
+    VkDeviceMemory myVertexBufferMemory;
+    VkBuffer       myIndexBuffer;
+    VkDeviceMemory myIndexBufferMemory;
 
-    std::vector< VkCommandBuffer > myCommandBuffers;
-    std::vector< Vertex >          vertices;
+    std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
     std::vector< VkFence >         myInFlightFences;
@@ -99,4 +107,7 @@ private:
     bool     myEnableValidationLayers;
     bool     myFramebufferResized = false;
     uint32_t myCurrentFrame       = 0;
+
+    std::vector< Vertex >   vertices;
+    std::vector< uint16_t > indices;
 };
