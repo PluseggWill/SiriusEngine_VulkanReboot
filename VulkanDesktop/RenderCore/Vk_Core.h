@@ -46,7 +46,12 @@ private:
     void myCreateIndexBuffer();
     void myRecreateSwapChain();
     void myCleanupSwapChain();
+    void myCreateDescriptorSetLayout();
+    void myCreateUniformBuffers();
+    void myCreateDescriptorPool();
+    void myCreateDescriptorSets();
 
+    void                    myUpdateUniformBuffer(uint32_t aCurrentImage);
     void                    myCreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    myCopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    myCopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
@@ -82,17 +87,20 @@ private:
     VkSwapchainKHR   mySwapChain;
     VkFormat         mySwapChainImageFormat;
     VkExtent2D       mySwapChainExtent;
+    VkDescriptorSetLayout myDescriptorSetLayout;
     VkPipelineLayout myPipelineLayout;
     VkRenderPass     myRenderPass;
     VkPipeline       myGfxPipeline;
     VkCommandPool    myGraphicsCommandPool;
-    // TODO: Set up the tranfer command pool/buffer
     VkCommandPool  myTransferCommandPool;
     VkBuffer       myVertexBuffer;
     VkDeviceMemory myVertexBufferMemory;
     VkBuffer       myIndexBuffer;
     VkDeviceMemory myIndexBufferMemory;
+    VkDescriptorPool      myDescriptorPool;
 
+    std::vector< VkBuffer>      myUniformBuffers;
+    std::vector< VkDeviceMemory >  myUniformBuffersMemory;
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
