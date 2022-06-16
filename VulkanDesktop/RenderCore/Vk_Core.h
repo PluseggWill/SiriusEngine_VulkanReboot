@@ -3,7 +3,6 @@
 #include "../Util/Util_Loader.h"
 #include "Gfx_DataStruct.h"
 
-//#define MAX_FRAMES_IN_FLIGHT = 2;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 class Vk_Core {
@@ -23,52 +22,58 @@ private:
     Vk_Core( const Vk_Core& ) = delete;
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
-    void myInitWindow();
-    void myMainLoop();
-    void myClear();
+    void InitWindow();
+    void MainLoop();
+    void Clear();
 
-    void myInitVulkan();
-    void myCreateInstance();
-    void myPickPhysicalDevice();
-    void myCreateLogicalDevice();
-    void myCreateSurface();
-    void myCreateSwapChain();
-    void myCreateImageViews();
-    void myCreateGfxPipeline();
-    void myCreateRenderPass();
-    void myCreateFrameBuffers();
-    void myCreateCommandPool();
-    void myCreateGraphicsCommandBuffers();
-    void myCreateSyncObjects();
-    void myDrawFrame();
-    void myFillVerticesData();
-    void myCreateVertexBuffer();
-    void myCreateIndexBuffer();
-    void myRecreateSwapChain();
-    void myCleanupSwapChain();
-    void myCreateDescriptorSetLayout();
-    void myCreateUniformBuffers();
-    void myCreateDescriptorPool();
-    void myCreateDescriptorSets();
+    void InitVulkan();
+    void CreateInstance();
+    void PickPhysicalDevice();
+    void CreateLogicalDevice();
+    void CreateSurface();
+    void CreateSwapChain();
+    void CreateImageViews();
+    void CreateGfxPipeline();
+    void CreateRenderPass();
+    void CreateFrameBuffers();
+    void CreateCommandPool();
+    void CreateGraphicsCommandBuffers();
+    void CreateSyncObjects();
+    void DrawFrame();
+    void FillVerticesData();
+    void CreateVertexBuffer();
+    void CreateIndexBuffer();
+    void RecreateSwapChain();
+    void CleanupSwapChain();
+    void CreateDescriptorSetLayout();
+    void CreateUniformBuffers();
+    void CreateDescriptorPool();
+    void CreateDescriptorSets();
+    void CreateTextureImage();
 
-    void                    myUpdateUniformBuffer(uint32_t aCurrentImage);
-    void                    myCreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
-    void                    myCopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
-    void                    myCopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
-    void                    myCheckExtensionSupport();
-    void                    myRecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    bool                    myCheckValidationLayerSupport();
-    bool                    myCheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice );
-    bool                    myCheckExtensionSupport( VkPhysicalDevice aPhysicalDevice );
-    QueueFamilyIndices      myFindQueueFamilies( VkPhysicalDevice aPhysicalDevice );
-    SwapChainSupportDetails myQuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice );
-    VkSurfaceFormatKHR      myChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats );
-    VkPresentModeKHR        myChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes );
-    VkExtent2D              myChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
-    VkShaderModule          myCreateShaderModule( const std::vector< char >& someShaderCode );
-    static void             myFramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
-    uint32_t                myFindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
-
+    void                    UpdateUniformBuffer( uint32_t aCurrentImage );
+    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
+                                         VkDeviceMemory& aImageMemory );
+    void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
+    void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
+    void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
+    void                    CheckExtensionSupport();
+    void                    RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    bool                    CheckValidationLayerSupport();
+    bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice );
+    bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice );
+    QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice );
+    SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice );
+    VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats );
+    VkPresentModeKHR        ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes );
+    VkExtent2D              ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
+    VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
+    static void             FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
+    uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
+    VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool );
+    void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue );
+    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout );
+    void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
 public:
@@ -77,30 +82,32 @@ private:
 
     GLFWwindow* myWindow;
 
-    VkInstance       myInstance;
-    VkPhysicalDevice myPhysicalDevice = VK_NULL_HANDLE;
-    VkDevice         myDevice;
-    VkQueue          myGraphicsQueue;
-    VkQueue          myPresentQueue;
-    VkQueue          myTransferQueue;
-    VkSurfaceKHR     mySurface;
-    VkSwapchainKHR   mySwapChain;
-    VkFormat         mySwapChainImageFormat;
-    VkExtent2D       mySwapChainExtent;
+    VkInstance            myInstance;
+    VkPhysicalDevice      myPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice              myDevice;
+    VkQueue               myGraphicsQueue;
+    VkQueue               myPresentQueue;
+    VkQueue               myTransferQueue;
+    VkSurfaceKHR          mySurface;
+    VkSwapchainKHR        mySwapChain;
+    VkFormat              mySwapChainImageFormat;
+    VkExtent2D            mySwapChainExtent;
     VkDescriptorSetLayout myDescriptorSetLayout;
-    VkPipelineLayout myPipelineLayout;
-    VkRenderPass     myRenderPass;
-    VkPipeline       myGfxPipeline;
-    VkCommandPool    myGraphicsCommandPool;
-    VkCommandPool  myTransferCommandPool;
-    VkBuffer       myVertexBuffer;
-    VkDeviceMemory myVertexBufferMemory;
-    VkBuffer       myIndexBuffer;
-    VkDeviceMemory myIndexBufferMemory;
+    VkPipelineLayout      myPipelineLayout;
+    VkRenderPass          myRenderPass;
+    VkPipeline            myGfxPipeline;
+    VkCommandPool         myGraphicsCommandPool;
+    VkCommandPool         myTransferCommandPool;
+    VkBuffer              myVertexBuffer;
+    VkDeviceMemory        myVertexBufferMemory;
+    VkBuffer              myIndexBuffer;
+    VkDeviceMemory        myIndexBufferMemory;
     VkDescriptorPool      myDescriptorPool;
-    
+    VkImage               myTextureImage;
+    VkDeviceMemory        myTextureImagememory;
+
     std::vector< VkDescriptorSet > myDescriptorSets;
-    std::vector< VkBuffer>      myUniformBuffers;
+    std::vector< VkBuffer >        myUniformBuffers;
     std::vector< VkDeviceMemory >  myUniformBuffersMemory;
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
