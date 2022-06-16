@@ -98,7 +98,8 @@ private:
     VkBuffer       myIndexBuffer;
     VkDeviceMemory myIndexBufferMemory;
     VkDescriptorPool      myDescriptorPool;
-
+    
+    std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer>      myUniformBuffers;
     std::vector< VkDeviceMemory >  myUniformBuffersMemory;
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
