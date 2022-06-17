@@ -50,10 +50,13 @@ private:
     void CreateDescriptorPool();
     void CreateDescriptorSets();
     void CreateTextureImage();
+    void CreateTextureImageView();
+    void CreateTextureSampler();
 
     void                    UpdateUniformBuffer( uint32_t aCurrentImage );
     void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
                                          VkDeviceMemory& aImageMemory );
+    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
@@ -105,6 +108,8 @@ private:
     VkDescriptorPool      myDescriptorPool;
     VkImage               myTextureImage;
     VkDeviceMemory        myTextureImagememory;
+    VkImageView           myTextureImageView;
+    VkSampler             myTextureSampler;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer >        myUniformBuffers;
