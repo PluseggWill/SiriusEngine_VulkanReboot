@@ -61,7 +61,7 @@ void Vk_Core::Clear() {
     CleanupSwapChain();
 
     vkDestroyImage( myDevice, myTextureImage, nullptr );
-    vkFreeMemory( myDevice, myTextureImagememory, nullptr );
+    vkFreeMemory( myDevice, myTextureImageMemory, nullptr );
 
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         vkDestroyBuffer( myDevice, myUniformBuffers[ i ], nullptr );
@@ -867,7 +867,7 @@ void Vk_Core::CreateTextureImage() {
     stbi_image_free( pixels );
 
     CreateImage( texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                 myTextureImage, myTextureImagememory );
+                 myTextureImage, myTextureImageMemory );
 
     // Transition for copy buffer to image
     TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );

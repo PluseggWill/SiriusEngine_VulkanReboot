@@ -104,7 +104,10 @@ private:
     VkDeviceMemory        myIndexBufferMemory;
     VkDescriptorPool      myDescriptorPool;
     VkImage               myTextureImage;
-    VkDeviceMemory        myTextureImagememory;
+    VkDeviceMemory        myTextureImageMemory;
+    VkImage               myDepthImage;
+    VkDeviceMemory        myDepthImageMemroy;
+    VkImageView           myDepthImageView;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer >        myUniformBuffers;
