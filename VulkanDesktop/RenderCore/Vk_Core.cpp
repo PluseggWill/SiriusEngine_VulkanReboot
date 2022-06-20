@@ -60,6 +60,9 @@ void Vk_Core::Clear() {
 
     CleanupSwapChain();
 
+    vkDestroySampler( myDevice, myTextureSampler, nullptr );
+    vkDestroyImageView(myDevice, myTextureImageView, nullptr);
+
     vkDestroyImage( myDevice, myTextureImage, nullptr );
     vkFreeMemory( myDevice, myTextureImageMemory, nullptr );
 
@@ -111,6 +114,8 @@ void Vk_Core::InitVulkan() {
     CreateFrameBuffers();
     CreateCommandPool();
     CreateTextureImage();
+    CreateTextureImageView();
+    CreateTextureSampler();
     FillVerticesData();
     CreateVertexBuffer();
     CreateIndexBuffer();
@@ -207,6 +212,7 @@ void Vk_Core::CreateLogicalDevice() {
 
     // Step #2: Specifying used device features, leave it to be VK_FALSE for now
     VkPhysicalDeviceFeatures deviceFeatures{};
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
 
     // Step #3: Creating the logical device (possible to create multiple if needed)
     VkDeviceCreateInfo createInfo{};
@@ -304,24 +310,7 @@ void Vk_Core::CreateImageViews() {
     mySwapChainImageViews.resize( mySwapChainImages.size() );
 
     for ( size_t i = 0; i < mySwapChainImages.size(); i++ ) {
-        VkImageViewCreateInfo createInfo{};
-        createInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image                           = mySwapChainImages[ i ];
-        createInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format                          = mySwapChainImageFormat;
-        createInfo.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        createInfo.subresourceRange.baseMipLevel   = 0;
-        createInfo.subresourceRange.levelCount     = 1;
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount     = 1;
-
-        if ( vkCreateImageView( myDevice, &createInfo, nullptr, &mySwapChainImageViews[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "failed to create image views!" );
-        }
+        mySwapChainImageViews[ i ] = CreateImageView( mySwapChainImages[ i ], mySwapChainImageFormat );
     }
 }
 
@@ -708,12 +697,17 @@ void Vk_Core::CleanupSwapChain() {
 }
 
 void Vk_Core::FillVerticesData() {
-    vertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f } },
-                 { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f } },
-                 { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f } },
-                 { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f } } };
+    vertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+                 { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+                 { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+                 { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
 
-    indices = { 0, 1, 2, 2, 3, 0 };
+                 { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, 
+                 { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+                 { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   
+                 { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
+
+    indices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
 }
 
 void Vk_Core::CreateVertexBuffer() {
@@ -770,14 +764,24 @@ void Vk_Core::CreateDescriptorSetLayout() {
     uboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding            = 1;
+    samplerLayoutBinding.descriptorCount    = 1;
+    samplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, samplerLayoutBinding };
+
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings    = &uboLayoutBinding;
+    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
+    layoutInfo.pBindings    = bindings.data();
 
     if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myDescriptorSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor set layout!" );
     }
+    
 }
 
 void Vk_Core::CreateUniformBuffers() {
@@ -793,14 +797,16 @@ void Vk_Core::CreateUniformBuffers() {
 }
 
 void Vk_Core::CreateDescriptorPool() {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    std::array< VkDescriptorPoolSize, 2 > poolSizes{};
+    poolSizes[ 0 ].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[ 0 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes    = &poolSize;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes    = poolSizes.data();
     poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     if ( vkCreateDescriptorPool( myDevice, &poolInfo, nullptr, &myDescriptorPool ) != VK_SUCCESS ) {
@@ -830,17 +836,33 @@ void Vk_Core::CreateDescriptorSets() {
         bufferInfo.offset = 0;
         bufferInfo.range  = sizeof( UniformBufferObject );
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet           = myDescriptorSets[ i ];
-        descriptorWrite.dstBinding       = 0;
-        descriptorWrite.dstArrayElement  = 0;
-        descriptorWrite.descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount  = 1;
-        descriptorWrite.pBufferInfo      = &bufferInfo;
-        descriptorWrite.pImageInfo       = nullptr;
-        descriptorWrite.pTexelBufferView = nullptr;
-        vkUpdateDescriptorSets( myDevice, 1, &descriptorWrite, 0, nullptr );
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = myTextureImageView;
+        imageInfo.sampler     = myTextureSampler;
+
+        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
+
+        descriptorWrites[0].sType         = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[ 0 ].dstSet     = myDescriptorSets[ i ];
+        descriptorWrites[ 0 ].dstBinding  = 0;
+        descriptorWrites[ 0 ].dstArrayElement = 0;
+        descriptorWrites[ 0 ].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[ 0 ].descriptorCount = 1;
+        descriptorWrites[ 0 ].pBufferInfo     = &bufferInfo;
+        descriptorWrites[ 0 ].pImageInfo      = nullptr;
+        descriptorWrites[ 0 ].pTexelBufferView = nullptr;
+
+        descriptorWrites[ 1 ].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1 ].dstSet           = myDescriptorSets[ i ];
+        descriptorWrites[ 1 ].dstBinding       = 1;
+        descriptorWrites[ 1 ].dstArrayElement  = 0;
+        descriptorWrites[ 1 ].descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[ 1 ].descriptorCount  = 1;
+        descriptorWrites[ 1 ].pBufferInfo      = nullptr;
+        descriptorWrites[ 1 ].pImageInfo       = &imageInfo;
+        descriptorWrites[ 1 ].pTexelBufferView = nullptr;
+        vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
     }
 }
 
@@ -878,6 +900,37 @@ void Vk_Core::CreateTextureImage() {
 
     vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
     vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+}
+
+void Vk_Core::CreateTextureImageView() {
+    myTextureImageView = CreateImageView( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB );
+}
+
+void Vk_Core::CreateTextureSampler() {
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+
+    VkPhysicalDeviceProperties properties {};
+    vkGetPhysicalDeviceProperties( myPhysicalDevice, &properties );
+    samplerInfo.maxAnisotropy    = properties.limits.maxSamplerAnisotropy ;
+    samplerInfo.borderColor   = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod                  = 0.0f;
+
+    if (vkCreateSampler(myDevice, &samplerInfo, nullptr, &myTextureSampler) != VK_SUCCESS) {
+        throw std::runtime_error( "failed to create texture sampler!" );
+    }
 }
 
 #pragma region Functional Functions
@@ -958,7 +1011,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) {
 
     // TODO: More check options
 
-    return indices.isComplete() && extensionSupported && swapChainAdequate;
+    return indices.isComplete() && extensionSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy;
 }
 
 QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) {
@@ -1341,7 +1394,7 @@ void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLa
     }
     else if ( anOldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && aNewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -1373,6 +1426,26 @@ void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWid
     vkCmdCopyBufferToImage( commandBuffer, aBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
 
     EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
+}
+
+VkImageView Vk_Core::CreateImageView(VkImage aImage, VkFormat aFormat) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image                           = aImage;
+    viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format                          = aFormat;
+    viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel   = 0;
+    viewInfo.subresourceRange.levelCount     = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount     = 1;
+
+    VkImageView imageView;
+    if ( vkCreateImageView( myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create texture image view!" );
+    }
+
+    return imageView;
 }
 
 #pragma endregion
