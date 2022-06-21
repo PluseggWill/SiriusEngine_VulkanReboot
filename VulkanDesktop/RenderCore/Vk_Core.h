@@ -55,9 +55,9 @@ private:
     void CreateDepthResources();
 
     void                    UpdateUniformBuffer( uint32_t aCurrentImage );
-    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
+    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
                                          VkDeviceMemory& aImageMemory );
-    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat );
+    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
@@ -76,10 +76,11 @@ private:
     uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
     VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool );
     void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue );
-    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout );
+    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
+    bool                    HasStencilComponent(VkFormat aFormat);
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
 public:
@@ -109,13 +110,14 @@ private:
     VkBuffer              myIndexBuffer;
     VkDeviceMemory        myIndexBufferMemory;
     VkDescriptorPool      myDescriptorPool;
+    uint32_t              myTextureImageMipLevels;
     VkImage               myTextureImage;
     VkDeviceMemory        myTextureImagememory;
     VkImageView           myTextureImageView;
     VkSampler             myTextureSampler;
     VkDeviceMemory        myTextureImageMemory;
     VkImage               myDepthImage;
-    VkDeviceMemory        myDepthImageMemroy;
+    VkDeviceMemory        myDepthImageMemory;
     VkImageView           myDepthImageView;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
@@ -137,5 +139,6 @@ private:
     uint32_t myCurrentFrame       = 0;
 
     std::vector< Vertex >   vertices;
-    std::vector< uint16_t > indices;
+    std::vector< uint32_t > indices;
+    std::unordered_map< Vertex, uint32_t > uniqueVertices{};
 };
