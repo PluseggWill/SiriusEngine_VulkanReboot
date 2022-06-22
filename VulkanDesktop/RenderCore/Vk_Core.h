@@ -5,8 +5,9 @@
 
 const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
-const bool USE_MANUAL_VERTICES  = true;
+const bool USE_MANUAL_VERTICES  = false;
 const bool ENABLE_ROTATE        = false;
+// const bool ENABLE_MSAA          = false;
 
 class Vk_Core {
 public:
@@ -56,11 +57,10 @@ private:
     void CreateTextureImageView();
     void CreateTextureSampler();
     void CreateDepthResources();
+    void CreateColorResources();
 
-    void UpdateUniformBuffer( uint32_t aCurrentImage );
-    void CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                      VkDeviceMemory& aImageMemory );
-    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel );
+    void                    UpdateUniformBuffer( uint32_t aCurrentImage );
+    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel = 1 );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
@@ -85,6 +85,9 @@ private:
     VkFormat                FindDepthFormat();
     bool                    HasStencilComponent( VkFormat aFormat );
     void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
+    VkSampleCountFlagBits   GetMaxUsableSampleCount();
+    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
+                                         VkDeviceMemory& aImageMemory, uint32_t aMipLevel = 1, VkSampleCountFlagBits aNumSamples = VK_SAMPLE_COUNT_1_BIT );
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
 public:
@@ -123,6 +126,9 @@ private:
     VkImage               myDepthImage;
     VkDeviceMemory        myDepthImageMemory;
     VkImageView           myDepthImageView;
+    VkImage               myColorImage;
+    VkDeviceMemory        myColorImageMemory;
+    VkImageView           myColorImageView;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer >        myUniformBuffers;
@@ -138,9 +144,10 @@ private:
     std::vector< VkImageView >   mySwapChainImageViews;
     std::vector< VkFramebuffer > mySwapChainFrameBuffers;
 
-    bool     myEnableValidationLayers;
-    bool     myFramebufferResized = false;
-    uint32_t myCurrentFrame       = 0;
+    bool                  myEnableValidationLayers;
+    bool                  myFramebufferResized = false;
+    uint32_t              myCurrentFrame       = 0;
+    VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
 
     std::vector< Vertex >                  vertices;
     std::vector< uint32_t >                indices;
