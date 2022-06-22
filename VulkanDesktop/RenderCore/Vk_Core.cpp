@@ -737,38 +737,41 @@ void Vk_Core::CleanupSwapChain() {
 }
 
 void Vk_Core::FillVerticesData() {
-    // Fill the data manually
-    /*vertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },  { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-                 { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },    { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+    if ( USE_MANUAL_VERTICES ) {
+        // Fill the data manually
+        vertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },  { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+                     { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },    { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
 
-                 { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-                 { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
+                     { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+                     { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
 
-    indices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };*/
-
-    // Fill the data by loading model
-    tinyobj::attrib_t                  attrib;
-    std::vector< tinyobj::shape_t >    shapes;
-    std::vector< tinyobj::material_t > materials;
-    std::string                        warn, error;
-
-    if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, modelPath.c_str() ) ) {
-        throw std::runtime_error( warn + error );
+        indices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
     }
+    else {
+        // Fill the data by loading model
+        tinyobj::attrib_t                  attrib;
+        std::vector< tinyobj::shape_t >    shapes;
+        std::vector< tinyobj::material_t > materials;
+        std::string                        warn, error;
 
-    for ( const auto& shape : shapes ) {
-        for ( const auto& index : shape.mesh.indices ) {
-            Vertex vertex{};
-            vertex.pos      = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
-            vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
-            vertex.color    = { 1.0f, 1.0f, 1.0f };
+        if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, modelPath.c_str() ) ) {
+            throw std::runtime_error( warn + error );
+        }
 
-            if ( uniqueVertices.count( vertex ) == 0 ) {
-                uniqueVertices[ vertex ] = static_cast< uint32_t >( vertices.size() );
-                vertices.push_back( vertex );
+        for ( const auto& shape : shapes ) {
+            for ( const auto& index : shape.mesh.indices ) {
+                Vertex vertex{};
+                vertex.pos      = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
+                vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
+                vertex.color    = { 1.0f, 1.0f, 1.0f };
+
+                if ( uniqueVertices.count( vertex ) == 0 ) {
+                    uniqueVertices[ vertex ] = static_cast< uint32_t >( vertices.size() );
+                    vertices.push_back( vertex );
+                }
+
+                indices.push_back( uniqueVertices[ vertex ] );
             }
-
-            indices.push_back( uniqueVertices[ vertex ] );
         }
     }
 }
@@ -994,7 +997,7 @@ void Vk_Core::CreateTextureSampler() {
     samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias              = 0.0f;
     samplerInfo.minLod                  = 0.0f;
-    samplerInfo.maxLod                  = 0.0f;
+    samplerInfo.maxLod                  = static_cast< float >( myTextureImageMipLevels );
 
     if ( vkCreateSampler( myDevice, &samplerInfo, nullptr, &myTextureSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create texture sampler!" );
@@ -1359,7 +1362,7 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 90.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
     ubo.view  = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
     ubo.proj  = glm::perspective( glm::radians( 45.0f ), mySwapChainExtent.width / ( float )mySwapChainExtent.height, 0.1f, 10.0f );
     ubo.proj[ 1 ][ 1 ] *= -1;
@@ -1632,7 +1635,7 @@ void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aT
     barrier.oldLayout                     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout                     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask                 = VK_ACCESS_TRANSFER_WRITE_BIT;
-    barrier.dstAccessMask                 = VK_ACCESS_TRANSFER_READ_BIT;
+    barrier.dstAccessMask                 = VK_ACCESS_SHADER_READ_BIT;
 
     vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 
