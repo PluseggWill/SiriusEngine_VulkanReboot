@@ -3,7 +3,8 @@
 #include "../Util/Util_Loader.h"
 #include "Gfx_DataStruct.h"
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int  MAX_FRAMES_IN_FLIGHT = 2;
+const bool USE_RUNTIME_MIPMAP   = false;
 
 class Vk_Core {
 public:
@@ -54,9 +55,9 @@ private:
     void CreateTextureSampler();
     void CreateDepthResources();
 
-    void                    UpdateUniformBuffer( uint32_t aCurrentImage );
-    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                                         VkDeviceMemory& aImageMemory );
+    void UpdateUniformBuffer( uint32_t aCurrentImage );
+    void CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
+                      VkDeviceMemory& aImageMemory );
     VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
@@ -80,7 +81,8 @@ private:
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
-    bool                    HasStencilComponent(VkFormat aFormat);
+    bool                    HasStencilComponent( VkFormat aFormat );
+    void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
     // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
 public:
@@ -138,7 +140,7 @@ private:
     bool     myFramebufferResized = false;
     uint32_t myCurrentFrame       = 0;
 
-    std::vector< Vertex >   vertices;
-    std::vector< uint32_t > indices;
+    std::vector< Vertex >                  vertices;
+    std::vector< uint32_t >                indices;
     std::unordered_map< Vertex, uint32_t > uniqueVertices{};
 };

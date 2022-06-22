@@ -10,7 +10,6 @@
 #include <tiny_obj_loader.h>
 #endif  // !TINYOBJLOADER_IMPLEMENTATION
 
-
 std::string vertShaderPath = "Shader/TriangleVertex.spv";
 std::string fragShaderPath = "Shader/TriangleFrag.spv";
 std::string texturePath    = "../Data/Textures/viking_room.png";
@@ -413,11 +412,11 @@ void Vk_Core::CreateGfxPipeline() {
     multisampling.alphaToOneEnable      = VK_FALSE;
 
     // Step #9: Depth and stencil testing
-    VkPipelineDepthStencilStateCreateInfo depthStencilInfo {};
-    depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilInfo.depthTestEnable = VK_TRUE;
-    depthStencilInfo.depthWriteEnable = VK_TRUE;
-    depthStencilInfo.depthCompareOp   = VK_COMPARE_OP_LESS;
+    VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+    depthStencilInfo.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilInfo.depthTestEnable       = VK_TRUE;
+    depthStencilInfo.depthWriteEnable      = VK_TRUE;
+    depthStencilInfo.depthCompareOp        = VK_COMPARE_OP_LESS;
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.minDepthBounds        = 0.0f;
     depthStencilInfo.maxDepthBounds        = 1.0f;
@@ -508,11 +507,11 @@ void Vk_Core::CreateRenderPass() {
 
     // Step #2: Create depth attachment
     VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = FindDepthFormat();
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.format         = FindDepthFormat();
+    depthAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -527,9 +526,9 @@ void Vk_Core::CreateRenderPass() {
     depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments    = &colorAttachmentRefs;
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount    = 1;
+    subpass.pColorAttachments       = &colorAttachmentRefs;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
     VkSubpassDependency dependency{};
@@ -542,9 +541,9 @@ void Vk_Core::CreateRenderPass() {
 
     // Step #4: Render pass
     std::array< VkAttachmentDescription, 2 > attachments = { colorAttachment, depthAttachment };
-    VkRenderPassCreateInfo renderPassInfo{};
+    VkRenderPassCreateInfo                   renderPassInfo{};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
     renderPassInfo.pAttachments    = attachments.data();
     renderPassInfo.subpassCount    = 1;
     renderPassInfo.pSubpasses      = &subpass;
@@ -560,7 +559,7 @@ void Vk_Core::CreateFrameBuffers() {
     mySwapChainFrameBuffers.resize( mySwapChainImageViews.size() );
 
     for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
-        std::array<VkImageView,2> attachments = { mySwapChainImageViews[ i ], myDepthImageView };
+        std::array< VkImageView, 2 > attachments = { mySwapChainImageViews[ i ], myDepthImageView };
 
         VkFramebufferCreateInfo frameBufferInfo{};
         frameBufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -748,28 +747,28 @@ void Vk_Core::FillVerticesData() {
     indices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };*/
 
     // Fill the data by loading model
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
+    tinyobj::attrib_t                  attrib;
+    std::vector< tinyobj::shape_t >    shapes;
     std::vector< tinyobj::material_t > materials;
-    std::string warn, error;
+    std::string                        warn, error;
 
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &error, modelPath.c_str())) {
+    if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, modelPath.c_str() ) ) {
         throw std::runtime_error( warn + error );
     }
 
-    for (const auto& shape : shapes) {
-        for (const auto& index : shape.mesh.indices) {
+    for ( const auto& shape : shapes ) {
+        for ( const auto& index : shape.mesh.indices ) {
             Vertex vertex{};
-            vertex.pos = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
+            vertex.pos      = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
             vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
             vertex.color    = { 1.0f, 1.0f, 1.0f };
 
-            if (uniqueVertices.count(vertex) == 0) {
+            if ( uniqueVertices.count( vertex ) == 0 ) {
                 uniqueVertices[ vertex ] = static_cast< uint32_t >( vertices.size() );
                 vertices.push_back( vertex );
             }
 
-            indices.push_back( uniqueVertices[vertex] );
+            indices.push_back( uniqueVertices[ vertex ] );
         }
     }
 }
@@ -931,9 +930,9 @@ void Vk_Core::CreateDescriptorSets() {
 
 void Vk_Core::CreateTextureImage() {
     int          texWidth, texHeight, texChannels;
-    stbi_uc*     pixels    = stbi_load( texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
-    myTextureImageMipLevels = static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1;
+    stbi_uc*     pixels     = stbi_load( texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+    VkDeviceSize imageSize  = texWidth * texHeight * 4;
+    myTextureImageMipLevels = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     if ( !pixels ) {
         throw std::runtime_error( "failed to load texture image!" );
@@ -959,8 +958,13 @@ void Vk_Core::CreateTextureImage() {
     TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, myTextureImageMipLevels );
     CopyBufferToImage( stagingBuffer, myTextureImage, static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
 
-    // Transition for shader access
-    TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, myTextureImageMipLevels );
+    // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+    if ( USE_RUNTIME_MIPMAP ) {
+        GenerateMipmaps( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, myTextureImageMipLevels );
+    }
+    else {
+        TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, myTextureImageMipLevels );
+    }
 
     vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
     vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
@@ -1003,10 +1007,8 @@ void Vk_Core::CreateDepthResources() {
     CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                  myDepthImage, myDepthImageMemory );
     myDepthImageView = CreateImageView( myDepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1 );
-    
-    TransitionImageLayout( myDepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
-    
+    TransitionImageLayout( myDepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 }
 
 #pragma region Functional Functions
@@ -1244,10 +1246,10 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     renderPassInfo.renderArea.extent = mySwapChainExtent;
 
     std::array< VkClearValue, 2 > clearValues{};
-    clearValues[ 0 ].color         = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    clearValues[ 1 ].depthStencil  = { 1.0f, 0 };
+    clearValues[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+    clearValues[ 1 ].depthStencil = { 1.0f, 0 };
 
-    renderPassInfo.clearValueCount = static_cast< uint32_t >(clearValues.size());
+    renderPassInfo.clearValueCount = static_cast< uint32_t >( clearValues.size() );
     renderPassInfo.pClearValues    = clearValues.data();
 
     vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
@@ -1368,9 +1370,8 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     vkUnmapMemory( myDevice, myUniformBuffersMemory[ aCurrentImage ] );
 }
 
-void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel,
-                           VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                           VkDeviceMemory& aImageMemory ) {
+void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, uint32_t aMipLevel, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties,
+                           VkImage& aImage, VkDeviceMemory& aImageMemory ) {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType     = VK_IMAGE_TYPE_2D;
@@ -1564,8 +1565,78 @@ VkFormat Vk_Core::FindDepthFormat() {
     return FindSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
 
-bool Vk_Core::HasStencilComponent(VkFormat aFormat) {
+bool Vk_Core::HasStencilComponent( VkFormat aFormat ) {
     return aFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || aFormat == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) {
+
+    // Check if image format supports linear blitting
+    VkFormatProperties formatProperties;
+    vkGetPhysicalDeviceFormatProperties( myPhysicalDevice, aImageFormat, &formatProperties );
+    if ( !( formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ) ) {
+        throw std::runtime_error( "texture image does not support linear blitting!" );
+    }
+
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.image                           = aImage;
+    barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount     = 1;
+    barrier.subresourceRange.levelCount     = 1;
+
+    int32_t mipWidth  = aTexWidth;
+    int32_t mipHeight = aTexHeight;
+
+    for ( uint32_t i = 1; i < aMipLevel; i++ ) {
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout                     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout                     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask                 = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask                 = VK_ACCESS_TRANSFER_READ_BIT;
+
+        vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+
+        VkImageBlit blit{};
+        blit.srcOffsets[ 0 ]               = { 0, 0, 0 };
+        blit.srcOffsets[ 1 ]               = { mipWidth, mipHeight, 1 };
+        blit.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel       = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount     = 1;
+        blit.dstOffsets[ 0 ]               = { 0, 0, 0 };
+        blit.dstOffsets[ 1 ]               = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+        blit.dstSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel       = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount     = 1;
+
+        vkCmdBlitImage( commandBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR );
+
+        barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+
+        mipWidth  = mipWidth > 1 ? mipWidth / 2 : mipWidth;
+        mipHeight = mipHeight > 1 ? mipHeight / 2 : mipHeight;
+    }
+    barrier.subresourceRange.baseMipLevel = aMipLevel - 1;
+    barrier.oldLayout                     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout                     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask                 = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask                 = VK_ACCESS_TRANSFER_READ_BIT;
+
+    vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+
+    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
 #pragma endregion
