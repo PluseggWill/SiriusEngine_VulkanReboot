@@ -1,4 +1,18 @@
 #include "Vk_Core.h"
+#include "../Util/Util_Loader.h"
+#include "Vk_Initializer.h"
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <iostream>
+#include <limits>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
 
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -143,9 +157,9 @@ void Vk_Core::CreateInstance() {
 
     VkApplicationInfo appInfo{};
     appInfo.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName   = "Hello Triangle";
+    appInfo.pApplicationName   = "Hello Vulkan";
     appInfo.applicationVersion = VK_MAKE_API_VERSION( 0, 1, 0, 0 );
-    appInfo.pEngineName        = "No Engine";
+    appInfo.pEngineName        = "Sirius Engine";
     appInfo.engineVersion      = VK_MAKE_API_VERSION( 0, 1, 0, 0 );
     appInfo.apiVersion         = VK_API_VERSION_1_0;
 
@@ -335,17 +349,9 @@ void Vk_Core::CreateGfxPipeline() {
     VkShaderModule fragShaderModule = CreateShaderModule( fragShaderCode );
 
     // Step #3: Create shader stage info
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName  = "main";
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_VertStageCreateInfo( vertShaderModule );
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName  = "main";
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_FragStageCreateInfo( fragShaderModule );
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
@@ -369,13 +375,7 @@ void Vk_Core::CreateGfxPipeline() {
 
     // Step #6: Viewports and Scissors
     // Viewports define the transformation from the image to the framebuffer
-    VkViewport viewport{};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = ( float )mySwapChainExtent.width;
-    viewport.height   = ( float )mySwapChainExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    VkViewport viewport = VkInit::ViewportCreateInfo( mySwapChainExtent );
 
     // Scissors define the in which regions pixels will actually be stored
     VkRect2D scissor{};
@@ -391,63 +391,18 @@ void Vk_Core::CreateGfxPipeline() {
     viewportState.pScissors     = &scissor;
 
     // Step #7: Rasterizer
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable        = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth               = 1.0f;
-    rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasClamp          = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.0f;
-    rasterizer.depthBiasClamp          = 0.0f;
-    rasterizer.depthBiasSlopeFactor    = 0.0f;
+    VkPipelineRasterizationStateCreateInfo rasterizer = VkInit::Pipeline_RasterizationCreateInfo();
 
     // Step #8: Multisampling
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable   = VK_TRUE;
-    multisampling.rasterizationSamples  = myMSAASamples;
-    multisampling.minSampleShading      = .2f;
-    multisampling.pSampleMask           = nullptr;
-    multisampling.alphaToCoverageEnable = VK_FALSE;
-    multisampling.alphaToOneEnable      = VK_FALSE;
+    VkPipelineMultisampleStateCreateInfo multisampling = VkInit::Pipeline_MultisampleCreateInfo( myMSAASamples );
 
     // Step #9: Depth and stencil testing
-    VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
-    depthStencilInfo.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencilInfo.depthTestEnable       = VK_TRUE;
-    depthStencilInfo.depthWriteEnable      = VK_TRUE;
-    depthStencilInfo.depthCompareOp        = VK_COMPARE_OP_LESS;
-    depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
-    depthStencilInfo.minDepthBounds        = 0.0f;
-    depthStencilInfo.maxDepthBounds        = 1.0f;
-    depthStencilInfo.stencilTestEnable     = VK_FALSE;
-    depthStencilInfo.front                 = {};
-    depthStencilInfo.back                  = {};
+    VkPipelineDepthStencilStateCreateInfo depthStencilInfo = VkInit::Pipeline_DepthStencilCreateInfo();
 
     // Step #10: Color blending
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable         = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable       = VK_FALSE;
-    colorBlending.logicOp             = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount     = 1;
-    colorBlending.pAttachments        = &colorBlendAttachment;
-    colorBlending.blendConstants[ 0 ] = 0.0f;
-    colorBlending.blendConstants[ 1 ] = 0.0f;
-    colorBlending.blendConstants[ 2 ] = 0.0f;
-    colorBlending.blendConstants[ 3 ] = 0.0f;
+    VkPipelineColorBlendStateCreateInfo colorBlending = VkInit::Pipeline_ColorBlendCreateInfo( colorBlendAttachment );
 
     // Step #11: Dynamic state
     std::vector< VkDynamicState > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
@@ -603,17 +558,14 @@ void Vk_Core::CreateCommandPool() {
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies( myPhysicalDevice );
 
     // Graphic queue command pool
-    VkCommandPoolCreateInfo poolInfo{};
-    poolInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    poolInfo.queueFamilyIndex = queueFamilyIndices.myGraphicsFamily.value();
+    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( queueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myGraphicsCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create graphic command pool!" );
     }
 
-    // Tranfer queue command poo
-    poolInfo.queueFamilyIndex = queueFamilyIndices.myTransferFamily.value();
+    // Tranfer queue command pool
+    poolInfo = VkInit::CommandPoolCreateInfo( queueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myTransferCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create transfer command pool!" );
     }
@@ -621,11 +573,7 @@ void Vk_Core::CreateCommandPool() {
 
 void Vk_Core::CreateGraphicsCommandBuffers() {
     myGraphicsCommandBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool        = myGraphicsCommandPool;
-    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = ( uint32_t )myGraphicsCommandBuffers.size();
+    const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, ( uint32_t )myGraphicsCommandBuffers.size(), VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
     if ( vkAllocateCommandBuffers( myDevice, &allocInfo, myGraphicsCommandBuffers.data() ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to allocate command buffers!" );
@@ -1266,10 +1214,10 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
 }
 
 void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags            = 0;
-    beginInfo.pInheritanceInfo = nullptr;
+    VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
+    beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags                    = 0;
+    beginInfo.pInheritanceInfo         = nullptr;
 
     VkCommandBuffer commandBuffer = myGraphicsCommandBuffers[ myCurrentFrame ];
 
@@ -1453,26 +1401,20 @@ void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, 
     vkBindImageMemory( myDevice, aImage, aImageMemory, 0 );
 }
 
-VkCommandBuffer Vk_Core::BeginSingleTimeCommands( VkCommandPool aCommandPool ) {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool        = aCommandPool;
-    allocInfo.commandBufferCount = 1;
+VkCommandBuffer Vk_Core::BeginSingleTimeCommands( VkCommandPool aCommandPool ) const {
+    const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( aCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
     VkCommandBuffer commandBuffer;
     vkAllocateCommandBuffers( myDevice, &allocInfo, &commandBuffer );
 
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
 
     vkBeginCommandBuffer( commandBuffer, &beginInfo );
 
     return commandBuffer;
 }
 
-void Vk_Core::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) {
+void Vk_Core::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const {
     vkEndCommandBuffer( aCommandBuffer );
 
     VkSubmitInfo submitInfo{};
@@ -1678,7 +1620,7 @@ void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aT
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() {
+VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties( myPhysicalDevice, &physicalDeviceProperties );
 

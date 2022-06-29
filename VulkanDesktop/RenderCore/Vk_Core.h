@@ -1,6 +1,5 @@
 #pragma once
-#include "../Util/Util_Include.h"
-#include "../Util/Util_Loader.h"
+
 #include "Gfx_DataStruct.h"
 
 const int  MAX_FRAMES_IN_FLIGHT = 2;
@@ -77,18 +76,17 @@ private:
     VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
     static void             FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
     uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
-    VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool );
-    void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue );
+    VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
+    void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
     void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
     bool                    HasStencilComponent( VkFormat aFormat );
     void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
-    VkSampleCountFlagBits   GetMaxUsableSampleCount();
+    VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
     void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
                                          VkDeviceMemory& aImageMemory, uint32_t aMipLevel = 1, VkSampleCountFlagBits aNumSamples = VK_SAMPLE_COUNT_1_BIT );
-    // VkResult myVkCreateInstance(const VkInstanceCreateInfo* aCreateInfo, const VkAllocationCallbacks* aAllocator, VkInstance* aInstance);
 
 public:
 private:

@@ -1,8 +1,16 @@
 #pragma once
-#include "../Util/Util_Include.h"
+#include <array>
+#include <optional>
 
+#ifndef GLM_ENABLE_EXPERIMENTAL
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#endif
+
+#ifndef GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#endif
 
 struct QueueFamilyIndices {
     std::optional< uint32_t > myGraphicsFamily;
@@ -54,7 +62,7 @@ struct Vertex {
         return attributeDescriptions;
     }
 
-    bool operator==(const Vertex& other) const {
+    bool operator==( const Vertex& other ) const {
         return pos == other.pos && color == other.color && texCoord == other.texCoord;
     }
 };
@@ -62,11 +70,11 @@ struct Vertex {
 // Hash function for Vertex struct
 namespace std {
 template <> struct hash< Vertex > {
-    size_t operator()(Vertex const& vertex) const {
+    size_t operator()( Vertex const& vertex ) const {
         return ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 );
     }
 };
-}
+}  // namespace std
 
 // Keep in mind that Vulkan expects the data to be aligned, see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout for more details
 struct UniformBufferObject {

@@ -45,11 +45,11 @@
     <ClCompile Include="Util\Util_Loader.cpp">
       <Filter>Source Files\Util</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Initializer.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Util\GlobalHeader.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Core.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
@@ -67,6 +67,9 @@
     </ClInclude>
     <ClInclude Include="Util\Util_Include.h">
       <Filter>Header Files\Util</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Initializer.h">
+      <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
