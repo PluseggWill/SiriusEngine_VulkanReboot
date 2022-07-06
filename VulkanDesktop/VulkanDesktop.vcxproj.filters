@@ -71,6 +71,9 @@
     <ClInclude Include="RenderCore\Vk_Initializer.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Pipeline.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\TriangleFrag.frag">

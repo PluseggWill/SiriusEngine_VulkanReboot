@@ -30,12 +30,19 @@ private:
     void Clear();
 
     void InitVulkan();
+
+    void InitDevice();
     void CreateInstance();
     void PickPhysicalDevice();
     void CreateLogicalDevice();
     void CreateSurface();
+
+    void InitSwapChian();
     void CreateSwapChain();
     void CreateImageViews();
+
+    void InitResources();
+
     void CreateGfxPipeline();
     void CreateRenderPass();
     void CreateFrameBuffers();
@@ -57,6 +64,7 @@ private:
     void CreateTextureSampler();
     void CreateDepthResources();
     void CreateColorResources();
+    void InitQueueFamilyIndice();
 
     void                    UpdateUniformBuffer( uint32_t aCurrentImage );
     VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel = 1 );
@@ -127,6 +135,7 @@ private:
     VkImage               myColorImage;
     VkDeviceMemory        myColorImageMemory;
     VkImageView           myColorImageView;
+    QueueFamilyIndices    myQueueFamilyIndices;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer >        myUniformBuffers;

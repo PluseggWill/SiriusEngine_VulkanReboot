@@ -1,23 +1,34 @@
 #include "Vk_Initializer.h"
 
-VkPipelineShaderStageCreateInfo VkInit::Pipeline_VertStageCreateInfo( VkShaderModule aVertShaderModule ) {
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage  = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = aVertShaderModule;
-    vertShaderStageInfo.pName  = "main";
+VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo(VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule ) {
+    VkPipelineShaderStageCreateInfo shaderStageInfo{};
 
-    return vertShaderStageInfo;
+    shaderStageInfo.sType      = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage      = aStageFlag;
+    shaderStageInfo.module     = aShaderModule;
+    shaderStageInfo.pName      = "main";
+
+    return shaderStageInfo;
 }
 
-VkPipelineShaderStageCreateInfo VkInit::Pipeline_FragStageCreateInfo( VkShaderModule aFragShaderModule ) {
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = aFragShaderModule;
-    fragShaderStageInfo.pName  = "main";
+VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo() {
+    VkPipelineVertexInputStateCreateInfo vertStateInfo{};
 
-    return fragShaderStageInfo;
+    vertStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertStateInfo.vertexBindingDescriptionCount = 0;
+    vertStateInfo.vertexAttributeDescriptionCount = 0;
+    
+    return vertStateInfo;
+}
+
+VkPipelineInputAssemblyStateCreateInfo VkInit::Pipeline_InputAssemblyCreateInfo(VkPrimitiveTopology aTopology) {
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
+
+    inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyInfo.topology = aTopology;
+    inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+
+    return inputAssemblyInfo;
 }
 
 VkViewport VkInit::ViewportCreateInfo( VkExtent2D aSwapchainExtent ) {
@@ -34,6 +45,7 @@ VkViewport VkInit::ViewportCreateInfo( VkExtent2D aSwapchainExtent ) {
 
 VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo() {
     VkPipelineRasterizationStateCreateInfo rasterizer{};
+
     rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable        = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
@@ -51,6 +63,7 @@ VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo(
 
 VkPipelineMultisampleStateCreateInfo VkInit::Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount ) {
     VkPipelineMultisampleStateCreateInfo multisampling{};
+
     multisampling.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable   = VK_TRUE;
     multisampling.rasterizationSamples  = aSampleCount;
@@ -64,6 +77,7 @@ VkPipelineMultisampleStateCreateInfo VkInit::Pipeline_MultisampleCreateInfo( VkS
 
 VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo() {
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
+
     depthStencilInfo.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilInfo.depthTestEnable       = VK_TRUE;
     depthStencilInfo.depthWriteEnable      = VK_TRUE;
@@ -80,6 +94,7 @@ VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo() 
 
 VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachment( VkBool32 aBlendEnable ) {
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+
     colorBlendAttachment.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable         = aBlendEnable;
     colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -94,6 +109,7 @@ VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachment( VkBoo
 
 VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( std::vector< VkPipelineColorBlendAttachmentState >& someAttachments ) {
     VkPipelineColorBlendStateCreateInfo colorBlending{};
+
     colorBlending.sType               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable       = VK_FALSE;
     colorBlending.logicOp             = VK_LOGIC_OP_COPY;
@@ -109,6 +125,7 @@ VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( std::
 
 VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( VkPipelineColorBlendAttachmentState anAttachment ) {
     VkPipelineColorBlendStateCreateInfo colorBlending{};
+
     colorBlending.sType               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable       = VK_FALSE;
     colorBlending.logicOp             = VK_LOGIC_OP_COPY;
@@ -124,6 +141,7 @@ VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( VkPip
 
 VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags /*= 0*/ ) {
     VkCommandPoolCreateInfo poolInfo{};
+
     poolInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags            = someFlags;
     poolInfo.queueFamilyIndex = aQueueFamilyIndex;
@@ -133,7 +151,9 @@ VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyInde
 
 VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool, uint32_t aCount /*= 1*/, VkCommandBufferLevel aBufferLevel /*= VK_COMMAND_BUFFER_LEVEL_PRIMARY*/ ) {
     VkCommandBufferAllocateInfo allocInfo{};
+
     allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.pNext              = nullptr;
     allocInfo.level              = aBufferLevel;
     allocInfo.commandPool        = aPool;
     allocInfo.commandBufferCount = aCount;
@@ -143,6 +163,7 @@ VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool,
 
 VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFlags someFlags /*= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT*/ ) {
     VkCommandBufferBeginInfo beginInfo{};
+
     beginInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags            = someFlags;
     beginInfo.pInheritanceInfo = nullptr;

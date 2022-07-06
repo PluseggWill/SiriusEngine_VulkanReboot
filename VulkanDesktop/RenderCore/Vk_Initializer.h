@@ -5,9 +5,11 @@
 #include <vulkan/vulkan.h>
 
 namespace VkInit {
-VkPipelineShaderStageCreateInfo Pipeline_VertStageCreateInfo( VkShaderModule aVertShaderModule );
+VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule );
 
-VkPipelineShaderStageCreateInfo Pipeline_FragStageCreateInfo( VkShaderModule aFragShaderModule );
+VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
+
+VkPipelineInputAssemblyStateCreateInfo Pipeline_InputAssemblyCreateInfo( VkPrimitiveTopology aTopology );
 
 VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo();
 

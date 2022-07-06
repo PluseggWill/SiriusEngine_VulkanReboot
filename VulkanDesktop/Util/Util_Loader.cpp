@@ -1,6 +1,6 @@
 #include "Util_Loader.h"
 
-std::vector<char> Util_Loader::readFile(const std::string& aFilename)
+std::vector<char> UtilLoader::ReadFile(const std::string& aFilename)
 {
 	std::ifstream file(aFilename, std::ios::ate | std::ios::binary);
 

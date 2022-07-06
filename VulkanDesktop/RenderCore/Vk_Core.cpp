@@ -122,13 +122,10 @@ void Vk_Core::Clear() {
 }
 
 void Vk_Core::InitVulkan() {
-    CreateInstance();
-    // TODO: Set up debug messenger
-    CreateSurface();
-    PickPhysicalDevice();
-    CreateLogicalDevice();
-    CreateSwapChain();
-    CreateImageViews();
+    InitDevice();
+
+    InitSwapChian();
+
     CreateRenderPass();
     CreateDescriptorSetLayout();
     CreateGfxPipeline();
@@ -147,6 +144,25 @@ void Vk_Core::InitVulkan() {
     CreateDescriptorSets();
     CreateGraphicsCommandBuffers();
     CreateSyncObjects();
+}
+
+void Vk_Core::InitDevice() {
+    CreateInstance();
+    // TODO: Set up debug messenger
+    CreateSurface();
+    PickPhysicalDevice();
+    InitQueueFamilyIndice();
+    CreateLogicalDevice();
+}
+
+void Vk_Core::InitSwapChian()
+{
+    CreateSwapChain();
+    CreateImageViews();
+}
+
+void Vk_Core::InitResources() {
+
 }
 
 void Vk_Core::CreateInstance() {
@@ -218,10 +234,9 @@ void Vk_Core::PickPhysicalDevice() {
 
 void Vk_Core::CreateLogicalDevice() {
     // Step #1: Specifying the queues to be created
-    QueueFamilyIndices indices = FindQueueFamilies( myPhysicalDevice );
 
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
-    std::set< uint32_t >                   uniqueQueueFamilies = { indices.myGraphicsFamily.value(), indices.myPresentFamily.value(), indices.myTransferFamily.value() };
+    std::set< uint32_t > uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
 
     float queuePriority = 1.0f;
     for ( uint32_t queueFamily : uniqueQueueFamilies ) {
@@ -263,9 +278,9 @@ void Vk_Core::CreateLogicalDevice() {
     }
 
     // Step #6?: Retrieve queue handles
-    vkGetDeviceQueue( myDevice, indices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
-    vkGetDeviceQueue( myDevice, indices.myPresentFamily.value(), 0, &myPresentQueue );
-    vkGetDeviceQueue( myDevice, indices.myTransferFamily.value(), 0, &myTransferQueue );
+    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
+    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myPresentFamily.value(), 0, &myPresentQueue );
+    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myTransferFamily.value(), 0, &myTransferQueue );
 }
 
 void Vk_Core::CreateSurface() {
@@ -298,10 +313,9 @@ void Vk_Core::CreateSwapChain() {
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    const QueueFamilyIndices indices              = FindQueueFamilies( myPhysicalDevice );
-    const uint32_t           queueFamilyIndices[] = { indices.myGraphicsFamily.value(), indices.myPresentFamily.value() };
+    const uint32_t queueFamilyIndices[] = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value() };
 
-    if ( indices.myGraphicsFamily != indices.myPresentFamily ) {
+    if ( myQueueFamilyIndices.myGraphicsFamily != myQueueFamilyIndices.myPresentFamily ) {
         createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices   = queueFamilyIndices;
@@ -341,17 +355,17 @@ void Vk_Core::CreateImageViews() {
 
 void Vk_Core::CreateGfxPipeline() {
     // Step #1: Load shader code
-    auto vertShaderCode = Util_Loader::readFile( vertShaderPath );
-    auto fragShaderCode = Util_Loader::readFile( fragShaderPath );
+    auto vertShaderCode = UtilLoader::ReadFile( vertShaderPath );
+    auto fragShaderCode = UtilLoader::ReadFile( fragShaderPath );
 
     // Step #2: Create shader module
     VkShaderModule vertShaderModule = CreateShaderModule( vertShaderCode );
     VkShaderModule fragShaderModule = CreateShaderModule( fragShaderCode );
 
     // Step #3: Create shader stage info
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_VertStageCreateInfo( vertShaderModule );
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule );
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_FragStageCreateInfo( fragShaderModule );
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule );
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
@@ -555,17 +569,16 @@ void Vk_Core::CreateFrameBuffers() {
 }
 
 void Vk_Core::CreateCommandPool() {
-    QueueFamilyIndices queueFamilyIndices = FindQueueFamilies( myPhysicalDevice );
 
     // Graphic queue command pool
-    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( queueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myGraphicsCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create graphic command pool!" );
     }
 
     // Tranfer queue command pool
-    poolInfo = VkInit::CommandPoolCreateInfo( queueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myTransferCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create transfer command pool!" );
     }
@@ -998,6 +1011,39 @@ void Vk_Core::CreateColorResources() {
     myColorImageView = CreateImageView( myColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 }
 
+void Vk_Core::InitQueueFamilyIndice()
+{
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, nullptr );
+
+    std::vector< VkQueueFamilyProperties > queueFamilies( queueFamilyCount );
+    vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, queueFamilies.data() );
+
+    int i = 0;
+    for ( const auto& queueFamily : queueFamilies ) {
+        // Note: It is possible to choose a physical device that supports drawing and presentation
+        // in the same queue for improved performance.
+
+        // Check for present queue & graphic queue
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR( myPhysicalDevice, i, mySurface, &presentSupport );
+        if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
+            myQueueFamilyIndices.myPresentFamily  = i;
+            myQueueFamilyIndices.myGraphicsFamily = i;
+        }
+
+        // Check for (explicit) transfer queue
+        if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
+            myQueueFamilyIndices.myTransferFamily = i;
+        }
+
+        if ( myQueueFamilyIndices.isComplete() )
+            break;
+
+        i++;
+    }
+}
+
 #pragma region Functional Functions
 
 void Vk_Core::CheckExtensionSupport() {
@@ -1092,17 +1138,18 @@ QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice 
         // Note: It is possible to choose a physical device that supports drawing and presentation
         // in the same queue for improved performance.
 
-        // Check for present queue
+        // Check for present queue & graphic queue
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR( aPhysicalDevice, i, mySurface, &presentSupport );
-        if ( presentSupport ) {
+        if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
             indices.myPresentFamily = i;
+            indices.myGraphicsFamily = i;
         }
 
         // Check for graphic queue
-        if ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
+        /*if ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
             indices.myGraphicsFamily = i;
-        }
+        }*/
 
         // Check for (explicit) transfer queue
         if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
@@ -1287,8 +1334,7 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMem
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
     else {
-        const QueueFamilyIndices indices              = FindQueueFamilies( myPhysicalDevice );
-        const uint32_t           queueFamilyIndices[] = { indices.myGraphicsFamily.value(), indices.myTransferFamily.value() };
+        const uint32_t queueFamilyIndices[] = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
 
         bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
         bufferInfo.queueFamilyIndexCount = 2;

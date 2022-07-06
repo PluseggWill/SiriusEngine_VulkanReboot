@@ -166,6 +166,7 @@
     <ClInclude Include="RenderCore\Gfx_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
+    <ClInclude Include="RenderCore\Vk_Pipeline.h" />
     <ClInclude Include="RenderCore\Vk_ValidationLayer.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
     <ClInclude Include="Util\Util_Include.h" />

@@ -3,8 +3,7 @@
 #include <vector>
 #include <string>
 
-class Util_Loader
+namespace UtilLoader
 {
-public:
-	static std::vector<char> readFile(const std::string& aFilename);
-};
+	std::vector<char> ReadFile(const std::string& aFilename);
+}
