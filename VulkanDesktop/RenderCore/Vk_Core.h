@@ -6,6 +6,7 @@ const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
 const bool USE_MANUAL_VERTICES  = false;
 const bool ENABLE_ROTATE        = false;
+const bool FILL_MODE_LINE       = true;
 // const bool ENABLE_MSAA          = false;
 
 class Vk_Core {
@@ -82,6 +83,7 @@ private:
     VkPresentModeKHR        ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes );
     VkExtent2D              ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
     VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
+    VkShaderModule          CreateShaderModule( const std::string aShaderPath );
     static void             FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
     uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
     VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
@@ -115,7 +117,7 @@ private:
     VkDescriptorSetLayout myDescriptorSetLayout;
     VkPipelineLayout      myPipelineLayout;
     VkRenderPass          myRenderPass;
-    VkPipeline            myGfxPipeline;
+    VkPipeline            myBasicPipeline;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;
     VkBuffer              myVertexBuffer;

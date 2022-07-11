@@ -11,11 +11,16 @@ VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
 
 VkPipelineInputAssemblyStateCreateInfo Pipeline_InputAssemblyCreateInfo( VkPrimitiveTopology aTopology );
 
-VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo();
+VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo( VkPolygonMode aPolyMode = VK_POLYGON_MODE_FILL, VkCullModeFlags aCullMode = VK_CULL_MODE_BACK_BIT,
+                                                                         VkFrontFace aFrontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE );
 
 VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount );
 
+VkPipelineDynamicStateCreateInfo Pipeline_DynamicStateCreateInfo();
+
 VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo();
+
+VkPipelineLayoutCreateInfo Pipeline_LayoutCreateInfo();
 
 VkPipelineColorBlendAttachmentState Pipeline_ColorBlendAttachment( VkBool32 aBlendEnable );
 

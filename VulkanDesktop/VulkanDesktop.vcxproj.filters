@@ -48,6 +48,9 @@
     <ClCompile Include="RenderCore\Vk_Initializer.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderCore\Vk_Core.h">

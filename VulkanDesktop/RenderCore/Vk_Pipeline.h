@@ -1,20 +1,21 @@
 #pragma once
-#include <vulkan/vulkan.h>
 #include <vector>
+#include <vulkan/vulkan.h>
 
 class PipelineBuilder {
-	public:
-        VkPipelineVertexInputStateCreateInfo           myVertexInputInfo;
-        VkPipelineInputAssemblyStateCreateInfo         myInputAssembly;
-        VkViewport                                     myViewport;
-        VkRect2D                                       myScissor;
-        VkPipelineRasterizationStateCreateInfo         myRasterizer;
-        VkPipelineColorBlendAttachmentState            myColorBlendAttachment;
-        VkPipelineMultisampleStateCreateInfo           myMultisampling;
-        VkPipelineLayout                               myPipelineLayout;
-        VkPipelineDepthStencilStateCreateInfo          myDepthStencil;
+public:
+    VkPipelineVertexInputStateCreateInfo   myVertexInputInfo;
+    VkPipelineInputAssemblyStateCreateInfo myInputAssembly;
+    VkViewport                             myViewport;
+    VkRect2D                               myScissor;
+    VkPipelineRasterizationStateCreateInfo myRasterizer;
+    VkPipelineColorBlendAttachmentState    myColorBlendAttachment;
+    VkPipelineMultisampleStateCreateInfo   myMultisampling;
+    VkPipelineLayout                       myPipelineLayout;
+    VkPipelineDepthStencilStateCreateInfo  myDepthStencil;
+    VkPipelineDynamicStateCreateInfo       myDynamicState;
 
-        std::vector< VkPipelineShaderStageCreateInfo > myShaderStages;
+    std::vector< VkPipelineShaderStageCreateInfo > myShaderStages;
 
-        VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass );
+    VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass );
 };
