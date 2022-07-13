@@ -1,5 +1,7 @@
 #pragma once
 #include <array>
+#include <deque>
+#include <functional>
 #include <optional>
 
 #ifndef GLM_ENABLE_EXPERIMENTAL
@@ -26,6 +28,16 @@ struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR          myCapabilities;
     std::vector< VkSurfaceFormatKHR > myFormats;
     std::vector< VkPresentModeKHR >   myPresentModes;
+};
+
+struct AllocatedImage {
+    VkImage        myImage;
+    VkDeviceMemory myMemory;
+};
+
+struct AllocatedBuffer {
+    VkBuffer       myBuffer;
+    VkDeviceMemory myMemory;
 };
 
 struct Vertex {
@@ -85,3 +97,20 @@ struct UniformBufferObject {
 };
 
 // TODO: Instance rendering
+
+struct DeletionQueue {
+    std::deque< std::function< void() > > myDeletors;
+
+    void pushFunction( std::function< void() >&& aFunction ) {
+        myDeletors.push_back( aFunction );
+    }
+
+    void flush() {
+        // FILO order
+        for ( auto it = myDeletors.rbegin(); it != myDeletors.rend(); it++ ) {
+            ( *it )();
+        }
+
+        myDeletors.clear();
+    }
+};

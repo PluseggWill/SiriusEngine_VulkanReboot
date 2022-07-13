@@ -32,48 +32,58 @@ private:
 
     void InitVulkan();
 
-    void InitDevice();
+    // Init Functions:
+    // Part 1: Base
     void CreateInstance();
     void PickPhysicalDevice();
+    void InitQueueFamilyIndice();
     void CreateLogicalDevice();
     void CreateSurface();
-
-    void InitSwapChian();
-    void CreateSwapChain();
-    void CreateImageViews();
-
-    void InitResources();
-
-    void CreateGfxPipeline();
-    void CreateRenderPass();
-    void CreateFrameBuffers();
     void CreateCommandPool();
-    void CreateGraphicsCommandBuffers();
-    void CreateSyncObjects();
-    void DrawFrame();
-    void FillVerticesData();
-    void CreateVertexBuffer();
-    void CreateIndexBuffer();
-    void RecreateSwapChain();
-    void CleanupSwapChain();
+
+    // Part 2: Swap chain
+    void CreateSwapChain();
+    void CreateRenderPass();
     void CreateDescriptorSetLayout();
-    void CreateUniformBuffers();
-    void CreateDescriptorPool();
-    void CreateDescriptorSets();
+    void CreateGfxPipeline();
+    void CreateDepthResources();
+    void CreateColorResources();
+    void CreateFrameBuffers();
+
+    // Part 3: Resources
     void CreateTextureImage();
     void CreateTextureImageView();
     void CreateTextureSampler();
-    void CreateDepthResources();
-    void CreateColorResources();
-    void InitQueueFamilyIndice();
+    void FillVerticesData();
+    void CreateVertexBuffer();
+    void CreateIndexBuffer();
+    void CreateUniformBuffers();
+    void CreateDescriptorPool();
+    void CreateDescriptorSets();
 
-    void                    UpdateUniformBuffer( uint32_t aCurrentImage );
+    // Part 4: Prepare for draw frames
+    void CreateGraphicsCommandBuffers();
+    void CreateSyncObjects();
+
+    // Draw frame:
+    void DrawFrame();
+    void RecreateSwapChain();
+    void UpdateUniformBuffer( uint32_t aCurrentImage );
+    void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+
+    // Helper functions:
+    VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
+    VkShaderModule          CreateShaderModule( const std::string aShaderPath );
+    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
+                                         VkDeviceMemory& aImageMemory, uint32_t aMipLevel = 1, VkSampleCountFlagBits aNumSamples = VK_SAMPLE_COUNT_1_BIT );
     VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel = 1 );
+    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
+    void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
+    void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CheckExtensionSupport();
-    void                    RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     bool                    CheckValidationLayerSupport();
     bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice );
     bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice );
@@ -82,24 +92,25 @@ private:
     VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats );
     VkPresentModeKHR        ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes );
     VkExtent2D              ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities );
-    VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
-    VkShaderModule          CreateShaderModule( const std::string aShaderPath );
-    static void             FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
     uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties );
     VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
     void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
-    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
-    void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
     bool                    HasStencilComponent( VkFormat aFormat );
-    void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
     VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
-    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                                         VkDeviceMemory& aImageMemory, uint32_t aMipLevel = 1, VkSampleCountFlagBits aNumSamples = VK_SAMPLE_COUNT_1_BIT );
+
+    // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
+    static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
+    static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
+    int myFrameNumber = 0;
+
 private:
+    DeletionQueue myDeletionQueue;
+    DeletionQueue mySwapChainDeletionQueue;
+
     uint32_t myWidth, myHeight;
 
     GLFWwindow* myWindow;

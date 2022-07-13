@@ -64,16 +64,18 @@ void Vk_Core::InitWindow() {
     myWindow = glfwCreateWindow( myWidth, myHeight, "Vulkan Window", nullptr, nullptr );
     glfwSetWindowUserPointer( myWindow, this );
     glfwSetFramebufferSizeCallback( myWindow, FramebufferResizeCallback );
+    glfwSetKeyCallback( myWindow, HandleInputCallback );
 }
 
 void Vk_Core::MainLoop() {
     while ( !glfwWindowShouldClose( myWindow ) ) {
+        // Process the events that have already been received and then returns immediately
         glfwPollEvents();
-        DrawFrame();
 
-        // myCurrentFrame = ( myCurrentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
+        DrawFrame();
     }
 
+    // Make sure the GPU has stopped doing things.
     vkDeviceWaitIdle( myDevice );
 }
 
@@ -81,33 +83,9 @@ void Vk_Core::Clear() {
     // All other Vulkan resources should be cleaned up
     // before the instance is destroyed.
 
-    CleanupSwapChain();
+    mySwapChainDeletionQueue.flush();
 
-    vkDestroySampler( myDevice, myTextureSampler, nullptr );
-    vkDestroyImageView( myDevice, myTextureImageView, nullptr );
-
-    vkDestroyImage( myDevice, myTextureImage, nullptr );
-    vkFreeMemory( myDevice, myTextureImageMemory, nullptr );
-
-    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        vkDestroyBuffer( myDevice, myUniformBuffers[ i ], nullptr );
-        vkFreeMemory( myDevice, myUniformBuffersMemory[ i ], nullptr );
-    }
-
-    vkDestroyDescriptorPool( myDevice, myDescriptorPool, nullptr );
-    vkDestroyDescriptorSetLayout( myDevice, myDescriptorSetLayout, nullptr );
-
-    vkDestroyBuffer( myDevice, myVertexBuffer, nullptr );
-    vkFreeMemory( myDevice, myVertexBufferMemory, nullptr );
-
-    vkDestroyBuffer( myDevice, myIndexBuffer, nullptr );
-    vkFreeMemory( myDevice, myIndexBufferMemory, nullptr );
-
-    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        vkDestroySemaphore( myDevice, myImageAvailableSemaphores[ i ], nullptr );
-        vkDestroySemaphore( myDevice, myRenderFinishedSemaphores[ i ], nullptr );
-        vkDestroyFence( myDevice, myInFlightFences[ i ], nullptr );
-    }
+    myDeletionQueue.flush();
 
     vkDestroyCommandPool( myDevice, myGraphicsCommandPool, nullptr );
     vkDestroyCommandPool( myDevice, myTransferCommandPool, nullptr );
@@ -124,45 +102,43 @@ void Vk_Core::Clear() {
 }
 
 void Vk_Core::InitVulkan() {
-    InitDevice();
-
-    InitSwapChian();
-
-    CreateRenderPass();
-    CreateDescriptorSetLayout();
-    CreateGfxPipeline();
-    CreateCommandPool();
-    CreateColorResources();
-    CreateDepthResources();
-    CreateFrameBuffers();
-    CreateTextureImage();
-    CreateTextureImageView();
-    CreateTextureSampler();
-    FillVerticesData();
-    CreateVertexBuffer();
-    CreateIndexBuffer();
-    CreateUniformBuffers();
-    CreateDescriptorPool();
-    CreateDescriptorSets();
-    CreateGraphicsCommandBuffers();
-    CreateSyncObjects();
-}
-
-void Vk_Core::InitDevice() {
+    // Part 1: Base
     CreateInstance();
     // TODO: Set up debug messenger
     CreateSurface();
     PickPhysicalDevice();
     InitQueueFamilyIndice();
     CreateLogicalDevice();
-}
+    CreateCommandPool();
 
-void Vk_Core::InitSwapChian() {
+    // Part 2: Swap Chain
     CreateSwapChain();
-    CreateImageViews();
-}
+    CreateRenderPass();
 
-void Vk_Core::InitResources() {}
+    CreateDescriptorSetLayout();
+
+    CreateGfxPipeline();
+    CreateColorResources();
+    CreateDepthResources();
+    CreateFrameBuffers();
+
+    // Part 3: Resources
+    CreateTextureImage();
+    CreateTextureImageView();
+    CreateTextureSampler();
+
+    FillVerticesData();
+    CreateVertexBuffer();
+    CreateIndexBuffer();
+
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
+
+    // Part 4: Prepare for draw frames
+    CreateGraphicsCommandBuffers();
+    CreateSyncObjects();
+}
 
 void Vk_Core::CreateInstance() {
     // Check validation layer first
@@ -343,14 +319,22 @@ void Vk_Core::CreateSwapChain() {
 
     mySwapChainImageFormat = surfaceFormat.format;
     mySwapChainExtent      = extent;
-}
 
-void Vk_Core::CreateImageViews() {
-    mySwapChainImageViews.resize( mySwapChainImages.size() );
+    // Create swap chain image views
+    mySwapChainImageViews.resize( imageCount );
 
-    for ( size_t i = 0; i < mySwapChainImages.size(); i++ ) {
-        mySwapChainImageViews[ i ] = CreateImageView( mySwapChainImages[ i ], mySwapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    for ( size_t i = 0; i < imageCount; i++ ) {
+        mySwapChainImageViews[ i ] = CreateImageView( mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
     }
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
+            vkDestroyImageView( myDevice, mySwapChainImageViews[ i ], nullptr );
+        }
+
+        vkDestroySwapchainKHR( myDevice, mySwapChain, nullptr );
+    } );
 }
 
 void Vk_Core::CreateGfxPipeline() {
@@ -431,6 +415,12 @@ void Vk_Core::CreateGfxPipeline() {
 
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( myDevice, fragShaderModule, nullptr );
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyPipeline( myDevice, myBasicPipeline, nullptr );
+        vkDestroyPipelineLayout( myDevice, myPipelineLayout, nullptr );
+    } );
 }
 
 void Vk_Core::CreateRenderPass() {
@@ -509,6 +499,9 @@ void Vk_Core::CreateRenderPass() {
     if ( vkCreateRenderPass( myDevice, &renderPassInfo, nullptr, &myRenderPass ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create render pass!" );
     }
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() { vkDestroyRenderPass( myDevice, myRenderPass, nullptr ); } );
 }
 
 void Vk_Core::CreateFrameBuffers() {
@@ -534,6 +527,13 @@ void Vk_Core::CreateFrameBuffers() {
             throw std::runtime_error( "failed to create framebuffer!" );
         }
     }
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        for ( size_t i = 0; i < mySwapChainFrameBuffers.size(); i++ ) {
+            vkDestroyFramebuffer( myDevice, mySwapChainFrameBuffers[ i ], nullptr );
+        }
+    } );
 }
 
 void Vk_Core::CreateCommandPool() {
@@ -624,7 +624,8 @@ void Vk_Core::DrawFrame() {
         throw std::runtime_error( "failed to present swap chain image!" );
     }
 
-    myCurrentFrame = ( myCurrentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
+    myFrameNumber++;
+    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Vk_Core::CreateSyncObjects() {
@@ -646,6 +647,15 @@ void Vk_Core::CreateSyncObjects() {
             throw std::runtime_error( "failed to create semaphores/fence!" );
         }
     }
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+            vkDestroySemaphore( myDevice, myImageAvailableSemaphores[ i ], nullptr );
+            vkDestroySemaphore( myDevice, myRenderFinishedSemaphores[ i ], nullptr );
+            vkDestroyFence( myDevice, myInFlightFences[ i ], nullptr );
+        }
+    } );
 }
 
 void Vk_Core::RecreateSwapChain() {
@@ -653,44 +663,20 @@ void Vk_Core::RecreateSwapChain() {
     glfwGetFramebufferSize( myWindow, &width, &height );
     while ( width == 0 || height == 0 ) {
         glfwGetFramebufferSize( myWindow, &width, &height );
+        // Put the thread to sleep until at least one event has been received and then processe all received events.
         glfwWaitEvents();
     }
 
     vkDeviceWaitIdle( myDevice );
 
-    CleanupSwapChain();
+    mySwapChainDeletionQueue.flush();
 
     CreateSwapChain();
-    CreateImageViews();
     CreateRenderPass();
     CreateGfxPipeline();
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
-}
-
-void Vk_Core::CleanupSwapChain() {
-    vkDestroyImageView( myDevice, myColorImageView, nullptr );
-    vkDestroyImage( myDevice, myColorImage, nullptr );
-    vkFreeMemory( myDevice, myColorImageMemory, nullptr );
-
-    vkDestroyImageView( myDevice, myDepthImageView, nullptr );
-    vkDestroyImage( myDevice, myDepthImage, nullptr );
-    vkFreeMemory( myDevice, myDepthImageMemory, nullptr );
-
-    for ( size_t i = 0; i < mySwapChainFrameBuffers.size(); i++ ) {
-        vkDestroyFramebuffer( myDevice, mySwapChainFrameBuffers[ i ], nullptr );
-    }
-
-    vkDestroyPipeline( myDevice, myBasicPipeline, nullptr );
-    vkDestroyPipelineLayout( myDevice, myPipelineLayout, nullptr );
-    vkDestroyRenderPass( myDevice, myRenderPass, nullptr );
-
-    for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
-        vkDestroyImageView( myDevice, mySwapChainImageViews[ i ], nullptr );
-    }
-
-    vkDestroySwapchainKHR( myDevice, mySwapChain, nullptr );
 }
 
 void Vk_Core::FillVerticesData() {
@@ -754,6 +740,12 @@ void Vk_Core::CreateVertexBuffer() {
 
     vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
     vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyBuffer( myDevice, myVertexBuffer, nullptr );
+        vkFreeMemory( myDevice, myVertexBufferMemory, nullptr );
+    } );
 }
 
 void Vk_Core::CreateIndexBuffer() {
@@ -777,6 +769,12 @@ void Vk_Core::CreateIndexBuffer() {
 
     vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
     vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyBuffer( myDevice, myIndexBuffer, nullptr );
+        vkFreeMemory( myDevice, myIndexBufferMemory, nullptr );
+    } );
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
@@ -804,6 +802,8 @@ void Vk_Core::CreateDescriptorSetLayout() {
     if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myDescriptorSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor set layout!" );
     }
+
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myDescriptorSetLayout, nullptr ); } );
 }
 
 void Vk_Core::CreateUniformBuffers() {
@@ -816,6 +816,14 @@ void Vk_Core::CreateUniformBuffers() {
         CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, myUniformBuffers[ i ], myUniformBuffersMemory[ i ],
                       true );
     }
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+            vkDestroyBuffer( myDevice, myUniformBuffers[ i ], nullptr );
+            vkFreeMemory( myDevice, myUniformBuffersMemory[ i ], nullptr );
+        }
+    } );
 }
 
 void Vk_Core::CreateDescriptorPool() {
@@ -834,6 +842,9 @@ void Vk_Core::CreateDescriptorPool() {
     if ( vkCreateDescriptorPool( myDevice, &poolInfo, nullptr, &myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor pool!" );
     }
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorPool( myDevice, myDescriptorPool, nullptr ); } );
 }
 
 void Vk_Core::CreateDescriptorSets() {
@@ -928,10 +939,19 @@ void Vk_Core::CreateTextureImage() {
 
     vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
     vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyImage( myDevice, myTextureImage, nullptr );
+        vkFreeMemory( myDevice, myTextureImageMemory, nullptr );
+    } );
 }
 
 void Vk_Core::CreateTextureImageView() {
     myTextureImageView = CreateImageView( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyImageView( myDevice, myTextureImageView, nullptr ); } );
 }
 
 void Vk_Core::CreateTextureSampler() {
@@ -959,6 +979,9 @@ void Vk_Core::CreateTextureSampler() {
     if ( vkCreateSampler( myDevice, &samplerInfo, nullptr, &myTextureSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create texture sampler!" );
     }
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroySampler( myDevice, myTextureSampler, nullptr ); } );
 }
 
 void Vk_Core::CreateDepthResources() {
@@ -969,6 +992,13 @@ void Vk_Core::CreateDepthResources() {
     myDepthImageView = CreateImageView( myDepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     TransitionImageLayout( myDepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyImageView( myDevice, myDepthImageView, nullptr );
+        vkDestroyImage( myDevice, myDepthImage, nullptr );
+        vkFreeMemory( myDevice, myDepthImageMemory, nullptr );
+    } );
 }
 
 void Vk_Core::CreateColorResources() {
@@ -977,6 +1007,13 @@ void Vk_Core::CreateColorResources() {
     CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, myColorImage, myColorImageMemory, 1, myMSAASamples );
     myColorImageView = CreateImageView( myColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+
+    // Deletion Queue
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyImageView( myDevice, myColorImageView, nullptr );
+        vkDestroyImage( myDevice, myColorImage, nullptr );
+        vkFreeMemory( myDevice, myColorImageMemory, nullptr );
+    } );
 }
 
 void Vk_Core::InitQueueFamilyIndice() {
@@ -1665,6 +1702,12 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
         return VK_SAMPLE_COUNT_2_BIT;
 
     return VK_SAMPLE_COUNT_1_BIT;
+}
+
+void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode ) {
+    if ( aKey == GLFW_KEY_E && anAction == GLFW_PRESS ) {
+        std::cout << "Hey, this is E!" << std::endl;
+    }
 }
 
 #pragma endregion
