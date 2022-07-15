@@ -51,6 +51,9 @@
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Mesh.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderCore\Vk_Core.h">
@@ -65,7 +68,7 @@
     <ClInclude Include="Util\Util_Loader.h">
       <Filter>Header Files\Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Gfx_DataStruct.h">
+    <ClInclude Include="RenderCore\Vk_DataStruct.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Include.h">
@@ -75,6 +78,12 @@
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Pipeline.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Mesh.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Types.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
   </ItemGroup>

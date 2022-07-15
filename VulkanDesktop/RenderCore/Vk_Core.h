@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Gfx_DataStruct.h"
+#include "Vk_DataStruct.h"
+#include "Vk_Mesh.h"
 
 const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
@@ -40,6 +41,7 @@ private:
     void CreateLogicalDevice();
     void CreateSurface();
     void CreateCommandPool();
+    void InitAllocator();
 
     // Part 2: Swap chain
     void CreateSwapChain();
@@ -81,6 +83,7 @@ private:
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
     void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
+    void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aAllocatedBuffer, bool isExclusive );
     void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
     void                    CheckExtensionSupport();
@@ -115,6 +118,8 @@ private:
 
     GLFWwindow* myWindow;
 
+    VmaAllocator myAllocator;
+
     VkInstance            myInstance;
     VkPhysicalDevice      myPhysicalDevice = VK_NULL_HANDLE;
     VkDevice              myDevice;
@@ -131,24 +136,24 @@ private:
     VkPipeline            myBasicPipeline;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;
-    VkBuffer              myVertexBuffer;
+    /*VkBuffer              myVertexBuffer;
     VkDeviceMemory        myVertexBufferMemory;
     VkBuffer              myIndexBuffer;
-    VkDeviceMemory        myIndexBufferMemory;
-    VkDescriptorPool      myDescriptorPool;
-    uint32_t              myTextureImageMipLevels;
-    VkImage               myTextureImage;
-    VkDeviceMemory        myTextureImagememory;
-    VkImageView           myTextureImageView;
-    VkSampler             myTextureSampler;
-    VkDeviceMemory        myTextureImageMemory;
-    VkImage               myDepthImage;
-    VkDeviceMemory        myDepthImageMemory;
-    VkImageView           myDepthImageView;
-    VkImage               myColorImage;
-    VkDeviceMemory        myColorImageMemory;
-    VkImageView           myColorImageView;
-    QueueFamilyIndices    myQueueFamilyIndices;
+    VkDeviceMemory        myIndexBufferMemory;*/
+    VkDescriptorPool   myDescriptorPool;
+    uint32_t           myTextureImageMipLevels;
+    VkImage            myTextureImage;
+    VkDeviceMemory     myTextureImagememory;
+    VkImageView        myTextureImageView;
+    VkSampler          myTextureSampler;
+    VkDeviceMemory     myTextureImageMemory;
+    VkImage            myDepthImage;
+    VkDeviceMemory     myDepthImageMemory;
+    VkImageView        myDepthImageView;
+    VkImage            myColorImage;
+    VkDeviceMemory     myColorImageMemory;
+    VkImageView        myColorImageView;
+    QueueFamilyIndices myQueueFamilyIndices;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< VkBuffer >        myUniformBuffers;
@@ -169,7 +174,5 @@ private:
     uint32_t              myCurrentFrame       = 0;
     VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
 
-    std::vector< Vertex >                  vertices;
-    std::vector< uint32_t >                indices;
-    std::unordered_map< Vertex, uint32_t > uniqueVertices{};
+    Mesh myMesh;
 };

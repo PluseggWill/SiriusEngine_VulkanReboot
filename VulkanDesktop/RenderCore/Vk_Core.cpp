@@ -21,10 +21,10 @@
 #include <stb_image.h>
 #endif
 
-#ifndef TINYOBJLOADER_IMPLEMENTATION
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-#endif  // !TINYOBJLOADER_IMPLEMENTATION
+#ifndef VMA_IMPLEMENTATION
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+#endif
 
 std::string vertShaderPath = "Shader/TriangleVertex.spv";
 std::string fragShaderPath = "Shader/TriangleFrag.spv";
@@ -110,6 +110,7 @@ void Vk_Core::InitVulkan() {
     InitQueueFamilyIndice();
     CreateLogicalDevice();
     CreateCommandPool();
+    InitAllocator();
 
     // Part 2: Swap Chain
     CreateSwapChain();
@@ -263,6 +264,14 @@ void Vk_Core::CreateSurface() {
     if ( glfwCreateWindowSurface( myInstance, myWindow, nullptr, &mySurface ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create window surface!" );
     }
+}
+
+void Vk_Core::InitAllocator() {
+    VmaAllocatorCreateInfo allocatorInfo{};
+    allocatorInfo.physicalDevice = myPhysicalDevice;
+    allocatorInfo.device         = myDevice;
+    allocatorInfo.instance       = myInstance;
+    vmaCreateAllocator( &allocatorInfo, &myAllocator );
 }
 
 void Vk_Core::CreateSwapChain() {
@@ -682,99 +691,66 @@ void Vk_Core::RecreateSwapChain() {
 void Vk_Core::FillVerticesData() {
     if ( USE_MANUAL_VERTICES ) {
         // Fill the data manually
-        vertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },  { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-                     { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },    { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+        myMesh.myVertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },  { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+                              { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },    { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
 
-                     { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-                     { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
+                              { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+                              { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
 
-        indices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
+        myMesh.myIndices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
     }
     else {
-        // Fill the data by loading model
-        tinyobj::attrib_t                  attrib;
-        std::vector< tinyobj::shape_t >    shapes;
-        std::vector< tinyobj::material_t > materials;
-        std::string                        warn, error;
-
-        if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, modelPath.c_str() ) ) {
-            throw std::runtime_error( warn + error );
-        }
-
-        for ( const auto& shape : shapes ) {
-            for ( const auto& index : shape.mesh.indices ) {
-                Vertex vertex{};
-                vertex.pos      = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
-                vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
-                vertex.color    = { 1.0f, 1.0f, 1.0f };
-
-                if ( uniqueVertices.count( vertex ) == 0 ) {
-                    uniqueVertices[ vertex ] = static_cast< uint32_t >( vertices.size() );
-                    vertices.push_back( vertex );
-                }
-
-                indices.push_back( uniqueVertices[ vertex ] );
-            }
-        }
+        myMesh.loadMesh( modelPath );
     }
 }
 
 void Vk_Core::CreateVertexBuffer() {
-    const VkDeviceSize bufferSize = sizeof( vertices[ 0 ] ) * vertices.size();
+    const VkDeviceSize bufferSize = sizeof( Vertex ) * myMesh.myVertices.size();
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    AllocatedBuffer stagingBuffer;
 
     // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, true );
+    // CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, true );
+    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
-    vkMapMemory( myDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
-    memcpy( data, vertices.data(), bufferSize );
-    vkUnmapMemory( myDevice, stagingBufferMemory );
+    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
+    memcpy( data, myMesh.myVertices.data(), bufferSize );
+    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
 
     // The vertex buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, myVertexBuffer, myVertexBufferMemory, false );
+    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myMesh.myVertexBuffer, false );
 
-    CopyBuffer( stagingBuffer, myVertexBuffer, bufferSize );
+    CopyBuffer( stagingBuffer.myBuffer, myMesh.myVertexBuffer.myBuffer, bufferSize );
 
-    vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
-    vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 
     // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyBuffer( myDevice, myVertexBuffer, nullptr );
-        vkFreeMemory( myDevice, myVertexBufferMemory, nullptr );
-    } );
+    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myMesh.myVertexBuffer.myBuffer, myMesh.myVertexBuffer.myAllocation ); } );
 }
 
 void Vk_Core::CreateIndexBuffer() {
-    const VkDeviceSize bufferSize = sizeof( indices[ 0 ] ) * indices.size();
+    const VkDeviceSize bufferSize = sizeof( uint32_t ) * myMesh.myIndices.size();
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    AllocatedBuffer stagingBuffer;
 
     // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, true );
+    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
-    vkMapMemory( myDevice, stagingBufferMemory, 0, bufferSize, 0, &data );
-    memcpy( data, indices.data(), bufferSize );
-    vkUnmapMemory( myDevice, stagingBufferMemory );
+    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
+    memcpy( data, myMesh.myIndices.data(), bufferSize );
+    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
 
-    // The vertex buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, myIndexBuffer, myIndexBufferMemory, false );
+    // The index buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
+    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myMesh.myIndexBuffer, false );
 
-    CopyBuffer( stagingBuffer, myIndexBuffer, bufferSize );
+    CopyBuffer( stagingBuffer.myBuffer, myMesh.myIndexBuffer.myBuffer, bufferSize );
 
-    vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
-    vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 
     // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyBuffer( myDevice, myIndexBuffer, nullptr );
-        vkFreeMemory( myDevice, myIndexBufferMemory, nullptr );
-    } );
+    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myMesh.myIndexBuffer.myBuffer, myMesh.myIndexBuffer.myAllocation ); } );
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
@@ -1307,13 +1283,13 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
-    VkBuffer     vertexBuffers[] = { myVertexBuffer };
+    VkBuffer     vertexBuffers[] = { myMesh.myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };
     vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
-    vkCmdBindIndexBuffer( commandBuffer, myIndexBuffer, 0, VK_INDEX_TYPE_UINT32 );
+    vkCmdBindIndexBuffer( commandBuffer, myMesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
     vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myDescriptorSets[ myCurrentFrame ], 0, nullptr );
-    vkCmdDrawIndexed( commandBuffer, static_cast< uint32_t >( indices.size() ), 1, 0, 0, 0 );
+    vkCmdDrawIndexed( commandBuffer, static_cast< uint32_t >( myMesh.myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( commandBuffer );
 
@@ -1375,6 +1351,35 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMem
     }
 
     vkBindBufferMemory( myDevice, aBuffer, aBufferMemory, 0 );
+}
+
+void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aAllocatedBuffer, bool isExclusive ) {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size  = aSize;
+    bufferInfo.usage = aBufferUsage;
+
+    if ( isExclusive ) {
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    }
+    else {
+        const uint32_t queueFamilyIndices[] = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
+
+        bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
+        bufferInfo.queueFamilyIndexCount = 2;
+        bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
+    }
+
+    if ( vkCreateBuffer( myDevice, &bufferInfo, nullptr, &aAllocatedBuffer.myBuffer ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create buffer!" );
+    }
+
+    VmaAllocationCreateInfo vmaAllocInfo{};
+    vmaAllocInfo.usage = aMemoryUsage;
+
+    if ( vmaCreateBuffer( myAllocator, &bufferInfo, &vmaAllocInfo, &aAllocatedBuffer.myBuffer, &aAllocatedBuffer.myAllocation, nullptr ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to allocate buffer memory through VMA!" );
+    }
 }
 
 void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) {
