@@ -89,6 +89,9 @@
     <ClInclude Include="RenderCore\Vk_Types.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Texture.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\TriangleFrag.frag">

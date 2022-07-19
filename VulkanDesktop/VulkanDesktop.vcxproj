@@ -171,6 +171,7 @@
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
     <ClInclude Include="RenderCore\Vk_Mesh.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
+    <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_ValidationLayer.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />

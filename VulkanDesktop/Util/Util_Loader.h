@@ -1,9 +1,9 @@
 #pragma once
-#include <fstream>
-#include <vector>
 #include <string>
+#include <vector>
 
-namespace UtilLoader
-{
-	std::vector<char> ReadFile(const std::string& aFilename);
-}
+namespace UtilLoader {
+std::vector< char > ReadFile( const std::string& aFilename );
+
+bool LoadTexture();
+}  // namespace UtilLoader

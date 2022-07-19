@@ -1,20 +1,20 @@
 #include "Util_Loader.h"
 
-std::vector<char> UtilLoader::ReadFile(const std::string& aFilename)
-{
-	std::ifstream file(aFilename, std::ios::ate | std::ios::binary);
+#include <fstream>
 
-	if (!file.is_open())
-	{
-		throw std::runtime_error("failed to open file");
-	}
+std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
+    std::ifstream file( aFilename, std::ios::ate | std::ios::binary );
 
-	size_t fileSize = (size_t)file.tellg();
-	std::vector<char> buffer(fileSize);
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "failed to open file" );
+    }
 
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
+    size_t              fileSize = ( size_t )file.tellg();
+    std::vector< char > buffer( fileSize );
 
-	file.close();
+    file.seekg( 0 );
+    file.read( buffer.data(), fileSize );
+
+    file.close();
     return buffer;
 }
