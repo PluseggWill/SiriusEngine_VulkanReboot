@@ -13,7 +13,9 @@ const bool FILL_MODE_LINE       = false;
 class Vk_Core {
 public:
     static Vk_Core& GetInstance();
-    // static Vk_Core* GetInstance();
+    Vk_Core( const Vk_Core& ) = delete;
+    Vk_Core& operator=( const Vk_Core& ) = delete;
+
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
     void Run();
     void Reset();
@@ -21,16 +23,20 @@ public:
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
+    // Util Functions:
+    void CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
+    void CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                      AllocatedImage& anImage ) const;
+    void CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                      uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+
 private:
     Vk_Core();
     ~Vk_Core();
-    Vk_Core( const Vk_Core& ) = delete;
-    Vk_Core& operator=( const Vk_Core& ) = delete;
 
     void InitWindow();
     void MainLoop();
     void Clear();
-
     void InitVulkan();
 
     // Init Functions:
@@ -76,20 +82,16 @@ private:
     // Helper functions:
     VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
     VkShaderModule          CreateShaderModule( const std::string aShaderPath );
-    void                    CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                                         VkDeviceMemory& aImageMemory, uint32_t aMipLevel = 1, VkSampleCountFlagBits aNumSamples = VK_SAMPLE_COUNT_1_BIT );
     VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel = 1 );
     void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
-    void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive );
-    void                    CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aAllocatedBuffer, bool isExclusive );
-    void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
-    void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize );
-    void                    CheckExtensionSupport();
-    bool                    CheckValidationLayerSupport();
+    void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    void                    CheckExtensionSupport() const;
+    bool                    CheckValidationLayerSupport() const;
     bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice );
-    bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice );
+    bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
     QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice );
     SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice );
     VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats );
@@ -138,16 +140,13 @@ private:
     VkCommandPool         myTransferCommandPool;
     VkDescriptorPool      myDescriptorPool;
     uint32_t              myTextureImageMipLevels;
-    VkImage               myTextureImage;
-    VkDeviceMemory        myTextureImagememory;
+    AllocatedImage        myTexture;
     VkImageView           myTextureImageView;
     VkSampler             myTextureSampler;
     VkDeviceMemory        myTextureImageMemory;
-    VkImage               myDepthImage;
-    VkDeviceMemory        myDepthImageMemory;
+    AllocatedImage        myDepthImage;
     VkImageView           myDepthImageView;
-    VkImage               myColorImage;
-    VkDeviceMemory        myColorImageMemory;
+    AllocatedImage        myColorImage;
     VkImageView           myColorImageView;
     QueueFamilyIndices    myQueueFamilyIndices;
 
@@ -157,12 +156,11 @@ private:
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
     std::vector< VkFence >         myInFlightFences;
-
-    std::vector< const char* >   myValidationLayers;
-    std::vector< const char* >   myDeviceExtensions;
-    std::vector< VkImage >       mySwapChainImages;
-    std::vector< VkImageView >   mySwapChainImageViews;
-    std::vector< VkFramebuffer > mySwapChainFrameBuffers;
+    std::vector< const char* >     myValidationLayers;
+    std::vector< const char* >     myDeviceExtensions;
+    std::vector< VkImage >         mySwapChainImages;
+    std::vector< VkImageView >     mySwapChainImageViews;
+    std::vector< VkFramebuffer >   mySwapChainFrameBuffers;
 
     bool                  myEnableValidationLayers;
     bool                  myFramebufferResized = false;

@@ -212,7 +212,8 @@ void Vk_Core::CreateLogicalDevice() {
     // Step #1: Specifying the queues to be created
 
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
-    std::set< uint32_t > uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
+    std::set< uint32_t >                   uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(),
+                                                 myQueueFamilyIndices.myTransferFamily.value() };
 
     float queuePriority = 1.0f;
     for ( uint32_t queueFamily : uniqueQueueFamilies ) {
@@ -566,7 +567,8 @@ void Vk_Core::CreateCommandPool() {
 
 void Vk_Core::CreateGraphicsCommandBuffers() {
     myGraphicsCommandBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-    const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, ( uint32_t )myGraphicsCommandBuffers.size(), VK_COMMAND_BUFFER_LEVEL_PRIMARY );
+    const VkCommandBufferAllocateInfo allocInfo =
+        VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, ( uint32_t )myGraphicsCommandBuffers.size(), VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
     if ( vkAllocateCommandBuffers( myDevice, &allocInfo, myGraphicsCommandBuffers.data() ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to allocate command buffers!" );
@@ -884,46 +886,43 @@ void Vk_Core::CreateTextureImage() {
         throw std::runtime_error( "failed to load texture image!" );
     }
 
-    VkBuffer       stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    AllocatedBuffer stagingBuffer;
 
-    CreateBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, true );
+    CreateBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, true );
 
     void* data;
-    vkMapMemory( myDevice, stagingBufferMemory, 0, imageSize, 0, &data );
+    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
     memcpy( data, pixels, static_cast< size_t >( imageSize ) );
-    vkUnmapMemory( myDevice, stagingBufferMemory );
+    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
 
     // Clean up the pixel array
     stbi_image_free( pixels );
 
-    CreateImage( texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, myTextureImage, myTextureImageMemory, myTextureImageMipLevels );
+    CreateImage( texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myTextureImageMipLevels,
+                 VK_SAMPLE_COUNT_1_BIT, myTexture );
 
     // Transition for copy buffer to image
-    TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, myTextureImageMipLevels );
-    CopyBufferToImage( stagingBuffer, myTextureImage, static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
+    TransitionImageLayout( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, myTextureImageMipLevels );
+    CopyBufferToImage( stagingBuffer.myBuffer, myTexture.myImage, static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
 
     // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
     if ( USE_RUNTIME_MIPMAP ) {
-        GenerateMipmaps( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, myTextureImageMipLevels );
+        GenerateMipmaps( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, myTextureImageMipLevels );
     }
     else {
-        TransitionImageLayout( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, myTextureImageMipLevels );
+        TransitionImageLayout( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                               myTextureImageMipLevels );
     }
 
-    vkDestroyBuffer( myDevice, stagingBuffer, nullptr );
-    vkFreeMemory( myDevice, stagingBufferMemory, nullptr );
+    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 
     // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyImage( myDevice, myTextureImage, nullptr );
-        vkFreeMemory( myDevice, myTextureImageMemory, nullptr );
-    } );
+    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyImage( myAllocator, myTexture.myImage, myTexture.myAllocation ); } );
 }
 
 void Vk_Core::CreateTextureImageView() {
-    myTextureImageView = CreateImageView( myTextureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
+    myTextureImageView = CreateImageView( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
 
     // Deletion Queue
     myDeletionQueue.pushFunction( [ = ]() { vkDestroyImageView( myDevice, myTextureImageView, nullptr ); } );
@@ -960,34 +959,32 @@ void Vk_Core::CreateTextureSampler() {
 }
 
 void Vk_Core::CreateDepthResources() {
-    VkFormat depthFormat = FindDepthFormat();
+    const VkFormat depthFormat = FindDepthFormat();
 
-    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                 myDepthImage, myDepthImageMemory, 1, myMSAASamples );
-    myDepthImageView = CreateImageView( myDepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
+    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthImage );
+    myDepthImageView = CreateImageView( myDepthImage.myImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
-    TransitionImageLayout( myDepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
+    TransitionImageLayout( myDepthImage.myImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
         vkDestroyImageView( myDevice, myDepthImageView, nullptr );
-        vkDestroyImage( myDevice, myDepthImage, nullptr );
-        vkFreeMemory( myDevice, myDepthImageMemory, nullptr );
+        vmaDestroyImage( myAllocator, myDepthImage.myImage, myDepthImage.myAllocation );
     } );
 }
 
 void Vk_Core::CreateColorResources() {
-    VkFormat colorFormat = mySwapChainImageFormat;
+    const VkFormat colorFormat = mySwapChainImageFormat;
 
-    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, myColorImage, myColorImageMemory, 1, myMSAASamples );
-    myColorImageView = CreateImageView( myColorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorImage );
+    myColorImageView = CreateImageView( myColorImage.myImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
         vkDestroyImageView( myDevice, myColorImageView, nullptr );
-        vkDestroyImage( myDevice, myColorImage, nullptr );
-        vkFreeMemory( myDevice, myColorImageMemory, nullptr );
+        vmaDestroyImage( myAllocator, myColorImage.myImage, myColorImage.myAllocation );
     } );
 }
 
@@ -1025,7 +1022,7 @@ void Vk_Core::InitQueueFamilyIndice() {
 
 #pragma region Functional Functions
 
-void Vk_Core::CheckExtensionSupport() {
+void Vk_Core::CheckExtensionSupport() const {
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties( nullptr, &extensionCount, nullptr );
 
@@ -1039,7 +1036,7 @@ void Vk_Core::CheckExtensionSupport() {
     }
 }
 
-bool Vk_Core::CheckValidationLayerSupport() {
+bool Vk_Core::CheckValidationLayerSupport() const {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties( &layerCount, nullptr );
 
@@ -1166,7 +1163,7 @@ SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysic
     return details;
 }
 
-bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) {
+bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties( aPhysicalDevice, nullptr, &extensionCount, nullptr );
 
@@ -1311,43 +1308,7 @@ uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags som
     throw std::runtime_error( "failed to find suitable memory type!" );
 }
 
-void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkBuffer& aBuffer, VkDeviceMemory& aBufferMemory, bool isExclusive ) {
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size  = aSize;
-    bufferInfo.usage = aUsage;
-
-    if ( isExclusive ) {
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    }
-    else {
-        const uint32_t queueFamilyIndices[] = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
-
-        bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
-        bufferInfo.queueFamilyIndexCount = 2;
-        bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
-    }
-
-    if ( vkCreateBuffer( myDevice, &bufferInfo, nullptr, &aBuffer ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create buffer!" );
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements( myDevice, aBuffer, &memRequirements );
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize  = memRequirements.size;
-    allocInfo.memoryTypeIndex = FindMemoryType( memRequirements.memoryTypeBits, someProperties );
-
-    if ( vkAllocateMemory( myDevice, &allocInfo, nullptr, &aBufferMemory ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to allocate buffer memory!" );
-    }
-
-    vkBindBufferMemory( myDevice, aBuffer, aBufferMemory, 0 );
-}
-
-void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aAllocatedBuffer, bool isExclusive ) {
+void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size  = aSize;
@@ -1364,19 +1325,15 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage,
         bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
     }
 
-    if ( vkCreateBuffer( myDevice, &bufferInfo, nullptr, &aAllocatedBuffer.myBuffer ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create buffer!" );
-    }
-
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;
 
-    if ( vmaCreateBuffer( myAllocator, &bufferInfo, &vmaAllocInfo, &aAllocatedBuffer.myBuffer, &aAllocatedBuffer.myAllocation, nullptr ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to allocate buffer memory through VMA!" );
+    if ( vmaCreateBuffer( myAllocator, &bufferInfo, &vmaAllocInfo, &aBuffer.myBuffer, &aBuffer.myAllocation, nullptr ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create buffer through VMA!" );
     }
 }
 
-void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) {
+void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
 
     VkBufferCopy copyRegion{};
@@ -1388,7 +1345,7 @@ void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize
     EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
 }
 
-void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) {
+void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
 
     VkBufferCopy copyRegion{};
@@ -1419,48 +1376,37 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     vmaUnmapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation );
 }
 
-void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
-                           VkDeviceMemory& aImageMemory, uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples ) {
+void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                           AllocatedImage& anImage ) const {
+    CreateImage( aWidth, aHeight, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
+}
+
+void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                           uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType     = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width  = static_cast< uint32_t >( aWidth );
-    imageInfo.extent.height = static_cast< uint32_t >( aHeight );
+    imageInfo.extent.width  = aWidth;
+    imageInfo.extent.height = aHeight;
     imageInfo.extent.depth  = 1;
     imageInfo.mipLevels     = aMipLevel;
     imageInfo.arrayLayers   = 1;
     imageInfo.format        = aFormat;
     imageInfo.tiling        = aTiling;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage         = aUsage;
+    imageInfo.usage         = anImageUsage;
     imageInfo.samples       = aNumSamples;
     imageInfo.flags         = 0;
+    imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
 
-    /*const QueueFamilyIndices indices              = FindQueueFamilies( myPhysicalDevice );
-    const uint32_t           queueFamilyIndices[] = { indices.myGraphicsFamily.value(), indices.myTransferFamily.value() };
+    // TODO: Consider the situation when the image can be accessed by two different queues.
 
-    imageInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
-    imageInfo.pQueueFamilyIndices   = queueFamilyIndices;
-    imageInfo.queueFamilyIndexCount = 2;*/
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VmaAllocationCreateInfo vmaAllocInfo{};
+    vmaAllocInfo.usage = aMemoryUsage;
 
-    if ( vkCreateImage( myDevice, &imageInfo, nullptr, &aImage ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create image!" );
+    if ( vmaCreateImage( myAllocator, &imageInfo, &vmaAllocInfo, &anImage.myImage, &anImage.myAllocation, nullptr ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create image through VMA!" );
     }
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements( myDevice, aImage, &memRequirements );
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize  = memRequirements.size;
-    allocInfo.memoryTypeIndex = FindMemoryType( memRequirements.memoryTypeBits, someProperties );
-
-    if ( vkAllocateMemory( myDevice, &allocInfo, nullptr, &aImageMemory ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to allocate image memory!" );
-    }
-
-    vkBindImageMemory( myDevice, aImage, aImageMemory, 0 );
 }
 
 VkCommandBuffer Vk_Core::BeginSingleTimeCommands( VkCommandPool aCommandPool ) const {
@@ -1605,7 +1551,8 @@ VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandid
 }
 
 VkFormat Vk_Core::FindDepthFormat() {
-    return FindSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
+    return FindSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL,
+                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
 
 bool Vk_Core::HasStencilComponent( VkFormat aFormat ) {
