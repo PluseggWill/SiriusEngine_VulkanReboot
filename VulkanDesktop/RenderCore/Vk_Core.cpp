@@ -272,6 +272,9 @@ void Vk_Core::InitAllocator() {
     allocatorInfo.device         = myDevice;
     allocatorInfo.instance       = myInstance;
     vmaCreateAllocator( &allocatorInfo, &myAllocator );
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myAllocator ); } );
 }
 
 void Vk_Core::CreateSwapChain() {
@@ -710,7 +713,6 @@ void Vk_Core::CreateVertexBuffer() {
     AllocatedBuffer stagingBuffer;
 
     // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
-    // CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, true );
     CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
@@ -1125,11 +1127,6 @@ QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice 
             indices.myPresentFamily  = i;
             indices.myGraphicsFamily = i;
         }
-
-        // Check for graphic queue
-        /*if ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
-            indices.myGraphicsFamily = i;
-        }*/
 
         // Check for (explicit) transfer queue
         if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {

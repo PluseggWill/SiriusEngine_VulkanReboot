@@ -159,6 +159,7 @@
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="RenderCore\Vk_Mesh.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
+    <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_ValidationLayer.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />

@@ -54,6 +54,9 @@
     <ClCompile Include="RenderCore\Vk_Mesh.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Types.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderCore\Vk_Core.h">

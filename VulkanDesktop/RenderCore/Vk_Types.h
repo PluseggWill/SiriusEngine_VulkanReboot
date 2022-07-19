@@ -8,11 +8,13 @@
 #include <glm/gtx/hash.hpp>
 
 struct AllocatedImage {
+public:
     VkImage       myImage;
     VmaAllocation myAllocation;
 };
 
 struct AllocatedBuffer {
+public:
     VkBuffer      myBuffer;
     VmaAllocation myAllocation;
 };

@@ -136,28 +136,25 @@ private:
     VkPipeline            myBasicPipeline;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;
-    /*VkBuffer              myVertexBuffer;
-    VkDeviceMemory        myVertexBufferMemory;
-    VkBuffer              myIndexBuffer;
-    VkDeviceMemory        myIndexBufferMemory;*/
-    VkDescriptorPool   myDescriptorPool;
-    uint32_t           myTextureImageMipLevels;
-    VkImage            myTextureImage;
-    VkDeviceMemory     myTextureImagememory;
-    VkImageView        myTextureImageView;
-    VkSampler          myTextureSampler;
-    VkDeviceMemory     myTextureImageMemory;
-    VkImage            myDepthImage;
-    VkDeviceMemory     myDepthImageMemory;
-    VkImageView        myDepthImageView;
-    VkImage            myColorImage;
-    VkDeviceMemory     myColorImageMemory;
-    VkImageView        myColorImageView;
-    QueueFamilyIndices myQueueFamilyIndices;
+    VkDescriptorPool      myDescriptorPool;
+    uint32_t              myTextureImageMipLevels;
+    VkImage               myTextureImage;
+    VkDeviceMemory        myTextureImagememory;
+    VkImageView           myTextureImageView;
+    VkSampler             myTextureSampler;
+    VkDeviceMemory        myTextureImageMemory;
+    VkImage               myDepthImage;
+    VkDeviceMemory        myDepthImageMemory;
+    VkImageView           myDepthImageView;
+    VkImage               myColorImage;
+    VkDeviceMemory        myColorImageMemory;
+    VkImageView           myColorImageView;
+    QueueFamilyIndices    myQueueFamilyIndices;
 
     std::vector< VkDescriptorSet > myDescriptorSets;
-    std::vector< VkBuffer >        myUniformBuffers;
-    std::vector< VkDeviceMemory >  myUniformBuffersMemory;
+    std::vector< AllocatedBuffer > myUniformBuffers;
+    /*std::vector< VkBuffer >        myUniformBuffers;
+    std::vector< VkDeviceMemory >  myUniformBuffersMemory;*/
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
