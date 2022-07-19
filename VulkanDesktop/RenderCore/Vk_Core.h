@@ -6,8 +6,8 @@
 const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
 const bool USE_MANUAL_VERTICES  = false;
-const bool ENABLE_ROTATE        = false;
-const bool FILL_MODE_LINE       = true;
+const bool ENABLE_ROTATE        = true;
+const bool FILL_MODE_LINE       = false;
 // const bool ENABLE_MSAA          = false;
 
 class Vk_Core {
@@ -153,8 +153,6 @@ private:
 
     std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< AllocatedBuffer > myUniformBuffers;
-    /*std::vector< VkBuffer >        myUniformBuffers;
-    std::vector< VkDeviceMemory >  myUniformBuffersMemory;*/
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;

@@ -788,18 +788,15 @@ void Vk_Core::CreateUniformBuffers() {
     VkDeviceSize bufferSize = sizeof( UniformBufferObject );
 
     myUniformBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-    myUniformBuffersMemory.resize( MAX_FRAMES_IN_FLIGHT );
 
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, myUniformBuffers[ i ], myUniformBuffersMemory[ i ],
-                      true );
+        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myUniformBuffers[ i ], true );
     }
 
     // Deletion Queue
     myDeletionQueue.pushFunction( [ = ]() {
         for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-            vkDestroyBuffer( myDevice, myUniformBuffers[ i ], nullptr );
-            vkFreeMemory( myDevice, myUniformBuffersMemory[ i ], nullptr );
+            vmaDestroyBuffer( myAllocator, myUniformBuffers[ i ].myBuffer, myUniformBuffers[ i ].myAllocation );
         }
     } );
 }
@@ -843,7 +840,7 @@ void Vk_Core::CreateDescriptorSets() {
     // Configure the descriptors
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = myUniformBuffers[ i ];
+        bufferInfo.buffer = myUniformBuffers[ i ].myBuffer;
         bufferInfo.offset = 0;
         bufferInfo.range  = sizeof( UniformBufferObject );
 
@@ -1417,9 +1414,9 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     ubo.proj[ 1 ][ 1 ] *= -1;
 
     void* data;
-    vkMapMemory( myDevice, myUniformBuffersMemory[ aCurrentImage ], 0, sizeof( ubo ), 0, &data );
+    vmaMapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation, &data );
     memcpy( data, &ubo, sizeof( ubo ) );
-    vkUnmapMemory( myDevice, myUniformBuffersMemory[ aCurrentImage ] );
+    vmaUnmapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation );
 }
 
 void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags aUsage, VkMemoryPropertyFlags someProperties, VkImage& aImage,
