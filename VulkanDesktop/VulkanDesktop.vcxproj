@@ -133,6 +133,9 @@
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -153,6 +156,9 @@
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
@@ -160,7 +166,6 @@
     <ClCompile Include="RenderCore\Vk_Mesh.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
-    <ClCompile Include="RenderCore\Vk_ValidationLayer.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
@@ -173,11 +178,11 @@
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
-    <ClInclude Include="RenderCore\Vk_ValidationLayer.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
     <ClInclude Include="Util\Util_Loader.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Shader\CompileShader.bat" />
     <None Include="Shader\TriangleFrag.frag" />
     <None Include="Shader\TriangleVertex.vert" />
   </ItemGroup>

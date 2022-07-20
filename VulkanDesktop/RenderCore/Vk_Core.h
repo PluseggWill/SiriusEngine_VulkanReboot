@@ -24,13 +24,13 @@ public:
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
     // Util Functions:
-    void CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
-    void CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                      AllocatedImage& anImage ) const;
-    void CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                      VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
-    void CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                      uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+    void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
+    void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                                AllocatedImage& anImage ) const;
+    void           CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+    void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
     VkShaderModule CreateShaderModule( const std::vector< char >& someShaderCode ) const;
     VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
     VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
@@ -105,15 +105,15 @@ private:
     void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
-    
-    VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
+
+    VkSampleCountFlagBits GetMaxUsableSampleCount() const;
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
     static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
-    int myFrameNumber = 0;
+    int          myFrameNumber = 0;
     VmaAllocator myAllocator;
 
 private:
