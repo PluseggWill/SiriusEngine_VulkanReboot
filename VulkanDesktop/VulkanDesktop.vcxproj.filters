@@ -74,9 +74,6 @@
     <ClInclude Include="RenderCore\Vk_DataStruct.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="Util\Util_Include.h">
-      <Filter>Header Files\Util</Filter>
-    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Initializer.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>

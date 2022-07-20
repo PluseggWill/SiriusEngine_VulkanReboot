@@ -6,7 +6,7 @@
 const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
 const bool USE_MANUAL_VERTICES  = false;
-const bool ENABLE_ROTATE        = true;
+const bool ENABLE_ROTATE        = false;
 const bool FILL_MODE_LINE       = false;
 // const bool ENABLE_MSAA          = false;
 
@@ -34,6 +34,12 @@ public:
     VkShaderModule CreateShaderModule( const std::vector< char >& someShaderCode ) const;
     VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
     VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
+
+    void TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
+    void CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
+    void GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const;
+    void CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    bool HasStencilComponent( VkFormat aFormat ) const;
 
 private:
     Vk_Core();
@@ -64,8 +70,7 @@ private:
     void CreateFrameBuffers();
 
     // Part 3: Resources
-    void CreateTextureImage();
-    void CreateTextureImageView();
+    void CreateTexture();
     void CreateTextureSampler();
     void FillVerticesData();
     void CreateVertexBuffer();
@@ -85,11 +90,6 @@ private:
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
 
     // Helper functions:
-    
-    void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
-    void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
-    void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
-    void                    CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     void                    CheckExtensionSupport() const;
     bool                    CheckValidationLayerSupport() const;
@@ -105,7 +105,7 @@ private:
     void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
-    bool                    HasStencilComponent( VkFormat aFormat );
+    
     VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
@@ -114,6 +114,7 @@ private:
 
 public:
     int myFrameNumber = 0;
+    VmaAllocator myAllocator;
 
 private:
     DeletionQueue myDeletionQueue;
@@ -122,8 +123,6 @@ private:
     uint32_t myWidth, myHeight;
 
     GLFWwindow* myWindow;
-
-    VmaAllocator myAllocator;
 
     VkInstance            myInstance;
     VkPhysicalDevice      myPhysicalDevice = VK_NULL_HANDLE;
@@ -143,12 +142,10 @@ private:
     VkCommandPool         myTransferCommandPool;
     VkDescriptorPool      myDescriptorPool;
     uint32_t              myTextureImageMipLevels;
-    AllocatedImage        myTexture;
-    VkImageView           myTextureImageView;
-    VkSampler             myTextureSampler;
-    VkDeviceMemory        myTextureImageMemory;
+    Texture               myTexture;
     Texture               myDepthTexture;
     Texture               myColorTexture;
+    VkSampler             myTextureSampler;
     QueueFamilyIndices    myQueueFamilyIndices;
 
     std::vector< VkDescriptorSet > myDescriptorSets;

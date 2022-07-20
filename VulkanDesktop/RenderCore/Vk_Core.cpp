@@ -124,8 +124,7 @@ void Vk_Core::InitVulkan() {
     CreateFrameBuffers();
 
     // Part 3: Resources
-    CreateTextureImage();
-    CreateTextureImageView();
+    CreateTexture();
     CreateTextureSampler();
 
     FillVerticesData();
@@ -848,7 +847,7 @@ void Vk_Core::CreateDescriptorSets() {
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView   = myTextureImageView;
+        imageInfo.imageView   = myTexture.myImageView;
         imageInfo.sampler     = myTextureSampler;
 
         std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
@@ -876,58 +875,18 @@ void Vk_Core::CreateDescriptorSets() {
     }
 }
 
-void Vk_Core::CreateTextureImage() {
-    int          texWidth, texHeight, texChannels;
-    stbi_uc*     pixels     = stbi_load( texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
-    VkDeviceSize imageSize  = texWidth * texHeight * 4;
-    myTextureImageMipLevels = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
-
-    if ( !pixels ) {
-        throw std::runtime_error( "failed to load texture image!" );
+void Vk_Core::CreateTexture() {
+    if (UtilLoader::LoadTexture(texturePath, myTexture, myTextureImageMipLevels) != true)
+    {
+        throw std::runtime_error( "failed to load texture!" );
     }
-
-    AllocatedBuffer stagingBuffer;
-
-    CreateBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, true );
-
-    void* data;
-    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
-    memcpy( data, pixels, static_cast< size_t >( imageSize ) );
-    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
-
-    // Clean up the pixel array
-    stbi_image_free( pixels );
-
-    VkExtent3D texExtent = { texWidth, texHeight, 1 };
-
-    CreateImage( texExtent, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myTextureImageMipLevels,
-                 VK_SAMPLE_COUNT_1_BIT, myTexture );
-
-    // Transition for copy buffer to image
-    TransitionImageLayout( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, myTextureImageMipLevels );
-    CopyBufferToImage( stagingBuffer.myBuffer, myTexture.myImage, static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
-
-    // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-    if ( USE_RUNTIME_MIPMAP ) {
-        GenerateMipmaps( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, myTextureImageMipLevels );
-    }
-    else {
-        TransitionImageLayout( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                               myTextureImageMipLevels );
-    }
-
-    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    myTexture.myImageView = CreateImageView( myTexture.getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
 
     // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyImage( myAllocator, myTexture.myImage, myTexture.myAllocation ); } );
-}
-
-void Vk_Core::CreateTextureImageView() {
-    myTextureImageView = CreateImageView( myTexture.myImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() { vkDestroyImageView( myDevice, myTextureImageView, nullptr ); } );
+    myDeletionQueue.pushFunction( [ = ]() { 
+        vmaDestroyImage( myAllocator, myTexture.getImage(), myTexture.getAlloc() );
+        vkDestroyImageView( myDevice, myTexture.myImageView, nullptr );
+    } );
 }
 
 void Vk_Core::CreateTextureSampler() {
@@ -1437,7 +1396,7 @@ void Vk_Core::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPo
     vkFreeCommandBuffers( myDevice, aCommandPool, 1, &aCommandBuffer );
 }
 
-void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) {
+void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
 
     VkImageMemoryBarrier barrier{};
@@ -1496,7 +1455,7 @@ void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLa
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) {
+void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
     VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
     VkBufferImageCopy region{};
     region.bufferOffset      = 0;
@@ -1547,11 +1506,11 @@ VkFormat Vk_Core::FindDepthFormat() {
                                 VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
 
-bool Vk_Core::HasStencilComponent( VkFormat aFormat ) {
+bool Vk_Core::HasStencilComponent( VkFormat aFormat ) const {
     return aFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || aFormat == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) {
+void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const{
 
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;

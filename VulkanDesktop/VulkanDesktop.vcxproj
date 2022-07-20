@@ -175,7 +175,6 @@
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_ValidationLayer.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
-    <ClInclude Include="Util\Util_Include.h" />
     <ClInclude Include="Util\Util_Loader.h" />
   </ItemGroup>
   <ItemGroup>
