@@ -18,3 +18,17 @@ public:
     VkBuffer      myBuffer;
     VmaAllocation myAllocation;
 };
+
+struct Texture {
+public:
+    AllocatedImage myAllocImage;
+    VkImageView    myImageView;
+
+    VkImage getImage() {
+        return myAllocImage.myImage;
+    }
+
+    VmaAllocation getAlloc() {
+        return myAllocImage.myAllocation;
+    }
+};

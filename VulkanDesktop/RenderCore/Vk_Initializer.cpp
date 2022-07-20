@@ -197,3 +197,39 @@ VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFla
 
     return beginInfo;
 }
+
+VkImageCreateInfo VkInit::ImageCreateInfo(VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent) {
+    VkImageCreateInfo imageInfo{};
+
+    imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType     = VK_IMAGE_TYPE_2D;
+    imageInfo.extent        = anExtent;
+    imageInfo.extent.depth  = 1;
+    imageInfo.mipLevels     = 1;
+    imageInfo.arrayLayers   = 1;
+    imageInfo.format        = aFormat;
+    imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage         = aUsage;
+    imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags         = 0;
+    imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+
+    return imageInfo;
+}
+
+VkImageViewCreateInfo VkInit::ImageViewCreateInfo(VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel) {
+    VkImageViewCreateInfo viewInfo{};
+
+    viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image                           = anImage;
+    viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format                          = aFormat;
+    viewInfo.subresourceRange.aspectMask     = anAspect;
+    viewInfo.subresourceRange.baseMipLevel   = 0;
+    viewInfo.subresourceRange.levelCount     = aMipLevel;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount     = 1;
+
+    return viewInfo;
+}

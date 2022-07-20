@@ -36,4 +36,8 @@ VkCommandBufferAllocateInfo CommandBufferAllocInfo( VkCommandPool aPool, uint32_
 
 VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someFlags = 0 );
 
+VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
+
+VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
+
 }  // namespace VkInit

@@ -25,10 +25,15 @@ public:
 
     // Util Functions:
     void CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
-    void CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+    void CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                       AllocatedImage& anImage ) const;
-    void CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+    void CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                      VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+    void CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                       uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+    VkShaderModule CreateShaderModule( const std::vector< char >& someShaderCode ) const;
+    VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
+    VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
 
 private:
     Vk_Core();
@@ -80,9 +85,7 @@ private:
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
 
     // Helper functions:
-    VkShaderModule          CreateShaderModule( const std::vector< char >& someShaderCode );
-    VkShaderModule          CreateShaderModule( const std::string aShaderPath );
-    VkImageView             CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel = 1 );
+    
     void                    TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel );
     void                    CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight );
     void                    GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel );
@@ -144,10 +147,8 @@ private:
     VkImageView           myTextureImageView;
     VkSampler             myTextureSampler;
     VkDeviceMemory        myTextureImageMemory;
-    AllocatedImage        myDepthImage;
-    VkImageView           myDepthImageView;
-    AllocatedImage        myColorImage;
-    VkImageView           myColorImageView;
+    Texture               myDepthTexture;
+    Texture               myColorTexture;
     QueueFamilyIndices    myQueueFamilyIndices;
 
     std::vector< VkDescriptorSet > myDescriptorSets;

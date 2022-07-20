@@ -522,8 +522,8 @@ void Vk_Core::CreateFrameBuffers() {
 
     for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
         std::array< VkImageView, 3 > attachments = {
-            myColorImageView,
-            myDepthImageView,
+            myColorTexture.myImageView,
+            myDepthTexture.myImageView,
             mySwapChainImageViews[ i ],
         };
 
@@ -898,7 +898,9 @@ void Vk_Core::CreateTextureImage() {
     // Clean up the pixel array
     stbi_image_free( pixels );
 
-    CreateImage( texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+    VkExtent3D texExtent = { texWidth, texHeight, 1 };
+
+    CreateImage( texExtent, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myTextureImageMipLevels,
                  VK_SAMPLE_COUNT_1_BIT, myTexture );
 
@@ -961,30 +963,30 @@ void Vk_Core::CreateTextureSampler() {
 void Vk_Core::CreateDepthResources() {
     const VkFormat depthFormat = FindDepthFormat();
 
-    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthImage );
-    myDepthImageView = CreateImageView( myDepthImage.myImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
+    CreateImage( mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthTexture.myAllocImage );
+    myDepthTexture.myImageView = CreateImageView( myDepthTexture.getImage(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
-    TransitionImageLayout( myDepthImage.myImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
+    TransitionImageLayout( myDepthTexture.getImage(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyImageView( myDevice, myDepthImageView, nullptr );
-        vmaDestroyImage( myAllocator, myDepthImage.myImage, myDepthImage.myAllocation );
+        vkDestroyImageView( myDevice, myDepthTexture.myImageView, nullptr );
+        vmaDestroyImage( myAllocator, myDepthTexture.getImage(), myDepthTexture.getAlloc() );
     } );
 }
 
 void Vk_Core::CreateColorResources() {
     const VkFormat colorFormat = mySwapChainImageFormat;
 
-    CreateImage( mySwapChainExtent.width, mySwapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL,
-                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorImage );
-    myColorImageView = CreateImageView( myColorImage.myImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.myAllocImage );
+    myColorTexture.myImageView = CreateImageView( myColorTexture.getImage(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyImageView( myDevice, myColorImageView, nullptr );
-        vmaDestroyImage( myAllocator, myColorImage.myImage, myColorImage.myAllocation );
+        vkDestroyImageView( myDevice, myColorTexture.myImageView, nullptr );
+        vmaDestroyImage( myAllocator, myColorTexture.getImage(), myColorTexture.getAlloc() );
     } );
 }
 
@@ -1217,7 +1219,7 @@ VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilit
     }
 }
 
-VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShaderCode ) {
+VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShaderCode ) const {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = someShaderCode.size();
@@ -1231,7 +1233,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
     return shaderModule;
 }
 
-VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) {
+VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) const {
     auto shaderCode = UtilLoader::ReadFile( aShaderPath );
 
     VkShaderModuleCreateInfo createInfo{};
@@ -1376,25 +1378,24 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     vmaUnmapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation );
 }
 
-void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                            AllocatedImage& anImage ) const {
-    CreateImage( aWidth, aHeight, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
+    CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
 }
 
-void Vk_Core::CreateImage( uint32_t aWidth, uint32_t aHeight, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+void Vk_Core::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                  VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
+    VkExtent3D extent = { anExtent.width, anExtent.height, 1 };
+
+    CreateImage( extent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
+}
+
+void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                            uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType     = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width  = aWidth;
-    imageInfo.extent.height = aHeight;
-    imageInfo.extent.depth  = 1;
+    VkImageCreateInfo imageInfo = VkInit::ImageCreateInfo( aFormat, anImageUsage, anExtent );
+
     imageInfo.mipLevels     = aMipLevel;
-    imageInfo.arrayLayers   = 1;
-    imageInfo.format        = aFormat;
     imageInfo.tiling        = aTiling;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage         = anImageUsage;
     imageInfo.samples       = aNumSamples;
     imageInfo.flags         = 0;
     imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
@@ -1515,17 +1516,8 @@ void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWid
     EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
 }
 
-VkImageView Vk_Core::CreateImageView( VkImage aImage, VkFormat aFormat, VkImageAspectFlags someAspectFlags, uint32_t aMipLevel ) {
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image                           = aImage;
-    viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format                          = aFormat;
-    viewInfo.subresourceRange.aspectMask     = someAspectFlags;
-    viewInfo.subresourceRange.baseMipLevel   = 0;
-    viewInfo.subresourceRange.levelCount     = aMipLevel;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount     = 1;
+VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
+    VkImageViewCreateInfo viewInfo = VkInit::ImageViewCreateInfo( aFormat, anImage, anAspect, aMipLevel );
 
     VkImageView imageView;
     if ( vkCreateImageView( myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
