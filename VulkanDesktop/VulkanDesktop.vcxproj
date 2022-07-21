@@ -165,6 +165,7 @@
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="RenderCore\Vk_Mesh.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
+    <ClCompile Include="RenderCore\Vk_RenderObject.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
@@ -176,6 +177,7 @@
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
     <ClInclude Include="RenderCore\Vk_Mesh.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
+    <ClInclude Include="RenderCore\Vk_RenderObject.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />

@@ -105,8 +105,7 @@ private:
     void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
-
-    VkSampleCountFlagBits GetMaxUsableSampleCount() const;
+    VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
     static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
@@ -117,13 +116,10 @@ public:
     VmaAllocator myAllocator;
 
 private:
-    DeletionQueue myDeletionQueue;
-    DeletionQueue mySwapChainDeletionQueue;
-
-    uint32_t myWidth, myHeight;
-
-    GLFWwindow* myWindow;
-
+    DeletionQueue         myDeletionQueue;
+    DeletionQueue         mySwapChainDeletionQueue;
+    uint32_t              myWidth, myHeight;
+    GLFWwindow*           myWindow;
     VkInstance            myInstance;
     VkPhysicalDevice      myPhysicalDevice = VK_NULL_HANDLE;
     VkDevice              myDevice;
