@@ -122,6 +122,7 @@ void Vk_Core::InitVulkan() {
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
+    CreateCamera();
 
     // Part 3: Resources
     CreateTexture();
@@ -671,6 +672,12 @@ void Vk_Core::CreateSyncObjects() {
     } );
 }
 
+void Vk_Core::CreateCamera() {
+    myCamera.SetLens( 45.0f, 0.1f, 10.0f, mySwapChainExtent.width / ( float )mySwapChainExtent.height );
+    //myCamera.LookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+}
+
 void Vk_Core::RecreateSwapChain() {
     int width = 0, height = 0;
     glfwGetFramebufferSize( myWindow, &width, &height );
@@ -690,6 +697,9 @@ void Vk_Core::RecreateSwapChain() {
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
+
+    // Reset the camera's aspect
+    myCamera.SetAspect( mySwapChainExtent.width / ( float )mySwapChainExtent.height );
 }
 
 void Vk_Core::FillVerticesData() {
@@ -880,11 +890,11 @@ void Vk_Core::CreateTexture() {
     {
         throw std::runtime_error( "failed to load texture!" );
     }
-    myTexture.myImageView = CreateImageView( myTexture.getImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
+    myTexture.myImageView = CreateImageView( myTexture.GetImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
 
     // Deletion Queue
     myDeletionQueue.pushFunction( [ = ]() { 
-        vmaDestroyImage( myAllocator, myTexture.getImage(), myTexture.getAlloc() );
+        vmaDestroyImage( myAllocator, myTexture.GetImage(), myTexture.GetAlloc() );
         vkDestroyImageView( myDevice, myTexture.myImageView, nullptr );
     } );
 }
@@ -924,14 +934,14 @@ void Vk_Core::CreateDepthResources() {
 
     CreateImage( mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                  VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthTexture.myAllocImage );
-    myDepthTexture.myImageView = CreateImageView( myDepthTexture.getImage(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
+    myDepthTexture.myImageView = CreateImageView( myDepthTexture.GetImage(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
-    TransitionImageLayout( myDepthTexture.getImage(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
+    TransitionImageLayout( myDepthTexture.GetImage(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
         vkDestroyImageView( myDevice, myDepthTexture.myImageView, nullptr );
-        vmaDestroyImage( myAllocator, myDepthTexture.getImage(), myDepthTexture.getAlloc() );
+        vmaDestroyImage( myAllocator, myDepthTexture.GetImage(), myDepthTexture.GetAlloc() );
     } );
 }
 
@@ -940,12 +950,12 @@ void Vk_Core::CreateColorResources() {
 
     CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL,
                  VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.myAllocImage );
-    myColorTexture.myImageView = CreateImageView( myColorTexture.getImage(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    myColorTexture.myImageView = CreateImageView( myColorTexture.GetImage(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
         vkDestroyImageView( myDevice, myColorTexture.myImageView, nullptr );
-        vmaDestroyImage( myAllocator, myColorTexture.getImage(), myColorTexture.getAlloc() );
+        vmaDestroyImage( myAllocator, myColorTexture.GetImage(), myColorTexture.GetAlloc() );
     } );
 }
 
@@ -979,6 +989,10 @@ void Vk_Core::InitQueueFamilyIndice() {
 
         i++;
     }
+}
+
+void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects) {
+
 }
 
 #pragma region Functional Functions
@@ -1327,9 +1341,8 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
 
     UniformBufferObject ubo{};
     ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
-    ubo.view  = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-    ubo.proj  = glm::perspective( glm::radians( 45.0f ), mySwapChainExtent.width / ( float )mySwapChainExtent.height, 0.1f, 10.0f );
-    ubo.proj[ 1 ][ 1 ] *= -1;
+    ubo.view  = myCamera.myView;
+    ubo.proj  = myCamera.myProj;
 
     void* data;
     vmaMapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation, &data );
@@ -1602,9 +1615,47 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
 }
 
 void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode ) {
-    if ( aKey == GLFW_KEY_E && anAction == GLFW_PRESS ) {
-        std::cout << "Hey, this is E!" << std::endl;
+    if (anAction == GLFW_PRESS || anAction == GLFW_REPEAT)
+    {
+        switch ( aKey ) {
+        case GLFW_KEY_W:
+            //std::cout << "Moving Forward!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 1.0f, 0.0f ) * SPEED);
+            break;
+        case GLFW_KEY_S:
+            //std::cout << "Moving Backward!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, -1.0f, 0.0f ) * SPEED );
+            break;
+        case GLFW_KEY_A:
+            //std::cout << "Moving Left!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( -1.0f, 0.0f, 0.0f ) * SPEED );
+            break;
+        case GLFW_KEY_D:
+            //std::cout << "Moving Right!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 1.0f, 0.0f, 0.0f ) * SPEED );
+            break;
+        case GLFW_KEY_E:
+            //std::cout << "Moving Up!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, -1.0f ) * SPEED );
+            break;
+        case GLFW_KEY_Q:
+            //std::cout << "Moving Down!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, 1.0f ) * SPEED );
+            break;
+        default:
+            break;
+        }
     }
 }
+
+Material* Vk_Core::CreateMaterial(VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex) {
+    Material mat;
+    mat.myPipeline = aPipeline;
+    mat.myPipelineLayout = aLayout;
+    myMaterialMap[ anIndex ] = mat;
+    return &myMaterialMap[ anIndex ];
+}
+
+
 
 #pragma endregion

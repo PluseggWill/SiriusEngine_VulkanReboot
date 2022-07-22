@@ -2,12 +2,17 @@
 
 #include "Vk_DataStruct.h"
 #include "Vk_Mesh.h"
+#include "Vk_Camera.h"
+#include "Vk_RenderObject.h"
+
+// #include <unordered_map>
 
 const int  MAX_FRAMES_IN_FLIGHT = 2;
 const bool USE_RUNTIME_MIPMAP   = false;
 const bool USE_MANUAL_VERTICES  = false;
-const bool ENABLE_ROTATE        = false;
+const bool ENABLE_ROTATE        = true;
 const bool FILL_MODE_LINE       = false;
+const float SPEED                = 0.3f;
 // const bool ENABLE_MSAA          = false;
 
 class Vk_Core {
@@ -82,12 +87,14 @@ private:
     // Part 4: Prepare for draw frames
     void CreateGraphicsCommandBuffers();
     void CreateSyncObjects();
+    void CreateCamera();
 
     // Draw frame:
     void DrawFrame();
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentImage );
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects );
 
     // Helper functions:
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -106,6 +113,9 @@ private:
     VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures );
     VkFormat                FindDepthFormat();
     VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
+    Material*               CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
+    Material*               GetMaterial( const uint32_t index );
+    Mesh*                   GetMesh( const uint32_t index );
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
     static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
@@ -114,6 +124,11 @@ private:
 public:
     int          myFrameNumber = 0;
     VmaAllocator myAllocator;
+    Camera       myCamera;
+
+    std::unordered_map< uint32_t, Material > myMaterialMap;
+    std::unordered_map< uint32_t, Mesh >     myMeshMap;
+    std::vector< RenderObject >              myRenderObjects;
 
 private:
     DeletionQueue         myDeletionQueue;

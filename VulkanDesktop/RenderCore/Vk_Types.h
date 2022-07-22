@@ -24,11 +24,11 @@ public:
     AllocatedImage myAllocImage;
     VkImageView    myImageView;
 
-    VkImage getImage() {
+    VkImage GetImage() {
         return myAllocImage.myImage;
     }
 
-    VmaAllocation getAlloc() {
+    VmaAllocation GetAlloc() {
         return myAllocImage.myAllocation;
     }
 };

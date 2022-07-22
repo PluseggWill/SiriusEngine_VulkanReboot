@@ -1,6 +1,5 @@
 #pragma once
 #include "Vk_Mesh.h"
-#include "Vk_Texture.h"
 
 struct Material {
     VkPipeline       myPipeline;
@@ -10,5 +9,5 @@ struct Material {
 struct RenderObject {
     Mesh*     myMesh;
     Material* myMaterial;
-    glm::mat4 myTransformMatrix;
+    glm::mat4 myTransform;
 };

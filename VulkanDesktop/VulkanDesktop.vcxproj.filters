@@ -57,6 +57,9 @@
     <ClCompile Include="RenderCore\Vk_RenderObject.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Camera.cpp">
+      <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RenderCore\Vk_Core.h">
@@ -87,6 +90,9 @@
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_RenderObject.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Camera.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
   </ItemGroup>
