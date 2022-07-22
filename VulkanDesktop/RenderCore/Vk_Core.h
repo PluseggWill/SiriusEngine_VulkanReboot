@@ -92,9 +92,9 @@ private:
     // Draw frame:
     void DrawFrame();
     void RecreateSwapChain();
-    void UpdateUniformBuffer( uint32_t aCurrentImage );
+    void UpdateUniformBuffer( uint32_t anImageIndex );
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects );
+    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex );
 
     // Helper functions:
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;

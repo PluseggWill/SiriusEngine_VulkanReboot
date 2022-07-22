@@ -991,8 +991,35 @@ void Vk_Core::InitQueueFamilyIndice() {
     }
 }
 
-void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects) {
+void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex) {
+    Mesh* lastMesh = nullptr;
+    Material* lastMaterial = nullptr;
 
+    for ( auto renderObject = someRenderObjects.begin(); renderObject != someRenderObjects.end(); renderObject++ ) {
+        // Bind pipeline based on the mesh material
+        if (renderObject->myMaterial != lastMaterial) {
+            vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject->myMaterial->myPipeline );
+
+            lastMaterial = renderObject->myMaterial;
+        }
+
+        static auto startTime = std::chrono::high_resolution_clock::now();
+
+        auto  currentTime = std::chrono::high_resolution_clock::now();
+        float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
+
+        UniformBufferObject ubo{};
+        ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
+        ubo.view  = myCamera.myView;
+        ubo.proj  = myCamera.myProj;
+
+        void* data;
+        vmaMapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation, &data );
+        memcpy( data, &ubo, sizeof( ubo ) );
+        vmaUnmapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation );
+        
+        // TODO:
+    }
 }
 
 #pragma region Functional Functions
@@ -1332,7 +1359,7 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
+void Vk_Core::UpdateUniformBuffer( uint32_t anImageIndex ) {
     // Use the chrono lib to make sure the update is based on time instead of time rate
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1345,9 +1372,9 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentImage ) {
     ubo.proj  = myCamera.myProj;
 
     void* data;
-    vmaMapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation, &data );
+    vmaMapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation, &data );
     memcpy( data, &ubo, sizeof( ubo ) );
-    vmaUnmapMemory( myAllocator, myUniformBuffers[ aCurrentImage ].myAllocation );
+    vmaUnmapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation );
 }
 
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
