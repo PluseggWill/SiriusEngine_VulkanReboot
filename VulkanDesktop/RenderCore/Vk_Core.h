@@ -78,8 +78,6 @@ private:
     void CreateTexture();
     void CreateTextureSampler();
     void FillVerticesData();
-    void CreateVertexBuffer();
-    void CreateIndexBuffer();
     void CreateUniformBuffers();
     void CreateDescriptorPool();
     void CreateDescriptorSets();
@@ -115,6 +113,9 @@ private:
     VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
     Material*               CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
     Material*               GetMaterial( const uint32_t index );
+    //Texture*                CreateTexture();
+    Texture*                GetTexutre();
+    Mesh*                   CreateMesh( const std::string& aFilename, const uint32_t anIndex );
     Mesh*                   GetMesh( const uint32_t index );
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
@@ -128,6 +129,7 @@ public:
 
     std::unordered_map< uint32_t, Material > myMaterialMap;
     std::unordered_map< uint32_t, Mesh >     myMeshMap;
+    std::unordered_map< uint32_t, Texture >  myTextureMap;
     std::vector< RenderObject >              myRenderObjects;
 
 private:
@@ -176,5 +178,5 @@ private:
     uint32_t              myCurrentFrame       = 0;
     VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
 
-    Mesh myMesh;
+    //Mesh myMesh;
 };

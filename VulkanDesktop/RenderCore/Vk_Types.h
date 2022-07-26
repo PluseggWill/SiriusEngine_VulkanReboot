@@ -19,16 +19,25 @@ public:
     VmaAllocation myAllocation;
 };
 
-struct Texture {
-public:
+class Texture {
+private:
     AllocatedImage myAllocImage;
     VkImageView    myImageView;
 
-    VkImage GetImage() {
+public:
+    VkImage& Image() {
         return myAllocImage.myImage;
     }
 
-    VmaAllocation GetAlloc() {
+    VmaAllocation& Allocation() {
         return myAllocImage.myAllocation;
+    }
+
+    VkImageView& ImageView() {
+        return myImageView;
+    }
+
+    AllocatedImage& AllocImage() {
+        return myAllocImage;
     }
 };

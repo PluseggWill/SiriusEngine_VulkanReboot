@@ -29,7 +29,8 @@
 std::string vertShaderPath = "Shader/TriangleVertex.spv";
 std::string fragShaderPath = "Shader/TriangleFrag.spv";
 std::string texturePath    = "../Data/Textures/viking_room.png";
-std::string modelPath      = "../Data/Models/viking_room.obj";
+std::string houseModelPath      = "../Data/Models/viking_room.obj";
+std::string monkeyModelPath = "../Data/Models/monkey_smooth.obj";
 
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
@@ -128,9 +129,10 @@ void Vk_Core::InitVulkan() {
     CreateTexture();
     CreateTextureSampler();
 
-    FillVerticesData();
-    CreateVertexBuffer();
-    CreateIndexBuffer();
+    { 
+        CreateMesh( houseModelPath, 0 );
+        CreateMesh( monkeyModelPath, 1 );
+    }
 
     CreateUniformBuffers();
     CreateDescriptorPool();
@@ -522,8 +524,8 @@ void Vk_Core::CreateFrameBuffers() {
 
     for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
         std::array< VkImageView, 3 > attachments = {
-            myColorTexture.myImageView,
-            myDepthTexture.myImageView,
+            myColorTexture.ImageView(),
+            myDepthTexture.ImageView(),
             mySwapChainImageViews[ i ],
         };
 
@@ -674,7 +676,6 @@ void Vk_Core::CreateSyncObjects() {
 
 void Vk_Core::CreateCamera() {
     myCamera.SetLens( 45.0f, 0.1f, 10.0f, mySwapChainExtent.width / ( float )mySwapChainExtent.height );
-    //myCamera.LookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
     myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 }
 
@@ -702,68 +703,21 @@ void Vk_Core::RecreateSwapChain() {
     myCamera.SetAspect( mySwapChainExtent.width / ( float )mySwapChainExtent.height );
 }
 
-void Vk_Core::FillVerticesData() {
-    if ( USE_MANUAL_VERTICES ) {
-        // Fill the data manually
-        myMesh.myVertices = { { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },  { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-                              { { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },    { { -0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+Mesh* Vk_Core::CreateMesh(const std::string& aFilename, const uint32_t anIndex) {
+    Mesh tempMesh;
 
-                              { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }, { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-                              { { 0.5f, 0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },   { { -0.5f, 0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } } };
+    tempMesh.LoadMesh( aFilename );
 
-        myMesh.myIndices = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
-    }
-    else {
-        myMesh.loadMesh( modelPath );
-    }
-}
+    tempMesh.BuildBuffers();
 
-void Vk_Core::CreateVertexBuffer() {
-    const VkDeviceSize bufferSize = sizeof( Vertex ) * myMesh.myVertices.size();
+    myMeshMap[ anIndex ] = tempMesh;
 
-    AllocatedBuffer stagingBuffer;
+    myDeletionQueue.pushFunction( [ = ]() {
+        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myVertexBuffer.myBuffer, myMeshMap[ anIndex ].myVertexBuffer.myAllocation );
+        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myIndexBuffer.myBuffer, myMeshMap[ anIndex ].myIndexBuffer.myAllocation );
+    } );
 
-    // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
-
-    void* data;
-    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
-    memcpy( data, myMesh.myVertices.data(), bufferSize );
-    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
-
-    // The vertex buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myMesh.myVertexBuffer, false );
-
-    CopyBuffer( stagingBuffer.myBuffer, myMesh.myVertexBuffer.myBuffer, bufferSize );
-
-    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myMesh.myVertexBuffer.myBuffer, myMesh.myVertexBuffer.myAllocation ); } );
-}
-
-void Vk_Core::CreateIndexBuffer() {
-    const VkDeviceSize bufferSize = sizeof( uint32_t ) * myMesh.myIndices.size();
-
-    AllocatedBuffer stagingBuffer;
-
-    // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
-
-    void* data;
-    vmaMapMemory( myAllocator, stagingBuffer.myAllocation, &data );
-    memcpy( data, myMesh.myIndices.data(), bufferSize );
-    vmaUnmapMemory( myAllocator, stagingBuffer.myAllocation );
-
-    // The index buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
-    CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myMesh.myIndexBuffer, false );
-
-    CopyBuffer( stagingBuffer.myBuffer, myMesh.myIndexBuffer.myBuffer, bufferSize );
-
-    vmaDestroyBuffer( myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myMesh.myIndexBuffer.myBuffer, myMesh.myIndexBuffer.myAllocation ); } );
+    return &myMeshMap[ anIndex ];
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
@@ -857,7 +811,7 @@ void Vk_Core::CreateDescriptorSets() {
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView   = myTexture.myImageView;
+        imageInfo.imageView   = myTexture.ImageView();
         imageInfo.sampler     = myTextureSampler;
 
         std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
@@ -890,12 +844,12 @@ void Vk_Core::CreateTexture() {
     {
         throw std::runtime_error( "failed to load texture!" );
     }
-    myTexture.myImageView = CreateImageView( myTexture.GetImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
+    myTexture.ImageView() = CreateImageView( myTexture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
 
     // Deletion Queue
     myDeletionQueue.pushFunction( [ = ]() { 
-        vmaDestroyImage( myAllocator, myTexture.GetImage(), myTexture.GetAlloc() );
-        vkDestroyImageView( myDevice, myTexture.myImageView, nullptr );
+        vmaDestroyImage( myAllocator, myTexture.Image(), myTexture.Allocation() );
+        vkDestroyImageView( myDevice, myTexture.ImageView(), nullptr );
     } );
 }
 
@@ -933,15 +887,15 @@ void Vk_Core::CreateDepthResources() {
     const VkFormat depthFormat = FindDepthFormat();
 
     CreateImage( mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthTexture.myAllocImage );
-    myDepthTexture.myImageView = CreateImageView( myDepthTexture.GetImage(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
+                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthTexture.AllocImage() );
+    myDepthTexture.ImageView() = CreateImageView( myDepthTexture.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
-    TransitionImageLayout( myDepthTexture.GetImage(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
+    TransitionImageLayout( myDepthTexture.Image(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyImageView( myDevice, myDepthTexture.myImageView, nullptr );
-        vmaDestroyImage( myAllocator, myDepthTexture.GetImage(), myDepthTexture.GetAlloc() );
+        vkDestroyImageView( myDevice, myDepthTexture.ImageView(), nullptr );
+        vmaDestroyImage( myAllocator, myDepthTexture.Image(), myDepthTexture.Allocation() );
     } );
 }
 
@@ -949,13 +903,13 @@ void Vk_Core::CreateColorResources() {
     const VkFormat colorFormat = mySwapChainImageFormat;
 
     CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL,
-                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.myAllocImage );
-    myColorTexture.myImageView = CreateImageView( myColorTexture.GetImage(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.AllocImage() );
+    myColorTexture.ImageView() = CreateImageView( myColorTexture.Image(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        vkDestroyImageView( myDevice, myColorTexture.myImageView, nullptr );
-        vmaDestroyImage( myAllocator, myColorTexture.GetImage(), myColorTexture.GetAlloc() );
+        vkDestroyImageView( myDevice, myColorTexture.ImageView(), nullptr );
+        vmaDestroyImage( myAllocator, myColorTexture.Image(), myColorTexture.Allocation() );
     } );
 }
 
@@ -1276,13 +1230,13 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
-    VkBuffer     vertexBuffers[] = { myMesh.myVertexBuffer.myBuffer };
+    VkBuffer     vertexBuffers[] = { myMeshMap[0].myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };
     vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
-    vkCmdBindIndexBuffer( commandBuffer, myMesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+    vkCmdBindIndexBuffer( commandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
     vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myDescriptorSets[ myCurrentFrame ], 0, nullptr );
-    vkCmdDrawIndexed( commandBuffer, static_cast< uint32_t >( myMesh.myIndices.size() ), 1, 0, 0, 0 );
+    vkCmdDrawIndexed( commandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( commandBuffer );
 
@@ -1520,7 +1474,7 @@ VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImage
 
     VkImageView imageView;
     if ( vkCreateImageView( myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create texture image view!" );
+        throw std::runtime_error( "failed to create image view!" );
     }
 
     return imageView;
@@ -1677,12 +1631,32 @@ void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode,
 
 Material* Vk_Core::CreateMaterial(VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex) {
     Material mat;
+
     mat.myPipeline = aPipeline;
     mat.myPipelineLayout = aLayout;
     myMaterialMap[ anIndex ] = mat;
+
     return &myMaterialMap[ anIndex ];
 }
 
+Material* Vk_Core::GetMaterial(const uint32_t anIndex) {
+    auto it = myMaterialMap.find( anIndex );
+    if (it == myMaterialMap.end()) {
+        return nullptr;
+    }
+    else {
+        return &( *it ).second;
+    }
+}
 
+Mesh* Vk_Core::GetMesh(const uint32_t anIndex) {
+    auto it = myMeshMap.find( anIndex );
+    if (it == myMeshMap.end()) {
+        return nullptr;
+    }
+    else {
+        return &( *it ).second;
+    }
+}
 
 #pragma endregion
