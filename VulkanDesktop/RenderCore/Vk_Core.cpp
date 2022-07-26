@@ -116,10 +116,12 @@ void Vk_Core::InitVulkan() {
     // Part 2: Swap Chain
     CreateSwapChain();
     CreateRenderPass();
-
     CreateDescriptorSetLayout();
-
     CreateGfxPipeline();
+
+    // TODO: Remove this
+    CreateMaterial( myBasicPipeline, myPipelineLayout, 0 );
+
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();

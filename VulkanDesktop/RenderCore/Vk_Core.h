@@ -86,6 +86,7 @@ private:
     void CreateGraphicsCommandBuffers();
     void CreateSyncObjects();
     void CreateCamera();
+    void InitScene();
 
     // Draw frame:
     void DrawFrame();

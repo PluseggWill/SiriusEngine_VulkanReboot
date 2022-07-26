@@ -6,6 +6,10 @@ struct Material {
     VkPipelineLayout myPipelineLayout;
 };
 
+struct ModelMatrix {
+    glm::mat4 model;
+};
+
 struct RenderObject {
     Mesh*     myMesh;
     Material* myMaterial;
