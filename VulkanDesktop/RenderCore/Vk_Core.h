@@ -4,6 +4,7 @@
 #include "Vk_Mesh.h"
 #include "Vk_Camera.h"
 #include "Vk_RenderObject.h"
+#include "Vk_FrameData.h"
 
 // #include <unordered_map>
 
@@ -77,19 +78,19 @@ private:
     // Part 3: Resources
     void CreateTexture();
     void CreateTextureSampler();
-    void FillVerticesData();
-    void CreateUniformBuffers();
     void CreateDescriptorPool();
     void CreateDescriptorSets();
 
     // Part 4: Prepare for draw frames
+    void CreateFrameData();
+    void CreateUniformBuffers();
     void CreateGraphicsCommandBuffers();
     void CreateSyncObjects();
     void CreateCamera();
     void InitScene();
 
     // Draw frame:
-    void DrawFrame();
+    void DrawFrame(const FrameData aFrameData);
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t anImageIndex );
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
@@ -162,12 +163,14 @@ private:
     VkSampler             myTextureSampler;
     QueueFamilyIndices    myQueueFamilyIndices;
 
-    std::vector< VkDescriptorSet > myDescriptorSets;
+    /*std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< AllocatedBuffer > myUniformBuffers;
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
     std::vector< VkSemaphore >     myImageAvailableSemaphores;
     std::vector< VkSemaphore >     myRenderFinishedSemaphores;
-    std::vector< VkFence >         myInFlightFences;
+    std::vector< VkFence >         myInFlightFences;*/
+
+    std::vector< FrameData >       myFrameDatas;
     std::vector< const char* >     myValidationLayers;
     std::vector< const char* >     myDeviceExtensions;
     std::vector< VkImage >         mySwapChainImages;

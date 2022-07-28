@@ -73,7 +73,9 @@ void Vk_Core::MainLoop() {
         // Process the events that have already been received and then returns immediately
         glfwPollEvents();
 
-        DrawFrame();
+        DrawFrame( myFrameDatas[myCurrentFrame] );
+        myFrameNumber++;
+        myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
     }
 
     // Make sure the GPU has stopped doing things.
@@ -125,24 +127,23 @@ void Vk_Core::InitVulkan() {
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
-    CreateCamera();
 
     // Part 3: Resources
     CreateTexture();
     CreateTextureSampler();
-
     { 
         CreateMesh( houseModelPath, 0 );
         CreateMesh( monkeyModelPath, 1 );
     }
-
-    CreateUniformBuffers();
     CreateDescriptorPool();
     CreateDescriptorSets();
 
     // Part 4: Prepare for draw frames
+    CreateFrameData();
+    CreateUniformBuffers();
     CreateGraphicsCommandBuffers();
     CreateSyncObjects();
+    CreateCamera();
 }
 
 void Vk_Core::CreateInstance() {
@@ -553,6 +554,49 @@ void Vk_Core::CreateFrameBuffers() {
     } );
 }
 
+void Vk_Core::CreateFrameData() {
+    myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        // Step #1: Create Command Buffers
+        const VkCommandBufferAllocateInfo allocInfo =
+            VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
+
+        if ( vkAllocateCommandBuffers( myDevice, &allocInfo, &myFrameDatas[i].myCommandBuffer ) != VK_SUCCESS ) {
+            throw std::runtime_error( "failed to allocate command buffers!" );
+        }
+
+        // Step #2: Create Camera Buffers
+        VkDeviceSize bufferSize = sizeof( UniformBufferObject );
+
+        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+            CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
+        }
+
+        // Step #3: Create SyncObjects
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        if ( vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myFrameDatas[ i ].myPresentSemaphore ) != VK_SUCCESS
+             || vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myFrameDatas[ i ].myRenderSemaphore ) != VK_SUCCESS
+             || vkCreateFence( myDevice, &fenceInfo, nullptr, &myFrameDatas[ i ].myRenderFence ) != VK_SUCCESS ) {
+            throw std::runtime_error( "failed to create semaphores/fence!" );
+        }
+
+        // Deletion Queue
+        myDeletionQueue.pushFunction( [ = ]() {
+            vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myCameraBuffer.myBuffer, myFrameDatas[ i ].myCameraBuffer.myAllocation );
+            vkDestroySemaphore( myDevice, myFrameDatas[ i ].myPresentSemaphore, nullptr );
+            vkDestroySemaphore( myDevice, myFrameDatas[ i ].myRenderSemaphore, nullptr );
+            vkDestroyFence( myDevice, myFrameDatas[ i ].myRenderFence, nullptr );
+        } );
+    }
+}
+
 void Vk_Core::CreateCommandPool() {
 
     // Graphic queue command pool
@@ -569,22 +613,12 @@ void Vk_Core::CreateCommandPool() {
     }
 }
 
-void Vk_Core::CreateGraphicsCommandBuffers() {
-    myGraphicsCommandBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-    const VkCommandBufferAllocateInfo allocInfo =
-        VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, ( uint32_t )myGraphicsCommandBuffers.size(), VK_COMMAND_BUFFER_LEVEL_PRIMARY );
-
-    if ( vkAllocateCommandBuffers( myDevice, &allocInfo, myGraphicsCommandBuffers.data() ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to allocate command buffers!" );
-    }
-}
-
-void Vk_Core::DrawFrame() {
-    vkWaitForFences( myDevice, 1, &myInFlightFences[ myCurrentFrame ], VK_TRUE, UINT64_MAX );
+void Vk_Core::DrawFrame(const FrameData aFrameData) {
+    vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
 
     uint32_t imageIndex;
-    // Once the image is available for the next frame, myImageAvailableSemaphore will be signaled and ready to be acquired
-    VkResult result = vkAcquireNextImageKHR( myDevice, mySwapChain, UINT64_MAX, myImageAvailableSemaphores[ myCurrentFrame ], VK_NULL_HANDLE, &imageIndex );
+    // Once the image is available for the next frame, myPresentSemaphore will be signaled and ready to be acquired
+    VkResult result = vkAcquireNextImageKHR( myDevice, mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &imageIndex );
 
     if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
         // Swap chain incompatible, recreate the swap chain
@@ -595,30 +629,31 @@ void Vk_Core::DrawFrame() {
         throw std::runtime_error( "failed to acquire swap chain image!" );
     }
 
+    // TODO: make the parameters only access the frame data
     UpdateUniformBuffer( myCurrentFrame );
 
     // Only reset the fence if we are submitting work
-    vkResetFences( myDevice, 1, &myInFlightFences[ myCurrentFrame ] );
+    vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
 
-    vkResetCommandBuffer( myGraphicsCommandBuffers[ myCurrentFrame ], 0 );
-    RecordCommandBuffer( myGraphicsCommandBuffers[ myCurrentFrame ], imageIndex );
+    vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
+    RecordCommandBuffer( aFrameData.myCommandBuffer, imageIndex );
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore          waitSemaphore[] = { myImageAvailableSemaphores[ myCurrentFrame ] };
+    VkSemaphore          waitSemaphore[] = {aFrameData.myPresentSemaphore };
     VkPipelineStageFlags waitStages[]    = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount        = 1;
     submitInfo.pWaitSemaphores           = waitSemaphore;
     submitInfo.pWaitDstStageMask         = waitStages;
     submitInfo.commandBufferCount        = 1;
-    submitInfo.pCommandBuffers           = &myGraphicsCommandBuffers[ myCurrentFrame ];
+    submitInfo.pCommandBuffers           = &aFrameData.myCommandBuffer;
 
-    VkSemaphore signalSemaphores[]  = { myRenderFinishedSemaphores[ myCurrentFrame ] };
+    VkSemaphore signalSemaphores[]  = { aFrameData.myRenderSemaphore };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = signalSemaphores;
 
-    if ( vkQueueSubmit( myGraphicsQueue, 1, &submitInfo, myInFlightFences[ myCurrentFrame ] ) != VK_SUCCESS ) {
+    if ( vkQueueSubmit( myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to submit draw command buffer!" );
     }
 
@@ -642,38 +677,7 @@ void Vk_Core::DrawFrame() {
         throw std::runtime_error( "failed to present swap chain image!" );
     }
 
-    myFrameNumber++;
-    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
-}
-
-void Vk_Core::CreateSyncObjects() {
-    myImageAvailableSemaphores.resize( MAX_FRAMES_IN_FLIGHT );
-    myRenderFinishedSemaphores.resize( MAX_FRAMES_IN_FLIGHT );
-    myInFlightFences.resize( MAX_FRAMES_IN_FLIGHT );
-
-    VkSemaphoreCreateInfo semaphoreInfo{};
-    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        if ( vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myImageAvailableSemaphores[ i ] ) != VK_SUCCESS
-             || vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myRenderFinishedSemaphores[ i ] ) != VK_SUCCESS
-             || vkCreateFence( myDevice, &fenceInfo, nullptr, &myInFlightFences[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "failed to create semaphores/fence!" );
-        }
-    }
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-            vkDestroySemaphore( myDevice, myImageAvailableSemaphores[ i ], nullptr );
-            vkDestroySemaphore( myDevice, myRenderFinishedSemaphores[ i ], nullptr );
-            vkDestroyFence( myDevice, myInFlightFences[ i ], nullptr );
-        }
-    } );
+    
 }
 
 void Vk_Core::CreateCamera() {
@@ -749,23 +753,6 @@ void Vk_Core::CreateDescriptorSetLayout() {
     }
 
     myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myDescriptorSetLayout, nullptr ); } );
-}
-
-void Vk_Core::CreateUniformBuffers() {
-    VkDeviceSize bufferSize = sizeof( UniformBufferObject );
-
-    myUniformBuffers.resize( MAX_FRAMES_IN_FLIGHT );
-
-    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myUniformBuffers[ i ], true );
-    }
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-            vmaDestroyBuffer( myAllocator, myUniformBuffers[ i ].myBuffer, myUniformBuffers[ i ].myAllocation );
-        }
-    } );
 }
 
 void Vk_Core::CreateDescriptorPool() {
@@ -968,11 +955,6 @@ void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObj
         ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
         ubo.view  = myCamera.myView;
         ubo.proj  = myCamera.myProj;
-
-        void* data;
-        vmaMapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation, &data );
-        memcpy( data, &ubo, sizeof( ubo ) );
-        vmaUnmapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation );
         
         // TODO:
     }
@@ -1208,9 +1190,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
 
-    VkCommandBuffer commandBuffer = myGraphicsCommandBuffers[ myCurrentFrame ];
-
-    if ( vkBeginCommandBuffer( commandBuffer, &beginInfo ) != VK_SUCCESS ) {
+    if ( vkBeginCommandBuffer( aCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
@@ -1228,21 +1208,21 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     renderPassInfo.clearValueCount = static_cast< uint32_t >( clearValues.size() );
     renderPassInfo.pClearValues    = clearValues.data();
 
-    vkCmdBeginRenderPass( commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+    vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    vkCmdBindPipeline( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
     VkBuffer     vertexBuffers[] = { myMeshMap[0].myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };
-    vkCmdBindVertexBuffers( commandBuffer, 0, 1, vertexBuffers, offsets );
-    vkCmdBindIndexBuffer( commandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+    vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
+    vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-    vkCmdBindDescriptorSets( commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myDescriptorSets[ myCurrentFrame ], 0, nullptr );
-    vkCmdDrawIndexed( commandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myDescriptorSets[ myCurrentFrame ], 0, nullptr );
+    vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
-    vkCmdEndRenderPass( commandBuffer );
+    vkCmdEndRenderPass( aCommandBuffer );
 
-    if ( vkEndCommandBuffer( commandBuffer ) != VK_SUCCESS ) {
+    if ( vkEndCommandBuffer( aCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
     }
 }
@@ -1328,9 +1308,9 @@ void Vk_Core::UpdateUniformBuffer( uint32_t anImageIndex ) {
     ubo.proj  = myCamera.myProj;
 
     void* data;
-    vmaMapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation, &data );
+    vmaMapMemory( myAllocator, myFrameDatas[ anImageIndex ].myCameraBuffer.myAllocation, &data );
     memcpy( data, &ubo, sizeof( ubo ) );
-    vmaUnmapMemory( myAllocator, myUniformBuffers[ anImageIndex ].myAllocation );
+    vmaUnmapMemory( myAllocator, myFrameDatas[ anImageIndex ].myCameraBuffer.myAllocation );
 }
 
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
