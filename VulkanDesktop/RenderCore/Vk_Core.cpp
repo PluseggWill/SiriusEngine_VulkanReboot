@@ -211,6 +211,8 @@ void Vk_Core::PickPhysicalDevice() {
 
     if ( myPhysicalDevice == VK_NULL_HANDLE )
         throw std::runtime_error( "failed to find a suitable GPU!" );
+
+    vkGetPhysicalDeviceProperties( myPhysicalDevice, &myPhysicalDeviceProperties );
 }
 
 void Vk_Core::CreateLogicalDevice() {
@@ -726,20 +728,80 @@ Mesh* Vk_Core::CreateMesh(const std::string& aFilename, const uint32_t anIndex) 
     return &myMeshMap[ anIndex ];
 }
 
-void Vk_Core::CreateDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding            = 0;
-    uboLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount    = 1;
-    uboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+void Vk_Core::CreateDescriptorSetLayoutNew() {
+    // Step #1: Create a descriptor pool that will hold 10 uniform buffers
+    std::vector< VkDescriptorPoolSize > poolSizes = { { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
+                                                      { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10 },
+                                                      { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10 },
+                                                      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10 } };
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding            = 1;
-    samplerLayoutBinding.descriptorCount    = 1;
-    samplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    poolInfo.pPoolSizes    = poolSizes.data();
+    poolInfo.maxSets       = 10;
+
+    if ( vkCreateDescriptorPool( myDevice, &poolInfo, nullptr, &myDescriptorPool ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create descriptor pool!" );
+    }
+
+    // Step #2: Create the global set layout
+    VkDescriptorSetLayoutBinding cameraBinding = VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+    VkDescriptorSetLayoutBinding sceneBinding =
+        VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1 );
+
+    std::array< VkDescriptorSetLayoutBinding, 2 > globalBindings = { cameraBinding, sceneBinding };
+
+    VkDescriptorSetLayoutCreateInfo globalSetInfo{};
+    globalSetInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    globalSetInfo.bindingCount = static_cast< uint32_t >( globalBindings.size() );
+    globalSetInfo.pBindings    = globalBindings.data();
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &globalSetInfo, nullptr, &myGlobalSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create global descriptor set layout!" );
+    }
+
+    // Step #3: Create the object set layout
+    VkDescriptorSetLayoutBinding objectBinding = VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+
+    VkDescriptorSetLayoutCreateInfo objectSetInfo{};
+    objectSetInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    objectSetInfo.bindingCount = 1;
+    objectSetInfo.pBindings    = &objectBinding;
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &objectSetInfo, nullptr, &myObjectSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create object descriptor set layout!" );
+    }
+
+    // Step #4: Create the texture set layout;
+    VkDescriptorSetLayoutBinding textureBinding = VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 );
+
+    VkDescriptorSetLayoutCreateInfo textureSetInfo{};
+    textureSetInfo.sType       = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    textureSetInfo.bindingCount = 1;
+    textureSetInfo.pBindings    = &textureBinding;
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &objectSetInfo, nullptr, &myObjectSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create object descriptor set layout!" );
+    }
+
+    // Step #5: Allocate & configure the descriptors
+    const size_t sceneDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GPUSceneData ) );
+
+    CreateBuffer( sceneDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myGPUSceneBuffer, true );
+
+    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+        
+    }
+}
+
+void Vk_Core::CreateDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding cameraBinding = VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0 );
+
+    VkDescriptorSetLayoutBinding sceneBinding =
+        VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1 );
+
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = VkInit::DescriptorSetLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 );
 
     std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, samplerLayoutBinding };
 
@@ -851,10 +913,7 @@ void Vk_Core::CreateTextureSampler() {
     samplerInfo.addressModeV     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.anisotropyEnable = VK_TRUE;
-
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties( myPhysicalDevice, &properties );
-    samplerInfo.maxAnisotropy           = properties.limits.maxSamplerAnisotropy;
+    samplerInfo.maxAnisotropy           = myPhysicalDeviceProperties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.compareEnable           = VK_FALSE;
@@ -1117,6 +1176,18 @@ bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     }
 
     return requiredExtensions.empty();
+}
+
+size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
+    // Calculate required alignment based on minimum device offset alignment
+    size_t minUboAlignment = myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+    size_t alignedSize   = anOriginalSize;
+
+    if (minUboAlignment > 0) {
+        alignedSize = ( alignedSize + minUboAlignment - 1 ) & ~( minUboAlignment - 1 );
+    }
+
+    return alignedSize;
 }
 
 VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) {
@@ -1557,10 +1628,7 @@ void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aT
 }
 
 VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
-    VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties( myPhysicalDevice, &physicalDeviceProperties );
-
-    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    VkSampleCountFlags counts = myPhysicalDeviceProperties.limits.framebufferColorSampleCounts & myPhysicalDeviceProperties.limits.framebufferDepthSampleCounts;
     if ( counts & VK_SAMPLE_COUNT_64_BIT )
         return VK_SAMPLE_COUNT_64_BIT;
     if ( counts & VK_SAMPLE_COUNT_32_BIT )

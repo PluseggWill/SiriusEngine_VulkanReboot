@@ -28,3 +28,8 @@ public:
     float     myFar;
     float     myAspect;
 };
+
+struct GPUCameraData {
+    glm::mat4 view;
+    glm::mat4 proj;
+};
