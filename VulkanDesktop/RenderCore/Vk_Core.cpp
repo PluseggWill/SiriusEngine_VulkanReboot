@@ -790,8 +790,50 @@ void Vk_Core::CreateDescriptorSetLayoutNew() {
 
     CreateBuffer( sceneDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myGPUSceneBuffer, true );
 
-    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        
+    for ( FrameData frameData : myFrameDatas) {
+        // Create camera buffer & object buffer
+        CreateBuffer( sizeof( GPUCameraData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, frameData.myCameraBuffer, true );
+
+        CreateBuffer( sizeof( GPUObjectData ) * MAX_OBJECT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, frameData.myObjectBuffer, true );
+
+        // Allocate the global descriptor sets
+        VkDescriptorSetAllocateInfo globalAllocInfo{};
+
+        globalAllocInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        globalAllocInfo.descriptorPool = myDescriptorPool;
+        globalAllocInfo.descriptorSetCount = 1;
+        globalAllocInfo.pSetLayouts        = &myGlobalSetLayout;
+
+        vkAllocateDescriptorSets( myDevice, &globalAllocInfo, &frameData.myGlobalDescriptor );
+
+        // Allocate the object descriptor sets
+        VkDescriptorSetAllocateInfo objectAllocInfo{};
+
+        objectAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        objectAllocInfo.descriptorPool     = myDescriptorPool;
+        objectAllocInfo.descriptorSetCount = 1;
+        objectAllocInfo.pSetLayouts        = &myObjectSetLayout;
+
+        vkAllocateDescriptorSets( myDevice, &globalAllocInfo, &frameData.myObjectDescriptor );
+
+        // Write descriptor sets
+        VkDescriptorBufferInfo cameraInfo;
+        cameraInfo.buffer = frameData.myCameraBuffer.myBuffer;
+        cameraInfo.offset = 0;
+        cameraInfo.range  = sizeof( GPUCameraData );
+
+        VkDescriptorBufferInfo sceneInfo;
+        sceneInfo.buffer = frameData.myCameraBuffer.myBuffer;
+        sceneInfo.offset = 0;
+        sceneInfo.range  = sizeof( GPUSceneData );
+
+        VkDescriptorBufferInfo objectBufferInfo;
+        objectBufferInfo.buffer = frameData.myObjectBuffer.myBuffer;
+        objectBufferInfo.offset = 0;
+        objectBufferInfo.range  = sizeof( GPUObjectData ) * MAX_OBJECT;
+
+        VkWriteDescriptorSet cameraWrite = VkInit::WriteDescriptorBuffer( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, frameData.myGlobalDescriptor, &cameraInfo, 0 );
+        VkWriteDescriptorSet sceneWrite  = VkInit::WriteDescriptorBuffer( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, frameData.myGlobalDescriptor, &sceneInfo, 1 );
     }
 }
 
