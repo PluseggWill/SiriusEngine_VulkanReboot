@@ -10,7 +10,6 @@
 // #include <unordered_map>
 
 const int  MAX_FRAMES_IN_FLIGHT = 2;
-const int   MAX_OBJECT           = 10000;
 const bool USE_RUNTIME_MIPMAP   = false;
 const bool USE_MANUAL_VERTICES  = false;
 const bool ENABLE_ROTATE        = true;

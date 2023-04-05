@@ -6,7 +6,7 @@ struct Material {
     VkPipelineLayout myPipelineLayout;
 };
 
-struct GPUObjectData {
+struct ModelMatrix {
     glm::mat4 model;
 };
 
