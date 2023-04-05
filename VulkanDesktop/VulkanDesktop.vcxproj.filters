@@ -28,6 +28,12 @@
     <Filter Include="Source Files\Util">
       <UniqueIdentifier>{2d2dcfeb-41a5-473d-8ceb-6eca9493bd86}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Graphics">
+      <UniqueIdentifier>{3e16dee1-3f55-41d2-b772-50023f054904}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Graphics">
+      <UniqueIdentifier>{92e91a3a-d353-4e2b-9138-555fe966ce78}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp">
@@ -48,17 +54,14 @@
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Mesh.cpp">
-      <Filter>Source Files\RenderCore</Filter>
-    </ClCompile>
     <ClCompile Include="RenderCore\Vk_Types.cpp">
-      <Filter>Source Files\RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_RenderObject.cpp">
       <Filter>Source Files\RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Camera.cpp">
       <Filter>Source Files\RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Gfx_ViewData.cpp">
+      <Filter>Source Files\Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -80,22 +83,22 @@
     <ClInclude Include="RenderCore\Vk_Pipeline.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Mesh.h">
-      <Filter>Header Files\RenderCore</Filter>
-    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Types.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Texture.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_RenderObject.h">
-      <Filter>Header Files\RenderCore</Filter>
-    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Camera.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameData.h">
+      <Filter>Header Files\RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Gfx_ViewData.h">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Enum.h">
       <Filter>Header Files\RenderCore</Filter>
     </ClInclude>
   </ItemGroup>
@@ -107,6 +110,9 @@
       <Filter>Source Files\Shader</Filter>
     </None>
     <None Include="Shader\CompileShader.bat">
+      <Filter>Source Files\Shader</Filter>
+    </None>
+    <None Include="Shader\TriangleFrag_Lit.frag">
       <Filter>Source Files\Shader</Filter>
     </None>
   </ItemGroup>

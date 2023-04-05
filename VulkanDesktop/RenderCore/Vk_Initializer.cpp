@@ -56,8 +56,9 @@ VkViewport VkInit::ViewportCreateInfo( VkExtent2D aSwapchainExtent ) {
     return viewport;
 }
 
-VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo( VkPolygonMode aPolyMode /*= VK_POLYGON_MODE_FILL*/, VkCullModeFlags aCullMode /*= VK_CULL_MODE_BACK_BIT*/,
-                                                                                 VkFrontFace aFrontFace /*= VK_FRONT_FACE_COUNTER_CLOCKWISE*/ ) {
+VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo( VkPolygonMode   aPolyMode /*= VK_POLYGON_MODE_FILL*/,
+                                                                                 VkCullModeFlags aCullMode /*= VK_CULL_MODE_BACK_BIT*/,
+                                                                                 VkFrontFace     aFrontFace /*= VK_FRONT_FACE_COUNTER_CLOCKWISE*/ ) {
     VkPipelineRasterizationStateCreateInfo rasterizer{};
 
     rasterizer.sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -176,7 +177,8 @@ VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyInde
     return poolInfo;
 }
 
-VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool, uint32_t aCount /*= 1*/, VkCommandBufferLevel aBufferLevel /*= VK_COMMAND_BUFFER_LEVEL_PRIMARY*/ ) {
+VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool, uint32_t aCount /*= 1*/,
+                                                            VkCommandBufferLevel aBufferLevel /*= VK_COMMAND_BUFFER_LEVEL_PRIMARY*/ ) {
     VkCommandBufferAllocateInfo allocInfo{};
 
     allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -198,7 +200,7 @@ VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFla
     return beginInfo;
 }
 
-VkImageCreateInfo VkInit::ImageCreateInfo(VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent) {
+VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent ) {
     VkImageCreateInfo imageInfo{};
 
     imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -218,7 +220,7 @@ VkImageCreateInfo VkInit::ImageCreateInfo(VkFormat aFormat, VkImageUsageFlags aU
     return imageInfo;
 }
 
-VkImageViewCreateInfo VkInit::ImageViewCreateInfo(VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel) {
+VkImageViewCreateInfo VkInit::ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel ) {
     VkImageViewCreateInfo viewInfo{};
 
     viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -232,4 +234,52 @@ VkImageViewCreateInfo VkInit::ImageViewCreateInfo(VkFormat aFormat, VkImage anIm
     viewInfo.subresourceRange.layerCount     = 1;
 
     return viewInfo;
+}
+
+VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding,
+                                                           uint32_t aCount ) {
+    VkWriteDescriptorSet descriptorWrite;
+
+    descriptorWrite.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet           = aDstSet;
+    descriptorWrite.dstBinding       = aBinding;
+    descriptorWrite.dstArrayElement  = 0;
+    descriptorWrite.descriptorType   = aType;
+    descriptorWrite.descriptorCount  = aCount;
+    descriptorWrite.pBufferInfo      = nullptr;
+    descriptorWrite.pImageInfo       = aImageInfo;
+    descriptorWrite.pTexelBufferView = nullptr;
+    descriptorWrite.pNext            = nullptr;
+
+    return descriptorWrite;
+}
+
+VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorBufferInfo* aBufferInfo, uint32_t aBinding,
+                                                           uint32_t aCount ) {
+    VkWriteDescriptorSet descriptorWrite;
+
+    descriptorWrite.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet           = aDstSet;
+    descriptorWrite.dstBinding       = aBinding;
+    descriptorWrite.dstArrayElement  = 0;
+    descriptorWrite.descriptorType   = aType;
+    descriptorWrite.descriptorCount  = aCount;
+    descriptorWrite.pBufferInfo      = aBufferInfo;
+    descriptorWrite.pImageInfo       = nullptr;
+    descriptorWrite.pTexelBufferView = nullptr;
+    descriptorWrite.pNext            = nullptr;
+
+    return descriptorWrite;
+}
+
+VkDescriptorSetLayoutBinding VkInit::DescriptorSetLayoutBindingCreateInfo( VkDescriptorType aType, VkShaderStageFlags someStageFlags, uint32_t aBinding ) {
+    VkDescriptorSetLayoutBinding setBind;
+
+    setBind.binding            = aBinding;
+    setBind.descriptorCount    = 1;
+    setBind.descriptorType     = aType;
+    setBind.pImmutableSamplers = nullptr;
+    setBind.stageFlags         = someStageFlags;
+
+    return setBind;
 }

@@ -3,7 +3,8 @@
 #include <functional>
 #include <optional>
 
-#include "Vk_Types.h"
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 
 struct QueueFamilyIndices {
     std::optional< uint32_t > myGraphicsFamily;
@@ -20,16 +21,6 @@ struct SwapChainSupportDetails {
     std::vector< VkSurfaceFormatKHR > myFormats;
     std::vector< VkPresentModeKHR >   myPresentModes;
 };
-
-// Keep in mind that Vulkan expects the data to be aligned, see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout for more details
-struct UniformBufferObject {
-    alignas( 16 ) glm::vec2 test;
-    alignas( 16 ) glm::mat4 model;
-    alignas( 16 ) glm::mat4 view;
-    alignas( 16 ) glm::mat4 proj;
-};
-
-// TODO: Instance rendering
 
 struct DeletionQueue {
     std::deque< std::function< void() > > myDeletors;
