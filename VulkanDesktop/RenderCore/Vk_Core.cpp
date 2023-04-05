@@ -2,6 +2,7 @@
 #include "../Util/Util_Loader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_Types.h"
 
 #include <algorithm>
 #include <array>
@@ -26,11 +27,12 @@
 #include <vk_mem_alloc.h>
 #endif
 
-std::string vertShaderPath = "Shader/TriangleVertex.spv";
-std::string fragShaderPath = "Shader/TriangleFrag.spv";
-std::string texturePath    = "../Data/Textures/viking_room.png";
-std::string houseModelPath      = "../Data/Models/viking_room.obj";
-std::string monkeyModelPath = "../Data/Models/monkey_smooth.obj";
+std::string vertShaderPath    = "Shader/TriangleVertex.spv";
+std::string fragShaderPath    = "Shader/TriangleFrag.spv";
+std::string fragLitShaderPath = "Shader/TriangleFrag_Lit.spv";
+std::string texturePath       = "../Data/Textures/viking_room.png";
+std::string houseModelPath    = "../Data/Models/viking_room.obj";
+std::string monkeyModelPath   = "../Data/Models/monkey_smooth.obj";
 
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
@@ -73,7 +75,7 @@ void Vk_Core::MainLoop() {
         // Process the events that have already been received and then returns immediately
         glfwPollEvents();
 
-        DrawFrame( myFrameDatas[myCurrentFrame] );
+        DrawFrame( myFrameDatas[ myCurrentFrame ] );
         myFrameNumber++;
         myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
     }
@@ -128,21 +130,17 @@ void Vk_Core::InitVulkan() {
     CreateDepthResources();
     CreateFrameBuffers();
 
-    // Part 3: Resources
-    CreateTexture();
+    // Part 3: Prepare for draw frames resources
+    CreateTexture( texturePath, 0 );
     CreateTextureSampler();
-    { 
+    {
         CreateMesh( houseModelPath, 0 );
         CreateMesh( monkeyModelPath, 1 );
     }
-    CreateDescriptorPool();
-    CreateDescriptorSets();
-
-    // Part 4: Prepare for draw frames
     CreateFrameData();
     CreateUniformBuffers();
-    CreateGraphicsCommandBuffers();
-    CreateSyncObjects();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
     CreateCamera();
 }
 
@@ -160,15 +158,12 @@ void Vk_Core::CreateInstance() {
     appInfo.engineVersion      = VK_MAKE_API_VERSION( 0, 1, 0, 0 );
     appInfo.apiVersion         = VK_API_VERSION_1_0;
 
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-
     uint32_t     glfwExtensionCount = 0;
-    const char** glfwExtensions;
+    const char** glfwExtensions     = glfwGetRequiredInstanceExtensions( &glfwExtensionCount );
 
-    glfwExtensions = glfwGetRequiredInstanceExtensions( &glfwExtensionCount );
-
+    VkInstanceCreateInfo createInfo{};
+    createInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pApplicationInfo        = &appInfo;
     createInfo.enabledExtensionCount   = glfwExtensionCount;
     createInfo.ppEnabledExtensionNames = glfwExtensions;
 
@@ -347,9 +342,8 @@ void Vk_Core::CreateSwapChain() {
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
-            vkDestroyImageView( myDevice, mySwapChainImageViews[ i ], nullptr );
-        }
+        for ( VkImageView imageView : mySwapChainImageViews )
+            vkDestroyImageView( myDevice, imageView, nullptr );
 
         vkDestroySwapchainKHR( myDevice, mySwapChain, nullptr );
     } );
@@ -358,7 +352,8 @@ void Vk_Core::CreateSwapChain() {
 void Vk_Core::CreateGfxPipeline() {
     // Step #1 & 2: Load & Create shader module
     VkShaderModule vertShaderModule = CreateShaderModule( vertShaderPath );
-    VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
+    VkShaderModule fragShaderModule = CreateShaderModule( fragLitShaderPath );
+    // VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
 
     // Step #3: Create shader stage info
     VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule );
@@ -408,7 +403,7 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #12: Pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
     pipelineLayoutCreateInfo.setLayoutCount             = 1;
-    pipelineLayoutCreateInfo.pSetLayouts                = &myDescriptorSetLayout;
+    pipelineLayoutCreateInfo.pSetLayouts                = &myGlobalSetLayout;
 
     if ( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create pipeline layout!" );
@@ -548,30 +543,26 @@ void Vk_Core::CreateFrameBuffers() {
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
-        for ( size_t i = 0; i < mySwapChainFrameBuffers.size(); i++ ) {
-            vkDestroyFramebuffer( myDevice, mySwapChainFrameBuffers[ i ], nullptr );
-        }
+        for ( VkFramebuffer frameBuffer : mySwapChainFrameBuffers )
+            vkDestroyFramebuffer( myDevice, frameBuffer, nullptr );
     } );
 }
 
 void Vk_Core::CreateFrameData() {
     myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
 
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         // Step #1: Create Command Buffers
-        const VkCommandBufferAllocateInfo allocInfo =
-            VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
+        const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
-        if ( vkAllocateCommandBuffers( myDevice, &allocInfo, &myFrameDatas[i].myCommandBuffer ) != VK_SUCCESS ) {
+        if ( vkAllocateCommandBuffers( myDevice, &allocInfo, &myFrameDatas[ i ].myCommandBuffer ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to allocate command buffers!" );
         }
 
         // Step #2: Create Camera Buffers
-        VkDeviceSize bufferSize = sizeof( UniformBufferObject );
+        VkDeviceSize bufferSize = sizeof( CameraBufferData );
 
-        for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-            CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
-        }
+        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
 
         // Step #3: Create SyncObjects
         VkSemaphoreCreateInfo semaphoreInfo{};
@@ -597,6 +588,14 @@ void Vk_Core::CreateFrameData() {
     }
 }
 
+void Vk_Core::CreateUniformBuffers() {
+    // TODO: Temp env data creation
+    const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) );
+    CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
+
+    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
+}
+
 void Vk_Core::CreateCommandPool() {
 
     // Graphic queue command pool
@@ -613,7 +612,7 @@ void Vk_Core::CreateCommandPool() {
     }
 }
 
-void Vk_Core::DrawFrame(const FrameData aFrameData) {
+void Vk_Core::DrawFrame( const FrameData aFrameData ) {
     vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
 
     uint32_t imageIndex;
@@ -641,7 +640,7 @@ void Vk_Core::DrawFrame(const FrameData aFrameData) {
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore          waitSemaphore[] = {aFrameData.myPresentSemaphore };
+    VkSemaphore          waitSemaphore[] = { aFrameData.myPresentSemaphore };
     VkPipelineStageFlags waitStages[]    = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount        = 1;
     submitInfo.pWaitSemaphores           = waitSemaphore;
@@ -676,12 +675,10 @@ void Vk_Core::DrawFrame(const FrameData aFrameData) {
     else if ( result != VK_SUCCESS ) {
         throw std::runtime_error( "failed to present swap chain image!" );
     }
-
-    
 }
 
 void Vk_Core::CreateCamera() {
-    myCamera.SetLens( 45.0f, 0.1f, 10.0f, mySwapChainExtent.width / ( float )mySwapChainExtent.height );
+    myCamera.SetLens( 45.0f, 0.1f, 10.0f, static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
     myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 }
 
@@ -706,61 +703,43 @@ void Vk_Core::RecreateSwapChain() {
     CreateFrameBuffers();
 
     // Reset the camera's aspect
-    myCamera.SetAspect( mySwapChainExtent.width / ( float )mySwapChainExtent.height );
-}
-
-Mesh* Vk_Core::CreateMesh(const std::string& aFilename, const uint32_t anIndex) {
-    Mesh tempMesh;
-
-    tempMesh.LoadMesh( aFilename );
-
-    tempMesh.BuildBuffers();
-
-    myMeshMap[ anIndex ] = tempMesh;
-
-    myDeletionQueue.pushFunction( [ = ]() {
-        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myVertexBuffer.myBuffer, myMeshMap[ anIndex ].myVertexBuffer.myAllocation );
-        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myIndexBuffer.myBuffer, myMeshMap[ anIndex ].myIndexBuffer.myAllocation );
-    } );
-
-    return &myMeshMap[ anIndex ];
+    myCamera.SetAspect( static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding            = 0;
-    uboLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount    = 1;
-    uboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding uboLayoutBinding =
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding            = 1;
-    samplerLayoutBinding.descriptorCount    = 1;
-    samplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutBinding sceneDataLayoutBinding =
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
 
-    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, samplerLayoutBinding };
+    /*VkDescriptorSetLayoutBinding samplerLayoutBinding =
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 );*/
+
+    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, sceneDataLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.pNext        = nullptr;
+    layoutInfo.flags        = 0;
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
 
-    if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myDescriptorSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myGlobalSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor set layout!" );
     }
 
-    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myDescriptorSetLayout, nullptr ); } );
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myGlobalSetLayout, nullptr ); } );
 }
 
 void Vk_Core::CreateDescriptorPool() {
     std::array< VkDescriptorPoolSize, 2 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[ 0 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
-    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolSizes[ 0 ].descriptorCount = 10;
+    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSizes[ 1 ].descriptorCount = 10;
+    // poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    // poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -777,69 +756,45 @@ void Vk_Core::CreateDescriptorPool() {
 }
 
 void Vk_Core::CreateDescriptorSets() {
-    std::vector< VkDescriptorSetLayout > layouts( MAX_FRAMES_IN_FLIGHT, myDescriptorSetLayout );
-
-    // Allocation
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = myDescriptorPool;
-    allocInfo.descriptorSetCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
-    allocInfo.pSetLayouts        = layouts.data();
-
-    myDescriptorSets.resize( MAX_FRAMES_IN_FLIGHT );
-    if ( vkAllocateDescriptorSets( myDevice, &allocInfo, myDescriptorSets.data() ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to allocate descriptor sets!" );
-    }
-
     // Configure the descriptors
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = myUniformBuffers[ i ].myBuffer;
-        bufferInfo.offset = 0;
-        bufferInfo.range  = sizeof( UniformBufferObject );
+        // Allocation, one descriptor set per frame data
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool     = myDescriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts        = &myGlobalSetLayout;
+
+        if ( vkAllocateDescriptorSets( myDevice, &allocInfo, &myFrameDatas[ i ].myGlobalDescriptor ) != VK_SUCCESS ) {
+            throw std::runtime_error( "failed to allocate descriptor sets!" );
+        }
+
+        // Descriptor Writes
+        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
+
+        VkDescriptorBufferInfo camBufferInfo{};
+        camBufferInfo.buffer = myFrameDatas[ i ].myCameraBuffer.myBuffer;
+        camBufferInfo.offset = 0;
+        camBufferInfo.range  = sizeof( CameraBufferData );
+
+        VkDescriptorBufferInfo envBufferInfo{};
+        envBufferInfo.buffer = myEnvDataBuffer.myBuffer;
+        envBufferInfo.offset = 0;
+        envBufferInfo.range  = sizeof( Gfx_EnvironmentData );
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView   = myTexture.ImageView();
+        imageInfo.imageView   = myTextureMap[ 0 ].ImageView();
         imageInfo.sampler     = myTextureSampler;
 
-        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
+        descriptorWrites[ 0 ] =
+            VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
+        descriptorWrites[ 1 ] =
+            VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &envBufferInfo, eVk_EnvBinding, 1 );
+        // descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, 1, 1 );
 
-        descriptorWrites[ 0 ].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[ 0 ].dstSet           = myDescriptorSets[ i ];
-        descriptorWrites[ 0 ].dstBinding       = 0;
-        descriptorWrites[ 0 ].dstArrayElement  = 0;
-        descriptorWrites[ 0 ].descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[ 0 ].descriptorCount  = 1;
-        descriptorWrites[ 0 ].pBufferInfo      = &bufferInfo;
-        descriptorWrites[ 0 ].pImageInfo       = nullptr;
-        descriptorWrites[ 0 ].pTexelBufferView = nullptr;
-
-        descriptorWrites[ 1 ].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[ 1 ].dstSet           = myDescriptorSets[ i ];
-        descriptorWrites[ 1 ].dstBinding       = 1;
-        descriptorWrites[ 1 ].dstArrayElement  = 0;
-        descriptorWrites[ 1 ].descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[ 1 ].descriptorCount  = 1;
-        descriptorWrites[ 1 ].pBufferInfo      = nullptr;
-        descriptorWrites[ 1 ].pImageInfo       = &imageInfo;
-        descriptorWrites[ 1 ].pTexelBufferView = nullptr;
         vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
     }
-}
-
-void Vk_Core::CreateTexture() {
-    if (UtilLoader::LoadTexture(texturePath, myTexture, myTextureImageMipLevels) != true)
-    {
-        throw std::runtime_error( "failed to load texture!" );
-    }
-    myTexture.ImageView() = CreateImageView( myTexture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() { 
-        vmaDestroyImage( myAllocator, myTexture.Image(), myTexture.Allocation() );
-        vkDestroyImageView( myDevice, myTexture.ImageView(), nullptr );
-    } );
 }
 
 void Vk_Core::CreateTextureSampler() {
@@ -875,8 +830,8 @@ void Vk_Core::CreateTextureSampler() {
 void Vk_Core::CreateDepthResources() {
     const VkFormat depthFormat = FindDepthFormat();
 
-    CreateImage( mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myDepthTexture.AllocImage() );
+    CreateImage( mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples,
+                 myDepthTexture.AllocImage() );
     myDepthTexture.ImageView() = CreateImageView( myDepthTexture.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     TransitionImageLayout( myDepthTexture.Image(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
@@ -891,8 +846,8 @@ void Vk_Core::CreateDepthResources() {
 void Vk_Core::CreateColorResources() {
     const VkFormat colorFormat = mySwapChainImageFormat;
 
-    CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL,
-                 VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.AllocImage() );
+    CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                 VMA_MEMORY_USAGE_GPU_ONLY, 1, myMSAASamples, myColorTexture.AllocImage() );
     myColorTexture.ImageView() = CreateImageView( myColorTexture.Image(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     // Deletion Queue
@@ -934,13 +889,13 @@ void Vk_Core::InitQueueFamilyIndice() {
     }
 }
 
-void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex) {
-    Mesh* lastMesh = nullptr;
+void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
+    Mesh*     lastMesh     = nullptr;
     Material* lastMaterial = nullptr;
 
     for ( auto renderObject = someRenderObjects.begin(); renderObject != someRenderObjects.end(); renderObject++ ) {
         // Bind pipeline based on the mesh material
-        if (renderObject->myMaterial != lastMaterial) {
+        if ( renderObject->myMaterial != lastMaterial ) {
             vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject->myMaterial->myPipeline );
 
             lastMaterial = renderObject->myMaterial;
@@ -951,11 +906,11 @@ void Vk_Core::DrawObjects(VkCommandBuffer aCommandBuffer, std::vector< RenderObj
         auto  currentTime = std::chrono::high_resolution_clock::now();
         float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
-        UniformBufferObject ubo{};
+        CameraBufferData ubo{};
         ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
         ubo.view  = myCamera.myView;
         ubo.proj  = myCamera.myProj;
-        
+
         // TODO:
     }
 }
@@ -1014,14 +969,12 @@ void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensi
     myDeviceExtensions = someDeviceExtensions;
 }
 
-bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) {
+bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     // Basic Properties
-    VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties( aPhysicalDevice, &deviceProperties );
+    vkGetPhysicalDeviceProperties( aPhysicalDevice, &myPhysicalDeviceProperties );
 
     // Optional Features
-    VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceFeatures( aPhysicalDevice, &deviceFeatures );
+    vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myPhysicalDeviceFeatures );
 
     // Queue Families
     QueueFamilyIndices indices = FindQueueFamilies( aPhysicalDevice );
@@ -1036,12 +989,16 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) {
         swapChainAdequate                        = !swapChainSupport.myFormats.empty() && !swapChainSupport.myPresentModes.empty();
     }
 
+#ifdef _DEBUG
+    std::cout << "The GPU has a minimum buffer alignment of " << myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;
+#endif  // _DEBUG
+
     // TODO: More check options
 
-    return indices.isComplete() && extensionSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy;
+    return indices.isComplete() && extensionSupported && swapChainAdequate && myPhysicalDeviceFeatures.samplerAnisotropy;
 }
 
-QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) {
+QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
     QueueFamilyIndices indices;
     uint32_t           queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( aPhysicalDevice, &queueFamilyCount, nullptr );
@@ -1076,7 +1033,7 @@ QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice 
     return indices;
 }
 
-SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) {
+SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
     SwapChainSupportDetails details;
 
     // Step #1: Determine the supported capabilities
@@ -1119,7 +1076,7 @@ bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     return requiredExtensions.empty();
 }
 
-VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) {
+VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const {
     for ( const auto& availableFormat : someAvailableFormats ) {
         if ( availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR ) {
             return availableFormat;
@@ -1129,7 +1086,7 @@ VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfac
     return someAvailableFormats[ 0 ];
 }
 
-VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) {
+VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const {
     // Only the VK_PRESENT_MODE_FIFO_KHR mode is guaranteed to be available
     // On mobile devices, where energy usage is more important, use VK_PRESENT_MODE_FIFO_KHR
     for ( const auto& availablePresentMode : someAvailablePresentModes ) {
@@ -1140,7 +1097,7 @@ VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentMod
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) {
+VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const {
     if ( aCapabilities.currentExtent.width != std::numeric_limits< uint32_t >::max() ) {
         return aCapabilities.currentExtent;
     }
@@ -1172,7 +1129,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
 }
 
 VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) const {
-    auto shaderCode = UtilLoader::ReadFile( aShaderPath );
+    const auto shaderCode = UtilLoader::ReadFile( aShaderPath );
 
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1188,7 +1145,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 }
 
 void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
+    const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
 
     if ( vkBeginCommandBuffer( aCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
@@ -1212,12 +1169,15 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
-    VkBuffer     vertexBuffers[] = { myMeshMap[0].myVertexBuffer.myBuffer };
+    VkBuffer     vertexBuffers[] = { myMeshMap[ 0 ].myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };
     vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myDescriptorSets[ myCurrentFrame ], 0, nullptr );
+    // Offset for our environment buffer
+    uint32_t uniform_offset = PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) ) * myCurrentFrame;
+
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 1, &uniform_offset );
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( aCommandBuffer );
@@ -1228,12 +1188,12 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 }
 
 void Vk_Core::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
-    auto vkCore = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
+    const auto vkCore = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
 
     vkCore->myFramebufferResized = true;
 }
 
-uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) {
+uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties( myPhysicalDevice, &memProperties );
 
@@ -1295,22 +1255,37 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-void Vk_Core::UpdateUniformBuffer( uint32_t anImageIndex ) {
+void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     // Use the chrono lib to make sure the update is based on time instead of time rate
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto  currentTime = std::chrono::high_resolution_clock::now();
-    float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
+    const auto  currentTime = std::chrono::high_resolution_clock::now();
+    const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
-    UniformBufferObject ubo{};
-    ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
-    ubo.view  = myCamera.myView;
-    ubo.proj  = myCamera.myProj;
+    // Upadate camera buffer
+    CameraBufferData cam{};
+    cam.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    cam.view  = myCamera.myView;
+    cam.proj  = myCamera.myProj;
 
     void* data;
-    vmaMapMemory( myAllocator, myFrameDatas[ anImageIndex ].myCameraBuffer.myAllocation, &data );
-    memcpy( data, &ubo, sizeof( ubo ) );
-    vmaUnmapMemory( myAllocator, myFrameDatas[ anImageIndex ].myCameraBuffer.myAllocation );
+    vmaMapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation, &data );
+    memcpy( data, &cam, sizeof( cam ) );
+    vmaUnmapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
+
+    // Update environment buffer
+    float framed = ( myFrameNumber / 120.f );
+
+    Gfx_EnvironmentData env{};
+    env.myAmbientColor = { sin( framed ), 0, cos( framed ), 1 };
+
+    char* sceneData;
+    vmaMapMemory( myAllocator, myEnvDataBuffer.myAllocation, ( void** )&sceneData );
+
+    sceneData += PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) ) * aCurrentFrame;
+
+    memcpy( sceneData, &env, sizeof( Gfx_EnvironmentData ) );
+    vmaUnmapMemory( myAllocator, myEnvDataBuffer.myAllocation );
 }
 
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
@@ -1319,21 +1294,21 @@ void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling 
 }
 
 void Vk_Core::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                  VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
+                           VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
     VkExtent3D extent = { anExtent.width, anExtent.height, 1 };
 
     CreateImage( extent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
 }
 
-void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                           uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
+void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                           VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
     VkImageCreateInfo imageInfo = VkInit::ImageCreateInfo( aFormat, anImageUsage, anExtent );
 
-    imageInfo.mipLevels     = aMipLevel;
-    imageInfo.tiling        = aTiling;
-    imageInfo.samples       = aNumSamples;
-    imageInfo.flags         = 0;
-    imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.mipLevels   = aMipLevel;
+    imageInfo.tiling      = aTiling;
+    imageInfo.samples     = aNumSamples;
+    imageInfo.flags       = 0;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     // TODO: Consider the situation when the image can be accessed by two different queues.
 
@@ -1462,8 +1437,8 @@ VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImage
     return imageView;
 }
 
-VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) {
-    for ( VkFormat format : someCandidates ) {
+VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const {
+    for ( const VkFormat format : someCandidates ) {
         VkFormatProperties properties;
         vkGetPhysicalDeviceFormatProperties( myPhysicalDevice, format, &properties );
         if ( aTiling == VK_IMAGE_TILING_LINEAR && ( properties.linearTilingFeatures & someFeatures ) == someFeatures ) {
@@ -1477,7 +1452,7 @@ VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandid
     throw std::runtime_error( "failed to find supported format!" );
 }
 
-VkFormat Vk_Core::FindDepthFormat() {
+VkFormat Vk_Core::FindDepthFormat() const {
     return FindSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL,
                                 VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
@@ -1486,7 +1461,7 @@ bool Vk_Core::HasStencilComponent( VkFormat aFormat ) const {
     return aFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || aFormat == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const{
+void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const {
 
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
@@ -1578,31 +1553,30 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
 }
 
 void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode ) {
-    if (anAction == GLFW_PRESS || anAction == GLFW_REPEAT)
-    {
+    if ( anAction == GLFW_PRESS || anAction == GLFW_REPEAT ) {
         switch ( aKey ) {
         case GLFW_KEY_W:
-            //std::cout << "Moving Forward!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 1.0f, 0.0f ) * SPEED);
+            // std::cout << "Moving Forward!" << std::endl;
+            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 1.0f, 0.0f ) * SPEED );
             break;
         case GLFW_KEY_S:
-            //std::cout << "Moving Backward!" << std::endl;
+            // std::cout << "Moving Backward!" << std::endl;
             Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, -1.0f, 0.0f ) * SPEED );
             break;
         case GLFW_KEY_A:
-            //std::cout << "Moving Left!" << std::endl;
+            // std::cout << "Moving Left!" << std::endl;
             Vk_Core::GetInstance().myCamera.Move( glm::vec3( -1.0f, 0.0f, 0.0f ) * SPEED );
             break;
         case GLFW_KEY_D:
-            //std::cout << "Moving Right!" << std::endl;
+            // std::cout << "Moving Right!" << std::endl;
             Vk_Core::GetInstance().myCamera.Move( glm::vec3( 1.0f, 0.0f, 0.0f ) * SPEED );
             break;
         case GLFW_KEY_E:
-            //std::cout << "Moving Up!" << std::endl;
+            // std::cout << "Moving Up!" << std::endl;
             Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, -1.0f ) * SPEED );
             break;
         case GLFW_KEY_Q:
-            //std::cout << "Moving Down!" << std::endl;
+            // std::cout << "Moving Down!" << std::endl;
             Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, 1.0f ) * SPEED );
             break;
         default:
@@ -1611,19 +1585,34 @@ void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode,
     }
 }
 
-Material* Vk_Core::CreateMaterial(VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex) {
-    Material mat;
+size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
+    // Calculate required alignment based on minimum device offset alignment
+    size_t minUboAlignment = myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+    size_t alignedSize     = anOriginalSize;
 
-    mat.myPipeline = aPipeline;
-    mat.myPipelineLayout = aLayout;
-    myMaterialMap[ anIndex ] = mat;
+    if ( minUboAlignment > 0 )
+        alignedSize = ( alignedSize + minUboAlignment - 1 ) & ~( minUboAlignment - 1 );
+
+    return alignedSize;
+}
+
+#pragma endregion
+
+#pragma region View Data Functions:
+
+Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex ) {
+    Material tempMat;
+
+    tempMat.myPipeline       = aPipeline;
+    tempMat.myPipelineLayout = aLayout;
+    myMaterialMap[ anIndex ] = tempMat;
 
     return &myMaterialMap[ anIndex ];
 }
 
-Material* Vk_Core::GetMaterial(const uint32_t anIndex) {
+Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
     auto it = myMaterialMap.find( anIndex );
-    if (it == myMaterialMap.end()) {
+    if ( it == myMaterialMap.end() ) {
         return nullptr;
     }
     else {
@@ -1631,9 +1620,56 @@ Material* Vk_Core::GetMaterial(const uint32_t anIndex) {
     }
 }
 
-Mesh* Vk_Core::GetMesh(const uint32_t anIndex) {
+Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex ) {
+    Mesh tempMesh;
+
+    tempMesh.LoadMesh( aFilename );
+
+    tempMesh.BuildBuffers();
+
+    myMeshMap[ anIndex ] = tempMesh;
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myVertexBuffer.myBuffer, myMeshMap[ anIndex ].myVertexBuffer.myAllocation );
+        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myIndexBuffer.myBuffer, myMeshMap[ anIndex ].myIndexBuffer.myAllocation );
+    } );
+
+    return &myMeshMap[ anIndex ];
+}
+
+Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
     auto it = myMeshMap.find( anIndex );
-    if (it == myMeshMap.end()) {
+    if ( it == myMeshMap.end() ) {
+        return nullptr;
+    }
+    else {
+        return &( *it ).second;
+    }
+}
+
+Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t anIndex ) {
+    Texture tempTexture;
+
+    if ( UtilLoader::LoadTexture( aFilename, tempTexture, myTextureImageMipLevels ) != true ) {
+        throw std::runtime_error( "failed to load texture!" );
+    }
+    tempTexture.ImageView() = CreateImageView( tempTexture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
+
+    myTextureMap[ anIndex ] = tempTexture;
+
+    // Deletion Queue
+    myDeletionQueue.pushFunction( [ = ]() {
+        vmaDestroyImage( myAllocator, myTextureMap[ anIndex ].Image(), myTextureMap[ anIndex ].Allocation() );
+        vkDestroyImageView( myDevice, myTextureMap[ anIndex ].ImageView(), nullptr );
+    } );
+
+    return &myTextureMap[ anIndex ];
+}
+
+Texture* Vk_Core::GetTexutre( const uint32_t anIndex ) {
+    auto it = myTextureMap.find( anIndex );
+    if ( it == myTextureMap.end() ) {
         return nullptr;
     }
     else {

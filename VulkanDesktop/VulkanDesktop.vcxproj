@@ -161,26 +161,25 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Graphics\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
-    <ClCompile Include="RenderCore\Vk_Mesh.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
-    <ClCompile Include="RenderCore\Vk_RenderObject.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Graphics\Gfx_ViewData.h" />
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
+    <ClInclude Include="RenderCore\Vk_Enum.h" />
     <ClInclude Include="RenderCore\Vk_FrameData.h" />
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
-    <ClInclude Include="RenderCore\Vk_Mesh.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
-    <ClInclude Include="RenderCore\Vk_RenderObject.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
@@ -189,6 +188,7 @@
   <ItemGroup>
     <None Include="Shader\CompileShader.bat" />
     <None Include="Shader\TriangleFrag.frag" />
+    <None Include="Shader\TriangleFrag_Lit.frag" />
     <None Include="Shader\TriangleVertex.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

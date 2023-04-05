@@ -1,14 +1,15 @@
 #pragma once
 #include "Vk_DataStruct.h"
+#include "Vk_Types.h"
 
 struct FrameData {
-	VkSemaphore myPresentSemaphore;
+    VkSemaphore myPresentSemaphore;
     VkSemaphore myRenderSemaphore;
     VkFence     myRenderFence;
 
     DeletionQueue myFrameDeletionQueue;
 
-    //VkCommandPool   myCommandPool;
+    // VkCommandPool   myCommandPool;
     VkCommandBuffer myCommandBuffer;
 
     AllocatedBuffer myCameraBuffer;

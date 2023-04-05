@@ -5,6 +5,8 @@
 #include <vulkan/vulkan.h>
 
 namespace VkInit {
+// Pipeline
+
 VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule );
 
 VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
@@ -28,6 +30,8 @@ VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( VkPipelineCol
 
 VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( std::vector< VkPipelineColorBlendAttachmentState >& someAttachments );
 
+// Others
+
 VkViewport ViewportCreateInfo( VkExtent2D aSwapchainExtent );
 
 VkCommandPoolCreateInfo CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags = 0 );
@@ -39,5 +43,11 @@ VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someF
 VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
+
+VkWriteDescriptorSet DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding, uint32_t aCount );
+
+VkWriteDescriptorSet DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorBufferInfo* aBufferInfo, uint32_t aBinding, uint32_t aCount );
+
+VkDescriptorSetLayoutBinding DescriptorSetLayoutBindingCreateInfo( VkDescriptorType aType, VkShaderStageFlags someStageFlags, uint32_t aBinding );
 
 }  // namespace VkInit
