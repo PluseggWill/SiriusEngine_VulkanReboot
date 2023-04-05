@@ -181,7 +181,6 @@
     <ClInclude Include="RenderCore\Vk_Mesh.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
     <ClInclude Include="RenderCore\Vk_RenderObject.h" />
-    <ClInclude Include="RenderCore\Vk_SceneData.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />

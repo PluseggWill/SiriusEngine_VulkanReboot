@@ -40,11 +40,4 @@ VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, V
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
 
-VkDescriptorSetLayoutBinding DescriptorSetLayoutBinding( VkDescriptorType aType, VkShaderStageFlags someStageFlags, uint32_t aBinding );
-
-VkWriteDescriptorSet WriteDescriptorBuffer( VkDescriptorType aType, VkDescriptorSet aDstSet, VkDescriptorBufferInfo* aBufferInfo, uint32_t aBinding );
-
-VkWriteDescriptorSet WriteDescriptorImage( VkDescriptorType aType, VkDescriptorSet aDstSet, VkDescriptorImageInfo* anImageInfo, uint32_t aBinding );
-
-
 }  // namespace VkInit

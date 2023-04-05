@@ -5,7 +5,6 @@
 #include "Vk_Camera.h"
 #include "Vk_RenderObject.h"
 #include "Vk_FrameData.h"
-#include "Vk_SceneData.h"
 
 // #include <unordered_map>
 
@@ -71,7 +70,6 @@ private:
     void CreateSwapChain();
     void CreateRenderPass();
     void CreateDescriptorSetLayout();
-    void CreateDescriptorSetLayoutNew();
     void CreateGfxPipeline();
     void CreateDepthResources();
     void CreateColorResources();
@@ -104,7 +102,6 @@ private:
     bool                    CheckValidationLayerSupport() const;
     bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice );
     bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
-    size_t                  PadUniformBufferSize( size_t anOriginalSize ) const;
     QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice );
     SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice );
     VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats );
@@ -138,46 +135,34 @@ public:
     std::vector< RenderObject >              myRenderObjects;
 
 private:
-    DeletionQueue              myDeletionQueue;
-    DeletionQueue              mySwapChainDeletionQueue;
-    uint32_t                   myWidth, myHeight;
-    GLFWwindow*                myWindow;
-    VkInstance                 myInstance;
-    VkPhysicalDevice           myPhysicalDevice = VK_NULL_HANDLE;
-    VkPhysicalDeviceProperties myPhysicalDeviceProperties;
-    VkDevice                   myDevice;
-    VkQueue                    myGraphicsQueue;
-    VkQueue                    myPresentQueue;
-    VkQueue                    myTransferQueue;
-    VkSurfaceKHR               mySurface;
-    VkSwapchainKHR             mySwapChain;
-    VkFormat                   mySwapChainImageFormat;
-    VkExtent2D                 mySwapChainExtent;
-    VkPipelineLayout           myPipelineLayout;
-    VkRenderPass               myRenderPass;
-    VkPipeline                 myBasicPipeline;
-    VkCommandPool              myGraphicsCommandPool;
-    VkCommandPool              myTransferCommandPool;
-    VkDescriptorPool           myDescriptorPool;
-    uint32_t                   myTextureImageMipLevels;
-    Texture                    myTexture;
-    Texture                    myDepthTexture;
-    Texture                    myColorTexture;
-    VkSampler                  myTextureSampler;
-    QueueFamilyIndices         myQueueFamilyIndices;
+    DeletionQueue         myDeletionQueue;
+    DeletionQueue         mySwapChainDeletionQueue;
+    uint32_t              myWidth, myHeight;
+    GLFWwindow*           myWindow;
+    VkInstance            myInstance;
+    VkPhysicalDevice      myPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice              myDevice;
+    VkQueue               myGraphicsQueue;
+    VkQueue               myPresentQueue;
+    VkQueue               myTransferQueue;
+    VkSurfaceKHR          mySurface;
+    VkSwapchainKHR        mySwapChain;
+    VkFormat              mySwapChainImageFormat;
+    VkExtent2D            mySwapChainExtent;
+    VkDescriptorSetLayout myDescriptorSetLayout;
+    VkPipelineLayout      myPipelineLayout;
+    VkRenderPass          myRenderPass;
+    VkPipeline            myBasicPipeline;
+    VkCommandPool         myGraphicsCommandPool;
+    VkCommandPool         myTransferCommandPool;
+    VkDescriptorPool      myDescriptorPool;
+    uint32_t              myTextureImageMipLevels;
+    Texture               myTexture;
+    Texture               myDepthTexture;
+    Texture               myColorTexture;
+    VkSampler             myTextureSampler;
+    QueueFamilyIndices    myQueueFamilyIndices;
 
-    VkDescriptorSetLayout myGlobalSetLayout;
-    VkDescriptorSetLayout myObjectSetLayout;
-    VkDescriptorSetLayout myTextureSetLayout;
-
-    GPUCameraData   myGPUCamera;
-    GPUSceneData    myGPUScene;
-    AllocatedBuffer myGPUSceneBuffer;
-
-    // These are now inside the frame data
-    /*VkDescriptorSetLayout myGlobalDescriptorSetLayout;
-    VkDescriptorSetLayout myObjectDescriptorSetLayout;
-    VkDescriptorSetLayout myTextureDescriptorSetLayout;*/
     /*std::vector< VkDescriptorSet > myDescriptorSets;
     std::vector< AllocatedBuffer > myUniformBuffers;
     std::vector< VkCommandBuffer > myGraphicsCommandBuffers;
