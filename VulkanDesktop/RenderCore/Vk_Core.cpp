@@ -560,7 +560,7 @@ void Vk_Core::CreateFrameData() {
         }
 
         // Step #2: Create Camera Buffers
-        VkDeviceSize bufferSize = sizeof( CameraBufferData );
+        VkDeviceSize bufferSize = sizeof( GpuCameraData );
 
         CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
 
@@ -590,7 +590,7 @@ void Vk_Core::CreateFrameData() {
 
 void Vk_Core::CreateUniformBuffers() {
     // TODO: Temp env data creation
-    const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) );
+    const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
     myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
@@ -710,13 +710,13 @@ void Vk_Core::CreateDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding uboLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
-    VkDescriptorSetLayoutBinding sceneDataLayoutBinding =
+    VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
 
     /*VkDescriptorSetLayoutBinding samplerLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 );*/
 
-    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, sceneDataLayoutBinding };
+    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, gpuEnvDataLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -775,12 +775,12 @@ void Vk_Core::CreateDescriptorSets() {
         VkDescriptorBufferInfo camBufferInfo{};
         camBufferInfo.buffer = myFrameDatas[ i ].myCameraBuffer.myBuffer;
         camBufferInfo.offset = 0;
-        camBufferInfo.range  = sizeof( CameraBufferData );
+        camBufferInfo.range  = sizeof( GpuCameraData );
 
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = myEnvDataBuffer.myBuffer;
         envBufferInfo.offset = 0;
-        envBufferInfo.range  = sizeof( Gfx_EnvironmentData );
+        envBufferInfo.range  = sizeof( GpuEnvironmentData );
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -906,7 +906,7 @@ void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderOb
         auto  currentTime = std::chrono::high_resolution_clock::now();
         float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
-        CameraBufferData ubo{};
+        GpuCameraData ubo{};
         ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
         ubo.view  = myCamera.myView;
         ubo.proj  = myCamera.myProj;
@@ -1175,7 +1175,7 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
     // Offset for our environment buffer
-    uint32_t uniform_offset = PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) ) * myCurrentFrame;
+    uint32_t uniform_offset = PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * myCurrentFrame;
 
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 1, &uniform_offset );
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
@@ -1263,7 +1263,7 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
     // Upadate camera buffer
-    CameraBufferData cam{};
+    GpuCameraData cam{};
     cam.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
     cam.view  = myCamera.myView;
     cam.proj  = myCamera.myProj;
@@ -1274,17 +1274,22 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     vmaUnmapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
 
     // Update environment buffer
+    // TODO: Figure out how dynamic buffer works :)
     float framed = ( myFrameNumber / 120.f );
 
-    Gfx_EnvironmentData env{};
-    env.myAmbientColor = { sin( framed ), 0, cos( framed ), 1 };
+    GpuEnvironmentData env{};
+    env.myAmbientColor      = { sin( framed ), 0, cos( framed ), 1 };
+    env.myFogColor          = { 1, 1, 1, 1 };
+    env.myFogDistance       = { 1, 1, 1, 1 };
+    env.mySunlightDirection = { 1, 1, 1, 1 };
+    env.mySunlightColor     = { 1, 1, 1, 1 };
 
-    char* sceneData;
-    vmaMapMemory( myAllocator, myEnvDataBuffer.myAllocation, ( void** )&sceneData );
+    char* mapGpuEnvData;
+    vmaMapMemory( myAllocator, myEnvDataBuffer.myAllocation, ( void** )&mapGpuEnvData );
 
-    sceneData += PadUniformBufferSize( sizeof( Gfx_EnvironmentData ) ) * aCurrentFrame;
+    mapGpuEnvData += PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * aCurrentFrame;
 
-    memcpy( sceneData, &env, sizeof( Gfx_EnvironmentData ) );
+    memcpy( mapGpuEnvData, &env, sizeof( GpuEnvironmentData ) );
     vmaUnmapMemory( myAllocator, myEnvDataBuffer.myAllocation );
 }
 

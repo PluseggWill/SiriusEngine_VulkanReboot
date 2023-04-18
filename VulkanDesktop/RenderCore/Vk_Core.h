@@ -136,9 +136,9 @@ public:
     VmaAllocator myAllocator;
 
 #pragma region View Data Functions
-    Gfx_Camera          myCamera;
-    Gfx_EnvironmentData myEnvironmentData;
-    AllocatedBuffer     myEnvDataBuffer;
+    Gfx_Camera         myCamera;
+    GpuEnvironmentData myEnvironmentData;
+    AllocatedBuffer    myEnvDataBuffer;
 
     std::unordered_map< uint32_t, Material > myMaterialMap;
     std::unordered_map< uint32_t, Mesh >     myMeshMap;

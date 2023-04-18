@@ -93,12 +93,11 @@ public:
     glm::mat4 myTransform;
 };
 
-class Gfx_EnvironmentData {
-public:
-    // 4 * 4 * 5 = 80 bytes
-    glm::vec4 myFogColor;
-    glm::vec4 myFogDistance;
-    glm::vec4 myAmbientColor;
-    glm::vec4 mySunlightDirection;
-    glm::vec4 mySunlightColor;
+struct GpuEnvironmentData {
+    glm::vec4 myFogColor;           // 4x4 bytes
+    glm::vec4 myFogDistance;        // 4x4 bytes
+    glm::vec4 myAmbientColor;       // 4x4 bytes
+    glm::vec4 mySunlightDirection;  // 4x4 bytes
+    glm::vec4 mySunlightColor;      // 4x4 bytes
+    // 80 bytes in all
 };

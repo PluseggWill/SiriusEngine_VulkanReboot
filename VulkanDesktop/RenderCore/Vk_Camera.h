@@ -4,7 +4,7 @@
 
 // Keep in mind that Vulkan expects the data to be aligned, see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout for
 // more details
-struct CameraBufferData {
+struct GpuCameraData {
     alignas( 16 ) glm::mat4 model;
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
