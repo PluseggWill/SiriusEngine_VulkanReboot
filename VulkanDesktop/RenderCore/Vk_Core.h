@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <string>
 #include <vk_mem_alloc.h>
 
 #include "Vk_Camera.h"
@@ -66,7 +67,7 @@ private:
     // Part 1: Base
     void CreateInstance();
     void PickPhysicalDevice();
-    void InitQueueFamilyIndice();
+    void InitQueueFamilyIndices();
     void CreateLogicalDevice();
     void CreateSurface();
     void CreateCommandPool();
@@ -124,7 +125,7 @@ private:
     Mesh*     CreateMesh( const std::string& aFilename, const uint32_t anIndex );
     Mesh*     GetMesh( const uint32_t anIndex );
     Texture*  CreateTexture( const std::string& aFilename, const uint32_t anIndex );
-    Texture*  GetTexutre( const uint32_t anIndex );
+    Texture*  GetTexture( const uint32_t anIndex );
 #pragma endregion
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.

@@ -115,5 +115,11 @@
     <None Include="Shader\TriangleFrag_Lit.frag">
       <Filter>Source Files\Shader</Filter>
     </None>
+    <None Include="Shader\TrianglePix.hlsl">
+      <Filter>Source Files\Shader</Filter>
+    </None>
+    <None Include="Shader\TriangleShader.hlsl">
+      <Filter>Source Files\Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

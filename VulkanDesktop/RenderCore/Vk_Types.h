@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <vk_mem_alloc.h>
 
 #define GLFW_INCLUDE_VULKAN

@@ -27,8 +27,8 @@
 #include <vk_mem_alloc.h>
 #endif
 
-std::string vertShaderPath    = "Shader/TriangleVertex.spv";
-std::string fragShaderPath    = "Shader/TriangleFrag.spv";
+std::string vertShaderPath    = "Shader/TriangleVert.spv";
+std::string fragShaderPath    = "Shader/TrianglePix.spv";
 std::string fragLitShaderPath = "Shader/TriangleFrag_Lit.spv";
 std::string texturePath       = "../Data/Textures/viking_room.png";
 std::string houseModelPath    = "../Data/Models/viking_room.obj";
@@ -112,7 +112,7 @@ void Vk_Core::InitVulkan() {
     // TODO: Set up debug messenger
     CreateSurface();
     PickPhysicalDevice();
-    InitQueueFamilyIndice();
+    InitQueueFamilyIndices();
     CreateLogicalDevice();
     CreateCommandPool();
     InitAllocator();
@@ -352,13 +352,14 @@ void Vk_Core::CreateSwapChain() {
 void Vk_Core::CreateGfxPipeline() {
     // Step #1 & 2: Load & Create shader module
     VkShaderModule vertShaderModule = CreateShaderModule( vertShaderPath );
-    VkShaderModule fragShaderModule = CreateShaderModule( fragLitShaderPath );
-    // VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
+
+    // VkShaderModule fragShaderModule = CreateShaderModule( fragLitShaderPath );
+    VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
 
     // Step #3: Create shader stage info
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule );
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_VertexShaderStageCreateInfo( vertShaderModule );
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule );
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_PixelShaderStageCreateInfo( fragShaderModule );
 
     // Step #4: Create vertex input state
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
@@ -857,7 +858,7 @@ void Vk_Core::CreateColorResources() {
     } );
 }
 
-void Vk_Core::InitQueueFamilyIndice() {
+void Vk_Core::InitQueueFamilyIndices() {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, nullptr );
 
@@ -1171,6 +1172,7 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     VkBuffer     vertexBuffers[] = { myMeshMap[ 0 ].myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };
+
     vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
@@ -1672,7 +1674,7 @@ Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t an
     return &myTextureMap[ anIndex ];
 }
 
-Texture* Vk_Core::GetTexutre( const uint32_t anIndex ) {
+Texture* Vk_Core::GetTexture( const uint32_t anIndex ) {
     auto it = myTextureMap.find( anIndex );
     if ( it == myTextureMap.end() ) {
         return nullptr;

@@ -191,6 +191,14 @@
     <None Include="Shader\TriangleFrag_Lit.frag" />
     <None Include="Shader\TriangleVertex.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\TrianglePix.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="Shader\TriangleShader.hlsl">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

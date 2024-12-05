@@ -1,13 +1,16 @@
 // Vulkan Initialization helper functions
 
 #pragma once
+#include <string>
 #include <vector>
 #include <vulkan/vulkan.h>
 
 namespace VkInit {
 // Pipeline
 
-VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule );
+VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry );
+VkPipelineShaderStageCreateInfo Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule);
+VkPipelineShaderStageCreateInfo Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule);
 
 VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
 
