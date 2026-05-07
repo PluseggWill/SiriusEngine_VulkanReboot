@@ -1,4 +1,5 @@
 #include "Vk_Initializer.h"
+#include <array>
 
 VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry ) {
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -32,7 +33,7 @@ VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo
 }
 
 VkPipelineDynamicStateCreateInfo VkInit::Pipeline_DynamicStateCreateInfo() {
-    std::vector< VkDynamicState > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
+    static const std::array< VkDynamicState, 2 > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;

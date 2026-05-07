@@ -392,12 +392,10 @@ void Vk_Core::CreateGfxPipeline() {
     if ( useDxcEnvValue != nullptr ) {
         free( useDxcEnvValue );
     }
-    const char* vsEntry   = useDxc ? "VSMain" : "main";
-    const char* psEntry   = useDxc ? "PSMain" : "main";
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, vsEntry );
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, psEntry );
+    const char* primaryVsEntry   = useDxc ? "VSMain" : "main";
+    const char* primaryPsEntry   = useDxc ? "PSMain" : "main";
+    const char* fallbackVsEntry  = useDxc ? "main" : "VSMain";
+    const char* fallbackPsEntry  = useDxc ? "main" : "PSMain";
 
     // Step #4: Create vertex input state
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
@@ -435,8 +433,6 @@ void Vk_Core::CreateGfxPipeline() {
     VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
     // Step #11: Dynamic state (not using at this moment)
-    std::vector< VkDynamicState > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
-
     VkPipelineDynamicStateCreateInfo dynamicState = VkInit::Pipeline_DynamicStateCreateInfo();
 
     // Step #12: Pipeline layout
@@ -449,21 +445,35 @@ void Vk_Core::CreateGfxPipeline() {
     }
 
     // Step #13: Combine
-    PipelineBuilder pipelineBuilder;
-    pipelineBuilder.myShaderStages.push_back( vertShaderStageInfo );
-    pipelineBuilder.myShaderStages.push_back( fragShaderStageInfo );
-    pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
-    pipelineBuilder.myInputAssembly        = inputAssembly;
-    pipelineBuilder.myViewport             = viewport;
-    pipelineBuilder.myScissor              = scissor;
-    pipelineBuilder.myRasterizer           = rasterizer;
-    pipelineBuilder.myMultisampling        = multisampling;
-    pipelineBuilder.myDepthStencil         = depthStencilInfo;
-    pipelineBuilder.myColorBlendAttachment = colorBlendAttachment;
-    pipelineBuilder.myDynamicState         = dynamicState;
-    pipelineBuilder.myPipelineLayout       = myPipelineLayout;
+    auto buildPipelineWithEntries = [&]( const char* aVsEntry, const char* aPsEntry ) {
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, aVsEntry );
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, aPsEntry );
 
-    myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
+        PipelineBuilder pipelineBuilder;
+        pipelineBuilder.myShaderStages.push_back( vertShaderStageInfo );
+        pipelineBuilder.myShaderStages.push_back( fragShaderStageInfo );
+        pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
+        pipelineBuilder.myInputAssembly        = inputAssembly;
+        pipelineBuilder.myViewport             = viewport;
+        pipelineBuilder.myScissor              = scissor;
+        pipelineBuilder.myRasterizer           = rasterizer;
+        pipelineBuilder.myMultisampling        = multisampling;
+        pipelineBuilder.myDepthStencil         = depthStencilInfo;
+        pipelineBuilder.myColorBlendAttachment = colorBlendAttachment;
+        pipelineBuilder.myDynamicState         = dynamicState;
+        pipelineBuilder.myPipelineLayout       = myPipelineLayout;
+
+        return pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
+    };
+
+    try {
+        myBasicPipeline = buildPipelineWithEntries( primaryVsEntry, primaryPsEntry );
+    }
+    catch ( const std::exception& e ) {
+        UtilLogger::Warn( "PIPELINE", std::string( "Primary shader entrypoints failed (" ) + primaryVsEntry + "/" + primaryPsEntry + "): " + e.what() );
+        UtilLogger::Warn( "PIPELINE", std::string( "Retrying with fallback entrypoints " ) + fallbackVsEntry + "/" + fallbackPsEntry + "." );
+        myBasicPipeline = buildPipelineWithEntries( fallbackVsEntry, fallbackPsEntry );
+    }
     UtilLogger::Info( "PIPELINE", "Graphics pipeline created." );
 
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );

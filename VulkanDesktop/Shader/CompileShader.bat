@@ -3,7 +3,7 @@ setlocal
 
 cd /d "%~dp0"
 
-set "LOG_DIR=%~dp0..\Logs"
+set "LOG_DIR=%~dp0..\..\Logs"
 set "LOG_FILE=%LOG_DIR%\shader_compile_log.txt"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 set "GLSLC=%~dp0..\..\lib\VulkanSDK\1.2.182.0\Bin32\glslc.exe"
