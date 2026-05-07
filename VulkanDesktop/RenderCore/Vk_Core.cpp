@@ -1,5 +1,6 @@
 #include "Vk_Core.h"
 #include "../Util/Util_Loader.h"
+#include "../Util/Util_Logger.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
@@ -7,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -52,25 +54,30 @@ void Vk_Core::Reset() {
 }
 
 void Vk_Core::Run() {
+    UtilLogger::Info( "CORE", "Run started." );
     InitWindow();
     InitVulkan();
     MainLoop();
     Clear();
+    UtilLogger::Info( "CORE", "Run finished." );
 }
 
 void Vk_Core::InitWindow() {
+    UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
     glfwInit();
 
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
     glfwWindowHint( GLFW_RESIZABLE, GLFW_TRUE );
 
     myWindow = glfwCreateWindow( myWidth, myHeight, "Vulkan Window", nullptr, nullptr );
+    UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( myWidth ) + "x" + std::to_string( myHeight ) );
     glfwSetWindowUserPointer( myWindow, this );
     glfwSetFramebufferSizeCallback( myWindow, FramebufferResizeCallback );
     glfwSetKeyCallback( myWindow, HandleInputCallback );
 }
 
 void Vk_Core::MainLoop() {
+    UtilLogger::Info( "LOOP", "Main loop started." );
     while ( !glfwWindowShouldClose( myWindow ) ) {
         // Process the events that have already been received and then returns immediately
         glfwPollEvents();
@@ -82,9 +89,11 @@ void Vk_Core::MainLoop() {
 
     // Make sure the GPU has stopped doing things.
     vkDeviceWaitIdle( myDevice );
+    UtilLogger::Info( "LOOP", "Main loop ended." );
 }
 
 void Vk_Core::Clear() {
+    UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
     // All other Vulkan resources should be cleaned up
     // before the instance is destroyed.
 
@@ -104,9 +113,11 @@ void Vk_Core::Clear() {
     glfwDestroyWindow( myWindow );
 
     glfwTerminate();
+    UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
 void Vk_Core::InitVulkan() {
+    UtilLogger::Info( "VULKAN", "Initializing Vulkan pipeline." );
     // Part 1: Base
     CreateInstance();
     // TODO: Set up debug messenger
@@ -142,12 +153,14 @@ void Vk_Core::InitVulkan() {
     CreateDescriptorPool();
     CreateDescriptorSets();
     CreateCamera();
+    UtilLogger::Info( "VULKAN", "Vulkan initialization completed." );
 }
 
 void Vk_Core::CreateInstance() {
     // Check validation layer first
     if ( myEnableValidationLayers && !CheckValidationLayerSupport() ) {
-        throw std::runtime_error( "validation layers requested, but not available!" );
+        UtilLogger::Warn( "VULKAN", "Validation layers requested but unavailable. Continuing with validation disabled." );
+        myEnableValidationLayers = false;
     }
 
     VkApplicationInfo appInfo{};
@@ -181,8 +194,10 @@ void Vk_Core::CreateInstance() {
 
     // VkResult result = vkCreateInstance(&createInfo, nullptr, &myInstance);
     if ( vkCreateInstance( &createInfo, nullptr, &myInstance ) != VK_SUCCESS ) {
+        UtilLogger::Error( "VULKAN", "vkCreateInstance failed." );
         throw std::runtime_error( "failed to create instance!" );
     }
+    UtilLogger::Info( "VULKAN", "Vulkan instance created." );
 }
 
 void Vk_Core::PickPhysicalDevice() {
@@ -199,13 +214,18 @@ void Vk_Core::PickPhysicalDevice() {
     for ( const auto& device : devices ) {
         if ( CheckDeviceSuitable( device ) ) {
             myPhysicalDevice = device;
-            myMSAASamples    = GetMaxUsableSampleCount();
+            // Keep startup stable across GPUs/drivers first; revisit dynamic MSAA selection later.
+            myMSAASamples = VK_SAMPLE_COUNT_1_BIT;
             break;
         }
     }
 
     if ( myPhysicalDevice == VK_NULL_HANDLE )
         throw std::runtime_error( "failed to find a suitable GPU!" );
+
+    VkPhysicalDeviceProperties props{};
+    vkGetPhysicalDeviceProperties( myPhysicalDevice, &props );
+    UtilLogger::Info( "GPU", std::string( "Selected physical device: " ) + props.deviceName );
 }
 
 void Vk_Core::CreateLogicalDevice() {
@@ -252,8 +272,10 @@ void Vk_Core::CreateLogicalDevice() {
 
     // Step #5: Create the logical device
     if ( vkCreateDevice( myPhysicalDevice, &createInfo, nullptr, &myDevice ) != VK_SUCCESS ) {
+        UtilLogger::Error( "VULKAN", "vkCreateDevice failed." );
         throw std::runtime_error( "failed to create logical device!" );
     }
+    UtilLogger::Info( "VULKAN", "Logical device created." );
 
     // Step #6?: Retrieve queue handles
     vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
@@ -263,8 +285,10 @@ void Vk_Core::CreateLogicalDevice() {
 
 void Vk_Core::CreateSurface() {
     if ( glfwCreateWindowSurface( myInstance, myWindow, nullptr, &mySurface ) != VK_SUCCESS ) {
+        UtilLogger::Error( "VULKAN", "glfwCreateWindowSurface failed." );
         throw std::runtime_error( "failed to create window surface!" );
     }
+    UtilLogger::Info( "VULKAN", "Window surface created." );
 }
 
 void Vk_Core::InitAllocator() {
@@ -279,6 +303,7 @@ void Vk_Core::InitAllocator() {
 }
 
 void Vk_Core::CreateSwapChain() {
+    UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
     SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( myPhysicalDevice );
 
     VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
@@ -322,6 +347,7 @@ void Vk_Core::CreateSwapChain() {
     createInfo.oldSwapchain   = VK_NULL_HANDLE;
 
     if ( vkCreateSwapchainKHR( myDevice, &createInfo, nullptr, &mySwapChain ) != VK_SUCCESS ) {
+        UtilLogger::Error( "SWAPCHAIN", "vkCreateSwapchainKHR failed." );
         throw std::runtime_error( "failed to create swap chain!" );
     }
 
@@ -332,6 +358,7 @@ void Vk_Core::CreateSwapChain() {
 
     mySwapChainImageFormat = surfaceFormat.format;
     mySwapChainExtent      = extent;
+    UtilLogger::Info( "SWAPCHAIN", "Swapchain images: " + std::to_string( imageCount ) + ", extent: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
 
     // Create swap chain image views
     mySwapChainImageViews.resize( imageCount );
@@ -350,6 +377,7 @@ void Vk_Core::CreateSwapChain() {
 }
 
 void Vk_Core::CreateGfxPipeline() {
+    UtilLogger::Info( "PIPELINE", "Creating graphics pipeline." );
     // Step #1 & 2: Load & Create shader module
     VkShaderModule vertShaderModule = CreateShaderModule( vertShaderPath );
 
@@ -357,9 +385,19 @@ void Vk_Core::CreateGfxPipeline() {
     VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
 
     // Step #3: Create shader stage info
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_VertexShaderStageCreateInfo( vertShaderModule );
+    char*  useDxcEnvValue = nullptr;
+    size_t useDxcLen      = 0;
+    _dupenv_s( &useDxcEnvValue, &useDxcLen, "USE_DXC" );
+    const bool useDxc = ( useDxcEnvValue != nullptr && std::string( useDxcEnvValue ) == "1" );
+    if ( useDxcEnvValue != nullptr ) {
+        free( useDxcEnvValue );
+    }
+    const char* vsEntry   = useDxc ? "VSMain" : "main";
+    const char* psEntry   = useDxc ? "PSMain" : "main";
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_PixelShaderStageCreateInfo( fragShaderModule );
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, vsEntry );
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, psEntry );
 
     // Step #4: Create vertex input state
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
@@ -426,6 +464,7 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineBuilder.myPipelineLayout       = myPipelineLayout;
 
     myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
+    UtilLogger::Info( "PIPELINE", "Graphics pipeline created." );
 
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( myDevice, fragShaderModule, nullptr );
@@ -438,6 +477,7 @@ void Vk_Core::CreateGfxPipeline() {
 }
 
 void Vk_Core::CreateRenderPass() {
+    UtilLogger::Info( "RENDERPASS", "Creating render pass." );
     // Step #1: Attachment description
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format         = mySwapChainImageFormat;
@@ -511,8 +551,10 @@ void Vk_Core::CreateRenderPass() {
     renderPassInfo.pDependencies   = &dependency;
 
     if ( vkCreateRenderPass( myDevice, &renderPassInfo, nullptr, &myRenderPass ) != VK_SUCCESS ) {
+        UtilLogger::Error( "RENDERPASS", "vkCreateRenderPass failed." );
         throw std::runtime_error( "failed to create render pass!" );
     }
+    UtilLogger::Info( "RENDERPASS", "Render pass created." );
 
     // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() { vkDestroyRenderPass( myDevice, myRenderPass, nullptr ); } );
@@ -622,10 +664,12 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
 
     if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
         // Swap chain incompatible, recreate the swap chain
+        UtilLogger::Warn( "SWAPCHAIN", "Acquire image returned OUT_OF_DATE. Recreating swapchain." );
         RecreateSwapChain();
         return;
     }
     else if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
+        UtilLogger::Error( "FRAME", "vkAcquireNextImageKHR failed." );
         throw std::runtime_error( "failed to acquire swap chain image!" );
     }
 
@@ -654,6 +698,7 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
     submitInfo.pSignalSemaphores    = signalSemaphores;
 
     if ( vkQueueSubmit( myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence ) != VK_SUCCESS ) {
+        UtilLogger::Error( "FRAME", "vkQueueSubmit failed." );
         throw std::runtime_error( "failed to submit draw command buffer!" );
     }
 
@@ -671,9 +716,11 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
     result = vkQueuePresentKHR( myPresentQueue, &presentInfo );
     if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || myFramebufferResized ) {
         myFramebufferResized = false;
+        UtilLogger::Warn( "SWAPCHAIN", "Present reported outdated/suboptimal framebuffer. Recreating swapchain." );
         RecreateSwapChain();
     }
     else if ( result != VK_SUCCESS ) {
+        UtilLogger::Error( "FRAME", "vkQueuePresentKHR failed." );
         throw std::runtime_error( "failed to present swap chain image!" );
     }
 }
@@ -684,6 +731,7 @@ void Vk_Core::CreateCamera() {
 }
 
 void Vk_Core::RecreateSwapChain() {
+    UtilLogger::Info( "SWAPCHAIN", "Recreating swapchain." );
     int width = 0, height = 0;
     glfwGetFramebufferSize( myWindow, &width, &height );
     while ( width == 0 || height == 0 ) {
@@ -705,6 +753,7 @@ void Vk_Core::RecreateSwapChain() {
 
     // Reset the camera's aspect
     myCamera.SetAspect( static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
+    UtilLogger::Info( "SWAPCHAIN", "Swapchain recreation completed." );
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
@@ -712,7 +761,7 @@ void Vk_Core::CreateDescriptorSetLayout() {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
     VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
 
     /*VkDescriptorSetLayoutBinding samplerLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 );*/
@@ -737,7 +786,7 @@ void Vk_Core::CreateDescriptorPool() {
     std::array< VkDescriptorPoolSize, 2 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 10;
-    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 1 ].descriptorCount = 10;
     // poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     // poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
@@ -791,7 +840,7 @@ void Vk_Core::CreateDescriptorSets() {
         descriptorWrites[ 0 ] =
             VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
         descriptorWrites[ 1 ] =
-            VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &envBufferInfo, eVk_EnvBinding, 1 );
+            VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
         // descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, 1, 1 );
 
         vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
@@ -1040,7 +1089,7 @@ SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysic
     // Step #1: Determine the supported capabilities
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, mySurface, &details.myCapabilities );
 
-    // Step #2£∫Querying the supported surface formats
+    // Step #2ùùQuerying the supported surface formats
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, nullptr );
 
@@ -1130,6 +1179,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
 }
 
 VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) const {
+    UtilLogger::Info( "SHADER", "Loading shader module: " + aShaderPath );
     const auto shaderCode = UtilLoader::ReadFile( aShaderPath );
 
     VkShaderModuleCreateInfo createInfo{};
@@ -1139,6 +1189,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 
     VkShaderModule shaderModule;
     if ( vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule ) != VK_SUCCESS ) {
+        UtilLogger::Error( "SHADER", "vkCreateShaderModule failed for: " + aShaderPath );
         throw std::runtime_error( "failed to create shader module!" );
     }
 
@@ -1176,10 +1227,7 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-    // Offset for our environment buffer
-    uint32_t uniform_offset = PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * myCurrentFrame;
-
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 1, &uniform_offset );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( aCommandBuffer );
@@ -1628,9 +1676,11 @@ Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
 }
 
 Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex ) {
+    const std::string resolvedPath = UtilLoader::ResolvePath( aFilename );
+    UtilLogger::Info( "RESOURCE", "Loading mesh: " + resolvedPath );
     Mesh tempMesh;
 
-    tempMesh.LoadMesh( aFilename );
+    tempMesh.LoadMesh( resolvedPath );
 
     tempMesh.BuildBuffers();
 
@@ -1656,6 +1706,7 @@ Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
 }
 
 Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t anIndex ) {
+    UtilLogger::Info( "RESOURCE", "Loading texture: " + aFilename );
     Texture tempTexture;
 
     if ( UtilLoader::LoadTexture( aFilename, tempTexture, myTextureImageMipLevels ) != true ) {

@@ -1,13 +1,13 @@
 struct VSInput {
-    float3 position : SV_POSITION;
-    float3 color    : COLOR;
-    float2 texCoord : TEXCOORD;
+    [[vk::location(0)]] float3 position : POSITION;
+    [[vk::location(1)]] float3 color    : COLOR0;
+    [[vk::location(2)]] float2 texCoord : TEXCOORD0;
 };
 
 struct PSInput {
-    float4 position : SV_POSITION;
-    float4 color    : COLOR;
-    float2 texCoord : TEXCOORD;
+    float4 position                  : SV_POSITION;
+    [[vk::location(0)]] float4 color : COLOR0;
+    [[vk::location(1)]] float2 texCoord : TEXCOORD0;
 };
 
 cbuffer CameraData : register(b0)
@@ -21,7 +21,8 @@ cbuffer CameraData : register(b0)
 PSInput VSMain(VSInput input) {
     PSInput output;
 
-    output.position = mul(float4(input.position, 1.f), proj * view * model);
+    // Keep the same transform order as the previous GLSL shader.
+    output.position = mul(proj * view * model, float4(input.position, 1.f));
     output.color = float4(input.color, 1.f);
     output.texCoord = input.texCoord;
 

@@ -1,14 +1,51 @@
 #include "Util_Loader.h"
+#include "Util_Logger.h"
 #include "../RenderCore/Vk_Core.h"
 
 #include <stb_image.h>
 
+#include <filesystem>
 #include <fstream>
+#include <vector>
+
+namespace {
+std::vector< std::filesystem::path > BuildCandidateBases() {
+    const auto cwd = std::filesystem::current_path();
+    return {
+        cwd,
+        cwd / "VulkanDesktop",
+        cwd.parent_path(),
+        cwd.parent_path() / "VulkanDesktop",
+        cwd.parent_path().parent_path(),
+        cwd.parent_path().parent_path() / "VulkanDesktop",
+    };
+}
+}  // namespace
+
+std::string UtilLoader::ResolvePath( const std::string& aFilename ) {
+    const std::filesystem::path inputPath( aFilename );
+
+    if ( std::filesystem::exists( inputPath ) ) {
+        return std::filesystem::weakly_canonical( inputPath ).string();
+    }
+
+    for ( const auto& base : BuildCandidateBases() ) {
+        const auto candidate = ( base / inputPath ).lexically_normal();
+        if ( std::filesystem::exists( candidate ) ) {
+            return std::filesystem::weakly_canonical( candidate ).string();
+        }
+    }
+
+    return aFilename;
+}
 
 std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
-    std::ifstream file( aFilename, std::ios::ate | std::ios::binary );
+    const std::string resolvedPath = ResolvePath( aFilename );
+    UtilLogger::Debug( "LOADER", "Reading file: " + resolvedPath );
+    std::ifstream file( resolvedPath, std::ios::ate | std::ios::binary );
 
     if ( !file.is_open() ) {
+        UtilLogger::Error( "LOADER", "Failed to open file: " + aFilename );
         throw std::runtime_error( "failed to open file" );
     }
 
@@ -23,14 +60,17 @@ std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
 }
 
 bool UtilLoader::LoadTexture( const std::string& aFilename, Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
+    const std::string resolvedPath = ResolvePath( aFilename );
+    UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
     int                texWidth, texHeight, texChannels;
-    stbi_uc*           pixels    = stbi_load( aFilename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+    stbi_uc*           pixels    = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
     const VkDeviceSize imageSize = texWidth * texHeight * 4;
     const VmaAllocator allocator = Vk_Core::GetInstance().myAllocator;
 
     aTextureMipLevel = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     if ( !pixels ) {
+        UtilLogger::Error( "RESOURCE", "Failed to decode texture: " + resolvedPath );
         throw std::runtime_error( "failed to load texture image!" );
     }
 

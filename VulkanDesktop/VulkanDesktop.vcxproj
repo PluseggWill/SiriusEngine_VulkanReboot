@@ -169,6 +169,7 @@
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
+    <ClCompile Include="Util\Util_Logger.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -184,6 +185,7 @@
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
     <ClInclude Include="Util\Util_Loader.h" />
+    <ClInclude Include="Util\Util_Logger.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\CompileShader.bat" />

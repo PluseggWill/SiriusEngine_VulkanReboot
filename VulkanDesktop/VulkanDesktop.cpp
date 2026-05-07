@@ -2,6 +2,7 @@
 #include <GLFW\glfw3.h>
 
 #include "RenderCore/Vk_Core.h"
+#include "Util/Util_Logger.h"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -21,18 +22,28 @@ const std::vector< const char* > validationLayers = { "VK_LAYER_KHRONOS_validati
 const std::vector< const char* > deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 int main() {
+    UtilLogger::Init( "Logs/engine_runtime_log.txt" );
+    UtilLogger::Info( "APP", "Application startup." );
+
     Vk_Core* app = &Vk_Core::GetInstance();
     app->SetSize( WIDTH, HEIGHT );
     app->SetEnableValidationLayers( enableValidationLayers, validationLayers );
     app->SetRequiredExtension( deviceExtensions );
+    UtilLogger::Info( "APP", "Core configuration prepared." );
 
     try {
+        UtilLogger::Info( "APP", "Entering engine run loop." );
         app->Run();
+        UtilLogger::Info( "APP", "Engine exited run loop normally." );
     }
     catch ( const std::exception& e ) {
+        UtilLogger::Error( "APP", std::string( "Unhandled exception: " ) + e.what() );
         std::cerr << e.what() << std::endl;
+        UtilLogger::Shutdown();
         return EXIT_FAILURE;
     }
 
+    UtilLogger::Info( "APP", "Application shutdown complete." );
+    UtilLogger::Shutdown();
     return EXIT_SUCCESS;
 }

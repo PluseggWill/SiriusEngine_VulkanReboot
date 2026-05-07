@@ -1,6 +1,7 @@
 #include "Vk_Pipeline.h"
 
 #include <stdexcept>
+#include <string>
 
 VkPipeline PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass ) {
     // Create the viewport state
@@ -46,8 +47,9 @@ VkPipeline PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass 
     pipelineInfo.basePipelineIndex   = -1;
 
     VkPipeline newPipeline;
-    if ( vkCreateGraphicsPipelines( aDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create render pass!" );
+    const VkResult createResult = vkCreateGraphicsPipelines( aDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline );
+    if ( createResult != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create graphics pipeline, VkResult=" + std::to_string( static_cast< int >( createResult ) ) );
     }
 
     return newPipeline;
