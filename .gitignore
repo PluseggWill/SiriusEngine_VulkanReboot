@@ -364,3 +364,10 @@ MigrationBackup/
 FodyWeavers.xsd
 *.metaproj
 *.metaproj.tmp
+
+# Dear ImGui runtime layout (per-machine)
+imgui.ini
+**/imgui.ini
+
+# Cursor IDE local rules (not part of engine sources)
+.cursor/

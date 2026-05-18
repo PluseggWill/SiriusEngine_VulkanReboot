@@ -1,8 +1,11 @@
 #pragma once
 #include <array>
+#include <chrono>
 #include <string>
 #include <vk_mem_alloc.h>
 
+#include "../Editor/Vk_ImGuiLayer.h"
+#include "../Util/FrameStats.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
@@ -92,6 +95,8 @@ private:
     void CreateCamera();
     void CreateUniformBuffers();
     void InitScene();
+    void InitImGui();
+    void ShutdownImGui();
 
     // Draw frame:
     void DrawFrame( const FrameData aFrameData );
@@ -134,6 +139,7 @@ private:
 
 public:
     uint32_t     myFrameNumber = 0;
+    FrameStats   myFrameStats;
     VmaAllocator myAllocator;
 
 #pragma region View Data Functions
@@ -190,4 +196,8 @@ private:
     bool                  myFramebufferResized = false;
     uint32_t              myCurrentFrame       = 0;
     VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
+
+    Vk_ImGuiLayer                                              myImGuiLayer;
+    std::chrono::high_resolution_clock::time_point             myLastFrameTime;
+    bool                                                       myHasLastFrameTime = false;
 };

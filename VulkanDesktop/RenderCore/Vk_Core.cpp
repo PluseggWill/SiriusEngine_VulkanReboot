@@ -1,6 +1,9 @@
 #include "Vk_Core.h"
+#include "../Editor/StatsOverlay.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+
+#include <imgui.h>
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
@@ -82,6 +85,14 @@ void Vk_Core::MainLoop() {
         // Process the events that have already been received and then returns immediately
         glfwPollEvents();
 
+        const auto frameStart = std::chrono::high_resolution_clock::now();
+        if ( myHasLastFrameTime ) {
+            const float frameSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
+            myFrameStats.PushFrameTime( frameSeconds * 1000.f );
+        }
+        myLastFrameTime     = frameStart;
+        myHasLastFrameTime  = true;
+
         DrawFrame( myFrameDatas[ myCurrentFrame ] );
         myFrameNumber++;
         myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
@@ -96,6 +107,8 @@ void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
     // All other Vulkan resources should be cleaned up
     // before the instance is destroyed.
+
+    ShutdownImGui();
 
     mySwapChainDeletionQueue.flush();
 
@@ -153,7 +166,22 @@ void Vk_Core::InitVulkan() {
     CreateDescriptorPool();
     CreateDescriptorSets();
     CreateCamera();
+    InitImGui();
     UtilLogger::Info( "VULKAN", "Vulkan initialization completed." );
+}
+
+void Vk_Core::InitImGui() {
+    const uint32_t imageCount    = static_cast< uint32_t >( mySwapChainImageViews.size() );
+    const uint32_t minImageCount = std::max( 2u, imageCount );
+
+    myImGuiLayer.Init( myWindow, myInstance, myPhysicalDevice, myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), myGraphicsQueue, mySwapChainImageFormat,
+                       mySwapChainExtent, mySwapChainImageViews, imageCount, minImageCount );
+    UtilLogger::Info( "IMGUI", "ImGui overlay initialized." );
+}
+
+void Vk_Core::ShutdownImGui() {
+    myImGuiLayer.Shutdown();
+    UtilLogger::Info( "IMGUI", "ImGui overlay shut down." );
 }
 
 void Vk_Core::CreateInstance() {
@@ -686,6 +714,11 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
     // TODO: make the parameters only access the frame data
     UpdateUniformBuffer( myCurrentFrame );
 
+    myFrameStats.ResetPerFrameCounters();
+    myImGuiLayer.NewFrame();
+    StatsOverlay_Build( myFrameStats );
+    ImGui::Render();
+
     // Only reset the fence if we are submitting work
     vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
 
@@ -752,6 +785,7 @@ void Vk_Core::RecreateSwapChain() {
 
     vkDeviceWaitIdle( myDevice );
 
+    myImGuiLayer.DestroySwapchainResources();
     mySwapChainDeletionQueue.flush();
 
     CreateSwapChain();
@@ -760,6 +794,10 @@ void Vk_Core::RecreateSwapChain() {
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
+
+    const uint32_t imageCount    = static_cast< uint32_t >( mySwapChainImageViews.size() );
+    const uint32_t minImageCount = std::max( 2u, imageCount );
+    myImGuiLayer.CreateSwapchainResources( mySwapChainImageFormat, mySwapChainExtent, mySwapChainImageViews, imageCount, minImageCount );
 
     // Reset the camera's aspect
     myCamera.SetAspect( static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
@@ -1099,7 +1137,7 @@ SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysic
     // Step #1: Determine the supported capabilities
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, mySurface, &details.myCapabilities );
 
-    // Step #2ùùQuerying the supported surface formats
+    // Step #2??Querying the supported surface formats
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, nullptr );
 
@@ -1229,6 +1267,7 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
+    myFrameStats.myPipelineBinds++;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
     VkBuffer     vertexBuffers[] = { myMeshMap[ 0 ].myVertexBuffer.myBuffer };
@@ -1238,9 +1277,12 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
+    myFrameStats.myDrawCalls++;
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( aCommandBuffer );
+
+    myImGuiLayer.Render( aCommandBuffer, anImageIndex, mySwapChainExtent );
 
     if ( vkEndCommandBuffer( aCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
@@ -1618,6 +1660,12 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
 }
 
 void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode ) {
+    if ( ImGui::GetCurrentContext() != nullptr ) {
+        ImGuiIO& io = ImGui::GetIO();
+        if ( io.WantCaptureKeyboard && anAction != GLFW_RELEASE )
+            return;
+    }
+
     if ( anAction == GLFW_PRESS || anAction == GLFW_REPEAT ) {
         switch ( aKey ) {
         case GLFW_KEY_W:
