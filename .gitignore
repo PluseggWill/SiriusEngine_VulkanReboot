@@ -369,7 +369,9 @@ FodyWeavers.xsd
 imgui.ini
 **/imgui.ini
 
-# Cursor IDE local state (track shared project rules under .cursor/rules/)
+# Cursor IDE local state (track shared rules and skills)
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/skills/
+!.cursor/skills/**
