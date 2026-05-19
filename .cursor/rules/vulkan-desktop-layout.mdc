@@ -1,0 +1,74 @@
+---
+description: VulkanDesktop 模块目录、VS 过滤器与 Util/Vk/Gfx 命名前缀约定
+globs: VulkanDesktop/**/*
+alwaysApply: false
+---
+
+# VulkanDesktop — 目录与命名
+
+## 模块划分（三类 + 入口）
+
+| 模块 | 磁盘目录 | 职责 |
+|------|----------|------|
+| **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板、第三方 imgui |
+| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制、相机 |
+| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material 等），与 API 无关 |
+| **入口** | `VulkanDesktop/VulkanDesktop.cpp` | 应用 `main`，留在项目根，不归入三类 |
+
+着色器源文件在 `VulkanDesktop/Shader/`；VS 过滤器中挂在 **Gfx\Shader**。
+
+## Visual Studio 项目树（`.vcxproj.filters`）
+
+与磁盘目录对齐，**不要**使用默认 `Source Files` / `Header Files`：
+
+```
+VulkanDesktop.cpp
+Util/                    ← 全部 Util_* 与 Util 命名空间 API
+  ThirdParty/imgui/      ← lib\imgui 引用项
+RenderCore/              ← 全部 Vk_*
+Gfx/
+  Shader/                ← Shader\*.hlsl, *.vert, *.frag, CompileShader.bat
+```
+
+新增/移动源文件时，**同时**更新 `VulkanDesktop.vcxproj` 与 `VulkanDesktop.vcxproj.filters`。
+
+## 文件命名
+
+- 格式：`{模块前缀}_{名称}.h` / `.cpp`
+- 前缀与目录一致：`Util_`、`Vk_`、`Gfx_`
+- 示例：`Util_Logger.h`、`Vk_Core.cpp`、`Gfx_ViewData.h`
+
+## 类型与 API 命名
+
+| 种类 | 规则 | 示例 |
+|------|------|------|
+| 主类/结构体 | 与文件名一致，带模块前缀 | `Vk_Core`, `Gfx_Mesh`, `Util_FrameStats` |
+| Util 自由函数 | 命名空间 = 去掉下划线的模块名 + 功能名 | `UtilLogger::Info`, `UtilLightingPanel::Build` |
+| RenderCore 初始化辅助 | 命名空间 `VkInit` | `VkInit::Pipeline_VertexInputStateCreateInfo` |
+| GPU UBO 布局 | 前缀 `Gpu`，**不加** Util/Vk/Gfx | `GpuCameraData`, `GpuEnvironmentData` |
+| 描述符等枚举 | 枚举名可简短，成员 `eVk_*` | `eVk_CameraBinding`, `eVk_TextureBinding` |
+
+### 类型归属（新增代码时）
+
+- **Util**：`Util_ImGuiLayer`、面板、统计、Logger/Loader
+- **Vk_**：`Vk_Camera`, `Vk_FrameData`, `Vk_PipelineBuilder`, `Vk_DeletionQueue`, `Vk_AllocatedBuffer`, `Vk_QueueFamilyIndices` 等 Vulkan 后端类型
+- **Gfx_**：`Gfx_Vertex`, `Gfx_Mesh`, `Gfx_Material`, `Gfx_Texture`, `Gfx_RenderObject`（定义目前在 `Vk_Types.h`，新 Gfx 类型优先放 `Gfx/` 下新头文件）
+
+## Include 路径
+
+- 同目录：`#include "Vk_Core.h"`
+- 跨模块：`#include "../Util/Util_Logger.h"`、`#include "../Gfx/Gfx_ViewData.h"`
+- 应用入口：`#include "RenderCore/Vk_Core.h"`
+
+## 反例（不要这样做）
+
+- `Editor/LightingPanel.h`（应 `Util/Util_LightingPanel.h`）
+- `Graphics/Gfx_ViewData.cpp`（目录已改为 `Gfx/`）
+- `class Gfx_Camera` 放在 `Vk_Camera.h`（相机属 RenderCore → `Vk_Camera`）
+- `FrameStats` / `PipelineBuilder` 等无前缀类型名
+- 批量替换时改 Vulkan 结构体字段名（如保持 `pQueueFamilyIndices`，勿写成 `pVk_QueueFamilyIndices`）
+
+## 成员与参数（沿用现有风格）
+
+- 成员：`my` 前缀（`myDevice`, `myFrameStats`）
+- 参数：`a` 前缀（`aCommandBuffer`, `aFilename`）
