@@ -1,4 +1,5 @@
 #include "Vk_Core.h"
+#include "../Editor/LightingPanel.h"
 #include "../Editor/StatsOverlay.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
@@ -166,6 +167,7 @@ void Vk_Core::InitVulkan() {
     CreateDescriptorPool();
     CreateDescriptorSets();
     CreateCamera();
+    InitDefaultEnvironmentData();
     InitImGui();
     UtilLogger::Info( "VULKAN", "Vulkan initialization completed." );
 }
@@ -711,12 +713,11 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
         throw std::runtime_error( "failed to acquire swap chain image!" );
     }
 
-    // TODO: make the parameters only access the frame data
-    UpdateUniformBuffer( myCurrentFrame );
-
     myFrameStats.ResetPerFrameCounters();
     myImGuiLayer.NewFrame();
     StatsOverlay_Build( myFrameStats );
+    LightingPanel_Build( myEnvironmentData );
+    UpdateUniformBuffer( myCurrentFrame );
     ImGui::Render();
 
     // Only reset the fence if we are submitting work
@@ -773,6 +774,15 @@ void Vk_Core::CreateCamera() {
     myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 }
 
+void Vk_Core::InitDefaultEnvironmentData() {
+    myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };
+    myEnvironmentData.myFogColor          = { 1.0f, 1.0f, 1.0f, 1.0f };
+    myEnvironmentData.myFogDistance         = { 0.45f, 32.0f, 1.0f, 0.0f };
+    myEnvironmentData.mySunlightDirection = { glm::normalize( glm::vec3( -0.35f, -0.85f, -0.4f ) ), 0.0f };
+    myEnvironmentData.mySunlightColor     = { 0.9f, 0.88f, 0.82f, 1.0f };
+    myEnvironmentData.myViewWorldPos      = { myCamera.myEye, 1.0f };
+}
+
 void Vk_Core::RecreateSwapChain() {
     UtilLogger::Info( "SWAPCHAIN", "Recreating swapchain." );
     int width = 0, height = 0;
@@ -811,10 +821,10 @@ void Vk_Core::CreateDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
 
-    /*VkDescriptorSetLayoutBinding samplerLayoutBinding =
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 );*/
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_TextureBinding );
 
-    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { uboLayoutBinding, gpuEnvDataLayoutBinding };
+    std::array< VkDescriptorSetLayoutBinding, 3 > bindings = { uboLayoutBinding, gpuEnvDataLayoutBinding, samplerLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -831,13 +841,13 @@ void Vk_Core::CreateDescriptorSetLayout() {
 }
 
 void Vk_Core::CreateDescriptorPool() {
-    std::array< VkDescriptorPoolSize, 2 > poolSizes{};
+    std::array< VkDescriptorPoolSize, 3 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 10;
     poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 1 ].descriptorCount = 10;
-    // poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    // poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[ 2 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -868,7 +878,7 @@ void Vk_Core::CreateDescriptorSets() {
         }
 
         // Descriptor Writes
-        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
+        std::array< VkWriteDescriptorSet, 3 > descriptorWrites{};
 
         VkDescriptorBufferInfo camBufferInfo{};
         camBufferInfo.buffer = myFrameDatas[ i ].myCameraBuffer.myBuffer;
@@ -877,7 +887,7 @@ void Vk_Core::CreateDescriptorSets() {
 
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = myEnvDataBuffer.myBuffer;
-        envBufferInfo.offset = 0;
+        envBufferInfo.offset = PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
         envBufferInfo.range  = sizeof( GpuEnvironmentData );
 
         VkDescriptorImageInfo imageInfo{};
@@ -889,7 +899,8 @@ void Vk_Core::CreateDescriptorSets() {
             VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
         descriptorWrites[ 1 ] =
             VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
-        // descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, 1, 1 );
+        descriptorWrites[ 2 ] = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo,
+                                                                    eVk_TextureBinding, 1 );
 
         vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
     }
@@ -1376,15 +1387,12 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     vmaUnmapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
 
     // Update environment buffer
-    // TODO: Figure out how dynamic buffer works :)
-    float framed = ( myFrameNumber / 120.f );
-
-    GpuEnvironmentData env{};
-    env.myAmbientColor      = { sin( framed ), 0, cos( framed ), 1 };
-    env.myFogColor          = { 1, 1, 1, 1 };
-    env.myFogDistance       = { 1, 1, 1, 1 };
-    env.mySunlightDirection = { 1, 1, 1, 1 };
-    env.mySunlightColor     = { 1, 1, 1, 1 };
+    GpuEnvironmentData env = myEnvironmentData;
+    const glm::vec3      sunDir = glm::vec3( env.mySunlightDirection );
+    if ( glm::dot( sunDir, sunDir ) > 0.0001f ) {
+        env.mySunlightDirection = glm::vec4( glm::normalize( sunDir ), 0.0f );
+    }
+    env.myViewWorldPos = glm::vec4( myCamera.myEye, 1.0f );
 
     char* mapGpuEnvData;
     vmaMapMemory( myAllocator, myEnvDataBuffer.myAllocation, ( void** )&mapGpuEnvData );

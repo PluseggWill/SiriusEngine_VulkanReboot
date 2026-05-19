@@ -161,6 +161,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Editor\LightingPanel.cpp" />
     <ClCompile Include="Editor\StatsOverlay.cpp" />
     <ClCompile Include="Editor\Vk_ImGuiLayer.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
@@ -182,6 +183,7 @@
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Editor\LightingPanel.h" />
     <ClInclude Include="Editor\StatsOverlay.h" />
     <ClInclude Include="Editor\Vk_ImGuiLayer.h" />
     <ClInclude Include="Graphics\Gfx_ViewData.h" />

@@ -2,6 +2,7 @@
 
 #include "../Util/FrameStats.h"
 
+#include <algorithm>
 #include <imgui.h>
 
 void StatsOverlay_Build( const FrameStats& aStats ) {
@@ -12,6 +13,8 @@ void StatsOverlay_Build( const FrameStats& aStats ) {
     ImGui::Text( "Hello, Sirius Engine" );
     ImGui::Separator();
     ImGui::Text( "FPS: %.1f", aStats.myFps );
+    ImGui::Text( "Avg FPS: %.1f  (last %d frames)", aStats.myAvgFps, std::min( aStats.myHistorySampleCount, FRAME_HISTORY_COUNT ) );
+    ImGui::Text( "1%% Low: %.1f", aStats.myFps1PercentLow );
     ImGui::Text( "Frame: %.2f ms", aStats.myFrameMs );
     ImGui::PlotLines( "Frame ms", aStats.myFrameHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 33.f, ImVec2( 0.f, 80.f ) );
     ImGui::Separator();

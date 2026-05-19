@@ -93,6 +93,7 @@ private:
     // Part 4: Prepare for draw frames
     void CreateFrameData();
     void CreateCamera();
+    void InitDefaultEnvironmentData();
     void CreateUniformBuffers();
     void InitScene();
     void InitImGui();

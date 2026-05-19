@@ -53,13 +53,14 @@ public:
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
+    glm::vec3 normal;
 
     static VkVertexInputBindingDescription getBindingDescription();
 
-    static std::array< VkVertexInputAttributeDescription, 3 > getAttributeDescriptions();
+    static std::array< VkVertexInputAttributeDescription, 4 > getAttributeDescriptions();
 
     bool operator==( const Vertex& other ) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+        return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
     }
 };
 
@@ -67,7 +68,8 @@ public:
 namespace std {
 template <> struct hash< Vertex > {
     size_t operator()( Vertex const& vertex ) const {
-        return ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 );
+        return ( ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 ) ) ^
+               ( hash< glm::vec3 >()( vertex.normal ) << 1 );
     }
 };
 }  // namespace std
@@ -95,10 +97,10 @@ public:
 };
 
 struct GpuEnvironmentData {
-    glm::vec4 myFogColor;           // 4x4 bytes
-    glm::vec4 myFogDistance;        // 4x4 bytes
-    glm::vec4 myAmbientColor;       // 4x4 bytes
-    glm::vec4 mySunlightDirection;  // 4x4 bytes
-    glm::vec4 mySunlightColor;      // 4x4 bytes
-    // 80 bytes in all
+    glm::vec4 myFogColor;           // rgb fog tint (unused in shader for now)
+    glm::vec4 myFogDistance;        // x=specularStrength, y=shininess, z=textureBlend, w unused
+    glm::vec4 myAmbientColor;
+    glm::vec4 mySunlightDirection;  // xyz = direction toward sun (normalized in UpdateUniformBuffer)
+    glm::vec4 mySunlightColor;
+    glm::vec4 myViewWorldPos;       // xyz = camera world position
 };
