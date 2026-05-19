@@ -6,7 +6,7 @@
 
 struct GLFWwindow;
 
-class Vk_ImGuiLayer {
+class Util_ImGuiLayer {
 public:
     void Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysicalDevice aPhysicalDevice, VkDevice aDevice, uint32_t aQueueFamily, VkQueue aQueue,
                VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews, uint32_t aImageCount,

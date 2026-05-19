@@ -6,7 +6,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-struct QueueFamilyIndices {
+struct Vk_QueueFamilyIndices {
     std::optional< uint32_t > myGraphicsFamily;
     std::optional< uint32_t > myPresentFamily;
     std::optional< uint32_t > myTransferFamily;
@@ -16,13 +16,13 @@ struct QueueFamilyIndices {
     }
 };
 
-struct SwapChainSupportDetails {
+struct Vk_SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR          myCapabilities;
     std::vector< VkSurfaceFormatKHR > myFormats;
     std::vector< VkPresentModeKHR >   myPresentModes;
 };
 
-struct DeletionQueue {
+struct Vk_DeletionQueue {
     std::deque< std::function< void() > > myDeletors;
 
     void pushFunction( std::function< void() >&& aFunction ) {

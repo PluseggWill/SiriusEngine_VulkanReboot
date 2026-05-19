@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <string>
 
-VkPipeline PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass ) {
+VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass ) {
     // Create the viewport state
     VkPipelineViewportStateCreateInfo viewportState{};
 

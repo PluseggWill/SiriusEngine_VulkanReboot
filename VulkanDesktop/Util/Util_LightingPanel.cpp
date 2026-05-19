@@ -1,11 +1,11 @@
-#include "LightingPanel.h"
+#include "Util_LightingPanel.h"
 
 #include "../RenderCore/Vk_Types.h"
 
 #include <glm/glm.hpp>
 #include <imgui.h>
 
-void LightingPanel_Build( GpuEnvironmentData& anEnvironment ) {
+void UtilLightingPanel::Build( GpuEnvironmentData& anEnvironment ) {
     ImGui::SetNextWindowPos( ImVec2( 10.f, 220.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.9f );
     ImGui::Begin( "Lighting", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
@@ -24,7 +24,7 @@ void LightingPanel_Build( GpuEnvironmentData& anEnvironment ) {
     ImGui::Separator();
     ImGui::SliderFloat( "Specular strength", &anEnvironment.myFogDistance.x, 0.f, 2.f );
     ImGui::SliderFloat( "Shininess", &anEnvironment.myFogDistance.y, 1.f, 256.f );
-    ImGui::SliderFloat( "Texture blend", &anEnvironment.myFogDistance.z, 0.f, 1.f );
+    ImGui::SliderFloat( "Gfx_Texture blend", &anEnvironment.myFogDistance.z, 0.f, 1.f );
 
     ImGui::End();
 }

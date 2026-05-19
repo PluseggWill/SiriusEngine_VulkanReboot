@@ -8,21 +8,21 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
-struct AllocatedImage {
+struct Vk_AllocatedImage {
 public:
     VkImage       myImage;
     VmaAllocation myAllocation;
 };
 
-struct AllocatedBuffer {
+struct Vk_AllocatedBuffer {
 public:
     VkBuffer      myBuffer;
     VmaAllocation myAllocation;
 };
 
-struct Texture {
+struct Gfx_Texture {
 private:
-    AllocatedImage myAllocImage;
+    Vk_AllocatedImage myAllocImage;
     VkImageView    myImageView;
 
 public:
@@ -38,17 +38,17 @@ public:
         return myImageView;
     }
 
-    AllocatedImage& AllocImage() {
+    Vk_AllocatedImage& AllocImage() {
         return myAllocImage;
     }
 };
 
-struct Material {
+struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
 };
 
-class Vertex {
+class Gfx_Vertex {
 public:
     glm::vec3 pos;
     glm::vec3 color;
@@ -59,28 +59,28 @@ public:
 
     static std::array< VkVertexInputAttributeDescription, 4 > getAttributeDescriptions();
 
-    bool operator==( const Vertex& other ) const {
+    bool operator==( const Gfx_Vertex& other ) const {
         return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
     }
 };
 
-// Hash function for Vertex struct
+// Hash function for Gfx_Vertex struct
 namespace std {
-template <> struct hash< Vertex > {
-    size_t operator()( Vertex const& vertex ) const {
+template <> struct hash< Gfx_Vertex > {
+    size_t operator()( Gfx_Vertex const& vertex ) const {
         return ( ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 ) ) ^
                ( hash< glm::vec3 >()( vertex.normal ) << 1 );
     }
 };
 }  // namespace std
 
-class Mesh {
+class Gfx_Mesh {
 public:
-    std::vector< Vertex >   myVertices;
+    std::vector< Gfx_Vertex >   myVertices;
     std::vector< uint32_t > myIndices;
 
-    AllocatedBuffer myVertexBuffer;
-    AllocatedBuffer myIndexBuffer;
+    Vk_AllocatedBuffer myVertexBuffer;
+    Vk_AllocatedBuffer myIndexBuffer;
 
 public:
     void LoadMesh( const std::string& aPath );
@@ -89,10 +89,10 @@ public:
     void BuildIndexBuffer();
 };
 
-class RenderObject {
+class Gfx_RenderObject {
 public:
-    Mesh*     myMesh;
-    Material* myMaterial;
+    Gfx_Mesh*     myMesh;
+    Gfx_Material* myMaterial;
     glm::mat4 myTransform;
 };
 

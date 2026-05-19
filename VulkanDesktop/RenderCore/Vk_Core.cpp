@@ -1,6 +1,6 @@
 #include "Vk_Core.h"
-#include "../Editor/LightingPanel.h"
-#include "../Editor/StatsOverlay.h"
+#include "../Util/Util_LightingPanel.h"
+#include "../Util/Util_StatsOverlay.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
@@ -137,7 +137,7 @@ void Vk_Core::InitVulkan() {
     // TODO: Set up debug messenger
     CreateSurface();
     PickPhysicalDevice();
-    InitQueueFamilyIndices();
+    InitVk_QueueFamilyIndices();
     CreateLogicalDevice();
     CreateCommandPool();
     InitAllocator();
@@ -334,7 +334,7 @@ void Vk_Core::InitAllocator() {
 
 void Vk_Core::CreateSwapChain() {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
-    SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( myPhysicalDevice );
+    Vk_SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( myPhysicalDevice );
 
     VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
     VkPresentModeKHR   presentMode   = ChooseSwapPresentMode( swapChainSupport.myPresentModes );
@@ -430,8 +430,8 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #4: Create vertex input state
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
 
-    auto bindingDescription   = Vertex::getBindingDescription();
-    auto attributeDescription = Vertex::getAttributeDescriptions();
+    auto bindingDescription   = Gfx_Vertex::getBindingDescription();
+    auto attributeDescription = Gfx_Vertex::getAttributeDescriptions();
 
     vertexInputInfo.vertexBindingDescriptionCount   = 1;
     vertexInputInfo.pVertexBindingDescriptions      = &bindingDescription;
@@ -479,7 +479,7 @@ void Vk_Core::CreateGfxPipeline() {
         VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, aVsEntry );
         VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, aPsEntry );
 
-        PipelineBuilder pipelineBuilder;
+        Vk_PipelineBuilder pipelineBuilder;
         pipelineBuilder.myShaderStages.push_back( vertShaderStageInfo );
         pipelineBuilder.myShaderStages.push_back( fragShaderStageInfo );
         pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
@@ -695,7 +695,7 @@ void Vk_Core::CreateCommandPool() {
     }
 }
 
-void Vk_Core::DrawFrame( const FrameData aFrameData ) {
+void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
 
     uint32_t imageIndex;
@@ -715,8 +715,8 @@ void Vk_Core::DrawFrame( const FrameData aFrameData ) {
 
     myFrameStats.ResetPerFrameCounters();
     myImGuiLayer.NewFrame();
-    StatsOverlay_Build( myFrameStats );
-    LightingPanel_Build( myEnvironmentData );
+    UtilStatsOverlay::Build( myFrameStats );
+    UtilLightingPanel::Build( myEnvironmentData );
     UpdateUniformBuffer( myCurrentFrame );
     ImGui::Render();
 
@@ -966,7 +966,7 @@ void Vk_Core::CreateColorResources() {
     } );
 }
 
-void Vk_Core::InitQueueFamilyIndices() {
+void Vk_Core::InitVk_QueueFamilyIndices() {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, nullptr );
 
@@ -998,9 +998,9 @@ void Vk_Core::InitQueueFamilyIndices() {
     }
 }
 
-void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
-    Mesh*     lastMesh     = nullptr;
-    Material* lastMaterial = nullptr;
+void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
+    Gfx_Mesh*     lastMesh     = nullptr;
+    Gfx_Material* lastMaterial = nullptr;
 
     for ( auto renderObject = someRenderObjects.begin(); renderObject != someRenderObjects.end(); renderObject++ ) {
         // Bind pipeline based on the mesh material
@@ -1086,7 +1086,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myPhysicalDeviceFeatures );
 
     // Queue Families
-    QueueFamilyIndices indices = FindQueueFamilies( aPhysicalDevice );
+    Vk_QueueFamilyIndices indices = FindQueueFamilies( aPhysicalDevice );
 
     // Extensions
     bool extensionSupported = CheckExtensionSupport( aPhysicalDevice );
@@ -1094,7 +1094,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     // Verify the swap chain support
     bool swapChainAdequate = false;
     if ( extensionSupported ) {
-        SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( aPhysicalDevice );
+        Vk_SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( aPhysicalDevice );
         swapChainAdequate                        = !swapChainSupport.myFormats.empty() && !swapChainSupport.myPresentModes.empty();
     }
 
@@ -1107,8 +1107,8 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     return indices.isComplete() && extensionSupported && swapChainAdequate && myPhysicalDeviceFeatures.samplerAnisotropy;
 }
 
-QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
-    QueueFamilyIndices indices;
+Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
+    Vk_QueueFamilyIndices indices;
     uint32_t           queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( aPhysicalDevice, &queueFamilyCount, nullptr );
 
@@ -1142,8 +1142,8 @@ QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice 
     return indices;
 }
 
-SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
-    SwapChainSupportDetails details;
+Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
+    Vk_SwapChainSupportDetails details;
 
     // Step #1: Determine the supported capabilities
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, mySurface, &details.myCapabilities );
@@ -1319,7 +1319,7 @@ uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags som
     throw std::runtime_error( "failed to find suitable memory type!" );
 }
 
-void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const {
+void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size  = aSize;
@@ -1404,19 +1404,19 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
 }
 
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                           AllocatedImage& anImage ) const {
+                           Vk_AllocatedImage& anImage ) const {
     CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
 }
 
 void Vk_Core::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                           VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
+                           VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     VkExtent3D extent = { anExtent.width, anExtent.height, 1 };
 
     CreateImage( extent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
 }
 
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                           VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const {
+                           VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     VkImageCreateInfo imageInfo = VkInit::ImageCreateInfo( aFormat, anImageUsage, anExtent );
 
     imageInfo.mipLevels   = aMipLevel;
@@ -1721,8 +1721,8 @@ size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
 
 #pragma region View Data Functions:
 
-Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex ) {
-    Material tempMat;
+Gfx_Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex ) {
+    Gfx_Material tempMat;
 
     tempMat.myPipeline       = aPipeline;
     tempMat.myPipelineLayout = aLayout;
@@ -1731,7 +1731,7 @@ Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayou
     return &myMaterialMap[ anIndex ];
 }
 
-Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
+Gfx_Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
     auto it = myMaterialMap.find( anIndex );
     if ( it == myMaterialMap.end() ) {
         return nullptr;
@@ -1741,10 +1741,10 @@ Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
     }
 }
 
-Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex ) {
+Gfx_Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex ) {
     const std::string resolvedPath = UtilLoader::ResolvePath( aFilename );
     UtilLogger::Info( "RESOURCE", "Loading mesh: " + resolvedPath );
-    Mesh tempMesh;
+    Gfx_Mesh tempMesh;
 
     tempMesh.LoadMesh( resolvedPath );
 
@@ -1761,7 +1761,7 @@ Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex 
     return &myMeshMap[ anIndex ];
 }
 
-Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
+Gfx_Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
     auto it = myMeshMap.find( anIndex );
     if ( it == myMeshMap.end() ) {
         return nullptr;
@@ -1771,9 +1771,9 @@ Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
     }
 }
 
-Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t anIndex ) {
+Gfx_Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t anIndex ) {
     UtilLogger::Info( "RESOURCE", "Loading texture: " + aFilename );
-    Texture tempTexture;
+    Gfx_Texture tempTexture;
 
     if ( UtilLoader::LoadTexture( aFilename, tempTexture, myTextureImageMipLevels ) != true ) {
         throw std::runtime_error( "failed to load texture!" );
@@ -1791,7 +1791,7 @@ Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t an
     return &myTextureMap[ anIndex ];
 }
 
-Texture* Vk_Core::GetTexture( const uint32_t anIndex ) {
+Gfx_Texture* Vk_Core::GetTexture( const uint32_t anIndex ) {
     auto it = myTextureMap.find( anIndex );
     if ( it == myTextureMap.end() ) {
         return nullptr;

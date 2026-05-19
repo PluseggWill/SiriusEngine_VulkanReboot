@@ -161,32 +161,32 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Editor\LightingPanel.cpp" />
-    <ClCompile Include="Editor\StatsOverlay.cpp" />
-    <ClCompile Include="Editor\Vk_ImGuiLayer.cpp" />
+    <ClCompile Include="Util\Util_LightingPanel.cpp" />
+    <ClCompile Include="Util\Util_StatsOverlay.cpp" />
+    <ClCompile Include="Util\Util_ImGuiLayer.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="..\lib\imgui\imgui.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Graphics\Gfx_ViewData.cpp" />
+    <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
-    <ClCompile Include="Util\FrameStats.cpp" />
+    <ClCompile Include="Util\Util_FrameStats.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
     <ClCompile Include="Util\Util_Logger.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Editor\LightingPanel.h" />
-    <ClInclude Include="Editor\StatsOverlay.h" />
-    <ClInclude Include="Editor\Vk_ImGuiLayer.h" />
-    <ClInclude Include="Graphics\Gfx_ViewData.h" />
+    <ClInclude Include="Util\Util_LightingPanel.h" />
+    <ClInclude Include="Util\Util_StatsOverlay.h" />
+    <ClInclude Include="Util\Util_ImGuiLayer.h" />
+    <ClInclude Include="Gfx\Gfx_ViewData.h" />
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
@@ -197,7 +197,7 @@
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
-    <ClInclude Include="Util\FrameStats.h" />
+    <ClInclude Include="Util\Util_FrameStats.h" />
     <ClInclude Include="Util\Util_Loader.h" />
     <ClInclude Include="Util\Util_Logger.h" />
   </ItemGroup>

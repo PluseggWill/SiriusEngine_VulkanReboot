@@ -59,7 +59,7 @@ std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
     return buffer;
 }
 
-bool UtilLoader::LoadTexture( const std::string& aFilename, Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
+bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
     const std::string resolvedPath = ResolvePath( aFilename );
     UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
     int                texWidth, texHeight, texChannels;
@@ -74,7 +74,7 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, Texture& aTextureOut
         throw std::runtime_error( "failed to load texture image!" );
     }
 
-    AllocatedBuffer stagingBuffer;
+    Vk_AllocatedBuffer stagingBuffer;
 
     Vk_Core::GetInstance().CreateBuffer( imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, true );
 

@@ -5,5 +5,5 @@ namespace UtilLoader {
 std::string ResolvePath( const std::string& aFilename );
 std::vector< char > ReadFile( const std::string& aFilename );
 
-bool LoadTexture(const std::string& aFilename, Texture& aTexture, uint32_t& aTextureMipLevel);
+bool LoadTexture( const std::string& aFilename, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel );
 }  // namespace UtilLoader

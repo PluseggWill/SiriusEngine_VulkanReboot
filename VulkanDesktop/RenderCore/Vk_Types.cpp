@@ -55,47 +55,47 @@ std::vector< glm::vec3 > ComputeSmoothNormals( const tinyobj::attrib_t& attrib, 
 } // namespace
 
 // Vertex:
-VkVertexInputBindingDescription Vertex::getBindingDescription() {
+VkVertexInputBindingDescription Gfx_Vertex::getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding   = 0;
-    bindingDescription.stride    = sizeof( Vertex );
+    bindingDescription.stride    = sizeof( Gfx_Vertex );
     bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     return bindingDescription;
 }
 
-std::array< VkVertexInputAttributeDescription, 4 > Vertex::getAttributeDescriptions() {
+std::array< VkVertexInputAttributeDescription, 4 > Gfx_Vertex::getAttributeDescriptions() {
     std::array< VkVertexInputAttributeDescription, 4 > attributeDescriptions{};
     attributeDescriptions[ 0 ].binding  = 0;
     attributeDescriptions[ 0 ].location = 0;
     attributeDescriptions[ 0 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 0 ].offset   = offsetof( Vertex, pos );
+    attributeDescriptions[ 0 ].offset   = offsetof( Gfx_Vertex, pos );
 
     attributeDescriptions[ 1 ].binding  = 0;
     attributeDescriptions[ 1 ].location = 1;
     attributeDescriptions[ 1 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 1 ].offset   = offsetof( Vertex, color );
+    attributeDescriptions[ 1 ].offset   = offsetof( Gfx_Vertex, color );
 
     attributeDescriptions[ 2 ].binding  = 0;
     attributeDescriptions[ 2 ].location = 2;
     attributeDescriptions[ 2 ].format   = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[ 2 ].offset   = offsetof( Vertex, texCoord );
+    attributeDescriptions[ 2 ].offset   = offsetof( Gfx_Vertex, texCoord );
 
     attributeDescriptions[ 3 ].binding  = 0;
     attributeDescriptions[ 3 ].location = 3;
     attributeDescriptions[ 3 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 3 ].offset   = offsetof( Vertex, normal );
+    attributeDescriptions[ 3 ].offset   = offsetof( Gfx_Vertex, normal );
 
     return attributeDescriptions;
 }
 
-void Mesh::LoadMesh( const std::string& aPath ) {
+void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
     // Fill the data by loading model
     tinyobj::attrib_t                      attrib;
     std::vector< tinyobj::shape_t >        shapes;
     std::vector< tinyobj::material_t >     materials;
     std::string                            warn, error;
-    std::unordered_map< Vertex, uint32_t > uniqueVertices{};
+    std::unordered_map< Gfx_Vertex, uint32_t > uniqueVertices{};
 
     if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, aPath.c_str() ) ) {
         throw std::runtime_error( warn + error );
@@ -106,7 +106,7 @@ void Mesh::LoadMesh( const std::string& aPath ) {
 
     for ( const auto& shape : shapes ) {
         for ( const auto& index : shape.mesh.indices ) {
-            Vertex vertex{};
+            Gfx_Vertex vertex{};
             vertex.pos      = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
             vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
             vertex.color    = { 1.0f, 1.0f, 1.0f };
@@ -128,15 +128,15 @@ void Mesh::LoadMesh( const std::string& aPath ) {
     }
 }
 
-void Mesh::BuildBuffers() {
+void Gfx_Mesh::BuildBuffers() {
     BuildVertexBuffer();
     BuildIndexBuffer();
 }
 
-void Mesh::BuildVertexBuffer() {
-    const VkDeviceSize bufferSize = sizeof( Vertex ) * myVertices.size();
+void Gfx_Mesh::BuildVertexBuffer() {
+    const VkDeviceSize bufferSize = sizeof( Gfx_Vertex ) * myVertices.size();
 
-    AllocatedBuffer stagingBuffer;
+    Vk_AllocatedBuffer stagingBuffer;
 
     // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
@@ -154,10 +154,10 @@ void Mesh::BuildVertexBuffer() {
     vmaDestroyBuffer( Vk_Core::GetInstance().myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 }
 
-void Mesh::BuildIndexBuffer() {
+void Gfx_Mesh::BuildIndexBuffer() {
     const VkDeviceSize bufferSize = sizeof( uint32_t ) * myIndices.size();
 
-    AllocatedBuffer stagingBuffer;
+    Vk_AllocatedBuffer stagingBuffer;
 
     // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );

@@ -1,125 +1,159 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
-    <Filter Include="Header Files\RenderCore">
-      <UniqueIdentifier>{65056a28-ab47-48d7-b2fa-fcea5e4bc4fe}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Util">
+    <Filter Include="Util">
       <UniqueIdentifier>{f5848333-464c-47b7-8977-494d5332dd84}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\RenderCore">
-      <UniqueIdentifier>{e6b7dd05-f0fa-4fce-ba12-5f93c8e575c2}</UniqueIdentifier>
+    <Filter Include="Util\ThirdParty">
+      <UniqueIdentifier>{b2c3d4e5-f6a7-4890-b123-456789abcdef}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Shader">
-      <UniqueIdentifier>{49330e1d-10f6-4ff6-a3ad-86b385f880b3}</UniqueIdentifier>
+    <Filter Include="Util\ThirdParty\imgui">
+      <UniqueIdentifier>{c3d4e5f6-a7b8-4901-c234-56789abcdef0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Util">
-      <UniqueIdentifier>{2d2dcfeb-41a5-473d-8ceb-6eca9493bd86}</UniqueIdentifier>
+    <Filter Include="Util\ThirdParty\imgui\backends">
+      <UniqueIdentifier>{d4e5f6a7-b8c9-4012-d345-6789abcdef01}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Graphics">
+    <Filter Include="RenderCore">
+      <UniqueIdentifier>{65056a28-ab47-48d7-b2fa-fcea5e4bc4fe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Gfx">
       <UniqueIdentifier>{3e16dee1-3f55-41d2-b772-50023f054904}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Graphics">
-      <UniqueIdentifier>{92e91a3a-d353-4e2b-9138-555fe966ce78}</UniqueIdentifier>
+    <Filter Include="Gfx\Shader">
+      <UniqueIdentifier>{49330e1d-10f6-4ff6-a3ad-86b385f880b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VulkanDesktop.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Core.cpp">
-      <Filter>Source Files\RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Window.cpp">
-      <Filter>Source Files\RenderCore</Filter>
+    <ClCompile Include="VulkanDesktop.cpp" />
+    <ClCompile Include="Util\Util_FrameStats.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Util\Util_Loader.cpp">
-      <Filter>Source Files\Util</Filter>
+      <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Initializer.cpp">
-      <Filter>Source Files\RenderCore</Filter>
+    <ClCompile Include="Util\Util_Logger.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
-      <Filter>Source Files\RenderCore</Filter>
+    <ClCompile Include="Util\Util_LightingPanel.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Types.cpp">
-      <Filter>Source Files\RenderCore</Filter>
+    <ClCompile Include="Util\Util_StatsOverlay.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_ImGuiLayer.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>Util\ThirdParty\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>Util\ThirdParty\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\imgui.cpp">
+      <Filter>Util\ThirdParty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\imgui_draw.cpp">
+      <Filter>Util\ThirdParty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\imgui_tables.cpp">
+      <Filter>Util\ThirdParty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\imgui\imgui_widgets.cpp">
+      <Filter>Util\ThirdParty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ViewData.cpp">
+      <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Camera.cpp">
-      <Filter>Source Files\RenderCore</Filter>
+      <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Gfx_ViewData.cpp">
-      <Filter>Source Files\Graphics</Filter>
+    <ClCompile Include="RenderCore\Vk_Core.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Initializer.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Types.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Window.cpp">
+      <Filter>RenderCore</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="RenderCore\Vk_Core.h">
-      <Filter>Header Files\RenderCore</Filter>
-    </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Window.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Util\Util_FrameStats.h">
+      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Loader.h">
-      <Filter>Header Files\Util</Filter>
+      <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_DataStruct.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Util\Util_Logger.h">
+      <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Initializer.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Util\Util_LightingPanel.h">
+      <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Pipeline.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Util\Util_StatsOverlay.h">
+      <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Types.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Util\Util_ImGuiLayer.h">
+      <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Texture.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="Gfx\Gfx_ViewData.h">
+      <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Camera.h">
-      <Filter>Header Files\RenderCore</Filter>
+      <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_FrameData.h">
-      <Filter>Header Files\RenderCore</Filter>
+    <ClInclude Include="RenderCore\Vk_DataStruct.h">
+      <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Gfx_ViewData.h">
-      <Filter>Header Files\Graphics</Filter>
+    <ClInclude Include="RenderCore\Vk_Core.h">
+      <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Enum.h">
-      <Filter>Header Files\RenderCore</Filter>
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameData.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Initializer.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Pipeline.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Texture.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Types.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Window.h">
+      <Filter>RenderCore</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\TriangleFrag.frag">
-      <Filter>Source Files\Shader</Filter>
-    </None>
-    <None Include="Shader\TriangleVertex.vert">
-      <Filter>Source Files\Shader</Filter>
-    </None>
     <None Include="Shader\CompileShader.bat">
-      <Filter>Source Files\Shader</Filter>
+      <Filter>Gfx\Shader</Filter>
+    </None>
+    <None Include="Shader\TriangleFrag.frag">
+      <Filter>Gfx\Shader</Filter>
     </None>
     <None Include="Shader\TriangleFrag_Lit.frag">
-      <Filter>Source Files\Shader</Filter>
+      <Filter>Gfx\Shader</Filter>
+    </None>
+    <None Include="Shader\TriangleVertex.vert">
+      <Filter>Gfx\Shader</Filter>
     </None>
     <None Include="Shader\TrianglePix.hlsl">
-      <Filter>Source Files\Shader</Filter>
+      <Filter>Gfx\Shader</Filter>
     </None>
     <None Include="Shader\TriangleShader.hlsl">
-      <Filter>Source Files\Shader</Filter>
+      <Filter>Gfx\Shader</Filter>
     </None>
   </ItemGroup>
 </Project>

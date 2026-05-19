@@ -4,8 +4,8 @@
 #include <string>
 #include <vk_mem_alloc.h>
 
-#include "../Editor/Vk_ImGuiLayer.h"
-#include "../Util/FrameStats.h"
+#include "../Util/Util_ImGuiLayer.h"
+#include "../Util/Util_FrameStats.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
@@ -19,13 +19,13 @@ constexpr bool  FILL_MODE_LINE       = false;
 constexpr float SPEED                = 0.3f;
 // const bool ENABLE_MSAA          = false;
 
-struct AllocatedImage;
-struct AllocatedBuffer;
-struct Texture;
-struct Material;
-class Vertex;
-class Mesh;
-class RenderObject;
+struct Vk_AllocatedImage;
+struct Vk_AllocatedBuffer;
+struct Gfx_Texture;
+struct Gfx_Material;
+class Gfx_Vertex;
+class Gfx_Mesh;
+class Gfx_RenderObject;
 
 class Vk_Core {
 public:
@@ -41,13 +41,13 @@ public:
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
     // Util Functions:
-    void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
+    void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                                AllocatedImage& anImage ) const;
+                                Vk_AllocatedImage& anImage ) const;
     void           CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+                                VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+                                VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     VkShaderModule CreateShaderModule( const std::vector< char >& someShaderCode ) const;
     VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
     VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
@@ -70,7 +70,7 @@ private:
     // Part 1: Base
     void CreateInstance();
     void PickPhysicalDevice();
-    void InitQueueFamilyIndices();
+    void InitVk_QueueFamilyIndices();
     void CreateLogicalDevice();
     void CreateSurface();
     void CreateCommandPool();
@@ -100,11 +100,11 @@ private:
     void ShutdownImGui();
 
     // Draw frame:
-    void DrawFrame( const FrameData aFrameData );
+    void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
     void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex );
+    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex );
 
     // Helper functions:
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -112,8 +112,8 @@ private:
     bool                    CheckValidationLayerSupport() const;
     bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const;
     bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
-    QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
-    SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const;
+    Vk_QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
+    Vk_SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const;
     VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const;
     VkPresentModeKHR        ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const;
     VkExtent2D              ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const;
@@ -126,12 +126,12 @@ private:
     size_t                  PadUniformBufferSize( size_t anOriginalSize ) const;
 
 #pragma region View Data Functions
-    Material* CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
-    Material* GetMaterial( const uint32_t anIndex );
-    Mesh*     CreateMesh( const std::string& aFilename, const uint32_t anIndex );
-    Mesh*     GetMesh( const uint32_t anIndex );
-    Texture*  CreateTexture( const std::string& aFilename, const uint32_t anIndex );
-    Texture*  GetTexture( const uint32_t anIndex );
+    Gfx_Material* CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
+    Gfx_Material* GetMaterial( const uint32_t anIndex );
+    Gfx_Mesh*     CreateMesh( const std::string& aFilename, const uint32_t anIndex );
+    Gfx_Mesh*     GetMesh( const uint32_t anIndex );
+    Gfx_Texture*  CreateTexture( const std::string& aFilename, const uint32_t anIndex );
+    Gfx_Texture*  GetTexture( const uint32_t anIndex );
 #pragma endregion
 
     // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
@@ -140,23 +140,23 @@ private:
 
 public:
     uint32_t     myFrameNumber = 0;
-    FrameStats   myFrameStats;
+    Util_FrameStats   myFrameStats;
     VmaAllocator myAllocator;
 
 #pragma region View Data Functions
-    Gfx_Camera         myCamera;
+    Vk_Camera         myCamera;
     GpuEnvironmentData myEnvironmentData;
-    AllocatedBuffer    myEnvDataBuffer;
+    Vk_AllocatedBuffer    myEnvDataBuffer;
 
-    std::unordered_map< uint32_t, Material > myMaterialMap;
-    std::unordered_map< uint32_t, Mesh >     myMeshMap;
-    std::unordered_map< uint32_t, Texture >  myTextureMap;
-    std::vector< RenderObject >              myRenderObjects;
+    std::unordered_map< uint32_t, Gfx_Material > myMaterialMap;
+    std::unordered_map< uint32_t, Gfx_Mesh >     myMeshMap;
+    std::unordered_map< uint32_t, Gfx_Texture >  myTextureMap;
+    std::vector< Gfx_RenderObject >              myRenderObjects;
 #pragma endregion
 
 private:
-    DeletionQueue         myDeletionQueue;
-    DeletionQueue         mySwapChainDeletionQueue;
+    Vk_DeletionQueue         myDeletionQueue;
+    Vk_DeletionQueue         mySwapChainDeletionQueue;
     uint32_t              myWidth, myHeight;
     GLFWwindow*           myWindow;
     VkInstance            myInstance;
@@ -176,29 +176,29 @@ private:
     VkPipeline            myBasicPipeline;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;
-    Texture               myDepthTexture;
-    Texture               myColorTexture;
+    Gfx_Texture               myDepthTexture;
+    Gfx_Texture               myColorTexture;
     VkSampler             myTextureSampler;
     uint32_t              myTextureImageMipLevels;
-    QueueFamilyIndices    myQueueFamilyIndices;
+    Vk_QueueFamilyIndices    myQueueFamilyIndices;
 
     mutable VkPhysicalDeviceProperties myPhysicalDeviceProperties;
     mutable VkPhysicalDeviceFeatures   myPhysicalDeviceFeatures;
 
-    std::vector< FrameData >     myFrameDatas;
+    std::vector< Vk_FrameData >     myFrameDatas;
     std::vector< const char* >   myValidationLayers;
     std::vector< const char* >   myDeviceExtensions;
     std::vector< VkImage >       mySwapChainImages;
     std::vector< VkImageView >   mySwapChainImageViews;
     std::vector< VkFramebuffer > mySwapChainFrameBuffers;
-    // std::array< AllocatedBuffer, eVk_BindingCount > myUniformBuffers;  // TODO: this is planned to be an array of constant buffer
+    // std::array< Vk_AllocatedBuffer, eVk_BindingCount > myUniformBuffers;  // TODO: this is planned to be an array of constant buffer
 
     bool                  myEnableValidationLayers;
     bool                  myFramebufferResized = false;
     uint32_t              myCurrentFrame       = 0;
     VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
 
-    Vk_ImGuiLayer                                              myImGuiLayer;
+    Util_ImGuiLayer                                              myImGuiLayer;
     std::chrono::high_resolution_clock::time_point             myLastFrameTime;
     bool                                                       myHasLastFrameTime = false;
 };

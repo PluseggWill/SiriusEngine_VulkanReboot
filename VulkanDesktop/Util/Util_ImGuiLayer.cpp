@@ -1,4 +1,4 @@
-#include "Vk_ImGuiLayer.h"
+#include "Util_ImGuiLayer.h"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -13,7 +13,7 @@ void CheckVkResult( VkResult aResult ) {
 }
 }  // namespace
 
-void Vk_ImGuiLayer::Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysicalDevice aPhysicalDevice, VkDevice aDevice, uint32_t aQueueFamily, VkQueue aQueue,
+void Util_ImGuiLayer::Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysicalDevice aPhysicalDevice, VkDevice aDevice, uint32_t aQueueFamily, VkQueue aQueue,
                           VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews, uint32_t aImageCount,
                           uint32_t aMinImageCount ) {
     myWindow          = aWindow;
@@ -34,7 +34,7 @@ void Vk_ImGuiLayer::Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysical
     myInitialized = true;
 }
 
-void Vk_ImGuiLayer::Shutdown() {
+void Util_ImGuiLayer::Shutdown() {
     if ( !myInitialized )
         return;
 
@@ -50,13 +50,13 @@ void Vk_ImGuiLayer::Shutdown() {
     myInitialized = false;
 }
 
-void Vk_ImGuiLayer::NewFrame() {
+void Util_ImGuiLayer::NewFrame() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
-void Vk_ImGuiLayer::Render( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex, VkExtent2D anExtent ) {
+void Util_ImGuiLayer::Render( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex, VkExtent2D anExtent ) {
     ImDrawData* drawData = ImGui::GetDrawData();
     if ( drawData == nullptr || drawData->DisplaySize.x <= 0.f || drawData->DisplaySize.y <= 0.f )
         return;
@@ -76,7 +76,7 @@ void Vk_ImGuiLayer::Render( VkCommandBuffer aCommandBuffer, uint32_t anImageInde
     vkCmdEndRenderPass( aCommandBuffer );
 }
 
-void Vk_ImGuiLayer::DestroySwapchainResources() {
+void Util_ImGuiLayer::DestroySwapchainResources() {
     if ( !myInitialized )
         return;
 
@@ -85,7 +85,7 @@ void Vk_ImGuiLayer::DestroySwapchainResources() {
     DestroyRenderPass();
 }
 
-void Vk_ImGuiLayer::CreateSwapchainResources( VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews,
+void Util_ImGuiLayer::CreateSwapchainResources( VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews,
                                               uint32_t aImageCount, uint32_t aMinImageCount ) {
     mySwapchainFormat = aSwapchainFormat;
     CreateRenderPass( mySwapchainFormat );
@@ -93,7 +93,7 @@ void Vk_ImGuiLayer::CreateSwapchainResources( VkFormat aSwapchainFormat, VkExten
     InitImGuiBackends( aImageCount, aMinImageCount );
 }
 
-void Vk_ImGuiLayer::CreateRenderPass( VkFormat aSwapchainFormat ) {
+void Util_ImGuiLayer::CreateRenderPass( VkFormat aSwapchainFormat ) {
     VkAttachmentDescription colorAttachment{};
     colorAttachment.format         = aSwapchainFormat;
     colorAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -134,14 +134,14 @@ void Vk_ImGuiLayer::CreateRenderPass( VkFormat aSwapchainFormat ) {
         throw std::runtime_error( "failed to create ImGui render pass!" );
 }
 
-void Vk_ImGuiLayer::DestroyRenderPass() {
+void Util_ImGuiLayer::DestroyRenderPass() {
     if ( myRenderPass != VK_NULL_HANDLE ) {
         vkDestroyRenderPass( myDevice, myRenderPass, nullptr );
         myRenderPass = VK_NULL_HANDLE;
     }
 }
 
-void Vk_ImGuiLayer::CreateFramebuffers( const std::vector< VkImageView >& someSwapchainImageViews, VkExtent2D anExtent ) {
+void Util_ImGuiLayer::CreateFramebuffers( const std::vector< VkImageView >& someSwapchainImageViews, VkExtent2D anExtent ) {
     DestroyFramebuffers();
 
     myFramebuffers.resize( someSwapchainImageViews.size() );
@@ -160,14 +160,14 @@ void Vk_ImGuiLayer::CreateFramebuffers( const std::vector< VkImageView >& someSw
     }
 }
 
-void Vk_ImGuiLayer::DestroyFramebuffers() {
+void Util_ImGuiLayer::DestroyFramebuffers() {
     for ( VkFramebuffer framebuffer : myFramebuffers )
         vkDestroyFramebuffer( myDevice, framebuffer, nullptr );
 
     myFramebuffers.clear();
 }
 
-void Vk_ImGuiLayer::InitImGuiBackends( uint32_t aImageCount, uint32_t aMinImageCount ) {
+void Util_ImGuiLayer::InitImGuiBackends( uint32_t aImageCount, uint32_t aMinImageCount ) {
     ImGui_ImplVulkan_InitInfo initInfo{};
     initInfo.Instance          = myInstance;
     initInfo.PhysicalDevice    = myPhysicalDevice;
@@ -186,10 +186,10 @@ void Vk_ImGuiLayer::InitImGuiBackends( uint32_t aImageCount, uint32_t aMinImageC
         throw std::runtime_error( "ImGui_ImplVulkan_Init failed." );
 
     if ( !ImGui_ImplVulkan_CreateFontsTexture() )
-        throw std::runtime_error( "ImGui_ImplVulkan_CreateFontsTexture failed." );
+        throw std::runtime_error( "ImGui_ImplVulkan_CreateFontsGfx_Texture failed." );
 }
 
-void Vk_ImGuiLayer::ShutdownImGuiBackends() {
+void Util_ImGuiLayer::ShutdownImGuiBackends() {
     ImGui_ImplVulkan_DestroyFontsTexture();
     ImGui_ImplVulkan_Shutdown();
 }

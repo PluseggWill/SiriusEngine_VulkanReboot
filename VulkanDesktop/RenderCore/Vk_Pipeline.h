@@ -2,7 +2,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-class PipelineBuilder {
+class Vk_PipelineBuilder {
 public:
     VkPipelineVertexInputStateCreateInfo   myVertexInputInfo;
     VkPipelineInputAssemblyStateCreateInfo myInputAssembly;

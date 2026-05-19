@@ -10,10 +10,10 @@ struct GpuCameraData {
     alignas( 16 ) glm::mat4 proj;
 };
 
-class Gfx_Camera {
+class Vk_Camera {
 public:
-    Gfx_Camera();
-    ~Gfx_Camera();
+    Vk_Camera();
+    ~Vk_Camera();
     void SetLens( const float aFov, const float aNear, const float aFar, const float anAspect );
     void LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup );
     void LookAt( const glm::vec3& anEye );

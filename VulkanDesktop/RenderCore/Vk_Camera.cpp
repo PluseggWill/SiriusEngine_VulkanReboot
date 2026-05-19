@@ -2,7 +2,7 @@
 //#include <glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-Gfx_Camera::Gfx_Camera() {
+Vk_Camera::Vk_Camera() {
     myEye    = glm::vec3( 2.0f, 2.0f, 2.0f );
     myCenter = glm::vec3( 0.0f, 0.0f, 0.0f );
     myLookUp = glm::vec3( 0.0f, 0.0f, 1.0f );
@@ -14,9 +14,9 @@ Gfx_Camera::Gfx_Camera() {
     UpdateViewProjMatrix();
 }
 
-Gfx_Camera::~Gfx_Camera() {}
+Vk_Camera::~Vk_Camera() {}
 
-void Gfx_Camera::SetLens( const float aFov, const float aNear, const float aFar, const float anAspect ) {
+void Vk_Camera::SetLens( const float aFov, const float aNear, const float aFar, const float anAspect ) {
     myFov    = aFov;
     myNear   = aNear;
     myFar    = aFar;
@@ -26,7 +26,7 @@ void Gfx_Camera::SetLens( const float aFov, const float aNear, const float aFar,
     myProj[ 1 ][ 1 ] *= -1;
 }
 
-void Gfx_Camera::LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup ) {
+void Vk_Camera::LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup ) {
     myEye    = anEye;
     myCenter = aCenter;
     myLookUp = aLookup;
@@ -34,34 +34,34 @@ void Gfx_Camera::LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const
     UpdateViewProjMatrix();
 }
 
-void Gfx_Camera::UpdateViewProjMatrix() {
+void Vk_Camera::UpdateViewProjMatrix() {
     myView = glm::lookAt( myEye, myCenter, myLookUp );
     myProj = glm::perspective( glm::radians( myFov ), myAspect, myNear, myFar );
     myProj[ 1 ][ 1 ] *= -1;
 }
 
-void Gfx_Camera::LookAt( const glm::vec3& aCenter ) {
+void Vk_Camera::LookAt( const glm::vec3& aCenter ) {
     myCenter = aCenter;
 
     UpdateViewProjMatrix();
 }
 
-void Gfx_Camera::SetPosition( const glm::vec3& anEye ) {
+void Vk_Camera::SetPosition( const glm::vec3& anEye ) {
     glm::vec3 diff = anEye - myEye;
     myView         = glm::translate( myView, diff );
 
     myEye = anEye;
 }
 
-void Gfx_Camera::Move( const glm::vec3& aDirection ) {
+void Vk_Camera::Move( const glm::vec3& aDirection ) {
     myEye += aDirection;
 
     myView = glm::translate( myView, aDirection );
 }
 
-void Gfx_Camera::Rotate( const glm::vec3& aRotate ) {}
+void Vk_Camera::Rotate( const glm::vec3& aRotate ) {}
 
-void Gfx_Camera::SetAspect( const float anAspect ) {
+void Vk_Camera::SetAspect( const float anAspect ) {
     myAspect = anAspect;
 
     UpdateViewProjMatrix();

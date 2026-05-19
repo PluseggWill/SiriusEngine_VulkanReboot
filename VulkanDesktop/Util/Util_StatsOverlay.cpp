@@ -1,11 +1,11 @@
-#include "StatsOverlay.h"
+#include "Util_StatsOverlay.h"
 
-#include "../Util/FrameStats.h"
+#include "../Util/Util_FrameStats.h"
 
 #include <algorithm>
 #include <imgui.h>
 
-void StatsOverlay_Build( const FrameStats& aStats ) {
+void UtilStatsOverlay::Build( const Util_FrameStats& aStats ) {
     ImGui::SetNextWindowPos( ImVec2( 10.f, 10.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.85f );
     ImGui::Begin( "Performance", nullptr, ImGuiWindowFlags_AlwaysAutoResize );

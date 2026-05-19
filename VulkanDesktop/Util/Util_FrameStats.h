@@ -5,7 +5,7 @@
 
 constexpr int FRAME_HISTORY_COUNT = 120;
 
-struct FrameStats {
+struct Util_FrameStats {
     float    myFps            = 0.f;
     float    myAvgFps         = 0.f;
     float    myFps1PercentLow = 0.f;

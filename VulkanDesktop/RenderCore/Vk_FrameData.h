@@ -2,19 +2,19 @@
 #include "Vk_DataStruct.h"
 #include "Vk_Types.h"
 
-struct FrameData {
+struct Vk_FrameData {
     VkSemaphore myPresentSemaphore;
     VkSemaphore myRenderSemaphore;
     VkFence     myRenderFence;
 
-    DeletionQueue myFrameDeletionQueue;
+    Vk_DeletionQueue myFrameDeletionQueue;
 
     // VkCommandPool   myCommandPool;
     VkCommandBuffer myCommandBuffer;
 
-    AllocatedBuffer myCameraBuffer;
+    Vk_AllocatedBuffer myCameraBuffer;
     VkDescriptorSet myGlobalDescriptor;
 
-    AllocatedBuffer myObjectBuffer;
+    Vk_AllocatedBuffer myObjectBuffer;
     VkDescriptorSet myObjectDescriptor;
 };

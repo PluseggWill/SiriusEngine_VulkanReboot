@@ -1,14 +1,14 @@
-#include "FrameStats.h"
+#include "Util_FrameStats.h"
 
 #include <algorithm>
 #include <cmath>
 
-void FrameStats::ResetPerFrameCounters() {
+void Util_FrameStats::ResetPerFrameCounters() {
     myDrawCalls     = 0;
     myPipelineBinds = 0;
 }
 
-void FrameStats::PushFrameTime( float aFrameMs ) {
+void Util_FrameStats::PushFrameTime( float aFrameMs ) {
     myFrameMs = aFrameMs;
     if ( aFrameMs > 0.f )
         myFps = 1000.f / aFrameMs;
@@ -20,7 +20,7 @@ void FrameStats::PushFrameTime( float aFrameMs ) {
     UpdateAggregates();
 }
 
-void FrameStats::UpdateAggregates() {
+void Util_FrameStats::UpdateAggregates() {
     const int sampleCount = std::min( myHistorySampleCount, FRAME_HISTORY_COUNT );
     if ( sampleCount <= 0 ) {
         myAvgFps         = 0.f;
