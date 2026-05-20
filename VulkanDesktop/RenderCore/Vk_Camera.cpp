@@ -1,17 +1,19 @@
 #include "Vk_Camera.h"
-//#include <glm/gtx/hash.hpp>
+
+#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 
 Vk_Camera::Vk_Camera() {
-    myEye    = glm::vec3( 2.0f, 2.0f, 2.0f );
-    myCenter = glm::vec3( 0.0f, 0.0f, 0.0f );
-    myLookUp = glm::vec3( 0.0f, 0.0f, 1.0f );
-    myFov    = 45.0f;
-    myNear   = 0.1f;
-    myFar    = 10.0f;
-    myAspect = 800 / 600;
+    myPosition = glm::vec3( 2.0f, 2.0f, 2.0f );
+    myWorldUp  = glm::vec3( 0.0f, 0.0f, 1.0f );
+    myYaw      = 0.0f;
+    myPitch    = 0.0f;
+    myFov      = 45.0f;
+    myNear     = 0.1f;
+    myFar      = 10.0f;
+    myAspect   = 800.0f / 600.0f;
 
-    UpdateViewProjMatrix();
+    LookAt( myPosition, glm::vec3( 0.0f, 0.0f, 0.0f ), myWorldUp );
 }
 
 Vk_Camera::~Vk_Camera() {}
@@ -22,47 +24,85 @@ void Vk_Camera::SetLens( const float aFov, const float aNear, const float aFar, 
     myFar    = aFar;
     myAspect = anAspect;
 
-    myProj = glm::perspective( glm::radians( myFov ), myAspect, myNear, myFar );
-    myProj[ 1 ][ 1 ] *= -1;
-}
-
-void Vk_Camera::LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup ) {
-    myEye    = anEye;
-    myCenter = aCenter;
-    myLookUp = aLookup;
-
     UpdateViewProjMatrix();
 }
 
+void Vk_Camera::LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup ) {
+    myPosition = anEye;
+    myWorldUp  = aLookup;
+    SyncOrientationFromLookDirection( glm::normalize( aCenter - anEye ) );
+    UpdateViewProjMatrix();
+}
+
+void Vk_Camera::SetAspect( const float anAspect ) {
+    myAspect = anAspect;
+    UpdateViewProjMatrix();
+}
+
+glm::vec3 Vk_Camera::GetForward() const {
+    const float cosPitch = std::cos( myPitch );
+    return glm::normalize( glm::vec3( cosPitch * std::sin( myYaw ), cosPitch * std::cos( myYaw ), std::sin( myPitch ) ) );
+}
+
+glm::vec3 Vk_Camera::GetRight() const {
+    const glm::vec3 forward = GetForward();
+    glm::vec3       right   = glm::cross( forward, myWorldUp );
+    if ( glm::dot( right, right ) < 1e-8f )
+        right = glm::vec3( 1.0f, 0.0f, 0.0f );
+    return glm::normalize( right );
+}
+
+void Vk_Camera::SyncOrientationFromLookDirection( const glm::vec3& aForward ) {
+    const glm::vec3 forward = glm::normalize( aForward );
+    myPitch                 = std::asin( glm::clamp( forward.z, -1.0f, 1.0f ) );
+    myYaw                   = std::atan2( forward.x, forward.y );
+}
+
 void Vk_Camera::UpdateViewProjMatrix() {
+    const glm::vec3 forward = GetForward();
+    myEye                   = myPosition;
+    myCenter                = myPosition + forward;
+    myLookUp                = myWorldUp;
+
     myView = glm::lookAt( myEye, myCenter, myLookUp );
     myProj = glm::perspective( glm::radians( myFov ), myAspect, myNear, myFar );
     myProj[ 1 ][ 1 ] *= -1;
 }
 
-void Vk_Camera::LookAt( const glm::vec3& aCenter ) {
-    myCenter = aCenter;
+void Vk_Camera::ApplyInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aSettings ) {
+    if ( aDeltaSeconds <= 0.0f )
+        return;
 
-    UpdateViewProjMatrix();
-}
+    if ( aInput.myMouseDeltaX != 0.0f || aInput.myMouseDeltaY != 0.0f ) {
+        myYaw += aInput.myMouseDeltaX * aSettings.myMouseSensitivity;
+        myPitch -= aInput.myMouseDeltaY * aSettings.myMouseSensitivity;
+        myPitch = glm::clamp( myPitch, -MAX_PITCH_RADIANS, MAX_PITCH_RADIANS );
+    }
 
-void Vk_Camera::SetPosition( const glm::vec3& anEye ) {
-    glm::vec3 diff = anEye - myEye;
-    myView         = glm::translate( myView, diff );
+    glm::vec3 moveDir( 0.0f );
+    glm::vec3 forwardFlat( GetForward().x, GetForward().y, 0.0f );
+    if ( glm::dot( forwardFlat, forwardFlat ) < 1e-8f )
+        forwardFlat = glm::vec3( std::sin( myYaw ), std::cos( myYaw ), 0.0f );
+    else
+        forwardFlat = glm::normalize( forwardFlat );
+    const glm::vec3 right = GetRight();
 
-    myEye = anEye;
-}
+    if ( aInput.myMoveForward )
+        moveDir += forwardFlat;
+    if ( aInput.myMoveBack )
+        moveDir -= forwardFlat;
+    if ( aInput.myMoveRight )
+        moveDir += right;
+    if ( aInput.myMoveLeft )
+        moveDir -= right;
+    if ( aInput.myMoveUp )
+        moveDir += myWorldUp;
+    if ( aInput.myMoveDown )
+        moveDir -= myWorldUp;
 
-void Vk_Camera::Move( const glm::vec3& aDirection ) {
-    myEye += aDirection;
-
-    myView = glm::translate( myView, aDirection );
-}
-
-void Vk_Camera::Rotate( const glm::vec3& aRotate ) {}
-
-void Vk_Camera::SetAspect( const float anAspect ) {
-    myAspect = anAspect;
+    if ( glm::dot( moveDir, moveDir ) > 0.0f ) {
+        myPosition += glm::normalize( moveDir ) * aSettings.myMoveSpeed * aDeltaSeconds;
+    }
 
     UpdateViewProjMatrix();
 }

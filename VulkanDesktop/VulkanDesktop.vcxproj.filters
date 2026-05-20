@@ -34,6 +34,12 @@
     <ClCompile Include="Util\Util_Logger.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_CameraPanel.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_Input.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_LightingPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -91,6 +97,15 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Logger.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_CameraPanel.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_Input.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_InputSnapshot.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_LightingPanel.h">

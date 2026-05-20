@@ -6,6 +6,7 @@
 
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_FrameStats.h"
+#include "../Util/Util_InputSnapshot.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
@@ -16,7 +17,6 @@ constexpr bool  USE_RUNTIME_MIPMAP   = false;
 constexpr bool  USE_MANUAL_VERTICES  = false;
 constexpr bool  ENABLE_ROTATE        = true;
 constexpr bool  FILL_MODE_LINE       = false;
-constexpr float SPEED                = 0.3f;
 // const bool ENABLE_MSAA          = false;
 
 struct Vk_AllocatedImage;
@@ -98,6 +98,8 @@ private:
     void InitScene();
     void InitImGui();
     void ShutdownImGui();
+    // Poll GLFW, advance ImGui, sample input, update camera. Call once per loop iteration before DrawFrame.
+    void BeginFrame( float& aOutDeltaSeconds );
 
     // Draw frame:
     void DrawFrame( const Vk_FrameData aFrameData );
@@ -134,8 +136,6 @@ private:
     Gfx_Texture*  GetTexture( const uint32_t anIndex );
 #pragma endregion
 
-    // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
-    static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
@@ -144,8 +144,10 @@ public:
     VmaAllocator myAllocator;
 
 #pragma region View Data Functions
-    Vk_Camera         myCamera;
-    GpuEnvironmentData myEnvironmentData;
+    Vk_Camera            myCamera;
+    Util_CameraSettings  myCameraSettings;
+    Util_InputState      myInputState;
+    GpuEnvironmentData   myEnvironmentData;
     Vk_AllocatedBuffer    myEnvDataBuffer;
 
     std::unordered_map< uint32_t, Gfx_Material > myMaterialMap;

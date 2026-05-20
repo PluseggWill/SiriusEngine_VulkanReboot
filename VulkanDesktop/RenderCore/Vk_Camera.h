@@ -1,4 +1,5 @@
 #pragma once
+#include "../Util/Util_InputSnapshot.h"
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
@@ -16,19 +17,23 @@ public:
     ~Vk_Camera();
     void SetLens( const float aFov, const float aNear, const float aFar, const float anAspect );
     void LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup );
-    void LookAt( const glm::vec3& anEye );
-    void SetPosition( const glm::vec3& aCenter );
-    void Move( const glm::vec3& aDirection );
-    void Rotate( const glm::vec3& aRotate );
     void SetAspect( const float anAspect );
 
+    void ApplyInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aSettings );
+
+    glm::vec3 GetEye() const { return myPosition; }
+
 private:
-    void UpdateViewProjMatrix();
+    glm::vec3 GetForward() const;
+    glm::vec3 GetRight() const;
+    void      SyncOrientationFromLookDirection( const glm::vec3& aForward );
+    void      UpdateViewProjMatrix();
 
 public:
     glm::mat4 myView;
     glm::mat4 myProj;
 
+    // Derived each UpdateViewProjMatrix(); read-only for lighting / UBO.
     glm::vec3 myEye;
     glm::vec3 myCenter;
     glm::vec3 myLookUp;
@@ -36,4 +41,12 @@ public:
     float     myNear;
     float     myFar;
     float     myAspect;
+
+private:
+    glm::vec3 myPosition;
+    float     myYaw;
+    float     myPitch;
+    glm::vec3 myWorldUp;
+
+    static constexpr float MAX_PITCH_RADIANS = glm::radians( 89.0f );
 };

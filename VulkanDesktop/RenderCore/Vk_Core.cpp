@@ -1,4 +1,6 @@
 #include "Vk_Core.h"
+#include "../Util/Util_CameraPanel.h"
+#include "../Util/Util_Input.h"
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_StatsOverlay.h"
 #include "../Util/Util_Loader.h"
@@ -77,22 +79,13 @@ void Vk_Core::InitWindow() {
     UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( myWidth ) + "x" + std::to_string( myHeight ) );
     glfwSetWindowUserPointer( myWindow, this );
     glfwSetFramebufferSizeCallback( myWindow, FramebufferResizeCallback );
-    glfwSetKeyCallback( myWindow, HandleInputCallback );
 }
 
 void Vk_Core::MainLoop() {
     UtilLogger::Info( "LOOP", "Main loop started." );
     while ( !glfwWindowShouldClose( myWindow ) ) {
-        // Process the events that have already been received and then returns immediately
-        glfwPollEvents();
-
-        const auto frameStart = std::chrono::high_resolution_clock::now();
-        if ( myHasLastFrameTime ) {
-            const float frameSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
-            myFrameStats.PushFrameTime( frameSeconds * 1000.f );
-        }
-        myLastFrameTime     = frameStart;
-        myHasLastFrameTime  = true;
+        float frameSeconds = 0.0f;
+        BeginFrame( frameSeconds );
 
         DrawFrame( myFrameDatas[ myCurrentFrame ] );
         myFrameNumber++;
@@ -714,9 +707,9 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     }
 
     myFrameStats.ResetPerFrameCounters();
-    myImGuiLayer.NewFrame();
     UtilStatsOverlay::Build( myFrameStats );
     UtilLightingPanel::Build( myEnvironmentData );
+    UtilCameraPanel::Build( myCameraSettings );
     UpdateUniformBuffer( myCurrentFrame );
     ImGui::Render();
 
@@ -1667,43 +1660,32 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void Vk_Core::HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode ) {
+void Vk_Core::BeginFrame( float& aOutDeltaSeconds ) {
+    glfwPollEvents();
+
+    const auto frameStart   = std::chrono::high_resolution_clock::now();
+    aOutDeltaSeconds        = 0.0f;
+    if ( myHasLastFrameTime ) {
+        aOutDeltaSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
+        myFrameStats.PushFrameTime( aOutDeltaSeconds * 1000.f );
+    }
+    myLastFrameTime    = frameStart;
+    myHasLastFrameTime = true;
+
+    // ImGui must see this frame's input before we sample movement / mouse look for the camera.
+    myImGuiLayer.NewFrame();
+
+    Util_InputSnapshot snapshot{};
+    bool               allowKeyboard = true;
+    bool               allowMouse    = true;
     if ( ImGui::GetCurrentContext() != nullptr ) {
-        ImGuiIO& io = ImGui::GetIO();
-        if ( io.WantCaptureKeyboard && anAction != GLFW_RELEASE )
-            return;
+        const ImGuiIO& io = ImGui::GetIO();
+        allowKeyboard     = !io.WantCaptureKeyboard;
+        allowMouse        = !io.WantCaptureMouse;
     }
 
-    if ( anAction == GLFW_PRESS || anAction == GLFW_REPEAT ) {
-        switch ( aKey ) {
-        case GLFW_KEY_W:
-            // std::cout << "Moving Forward!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 1.0f, 0.0f ) * SPEED );
-            break;
-        case GLFW_KEY_S:
-            // std::cout << "Moving Backward!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, -1.0f, 0.0f ) * SPEED );
-            break;
-        case GLFW_KEY_A:
-            // std::cout << "Moving Left!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( -1.0f, 0.0f, 0.0f ) * SPEED );
-            break;
-        case GLFW_KEY_D:
-            // std::cout << "Moving Right!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 1.0f, 0.0f, 0.0f ) * SPEED );
-            break;
-        case GLFW_KEY_E:
-            // std::cout << "Moving Up!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, -1.0f ) * SPEED );
-            break;
-        case GLFW_KEY_Q:
-            // std::cout << "Moving Down!" << std::endl;
-            Vk_Core::GetInstance().myCamera.Move( glm::vec3( 0.0f, 0.0f, 1.0f ) * SPEED );
-            break;
-        default:
-            break;
-        }
-    }
+    UtilInput::Sample( myWindow, myInputState, snapshot, allowKeyboard, allowMouse );
+    myCamera.ApplyInput( aOutDeltaSeconds, snapshot, myCameraSettings );
 }
 
 size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
