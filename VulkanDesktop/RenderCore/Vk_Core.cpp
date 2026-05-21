@@ -35,9 +35,10 @@
 #include <vk_mem_alloc.h>
 #endif
 
+// Demo asset paths (resolved via UtilLoader::ResolvePath from cwd / VulkanDesktop output dir).
 std::string vertShaderPath    = "Shader/TriangleVert.spv";
 std::string fragShaderPath    = "Shader/TrianglePix.spv";
-std::string fragLitShaderPath = "Shader/TriangleFrag_Lit.spv";
+std::string fragLitShaderPath = "Shader/TriangleFrag_Lit.spv";  // legacy; active path uses TrianglePix + HLSL lighting
 std::string texturePath       = "../Data/Textures/viking_room.png";
 std::string houseModelPath    = "../Data/Models/viking_room.obj";
 std::string monkeyModelPath   = "../Data/Models/monkey_smooth.obj";
@@ -87,6 +88,7 @@ void Vk_Core::MainLoop() {
         float frameSeconds = 0.0f;
         BeginFrame( frameSeconds );
 
+        // myCurrentFrame indexes in-flight slot (fences, cmd buffer, camera UBO, descriptor set).
         DrawFrame( myFrameDatas[ myCurrentFrame ] );
         myFrameNumber++;
         myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
@@ -665,7 +667,7 @@ void Vk_Core::CreateFrameData() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // TODO: Temp env data creation
+    // Single env UBO buffer; each frame uses a slice at dynamic offset (see CreateDescriptorSets / UpdateUniformBuffer).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
@@ -857,9 +859,8 @@ void Vk_Core::CreateDescriptorPool() {
 }
 
 void Vk_Core::CreateDescriptorSets() {
-    // Configure the descriptors
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        // Allocation, one descriptor set per frame data
+        // One descriptor set per in-flight frame; env binding uses offset i * padded stride.
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool     = myDescriptorPool;
@@ -971,7 +972,6 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
         // Note: It is possible to choose a physical device that supports drawing and presentation
         // in the same queue for improved performance.
 
-        // Check for present queue & graphic queue
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR( myPhysicalDevice, i, mySurface, &presentSupport );
         if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
@@ -979,7 +979,7 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
             myQueueFamilyIndices.myGraphicsFamily = i;
         }
 
-        // Check for (explicit) transfer queue
+        // Prefer a dedicated transfer-only family when available (staging uploads).
         if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
             myQueueFamilyIndices.myTransferFamily = i;
         }
@@ -993,6 +993,7 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     myQueueFamilyIndices.ApplyTransferFallback();
 }
 
+// TODO(draw-stream): incomplete batching path; live rendering uses RecordCommandBuffer + mesh 0.
 void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
     Gfx_Mesh*     lastMesh     = nullptr;
     Gfx_Material* lastMaterial = nullptr;
@@ -1015,11 +1016,10 @@ void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_Rend
         ubo.view  = myCamera.myView;
         ubo.proj  = myCamera.myProj;
 
-        // TODO:
     }
 }
 
-#pragma region Functional Functions
+#pragma region Helpers — device, queues, shaders
 
 void Vk_Core::CheckExtensionSupport() const {
     uint32_t extensionCount = 0;
@@ -1274,6 +1274,7 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
+    // Demo draw path: single mesh (index 0), one global descriptor set for myCurrentFrame.
     myFrameStats.myPipelineBinds++;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
 
@@ -1328,6 +1329,7 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage,
         const uint32_t graphicsFamily = myQueueFamilyIndices.myGraphicsFamily.value();
         const uint32_t transferFamily = myQueueFamilyIndices.myTransferFamily.value();
 
+        // Same family after ApplyTransferFallback: CONCURRENT with duplicate indices is invalid.
         if ( graphicsFamily == transferFamily ) {
             bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         }
@@ -1373,13 +1375,10 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
 }
 
 void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
-    // Use the chrono lib to make sure the update is based on time instead of time rate
     static auto startTime = std::chrono::high_resolution_clock::now();
-
     const auto  currentTime = std::chrono::high_resolution_clock::now();
     const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
-    // Upadate camera buffer
     GpuCameraData cam{};
     cam.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
     cam.view  = myCamera.myView;
@@ -1390,7 +1389,7 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     memcpy( data, &cam, sizeof( cam ) );
     vmaUnmapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
 
-    // Update environment buffer
+    // Env UBO: panel edits myEnvironmentData; normalize sun dir and refresh eye for specular.
     GpuEnvironmentData env = myEnvironmentData;
     const glm::vec3      sunDir = glm::vec3( env.mySunlightDirection );
     if ( glm::dot( sunDir, sunDir ) > 0.0001f ) {
@@ -1700,7 +1699,7 @@ void Vk_Core::BeginFrame( float& aOutDeltaSeconds ) {
 }
 
 size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
-    // Calculate required alignment based on minimum device offset alignment
+    // Dynamic UBO offsets must be multiples of minUniformBufferOffsetAlignment.
     size_t minUboAlignment = myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
     size_t alignedSize     = anOriginalSize;
 
@@ -1712,7 +1711,7 @@ size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
 
 #pragma endregion
 
-#pragma region View Data Functions:
+#pragma region Scene resource tables (mesh / material / texture)
 
 Gfx_Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex ) {
     Gfx_Material tempMat;

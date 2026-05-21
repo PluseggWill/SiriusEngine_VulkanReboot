@@ -12,12 +12,11 @@
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
 
-constexpr int   MAX_FRAMES_IN_FLIGHT = 2;
-constexpr bool  USE_RUNTIME_MIPMAP   = false;
-constexpr bool  USE_MANUAL_VERTICES  = false;
-constexpr bool  ENABLE_ROTATE        = true;
-constexpr bool  FILL_MODE_LINE       = false;
-// const bool ENABLE_MSAA          = false;
+constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
+constexpr bool USE_RUNTIME_MIPMAP   = false;
+constexpr bool USE_MANUAL_VERTICES  = false;  // if true, skip OBJ load path (legacy)
+constexpr bool ENABLE_ROTATE        = true;   // demo: spin model in GpuCameraData.model
+constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
 struct Vk_AllocatedBuffer;
@@ -27,6 +26,8 @@ class Gfx_Vertex;
 class Gfx_Mesh;
 class Gfx_RenderObject;
 
+// Vulkan backend singleton: window, device, swapchain, frame loop, GPU resource helpers.
+// Scene tables (myMeshMap, etc.) live here temporarily — see EngineArchitecture §3.1 for split target.
 class Vk_Core {
 public:
     static Vk_Core& GetInstance();
@@ -40,7 +41,8 @@ public:
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
-    // Util Functions:
+    // Resource helpers (used by Gfx/Util loaders; prefer injecting context long-term).
+    // isExclusive: true = single queue family; false = graphics+transfer concurrent when families differ.
     void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                                 Vk_AllocatedImage& anImage ) const;
@@ -98,7 +100,7 @@ private:
     void InitScene();
     void InitImGui();
     void ShutdownImGui();
-    // Poll GLFW, advance ImGui, sample input, update camera. Call once per loop iteration before DrawFrame.
+    // Order: poll events → Δt → ImGui NewFrame → input sample → camera. Call once before DrawFrame.
     void BeginFrame( float& aOutDeltaSeconds );
 
     // Draw frame:

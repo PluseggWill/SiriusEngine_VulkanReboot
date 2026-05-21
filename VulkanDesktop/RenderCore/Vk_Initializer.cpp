@@ -32,6 +32,7 @@ VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo
     return vertexInputInfo;
 }
 
+// Returns create info pointing at static storage (safe). Not wired in Vk_PipelineBuilder yet (pDynamicState is null).
 VkPipelineDynamicStateCreateInfo VkInit::Pipeline_DynamicStateCreateInfo() {
     static const std::array< VkDynamicState, 2 > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
 

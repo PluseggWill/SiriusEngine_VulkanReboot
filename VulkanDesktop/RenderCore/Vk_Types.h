@@ -96,11 +96,12 @@ public:
     glm::mat4 myTransform;
 };
 
+// std140 UBO, binding eVk_EnvBinding — field order must match EnvironmentData in TriangleShader.hlsl.
 struct GpuEnvironmentData {
-    glm::vec4 myFogColor;           // rgb fog tint (unused in shader for now)
-    glm::vec4 myFogDistance;        // x=specularStrength, y=shininess, z=textureBlend, w unused
+    glm::vec4 myFogColor;           // reserved (fog not implemented in shader)
+    glm::vec4 myFogDistance;        // REPURPOSED: x=specularStrength, y=shininess, z=textureBlend, w unused
     glm::vec4 myAmbientColor;
-    glm::vec4 mySunlightDirection;  // xyz = direction toward sun (normalized in UpdateUniformBuffer)
+    glm::vec4 mySunlightDirection;  // xyz = direction from surface toward sun (normalized each frame)
     glm::vec4 mySunlightColor;
-    glm::vec4 myViewWorldPos;       // xyz = camera world position
+    glm::vec4 myViewWorldPos;       // xyz = camera world position (specular view vector)
 };

@@ -9,6 +9,8 @@
 #include <vector>
 
 namespace {
+
+// Search order when a relative asset path is not found in cwd (VS output dir varies).
 std::vector< std::filesystem::path > BuildCandidateBases() {
     const auto cwd = std::filesystem::current_path();
     return {
@@ -67,6 +69,7 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextur
     int      texChannels = 0;
     stbi_uc* pixels = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
 
+    // WARNING: validate before using dimensions (undefined behavior if read size when load failed).
     if ( !pixels || texWidth <= 0 || texHeight <= 0 ) {
         UtilLogger::Error( "RESOURCE", "Failed to decode texture: " + resolvedPath );
         throw std::runtime_error( "failed to load texture image!" );
@@ -95,12 +98,11 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextur
                                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
                                         aTextureMipLevel, VK_SAMPLE_COUNT_1_BIT, aTextureOut.AllocImage() );
 
-    // Transition for copy buffer to image
     Vk_Core::GetInstance().TransitionImageLayout( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                                   aTextureMipLevel );
     Vk_Core::GetInstance().CopyBufferToImage( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
 
-    // Transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+    // Final layout: SHADER_READ_ONLY (GenerateMipmaps leaves mips ready when enabled).
     if ( USE_RUNTIME_MIPMAP ) {
         Vk_Core::GetInstance().GenerateMipmaps( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, aTextureMipLevel );
     }

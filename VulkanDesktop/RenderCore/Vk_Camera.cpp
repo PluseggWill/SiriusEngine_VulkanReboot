@@ -66,7 +66,7 @@ void Vk_Camera::UpdateViewProjMatrix() {
 
     myView = glm::lookAt( myEye, myCenter, myLookUp );
     myProj = glm::perspective( glm::radians( myFov ), myAspect, myNear, myFar );
-    myProj[ 1 ][ 1 ] *= -1;
+    myProj[ 1 ][ 1 ] *= -1;  // Vulkan NDC: Y points down (GLM perspective is Y-up OpenGL style)
 }
 
 void Vk_Camera::ApplyInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aSettings ) {

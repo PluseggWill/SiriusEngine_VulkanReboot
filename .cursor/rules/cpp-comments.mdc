@@ -1,0 +1,72 @@
+---
+description: C/C++ and HLSL comment style for VulkanDesktop — clarity at contracts and pitfalls.
+globs: VulkanDesktop/**/*
+alwaysApply: false
+---
+
+# VulkanDesktop — Comment conventions
+
+Apply when adding or editing comments in `VulkanDesktop/` (C++, HLSL). Prefer **English** in source; keep comments **short and purposeful**.
+
+## When to comment
+
+| Do comment | Do not comment |
+|------------|----------------|
+| Shader ↔ CPU struct layout, descriptor bindings, packed fields | What the next line obviously does |
+| Queue-family / sharing-mode / frame-in-flight rules | Restating parameter names |
+| Non-obvious conventions (light direction, UV flip, Z-up) | Tutorial “Step #1 … Step #N” unless teaching |
+| Stubs, TODOs, known tech debt (with **why**) | Deleted or misleading legacy notes |
+| `BeginFrame` ordering, ImGui vs camera input | Every Vulkan struct field |
+
+## Formats
+
+**File header** (optional, top of `.cpp` / complex `.h`):
+
+```cpp
+// Module: Vk_Core — Vulkan device, swapchain, frame loop, resource helpers.
+```
+
+**Section** (major phases only):
+
+```cpp
+// --- Frame loop (CPU) ---
+```
+
+**Single-line** (default):
+
+```cpp
+// One uniform buffer slab; per-frame slice via dynamic offset (see PadUniformBufferSize).
+```
+
+**Contract / pitfall** (high-signal):
+
+```cpp
+// CONTRACT: eVk_* bindings must match TriangleShader.hlsl register(b# / t#).
+// WARNING: texcoord_index may be -1; never index attrib.texcoords without a guard.
+```
+
+**TODO**:
+
+```cpp
+// TODO(draw-stream): wire DrawObjects or remove; RecordCommandBuffer is the live path.
+```
+
+## Domain rules
+
+- **Gpu* / UBO**: Document `std140` layout, which shader `register` it maps to, and any **repurposed** fields (e.g. `myFogDistance` packs material params).
+- **Descriptors**: Binding index + type + stage; keep in sync with `Vk_Enum.h` and HLSL.
+- **Queues**: State when graphics doubles as transfer; when `CONCURRENT` vs `EXCLUSIVE` sharing applies.
+- **Coordinates**: Z-up world, Y-flipped Vulkan projection (`proj[1][1] *= -1`), sunlight “toward sun” direction.
+- **Paths**: Note dependency on working directory only at resolution sites (`UtilLoader::ResolvePath`), not at every `ReadFile` call.
+
+## Cleanup
+
+- Fix typos in comments when touching a function (`Upadate` → `Update`, etc.).
+- Remove comments that contradict the code; update or delete.
+- Replace vague `// TODO:` with scoped `// TODO(area): reason`.
+
+## Cross-references
+
+- Module layout: `vulkan-desktop-layout.mdc`
+- Architecture: `VibeCoding/EngineArchitecture.md`
+- Roadmap: `VibeCoding/TODOList.md`

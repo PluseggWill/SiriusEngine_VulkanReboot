@@ -54,7 +54,6 @@ std::vector< glm::vec3 > ComputeSmoothNormals( const tinyobj::attrib_t& attrib, 
 
 } // namespace
 
-// Vertex:
 VkVertexInputBindingDescription Gfx_Vertex::getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding   = 0;
@@ -90,7 +89,6 @@ std::array< VkVertexInputAttributeDescription, 4 > Gfx_Vertex::getAttributeDescr
 }
 
 void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
-    // Fill the data by loading model
     tinyobj::attrib_t                      attrib;
     std::vector< tinyobj::shape_t >        shapes;
     std::vector< tinyobj::material_t >     materials;
@@ -109,6 +107,7 @@ void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
             Gfx_Vertex vertex{};
             vertex.pos   = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
             vertex.color = { 1.0f, 1.0f, 1.0f };
+            // WARNING: tinyobj uses texcoord_index == -1 when UVs are missing; do not index attrib.texcoords blindly.
             if ( index.texcoord_index >= 0 && !attrib.texcoords.empty() ) {
                 vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
             }
@@ -143,7 +142,7 @@ void Gfx_Mesh::BuildVertexBuffer() {
 
     Vk_AllocatedBuffer stagingBuffer;
 
-    // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
+    // Staging (CPU) → device-local vertex buffer via CopyBuffer on transfer queue.
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
@@ -151,7 +150,6 @@ void Gfx_Mesh::BuildVertexBuffer() {
     memcpy( data, myVertices.data(), bufferSize );
     vmaUnmapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation );
 
-    // The vertex buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myVertexBuffer, false );
 
     Vk_Core::GetInstance().CopyBuffer( stagingBuffer.myBuffer, myVertexBuffer.myBuffer, bufferSize );
@@ -164,7 +162,6 @@ void Gfx_Mesh::BuildIndexBuffer() {
 
     Vk_AllocatedBuffer stagingBuffer;
 
-    // The staging buffer memory is allocated at device host, which can be accessed by CPU, but less optimal
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
@@ -172,7 +169,6 @@ void Gfx_Mesh::BuildIndexBuffer() {
     memcpy( data, myIndices.data(), bufferSize );
     vmaUnmapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation );
 
-    // The index buffer is, on the other hand, allocated on the device local, which can only be accessed by GPU and offers better performance
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myIndexBuffer, false );
 
     Vk_Core::GetInstance().CopyBuffer( stagingBuffer.myBuffer, myIndexBuffer.myBuffer, bufferSize );

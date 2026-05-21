@@ -22,6 +22,7 @@ void Sample( GLFWwindow* aWindow, Util_InputState& aState, Util_InputSnapshot& a
 
     const bool wantMouseLook = aAllowMouseLook && glfwGetMouseButton( aWindow, GLFW_MOUSE_BUTTON_RIGHT ) == GLFW_PRESS;
 
+    // RMB: capture cursor for look; first frame after capture skips delta to avoid a jump.
     if ( wantMouseLook && !aState.myMouseLookActive ) {
         aState.myMouseLookActive     = true;
         aState.myFirstMouseLookFrame = true;

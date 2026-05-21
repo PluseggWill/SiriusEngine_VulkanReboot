@@ -3,14 +3,14 @@
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
-// Keep in mind that Vulkan expects the data to be aligned, see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout for
-// more details
+// std140 UBO, binding eVk_CameraBinding — alignas(16) for mat4 rows (Vulkan UBO rules).
 struct GpuCameraData {
     alignas( 16 ) glm::mat4 model;
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
 };
 
+// Z-up fly camera: yaw about +Z, pitch about camera right; writes myView/myProj for GpuCameraData.
 class Vk_Camera {
 public:
     Vk_Camera();

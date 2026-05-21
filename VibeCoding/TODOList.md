@@ -205,7 +205,7 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 - [ ] **Unify debug output**: replace `CheckExtensionSupport` / `CheckValidationLayerSupport` `std::cout` dumps with `UtilLogger` (or gate behind a dev flag).
 - [ ] **Global compile-time toggles**: move `ENABLE_ROTATE`, `USE_RUNTIME_MIPMAP`, shader paths in `Vk_Core.cpp` toward central config (§2 configuration) with defaults documented.
 - [ ] **Stale TODO sweep**: triage remaining `Vk_Core` TODOs (uniform buffer array, merged setters, device suitability checks) — implement, defer to §2/§4, or delete comment.
-- [ ] **Optional**: add `.cursor/rules` or `Docs/CodeStyle.md` pointer summarizing the guiding rules above for reviewers and agents.
+- [x] **Comment conventions**: `.cursor/rules/cpp-comments.mdc` + core contract comments (descriptors, UBO packing, queues, mesh UV guards).
 
 ---
 

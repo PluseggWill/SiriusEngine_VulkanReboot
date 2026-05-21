@@ -20,10 +20,11 @@ cbuffer CameraData : register(b0)
     float4x4 proj;
 };
 
+// Must match GpuEnvironmentData in Vk_Types.h (std140 field order).
 cbuffer EnvironmentData : register(b1)
 {
-    float4 fogColor;
-    float4 fogDistances;
+    float4 fogColor;       // unused in PS for now
+    float4 fogDistances;   // x=specularStrength, y=shininess, z=textureBlend (not fog distances)
     float4 ambientColor;
     float4 sunlightDirection;
     float4 sunlightColor;
@@ -55,7 +56,7 @@ float4 PSMain(PSInput input) : SV_TARGET {
     const float3 albedo = lerp(input.color, texAlbedo, textureBlend);
 
     const float3 N = normalize(input.worldNormal);
-    const float3 L = normalize(sunlightDirection.xyz);
+    const float3 L = normalize(sunlightDirection.xyz);  // toward sun (same convention as C++ env UBO)
     const float3 V = normalize(viewWorldPos.xyz - input.worldPos);
     const float3 H = normalize(L + V);
 

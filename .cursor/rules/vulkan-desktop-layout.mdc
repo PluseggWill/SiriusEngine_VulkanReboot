@@ -68,6 +68,10 @@ Gfx/
 - `FrameStats` / `PipelineBuilder` 等无前缀类型名
 - 批量替换时改 Vulkan 结构体字段名（如保持 `pQueueFamilyIndices`，勿写成 `pVk_QueueFamilyIndices`）
 
+## 注释
+
+编写或审查 `VulkanDesktop/` 内注释时遵循 **`cpp-comments.mdc`**（契约、易错点、GPU/描述符布局；避免无信息量的 Step 流水账）。
+
 ## 成员与参数（沿用现有风格）
 
 - 成员：`my` 前缀（`myDevice`, `myFrameStats`）
