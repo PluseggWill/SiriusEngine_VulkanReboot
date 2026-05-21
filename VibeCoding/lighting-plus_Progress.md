@@ -10,3 +10,8 @@
   - `LightingPanel` ImGui window edits `myEnvironmentData`; UBO upload after UI each frame.
   - `InitDefaultEnvironmentData()` sets defaults (spec 0.45, shininess 32, full texture).
 - **Verification:** glslc compile OK. Rebuild in VS and run.
+
+## 2026-05-21 — Manual run verification (user)
+
+- **Plan ref:** Manual run verification
+- **Verification:** Texture albedo, Blinn-Phong specular, ImGui lighting sliders — manual run passed.

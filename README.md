@@ -15,4 +15,4 @@ Build `VulkanDesktop.sln` (Debug|x64), run `x64\Debug\VulkanDesktop.exe`.
 | Hold **RMB** + mouse | Look around |
 | ImGui **Camera** panel | Move speed, mouse sensitivity |
 
-Details: `VibeCoding/fps-camera_Plan.md`. Architecture notes: `Logs/EngineArchitecture.md` §3.1.
+Details: `VibeCoding/fps-camera_Plan.md`. Roadmap: `VibeCoding/TODOList.md`. Architecture notes: `Logs/EngineArchitecture.md` §3.1.

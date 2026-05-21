@@ -39,7 +39,7 @@ Add a **basic lighting model** (ambient + Lambert diffuse) to the active HLSL pa
 - [x] 3. HLSL: pass world-space normal; fragment ambient + Lambert using `EnvironmentData` (b1)
 - [x] 4. C++: set stable env UBO values (sun direction, colors)
 - [x] 5. Compile SPIR-V via `CompileShader.bat` (glslc fallback; DXC not in PATH)
-- [ ] 6. Manual run: rotating mesh shows shading, no validation spam
+- [x] 6. Manual run: rotating mesh shows shading, no validation spam
 
 ## Test / verification
 

@@ -17,6 +17,6 @@
 ## 2026-05-20 — Manual verification + docs
 
 - **Plan ref:** Verification / runbook
-- **Files:** `VibeCoding/fps-camera_Plan.md`, `Logs/TODOList.md`, `Logs/EngineArchitecture.md`
+- **Files:** `VibeCoding/fps-camera_Plan.md`, `VibeCoding/TODOList.md`, `Logs/EngineArchitecture.md`
 - **What changed:** Plan marked done; TODO and architecture notes updated.
 - **Verification:** User confirmed runtime behavior; Camera panel tuning OK.

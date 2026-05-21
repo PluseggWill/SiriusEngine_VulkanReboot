@@ -30,7 +30,7 @@
 
 - [x] 编写本计划
 - [x] 重写 `.vcxproj.filters`，覆盖全部 ClCompile / ClInclude / None
-- [ ] 在 VS 中目视核对三类 + Shader 子树
+- [x] 在 VS 中目视核对三类 + Shader 子树
 
 ## Verification
 

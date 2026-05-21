@@ -9,6 +9,7 @@ alwaysApply: false
 When this rule applies (files under `VibeCoding/` are in context):
 
 1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
-2. Do not skip clarification for new tasks unless the user explicitly waives it.
-3. Implementation changes must remain traceable in `_Progress.md` after each completed plan step or coherent batch of work.
-4. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.
+2. Cross-task roadmap and follow-ups live in **`VibeCoding/TODOList.md`** (tracked in git). Architecture intent stays in `Logs/EngineArchitecture.md` (local; `Logs/` is gitignored).
+3. Do not skip clarification for new tasks unless the user explicitly waives it.
+4. Implementation changes must remain traceable in `_Progress.md` after each completed plan step or coherent batch of work.
+5. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.

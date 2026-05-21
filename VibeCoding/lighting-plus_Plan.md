@@ -40,7 +40,7 @@ Extend the lit shader path with:
 - [x] C++ init + UpdateUniformBuffer from `myEnvironmentData`
 - [x] ImGui lighting panel
 - [x] Compile shaders (glslc)
-- [ ] Manual run verification
+- [x] Manual run verification
 
 ## Verification
 
