@@ -62,17 +62,20 @@ std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
 bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
     const std::string resolvedPath = ResolvePath( aFilename );
     UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
-    int                texWidth, texHeight, texChannels;
-    stbi_uc*           pixels    = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
-    const VkDeviceSize imageSize = texWidth * texHeight * 4;
-    const VmaAllocator allocator = Vk_Core::GetInstance().myAllocator;
+    int      texWidth = 0;
+    int      texHeight = 0;
+    int      texChannels = 0;
+    stbi_uc* pixels = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
 
-    aTextureMipLevel = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
-
-    if ( !pixels ) {
+    if ( !pixels || texWidth <= 0 || texHeight <= 0 ) {
         UtilLogger::Error( "RESOURCE", "Failed to decode texture: " + resolvedPath );
         throw std::runtime_error( "failed to load texture image!" );
     }
+
+    const VkDeviceSize imageSize = static_cast< VkDeviceSize >( texWidth ) * static_cast< VkDeviceSize >( texHeight ) * 4;
+    const VmaAllocator allocator = Vk_Core::GetInstance().myAllocator;
+
+    aTextureMipLevel = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     Vk_AllocatedBuffer stagingBuffer;
 
