@@ -12,7 +12,14 @@ struct Vk_QueueFamilyIndices {
     std::optional< uint32_t > myTransferFamily;
 
     bool isComplete() const {
-        return myGraphicsFamily.has_value() && myPresentFamily.has_value() && myTransferFamily.has_value();
+        return myGraphicsFamily.has_value() && myPresentFamily.has_value();
+    }
+
+    // Graphics queues support transfer; use them when no dedicated transfer-only family exists.
+    void ApplyTransferFallback() {
+        if ( !myTransferFamily.has_value() && myGraphicsFamily.has_value() ) {
+            myTransferFamily = myGraphicsFamily;
+        }
     }
 };
 

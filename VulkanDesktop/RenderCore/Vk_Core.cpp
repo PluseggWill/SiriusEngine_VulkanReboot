@@ -989,6 +989,8 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 
         i++;
     }
+
+    myQueueFamilyIndices.ApplyTransferFallback();
 }
 
 void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
@@ -1132,6 +1134,7 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
         i++;
     }
 
+    indices.ApplyTransferFallback();
     return indices;
 }
 
@@ -1322,11 +1325,19 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage,
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
     else {
-        const uint32_t queueFamilyIndices[] = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value() };
+        const uint32_t graphicsFamily = myQueueFamilyIndices.myGraphicsFamily.value();
+        const uint32_t transferFamily = myQueueFamilyIndices.myTransferFamily.value();
 
-        bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
-        bufferInfo.queueFamilyIndexCount = 2;
-        bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
+        if ( graphicsFamily == transferFamily ) {
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        }
+        else {
+            const uint32_t queueFamilyIndices[] = { graphicsFamily, transferFamily };
+
+            bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
+            bufferInfo.queueFamilyIndexCount = 2;
+            bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
+        }
     }
 
     VmaAllocationCreateInfo vmaAllocInfo{};
