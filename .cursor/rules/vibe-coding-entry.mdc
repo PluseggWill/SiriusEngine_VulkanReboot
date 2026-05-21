@@ -11,4 +11,4 @@ If the user says "vibe coding", asks to follow a three-phase workflow, or refere
 2. Enforce phase gates: Clarify before Plan, Plan before Implement.
 3. During implementation, do not allow silent deviations from `{TaskName}_Plan.md`; apply the deviation protocol first.
 4. For P4-managed projects, remind the user when edits touch already checked-out files.
-5. Engine roadmap items: `VibeCoding/TODOList.md`. Per-task plans/progress: `VibeCoding/{TaskName}_Plan.md` and `_Progress.md`.
+5. Engine docs under `VibeCoding/`: roadmap `TODOList.md`, architecture `EngineArchitecture.md`; per-task `{TaskName}_Plan.md` and `_Progress.md`.

@@ -192,7 +192,7 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 ### P1 (structure & consistency)
 
-- [ ] **`Vk_Core` decomposition (incremental)**: peel input sampling, resource tables, and draw-list build out of `Vk_Core` per `Logs/EngineArchitecture.md` §3.1 — aligns with §2 “application lifecycle” and “input abstraction”.
+- [ ] **`Vk_Core` decomposition (incremental)**: peel input sampling, resource tables, and draw-list build out of `Vk_Core` per `VibeCoding/EngineArchitecture.md` §3.1 — aligns with §2 “application lifecycle” and “input abstraction”.
 - [ ] **Dynamic pipeline state**: either wire `VkInit::Pipeline_DynamicStateCreateInfo()` through `Vk_PipelineBuilder::BuildPipeline` (viewport/line width) or remove unused dynamic-state setup — related to §1 P1 “Fix `VkInit::Pipeline_DynamicStateCreateInfo()`”.
 - [ ] **`DrawObjects` / render path**: finish multi-object draw + UBO update, or delete stub and document `RecordCommandBuffer` as the single path until extract/batch lands (§4 draw stream).
 - [ ] **Remove temporary init hacks**: resolve `CreateMaterial` “TODO: Remove this”, `InitScene` / `myRenderObjects` wiring, and env-buffer “temp” creation (`Vk_Core.cpp`).
@@ -217,4 +217,4 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 ---
 
-*Maintenance: when closing items, prefer a one-line note in git commit or a dated entry in a progress log so preset/benchmark history stays traceable. Code-hygiene items live in **§7**; update `Logs/EngineArchitecture.md` when module boundaries change.*
+*Maintenance: when closing items, prefer a one-line note in git commit or a dated entry in a progress log so preset/benchmark history stays traceable. Code-hygiene items live in **§7**; update `VibeCoding/EngineArchitecture.md` when module boundaries change.*

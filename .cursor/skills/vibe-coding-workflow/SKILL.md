@@ -12,8 +12,8 @@ description: >-
 All paths are relative to the **workspace root**. Artifact directory: `VibeCoding/`.
 
 - Per-task: `VibeCoding/{TaskName}_Plan.md`, `VibeCoding/{TaskName}_Progress.md`
-- Cross-task roadmap (git-tracked): `VibeCoding/TODOList.md`
-- Architecture notes (local, `Logs/` gitignored): `Logs/EngineArchitecture.md`
+- Cross-task roadmap: `VibeCoding/TODOList.md`
+- Architecture intent: `VibeCoding/EngineArchitecture.md`
 
 ## Phase 1 — Clarify
 
