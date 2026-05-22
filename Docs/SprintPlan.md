@@ -54,7 +54,6 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Pipeline creation diagnostics (`VkResult` + stage/layout summary).
 - [ ] Validation layers: install guide, startup layer discovery log, optional runtime on/off flag.
 - [ ] Fix `VkInit::Pipeline_DynamicStateCreateInfo()` (no pointers to temporaries).
 
@@ -272,6 +271,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Pipeline creation diagnostics (`VkResult` + stage/layout summary) — 2026-05-22; `Util_VulkanResult`, `Vk_PipelineDiagnostics`, `Docs/pipeline-diagnostics_Plan.md`.
 - [x] **[S0]** Startup checks: required `Shader_Generated/*.spv`, demo models/textures exist before Vulkan init — 2026-05-22; `Util_StartupChecks`, `Util_DemoAssets.h` (temporary; migrate per `Docs/scene-load_Plan.md`), `Docs/startup-checks_Plan.md`.
 - [x] **[S0]** Asset root configuration (`Config/engine.json` + `--asset-root` / `--config` CLI); repo-relative paths; heuristic `BuildCandidateBases` removed — 2026-05-22; `Docs/asset-root_Plan.md`.
 - [x] **[S0]** Deterministic glslc compile + VS Custom Build — 2026-05-22; `Docs/Archived/notes-2026-05-22-shader-debug.md`.

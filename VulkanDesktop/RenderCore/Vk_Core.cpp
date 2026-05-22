@@ -6,6 +6,8 @@
 #include "../Util/Util_DemoAssets.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_VulkanResult.h"
+#include "Vk_PipelineDiagnostics.h"
 
 #include <imgui.h>
 #include "Vk_Initializer.h"
@@ -452,9 +454,8 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineLayoutCreateInfo.setLayoutCount             = 1;
     pipelineLayoutCreateInfo.pSetLayouts                = &myGlobalSetLayout;
 
-    if ( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create pipeline layout!" );
-    }
+    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=1 pushConstants=0 (Set0 Frame, bindings=3 per eVk_BindingCount)." );
+    UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ), "vkCreatePipelineLayout" );
 
     // Step #13: Combine
     VkPipelineShaderStageCreateInfo vertShaderStageInfo =
@@ -476,8 +477,16 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineBuilder.myDynamicState         = dynamicState;
     pipelineBuilder.myPipelineLayout       = myPipelineLayout;
 
-    myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
-    UtilLogger::Info( "PIPELINE", "Graphics pipeline created." );
+    Vk_GraphicsPipelineBuildInfo pipelineDiag{};
+    pipelineDiag.myLabel                   = "basic-lit";
+    pipelineDiag.myVertShaderPath          = vertShaderPath.c_str();
+    pipelineDiag.myFragShaderPath          = fragShaderPath.c_str();
+    pipelineDiag.myPipelineLayoutSetCount  = pipelineLayoutCreateInfo.setLayoutCount;
+    pipelineDiag.myPipelineLayoutPushCount = pipelineLayoutCreateInfo.pushConstantRangeCount;
+    pipelineDiag.myColorFormat             = mySwapChainImageFormat;
+    pipelineDiag.myDepthFormat             = FindDepthFormat();
+
+    myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass, &pipelineDiag );
 
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( myDevice, fragShaderModule, nullptr );
@@ -1256,9 +1265,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
     createInfo.pCode    = reinterpret_cast< const uint32_t* >( someShaderCode.data() );
 
     VkShaderModule shaderModule;
-    if ( vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create shader module!" );
-    }
+    UtilVulkanResult::ThrowOnFailure( vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule ), "vkCreateShaderModule" );
 
     return shaderModule;
 }
@@ -1273,10 +1280,12 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     createInfo.pCode    = reinterpret_cast< const uint32_t* >( shaderCode.data() );
 
     VkShaderModule shaderModule;
-    if ( vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule ) != VK_SUCCESS ) {
-        UtilLogger::Error( "SHADER", "vkCreateShaderModule failed for: " + aShaderPath );
-        throw std::runtime_error( "failed to create shader module!" );
+    const VkResult moduleResult = vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule );
+    if ( moduleResult != VK_SUCCESS ) {
+        UtilLogger::Error( "SHADER", "vkCreateShaderModule " + UtilVulkanResult::Describe( moduleResult ) + " path=" + aShaderPath
+                                        + " codeSize=" + std::to_string( shaderCode.size() ) );
     }
+    UtilVulkanResult::ThrowOnFailure( moduleResult, "vkCreateShaderModule" );
 
     return shaderModule;
 }

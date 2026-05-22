@@ -43,6 +43,9 @@
     <ClCompile Include="Util\Util_Logger.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_VulkanResult.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_CameraPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -91,6 +94,9 @@
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_PipelineDiagnostics.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_Types.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -115,6 +121,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Logger.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_VulkanResult.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_CameraPanel.h">
@@ -160,6 +169,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Pipeline.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_PipelineDiagnostics.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Texture.h">

@@ -1,9 +1,13 @@
 #include "Vk_Pipeline.h"
+#include "Vk_PipelineDiagnostics.h"
+
+#include "../Util/Util_Logger.h"
+#include "../Util/Util_VulkanResult.h"
 
 #include <stdexcept>
 #include <string>
 
-VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass ) {
+VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
     // Create the viewport state
     VkPipelineViewportStateCreateInfo viewportState{};
 
@@ -46,10 +50,22 @@ VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPa
     pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex   = -1;
 
+    if ( aDiagnostics != nullptr ) {
+        VkPipelineDiagnostics::LogGraphicsPipelineSummary( *aDiagnostics, *this, aPass );
+    }
+
     VkPipeline newPipeline;
     const VkResult createResult = vkCreateGraphicsPipelines( aDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline );
     if ( createResult != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create graphics pipeline, VkResult=" + std::to_string( static_cast< int >( createResult ) ) );
+        if ( aDiagnostics != nullptr ) {
+            UtilLogger::Error( "PIPELINE", "vkCreateGraphicsPipelines failed after summary for: " + std::string( aDiagnostics->myLabel ) );
+            VkPipelineDiagnostics::LogGraphicsPipelineSummary( *aDiagnostics, *this, aPass );
+        }
+        UtilVulkanResult::ThrowOnFailure( createResult, "vkCreateGraphicsPipelines" );
+    }
+
+    if ( aDiagnostics != nullptr ) {
+        UtilLogger::Info( "PIPELINE", std::string( aDiagnostics->myLabel ) + " graphics pipeline created (VkResult=VK_SUCCESS)." );
     }
 
     return newPipeline;
