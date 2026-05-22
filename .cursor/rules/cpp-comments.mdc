@@ -68,5 +68,5 @@ Apply when adding or editing comments in `VulkanDesktop/` (C++, GLSL). Prefer **
 ## Cross-references
 
 - Module layout: `vulkan-desktop-layout.mdc`
-- Architecture: `VibeCoding/EngineArchitecture.md`
-- Roadmap: `VibeCoding/TODOList.md`
+- Architecture: `Docs/EngineArchitecture.md`
+- Roadmap: `Docs/TODOList.md`

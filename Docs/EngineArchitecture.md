@@ -1,6 +1,6 @@
 # Engine Architecture — Design Notes
 
-This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable task checklists live in `VibeCoding/TODOList.md`; keep this file for **structure, invariants, and tradeoffs**.
+This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable task checklists live in `Docs/TODOList.md`; keep this file for **structure, invariants, and tradeoffs**.
 
 ---
 
@@ -66,7 +66,7 @@ The desktop app is not fully layered yet, but the **debug camera path** follows 
 
 Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_InputState`) out of `Vk_Core` into an application or simulation/input module; keep `ApplyInput` as the render-facing consumer.
 
-**Shaders (2026-05-22):** Production path is **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/` (entry `main`). Build/run pitfalls (log paths, Custom Build stdout corrupting `.spv`) are in `.cursor/rules/shader-build.mdc` and `VibeCoding/notes-2026-05-22-shader-debug.md`.
+**Shaders (2026-05-22):** Production path is **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/` (entry `main`). Build/run pitfalls (log paths, Custom Build stdout corrupting `.spv`) are in `.cursor/rules/shader-build.mdc` and `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
 ---
 
@@ -239,8 +239,8 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 ## 10. Document maintenance
 
 - When **binding model** or **extract layout** changes, update **§5** and add a note in the benchmark / preset changelog (see TODO list).
-- When **north star** priorities shift, update **§2** and keep `VibeCoding/TODOList.md` in sync.
+- When **north star** priorities shift, update **§2** and keep `Docs/TODOList.md` in sync.
 
 ---
 
-*Last aligned with `VibeCoding/TODOList.md` roadmap sections 0, 2, 4, and 5.*
+*Last aligned with `Docs/TODOList.md` roadmap sections 0, 2, 4, and 5.*

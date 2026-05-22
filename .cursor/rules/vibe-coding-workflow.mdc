@@ -1,15 +1,15 @@
 ---
-description: Enforces strict VibeCoding artifact discipline inside VibeCoding/ docs.
-globs: VibeCoding/**
+description: Enforces strict vibe-coding artifact discipline inside Docs/ (plans, progress, roadmap).
+globs: Docs/**
 alwaysApply: false
 ---
 
 # Vibe Coding
 
-When this rule applies (files under `VibeCoding/` are in context):
+When this rule applies (files under `Docs/` are in context):
 
 1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
-2. Cross-task roadmap: **`VibeCoding/TODOList.md`**. Architecture intent: **`VibeCoding/EngineArchitecture.md`** (both git-tracked under `VibeCoding/`).
+2. Cross-task roadmap: **`Docs/TODOList.md`**. Architecture intent: **`Docs/EngineArchitecture.md`** (both git-tracked under `Docs/`).
 3. Do not skip clarification for new tasks unless the user explicitly waives it.
 4. Implementation changes must remain traceable in `_Progress.md` after each completed plan step or coherent batch of work.
 5. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.

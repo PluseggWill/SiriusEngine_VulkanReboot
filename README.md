@@ -31,4 +31,4 @@ Logs: `Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`.
 | Hold **RMB** + mouse | Look around |
 | ImGui **Camera** panel | Move speed, mouse sensitivity |
 
-Details: `VibeCoding/fps-camera_Plan.md`. Roadmap: `VibeCoding/TODOList.md`. Architecture: `VibeCoding/EngineArchitecture.md` §3.1.
+Details: `Docs/fps-camera_Plan.md`. Roadmap: `Docs/TODOList.md`. Architecture: `Docs/EngineArchitecture.md` §3.1.

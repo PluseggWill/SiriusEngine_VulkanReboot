@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git commit message format
 
-Follow this style for every commit (see recent history on `VibeCoding`). **Still require user confirmation before committing** (`submit-rule.mdc`).
+Follow this style for every commit (see recent history on `Docs`). **Still require user confirmation before committing** (`submit-rule.mdc`).
 
 ## Subject line (first line)
 
@@ -14,7 +14,7 @@ Follow this style for every commit (see recent history on `VibeCoding`). **Still
 - Optional **scope prefix** in brackets for multi-module or tooling work:
   - `[VulkanDesktop]` — engine / `VulkanDesktop/` code or shaders
   - `[Cursor]` — `.cursor/rules`, skills, agent workflow
-  - `[VibeCoding]` — plans, progress, `TODOList.md`, `EngineArchitecture.md`
+  - `[Docs]` — plans, progress, `TODOList.md`, `EngineArchitecture.md`
   - `[Lighting]` / `[Gfx]` — feature-specific when scope is narrow
 - Small focused fixes may omit the prefix (repo uses both styles).
 
@@ -23,7 +23,7 @@ Follow this style for every commit (see recent history on `VibeCoding`). **Still
 ```
 Fix OBJ mesh load crash when UV coordinates are missing.
 [VulkanDesktop] Add FPS fly camera with input snapshot and ImGui tuning
-Move roadmap to VibeCoding/TODOList.md and sync verification state.
+Move roadmap to Docs/TODOList.md and sync verification state.
 ```
 
 ### Avoid
@@ -50,7 +50,7 @@ Document UBO/descriptor bindings, queue-family fallback, and UV load guards.
 Add cpp-comments.mdc; link from layout and vibe-coding-entry rules.
 ```
 
-## When closing VibeCoding tasks
+## When closing Docs workflow tasks
 
 - Mention plan/progress or `TODOList.md` in the body if the commit completes a tracked item.
 - Prefer one logical change per commit (matches recent maintenance commits).

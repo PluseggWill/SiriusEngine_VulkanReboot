@@ -2,18 +2,18 @@
 name: vibe-coding-workflow
 description: >-
   Runs a three-phase vibe coding workflow (clarify → design doc → implement with
-  progress logs). Creates and maintains VibeCoding/[TaskName]_Plan.md and
-  VibeCoding/[TaskName]_Progress.md under the workspace. Use when the user says
-  vibe coding, asks for this workflow, or works under VibeCoding/.
+  progress logs). Creates and maintains Docs/[TaskName]_Plan.md and
+  Docs/[TaskName]_Progress.md under the workspace. Use when the user says
+  vibe coding, asks for this workflow, or works under Docs/.
 ---
 
 # Vibe Coding Workflow
 
-All paths are relative to the **workspace root**. Artifact directory: `VibeCoding/`.
+All paths are relative to the **workspace root**. Artifact directory: `Docs/`.
 
-- Per-task: `VibeCoding/{TaskName}_Plan.md`, `VibeCoding/{TaskName}_Progress.md`
-- Cross-task roadmap: `VibeCoding/TODOList.md`
-- Architecture intent: `VibeCoding/EngineArchitecture.md`
+- Per-task: `Docs/{TaskName}_Plan.md`, `Docs/{TaskName}_Progress.md`
+- Cross-task roadmap: `Docs/TODOList.md`
+- Architecture intent: `Docs/EngineArchitecture.md`
 
 ## Phase 1 — Clarify
 
@@ -28,8 +28,8 @@ Goal: agree on a complete, unambiguous task spec with the user.
 Precondition: user has confirmed the clarified spec.
 
 1. Pick a short `TaskName` (ASCII, no spaces; e.g. `add-login-form`).
-2. Ensure `VibeCoding/` exists.
-3. Create `VibeCoding/{TaskName}_Plan.md` from the **confirmed** spec only. Include at minimum:
+2. Ensure `Docs/` exists.
+3. Create `Docs/{TaskName}_Plan.md` from the **confirmed** spec only. Include at minimum:
    - Problem statement and goals
    - Non-goals / out of scope
    - Design decisions (with alternatives considered if relevant)
@@ -42,10 +42,10 @@ Do not contradict the clarified spec in the plan; if something is still unclear,
 
 ## Phase 3 — Implement
 
-Precondition: `VibeCoding/{TaskName}_Plan.md` exists and is current.
+Precondition: `Docs/{TaskName}_Plan.md` exists and is current.
 
 1. Treat the plan as the source of truth; if reality diverges, update the plan in the same edit session or after agreement with the user.
-2. Execute the plan in order. After **each** logical step (or each coherent batch of edits), append to `VibeCoding/{TaskName}_Progress.md`:
+2. Execute the plan in order. After **each** logical step (or each coherent batch of edits), append to `Docs/{TaskName}_Progress.md`:
    - Timestamp (ISO 8601 date, local reasoning ok)
    - Step reference (which plan section / checklist item)
    - Files changed (paths)
@@ -56,7 +56,7 @@ Precondition: `VibeCoding/{TaskName}_Plan.md` exists and is current.
 
 ### Deviation handling protocol (mandatory)
 
-Apply this protocol whenever implementation diverges from `VibeCoding/{TaskName}_Plan.md`.
+Apply this protocol whenever implementation diverges from `Docs/{TaskName}_Plan.md`.
 
 Deviation triggers:
 - New files/modules touched that are not in the plan touch list
@@ -71,7 +71,7 @@ Required actions:
    - Why the deviation is needed
    - Impact/risk
 3. Resolve by one of:
-   - **Minor deviation**: update `VibeCoding/{TaskName}_Plan.md` immediately, then continue.
+   - **Minor deviation**: update `Docs/{TaskName}_Plan.md` immediately, then continue.
    - **Major deviation** (scope/acceptance/risk changes): ask user confirmation first, then update plan and continue.
 4. Do not continue coding with silent deviation.
 
@@ -106,4 +106,4 @@ Rules for subagents:
 ## Invocation
 
 - User may say: “按 vibe coding 流程做” or `@vibe-coding-workflow`.
-- If `VibeCoding/{TaskName}_Plan.md` already exists, resume from the latest incomplete plan step unless the user requests replanning.
+- If `Docs/{TaskName}_Plan.md` already exists, resume from the latest incomplete plan step unless the user requests replanning.

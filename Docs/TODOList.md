@@ -20,7 +20,7 @@ These items unblock everything else: if shaders, paths, or validation are flaky,
 
 ### P0 (must fix first)
 
-- [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `VibeCoding/notes-2026-05-22-shader-debug.md`.
+- [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 - [x] Repo-root logs for build + runtime (`Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`). — `ShaderBuild_Common.bat`, `UtilLogger`.
 - [ ] Review descriptor type strategy (`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`) and lock one approach.
 - [ ] Replace heuristic path probing with a robust asset root configuration system.
@@ -60,7 +60,7 @@ Goal: grow `Vk_Core` and surrounding code into a **layered engine** without coll
 - [ ] Introduce a thin **scheduler** or fixed update step (vs render step) so gameplay and rendering rates are conceptually separated.
 - [ ] Central **configuration** (file + CLI overrides): window size, vsync, feature toggles, asset root, log level.
 - [ ] **Input abstraction** (keyboard/mouse first; gamepad later) consumed by gameplay and camera, not by `Vk_Core` directly.
-- [x] **Debug fly camera** (WASD, Q/E, RMB look, delta-time): `Util_InputSnapshot` + `UtilInput::Sample`, `Vk_Camera::ApplyInput`, `BeginFrame` ordering, ImGui **Camera** panel — see `VibeCoding/fps-camera_Plan.md`. *Note: sampling still invoked from `Vk_Core` until a dedicated input/simulation module exists.*
+- [x] **Debug fly camera** (WASD, Q/E, RMB look, delta-time): `Util_InputSnapshot` + `UtilInput::Sample`, `Vk_Camera::ApplyInput`, `BeginFrame` ordering, ImGui **Camera** panel — see `Docs/fps-camera_Plan.md`. *Note: sampling still invoked from `Vk_Core` until a dedicated input/simulation module exists.*
 
 ### Scene & objects
 
@@ -164,7 +164,7 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 - [ ] **Engine overview** diagram (modules + data flow) in `README.md` or `Docs/` once structure stabilizes.
 - [ ] **“How to add a rendering experiment”** checklist: shader, pipeline flag, preset entry, benchmark note.
-- [ ] **Troubleshooting matrix**: black screen (wrong shader entry vs `.spv`, Custom Build corrupting `.spv`), validation spam, wrong working directory, missing layers — seed from `notes-2026-05-22-shader-debug.md`.
+- [ ] **Troubleshooting matrix**: black screen (wrong shader entry vs `.spv`, Custom Build corrupting `.spv`), validation spam, wrong working directory, missing layers — seed from `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 - [ ] **License and third-party** inventory (`lib/`, SDK binaries) for redistribution clarity.
 
 ---
@@ -191,7 +191,7 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 ### P1 (structure & consistency)
 
-- [ ] **`Vk_Core` decomposition (incremental)**: peel input sampling, resource tables, and draw-list build out of `Vk_Core` per `VibeCoding/EngineArchitecture.md` §3.1 — aligns with §2 “application lifecycle” and “input abstraction”.
+- [ ] **`Vk_Core` decomposition (incremental)**: peel input sampling, resource tables, and draw-list build out of `Vk_Core` per `Docs/EngineArchitecture.md` §3.1 — aligns with §2 “application lifecycle” and “input abstraction”.
 - [ ] **Dynamic pipeline state**: either wire `VkInit::Pipeline_DynamicStateCreateInfo()` through `Vk_PipelineBuilder::BuildPipeline` (viewport/line width) or remove unused dynamic-state setup — related to §1 P1 “Fix `VkInit::Pipeline_DynamicStateCreateInfo()`”.
 - [ ] **`DrawObjects` / render path**: finish multi-object draw + UBO update, or delete stub and document `RecordCommandBuffer` as the single path until extract/batch lands (§4 draw stream).
 - [ ] **Remove temporary init hacks**: resolve `CreateMaterial` “TODO: Remove this”, `InitScene` / `myRenderObjects` wiring, and env-buffer “temp” creation (`Vk_Core.cpp`).
@@ -216,4 +216,4 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 ---
 
-*Maintenance: when closing items, prefer a one-line note in git commit or a dated entry in a progress log so preset/benchmark history stays traceable. Code-hygiene items live in **§7**; update `VibeCoding/EngineArchitecture.md` when module boundaries change.*
+*Maintenance: when closing items, prefer a one-line note in git commit or a dated entry in a progress log so preset/benchmark history stays traceable. Code-hygiene items live in **§7**; update `Docs/EngineArchitecture.md` when module boundaries change.*
