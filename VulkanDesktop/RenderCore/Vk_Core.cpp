@@ -1059,6 +1059,7 @@ void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_Rend
         // Bind pipeline based on the mesh material
         if ( renderObject->myMaterial != lastMaterial ) {
             vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject->myMaterial->myPipeline );
+            SetGraphicsDynamicState( aCommandBuffer );
 
             lastMaterial = renderObject->myMaterial;
         }
@@ -1293,6 +1294,12 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     return shaderModule;
 }
 
+void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
+    const VkViewport viewport = VkInit::ViewportCreateInfo( mySwapChainExtent );
+    vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
+    vkCmdSetLineWidth( aCommandBuffer, 1.0f );
+}
+
 void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1313,6 +1320,7 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
     // Demo draw path: single mesh (index 0), one global descriptor set for myCurrentFrame.
     myFrameStats.myPipelineBinds++;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
+    SetGraphicsDynamicState( aCommandBuffer );
 
     VkBuffer     vertexBuffers[] = { myMeshMap[ 0 ].myVertexBuffer.myBuffer };
     VkDeviceSize offsets[]       = { 0 };

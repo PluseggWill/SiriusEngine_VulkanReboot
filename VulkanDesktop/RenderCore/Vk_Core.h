@@ -109,6 +109,8 @@ private:
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
+    void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
     void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex );
 
     // Helper functions:
