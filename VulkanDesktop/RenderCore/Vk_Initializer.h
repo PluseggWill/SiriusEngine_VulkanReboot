@@ -1,4 +1,4 @@
-// Vulkan Initialization helper functions
+// Module: Vk_Initializer — factory helpers for Vulkan *CreateInfo / write structs used at init time.
 
 #pragma once
 #include <string>
@@ -6,9 +6,14 @@
 #include <vulkan/vulkan.h>
 
 namespace VkInit {
-// Pipeline
+
+// --- Graphics pipeline (vkCreateGraphicsPipelines) ---
 
 VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry );
+
+// HLSL/dxc entry names (VSMain / PSMain). Active GLSL path uses Pipeline_ShaderStageCreateInfo(..., "main") instead.
+VkPipelineShaderStageCreateInfo Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule );
+VkPipelineShaderStageCreateInfo Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule );
 
 VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
 
@@ -19,8 +24,9 @@ VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo( VkPolyg
 
 VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount );
 
-// Fills aOut from aStorage; pDynamicStates points at aStorage.data() (storage must outlive pipeline create).
-void Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
+// Preferred: caller-owned vector + Fill. Legacy: default viewport/line-width list (static storage).
+void                              Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
+VkPipelineDynamicStateCreateInfo  Pipeline_DynamicStateCreateInfo();
 
 VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo();
 
@@ -32,9 +38,11 @@ VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( VkPipelineCol
 
 VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( std::vector< VkPipelineColorBlendAttachmentState >& someAttachments );
 
-// Others
+// --- Viewport (embedded in VkPipelineViewportStateCreateInfo in Vk_PipelineBuilder) ---
 
 VkViewport ViewportCreateInfo( VkExtent2D aSwapchainExtent );
+
+// --- Commands (vkCreateCommandPool / vkAllocateCommandBuffers / vkBeginCommandBuffer) ---
 
 VkCommandPoolCreateInfo CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags = 0 );
 
@@ -42,9 +50,13 @@ VkCommandBufferAllocateInfo CommandBufferAllocInfo( VkCommandPool aPool, uint32_
 
 VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someFlags = 0 );
 
+// --- Images (vkCreateImage / vkCreateImageView) ---
+
 VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
+
+// --- Descriptors (vkCreateDescriptorSetLayout / vkUpdateDescriptorSets) ---
 
 VkWriteDescriptorSet DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding, uint32_t aCount );
 

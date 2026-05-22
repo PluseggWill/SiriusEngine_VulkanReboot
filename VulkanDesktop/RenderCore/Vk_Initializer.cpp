@@ -1,5 +1,21 @@
+// Module: Vk_Initializer — default Vulkan create-info helpers for Vk_Core and Vk_PipelineBuilder.
+
 #include "Vk_Initializer.h"
 
+#include <array>
+#include <vector>
+
+namespace {
+
+const std::array< VkDynamicState, 2 > kDefaultDynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
+
+}  // namespace
+
+// --- Graphics pipeline stages ---
+
+// VkPipelineShaderStageCreateInfo — one shader stage for vkCreateGraphicsPipelines (pStages[]).
+// Used when: assembling Vk_PipelineBuilder::myShaderStages before BuildPipeline.
+// Example (GLSL): Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) in Vk_Core::CreateGfxPipeline.
 VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry ) {
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
 
@@ -11,6 +27,23 @@ VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShader
     return shaderStageInfo;
 }
 
+// VkPipelineShaderStageCreateInfo — vertex stage preset for HLSL/dxc (entry VSMain).
+// Used when: legacy or future dxc path; not used by current glslc shaders (entry "main").
+// Example: Pipeline_VertexShaderStageCreateInfo( vertModule ) with TriangleShader.hlsl + dxc.
+VkPipelineShaderStageCreateInfo VkInit::Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule ) {
+    return Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, aShaderModule, "VSMain" );
+}
+
+// VkPipelineShaderStageCreateInfo — fragment stage preset for HLSL/dxc (entry PSMain).
+// Used when: legacy or future dxc path; not used by current glslc shaders (entry "main").
+// Example: Pipeline_PixelShaderStageCreateInfo( fragModule ) with TriangleShader.hlsl + dxc.
+VkPipelineShaderStageCreateInfo VkInit::Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule ) {
+    return Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, aShaderModule, "PSMain" );
+}
+
+// VkPipelineVertexInputStateCreateInfo — vertex bindings/attributes (pVertexInputState); often overridden after call.
+// Used when: CreateGfxPipeline seeds layout, then sets pVertexBindingDescriptions from Gfx_Vertex.
+// Example: vertexInputInfo = Pipeline_VertexInputStateCreateInfo(); then fill bindingDescription from Gfx_Vertex::getBindingDescription().
 VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo() {
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 
@@ -23,6 +56,9 @@ VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo
     return vertexInputInfo;
 }
 
+// VkPipelineDynamicStateCreateInfo — dynamic state list (pDynamicState); pDynamicStates must outlive vkCreateGraphicsPipelines.
+// Used when: Vk_PipelineBuilder::SetDynamicStates copies enums then calls this Fill on owned storage.
+// Example: vector states = { VK_DYNAMIC_STATE_VIEWPORT }; Pipeline_FillDynamicStateCreateInfo( states, builder.myDynamicState ).
 void VkInit::Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut ) {
     aOut                   = {};
     aOut.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -30,6 +66,20 @@ void VkInit::Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicSt
     aOut.pDynamicStates    = aStorage.empty() ? nullptr : aStorage.data();
 }
 
+// VkPipelineDynamicStateCreateInfo — default viewport + line width; points at process-static storage (safe to copy struct, not to relocate storage).
+// Used when: quick one-off or tests; production path prefers Vk_PipelineBuilder::SetDefaultDynamicStates().
+// Example: auto dyn = Pipeline_DynamicStateCreateInfo(); pass to pipeline create in same scope (do not store pointer past static lifetime changes).
+VkPipelineDynamicStateCreateInfo VkInit::Pipeline_DynamicStateCreateInfo() {
+    static const std::vector< VkDynamicState > storage( kDefaultDynamicStates.begin(), kDefaultDynamicStates.end() );
+    static VkPipelineDynamicStateCreateInfo     info{};
+
+    Pipeline_FillDynamicStateCreateInfo( storage, info );
+    return info;
+}
+
+// VkPipelineInputAssemblyStateCreateInfo — primitive topology (pInputAssemblyState).
+// Used when: CreateGfxPipeline for indexed triangle meshes.
+// Example: Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST ).
 VkPipelineInputAssemblyStateCreateInfo VkInit::Pipeline_InputAssemblyCreateInfo( VkPrimitiveTopology aTopology ) {
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
 
@@ -40,6 +90,9 @@ VkPipelineInputAssemblyStateCreateInfo VkInit::Pipeline_InputAssemblyCreateInfo(
     return inputAssemblyInfo;
 }
 
+// VkViewport — single viewport (pViewports in VkPipelineViewportStateCreateInfo); not a standalone create call.
+// Used when: Vk_PipelineBuilder::myViewport from swapchain extent in CreateGfxPipeline.
+// Example: pipelineBuilder.myViewport = ViewportCreateInfo( mySwapChainExtent ).
 VkViewport VkInit::ViewportCreateInfo( VkExtent2D aSwapchainExtent ) {
     VkViewport viewport{};
     viewport.x        = 0.0f;
@@ -52,6 +105,9 @@ VkViewport VkInit::ViewportCreateInfo( VkExtent2D aSwapchainExtent ) {
     return viewport;
 }
 
+// VkPipelineRasterizationStateCreateInfo — fill mode, cull, front face (pRasterizationState).
+// Used when: CreateGfxPipeline; FILL_MODE_LINE toggles VK_POLYGON_MODE_LINE for debug wireframe.
+// Example: Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL ) with back-face cull defaults.
 VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo( VkPolygonMode   aPolyMode /*= VK_POLYGON_MODE_FILL*/,
                                                                                  VkCullModeFlags aCullMode /*= VK_CULL_MODE_BACK_BIT*/,
                                                                                  VkFrontFace     aFrontFace /*= VK_FRONT_FACE_COUNTER_CLOCKWISE*/ ) {
@@ -64,7 +120,7 @@ VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo(
     rasterizer.lineWidth               = 1.0f;
     rasterizer.cullMode                = aCullMode;
     rasterizer.frontFace               = aFrontFace;
-    rasterizer.depthBiasClamp          = VK_FALSE;
+    rasterizer.depthBiasEnable         = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp          = 0.0f;
     rasterizer.depthBiasSlopeFactor    = 0.0f;
@@ -72,6 +128,9 @@ VkPipelineRasterizationStateCreateInfo VkInit::Pipeline_RasterizationCreateInfo(
     return rasterizer;
 }
 
+// VkPipelineMultisampleStateCreateInfo — MSAA sample count (pMultisampleState).
+// Used when: CreateGfxPipeline; myMSAASamples is VK_SAMPLE_COUNT_1_BIT on current stable path.
+// Example: Pipeline_MultisampleCreateInfo( myMSAASamples ) before BuildPipeline.
 VkPipelineMultisampleStateCreateInfo VkInit::Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount ) {
     VkPipelineMultisampleStateCreateInfo multisampling{};
 
@@ -86,6 +145,9 @@ VkPipelineMultisampleStateCreateInfo VkInit::Pipeline_MultisampleCreateInfo( VkS
     return multisampling;
 }
 
+// VkPipelineDepthStencilStateCreateInfo — depth test/write (pDepthStencilState).
+// Used when: CreateGfxPipeline with depth attachment in render pass.
+// Example: Pipeline_DepthStencilCreateInfo() — LESS compare, depth write enabled.
 VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo() {
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 
@@ -103,6 +165,9 @@ VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo() 
     return depthStencilInfo;
 }
 
+// VkPipelineLayoutCreateInfo — descriptor set layouts + push constants for vkCreatePipelineLayout.
+// Used when: CreateGfxPipeline; caller sets setLayoutCount / pSetLayouts after this template.
+// Example: auto layoutInfo = Pipeline_LayoutCreateInfo(); layoutInfo.setLayoutCount = 1; layoutInfo.pSetLayouts = &myGlobalSetLayout.
 VkPipelineLayoutCreateInfo VkInit::Pipeline_LayoutCreateInfo() {
     VkPipelineLayoutCreateInfo layoutInfo{};
 
@@ -117,6 +182,9 @@ VkPipelineLayoutCreateInfo VkInit::Pipeline_LayoutCreateInfo() {
     return layoutInfo;
 }
 
+// VkPipelineColorBlendAttachmentState — one render-target blend state (element of pAttachments).
+// Used when: building color blend state for swapchain/MSAA color attachment.
+// Example: Pipeline_ColorBlendAttachment( VK_FALSE ) — opaque pass-through, no blending.
 VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachment( VkBool32 aBlendEnable ) {
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 
@@ -132,6 +200,9 @@ VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachment( VkBoo
     return colorBlendAttachment;
 }
 
+// VkPipelineColorBlendStateCreateInfo — full blend state (pColorBlendState); pAttachments must outlive create.
+// Used when: multiple color attachments (MSAA resolve / MRT); vector must stay alive through vkCreateGraphicsPipelines.
+// Example: vector attachments = { Pipeline_ColorBlendAttachment( VK_FALSE ) }; Pipeline_ColorBlendCreateInfo( attachments ).
 VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( std::vector< VkPipelineColorBlendAttachmentState >& someAttachments ) {
     VkPipelineColorBlendStateCreateInfo colorBlending{};
 
@@ -148,6 +219,9 @@ VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( std::
     return colorBlending;
 }
 
+// VkPipelineColorBlendStateCreateInfo — single attachment via pointer to stack/local attachment (pAttachments = &anAttachment).
+// Used when: Vk_PipelineBuilder embeds one VkPipelineColorBlendAttachmentState on the builder.
+// Example: colorBlendAttachment = Pipeline_ColorBlendAttachment( VK_FALSE ); used as builder.myColorBlendAttachment.
 VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( VkPipelineColorBlendAttachmentState anAttachment ) {
     VkPipelineColorBlendStateCreateInfo colorBlending{};
 
@@ -164,6 +238,11 @@ VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( VkPip
     return colorBlending;
 }
 
+// --- Command buffers ---
+
+// VkCommandPoolCreateInfo — vkCreateCommandPool for a queue family.
+// Used when: Vk_Core::CreateCommandPool for graphics and transfer pools.
+// Example: CommandPoolCreateInfo( graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT ).
 VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags /*= 0*/ ) {
     VkCommandPoolCreateInfo poolInfo{};
 
@@ -174,6 +253,9 @@ VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyInde
     return poolInfo;
 }
 
+// VkCommandBufferAllocateInfo — vkAllocateCommandBuffers from a pool.
+// Used when: per-frame primary buffers in CreateFrameData; one-shot transfer in CopyBufferToImage path.
+// Example: CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY ).
 VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool, uint32_t aCount /*= 1*/,
                                                             VkCommandBufferLevel aBufferLevel /*= VK_COMMAND_BUFFER_LEVEL_PRIMARY*/ ) {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -187,6 +269,9 @@ VkCommandBufferAllocateInfo VkInit::CommandBufferAllocInfo( VkCommandPool aPool,
     return allocInfo;
 }
 
+// VkCommandBufferBeginInfo — vkBeginCommandBuffer.
+// Used when: recording draw/upload commands each frame or one-shot uploads.
+// Example: CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT ) for staging copy.
 VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFlags someFlags /*=0*/ ) {
     VkCommandBufferBeginInfo beginInfo{};
 
@@ -197,6 +282,11 @@ VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFla
     return beginInfo;
 }
 
+// --- Images ---
+
+// VkImageCreateInfo — vkCreateImage template (2D, optimal tiling, exclusive sharing).
+// Used when: Vk_Core::CreateImage before VMA allocation; caller may override samples/sharing.
+// Example: ImageCreateInfo( VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT, extent ) for textures.
 VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent ) {
     VkImageCreateInfo imageInfo{};
 
@@ -217,6 +307,9 @@ VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags a
     return imageInfo;
 }
 
+// VkImageViewCreateInfo — vkCreateImageView for a 2D subresource range.
+// Used when: CreateImageView for color/depth textures after image creation.
+// Example: ImageViewCreateInfo( depthFormat, depthImage, VK_IMAGE_ASPECT_DEPTH_BIT, 1 ).
 VkImageViewCreateInfo VkInit::ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel ) {
     VkImageViewCreateInfo viewInfo{};
 
@@ -233,9 +326,14 @@ VkImageViewCreateInfo VkInit::ImageViewCreateInfo( VkFormat aFormat, VkImage anI
     return viewInfo;
 }
 
+// --- Descriptors ---
+
+// VkWriteDescriptorSet — vkUpdateDescriptorSets for combined image sampler.
+// Used when: binding albedo texture to Set 0 binding eVk_TextureBinding per frame.
+// Example: DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, eVk_TextureBinding, 1 ).
 VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding,
                                                            uint32_t aCount ) {
-    VkWriteDescriptorSet descriptorWrite;
+    VkWriteDescriptorSet descriptorWrite{};
 
     descriptorWrite.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.dstSet           = aDstSet;
@@ -251,9 +349,12 @@ VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstS
     return descriptorWrite;
 }
 
+// VkWriteDescriptorSet — vkUpdateDescriptorSets for uniform buffer(s).
+// Used when: camera UBO (binding 0) and environment UBO (binding 1) on Set 0 each frame.
+// Example: DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 ).
 VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorBufferInfo* aBufferInfo, uint32_t aBinding,
                                                            uint32_t aCount ) {
-    VkWriteDescriptorSet descriptorWrite;
+    VkWriteDescriptorSet descriptorWrite{};
 
     descriptorWrite.sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.dstSet           = aDstSet;
@@ -269,8 +370,11 @@ VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstS
     return descriptorWrite;
 }
 
+// VkDescriptorSetLayoutBinding — one binding in vkCreateDescriptorSetLayout.
+// Used when: CreateDescriptorSetLayout for camera, env, and texture slots (eVk_* in Vk_Enum.h).
+// Example: DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding ).
 VkDescriptorSetLayoutBinding VkInit::DescriptorSetLayoutBindingCreateInfo( VkDescriptorType aType, VkShaderStageFlags someStageFlags, uint32_t aBinding ) {
-    VkDescriptorSetLayoutBinding setBind;
+    VkDescriptorSetLayoutBinding setBind{};
 
     setBind.binding            = aBinding;
     setBind.descriptorCount    = 1;
