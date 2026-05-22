@@ -2,6 +2,21 @@
 
 Vulkan learning / engine reboot sandbox (SiriusEngine).
 
+## New machine (Windows)
+
+First-time setup: install **Visual Studio 2022** (Desktop C++ / v143), clone the repo, build **Debug|x64**, run a quick verify.
+
+| Resource | Purpose |
+|----------|---------|
+| [`Docs/bootstrap.md`](Docs/bootstrap.md) | Toolchain versions, repo layout, build/run, logs, troubleshooting |
+| [`Scripts/Verify-Bootstrap.ps1`](Scripts/Verify-Bootstrap.ps1) | Automated: MSBuild → `--help` → short run → check `Logs/engine_runtime_log.txt` |
+
+```powershell
+powershell -ExecutionPolicy Bypass -File Scripts/Verify-Bootstrap.ps1
+```
+
+Vendored **Vulkan 1.2.182** + **GLFW 3.3.4** under `lib/VulkanSDK/` (no system SDK required to compile). Optional system Vulkan SDK for `vulkaninfo` / validation layers: [`Docs/validation-layers.md`](Docs/validation-layers.md).
+
 ## Run (Windows)
 
 Build `VulkanDesktop.sln` (Debug|x64), run `x64\Debug\VulkanDesktop.exe`.
