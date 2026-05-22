@@ -142,7 +142,7 @@ void Gfx_Mesh::BuildVertexBuffer() {
 
     Vk_AllocatedBuffer stagingBuffer;
 
-    // Staging (CPU) → device-local vertex buffer via CopyBuffer on transfer queue.
+    // Staging (CPU) -> device-local vertex buffer via CopyBuffer on transfer queue.
     Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;

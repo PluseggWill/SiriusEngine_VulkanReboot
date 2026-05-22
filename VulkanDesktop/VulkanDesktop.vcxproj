@@ -90,12 +90,15 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.2.182.0\Include;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\include;C:\VulkanSDK\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.2.182.0\Lib;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -108,6 +111,8 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.2.182.0\Include;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\include;C:\VulkanSDK\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -124,14 +129,17 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;..\lib\imgui;..\lib\imgui\backends;%(AdditionalLibraryDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;..\lib\imgui;..\lib\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -144,6 +152,8 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;..\lib\imgui;..\lib\imgui\backends;%(AdditionalLibraryDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -188,6 +198,7 @@
     <ClInclude Include="Gfx\Gfx_ViewData.h" />
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
+    <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_Enum.h" />
     <ClInclude Include="RenderCore\Vk_FrameData.h" />

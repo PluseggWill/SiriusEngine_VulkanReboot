@@ -1,0 +1,26 @@
+#pragma once
+
+#include <cstdint>
+
+// Descriptor binding policy (locked S0) - full rationale: Docs/EngineArchitecture.md section 5.3,
+// Docs/descriptor-strategy_Plan.md.
+//
+// Hybrid by update frequency (not "pick static OR dynamic"):
+//   Set 0 Frame   - UNIFORM_BUFFER, one set per MAX_FRAMES_IN_FLIGHT (camera, env, ...).
+//   Set 1 Material - UNIFORM_BUFFER / samplers per batch (S1).
+//   Set 2 Object   - UNIFORM_BUFFER_DYNAMIC into a per-frame instance slab, and/or push constants (S1).
+//
+// Push constants: mat4 model (64 B) only for per-draw transform unless maxPushConstantsSize allows more.
+// Do not put full GpuCameraData (192 B) in push constants without a capability check (min is often 128 B).
+
+namespace VkDescriptorPolicy {
+
+// Pipeline set indices - must match VkPipelineLayoutCreateInfo::pSetLayouts order when multi-set is wired (S1).
+constexpr uint32_t kSetFrame    = 0;
+constexpr uint32_t kSetMaterial = 1;  // S1
+constexpr uint32_t kSetObject   = 2;  // S1
+
+// TODO(descriptor-strategy): prove on GPU in S1 (2+ draws, distinct dynamicOffset); until then policy-only.
+inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
+
+}  // namespace VkDescriptorPolicy

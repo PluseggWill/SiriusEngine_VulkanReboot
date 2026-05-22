@@ -13,9 +13,9 @@ struct Vk_FrameData {
     VkCommandBuffer myCommandBuffer;
 
     Vk_AllocatedBuffer myCameraBuffer;   // sizeof(GpuCameraData), one per frame
-    VkDescriptorSet    myGlobalDescriptor;  // set 0: camera + env + texture
+    VkDescriptorSet    myGlobalDescriptor;  // set 0 (Frame): camera + env + texture - see Vk_DescriptorPolicy.h
 
-    // Reserved for per-object UBOs / secondary sets (not wired in the live draw path yet).
+    // TODO(descriptor-strategy): Set 2 instance slab + UNIFORM_BUFFER_DYNAMIC; verify per SprintPlan S1 Set-2 task.
     Vk_AllocatedBuffer myObjectBuffer;
     VkDescriptorSet    myObjectDescriptor;
 };

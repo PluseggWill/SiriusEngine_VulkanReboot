@@ -137,14 +137,36 @@ After extract:
 - Prefer **instancing** or **multi-draw** when many instances share the same mesh/material.
 - **Push constants** or **dynamic uniform offsets** for small per-draw variation (e.g. material index) when bindless is not used.
 
-### 5.3 Bindless vs traditional descriptors
+### 5.3 Descriptor policy (locked S0)
+
+**Decision:** use a **hybrid by update frequency** — static `UNIFORM_BUFFER` for frame/batch data, `UNIFORM_BUFFER_DYNAMIC` for per-instance slices in a ring/slab, and **push constants** only for very small per-draw fields. This is **not** “choose static *or* dynamic globally.”
+
+| Set | Role | Typical bindings | Descriptor type | Bind frequency |
+|-----|------|------------------|-----------------|----------------|
+| **0 — Frame** | Camera view/proj, environment, later frame-wide tables | `eVk_CameraBinding`, `eVk_EnvBinding`, … | `UNIFORM_BUFFER` | Once per **in-flight frame** (separate descriptor set per slot; memcpy UBO, no `vkUpdateDescriptorSets` on hot path) |
+| **1 — Material** | Material params, textures (until bindless) | TBD in S1 | `UNIFORM_BUFFER`, `COMBINED_IMAGE_SAMPLER` | Once per **material batch** |
+| **2 — Object** | Per-instance / per-draw data | Instance struct in slab | `UNIFORM_BUFFER_DYNAMIC` (+ optional push) | Set bound per batch; **`dynamicOffset`** per draw |
+
+**`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`**
+
+| Data | Type | Why |
+|------|------|-----|
+| Frame camera (view, proj), env, material constants | `UNIFORM_BUFFER` | Offset fixed at alloc or batch; rare `vkCmdBindDescriptorSets` |
+| Many instances in one GPU buffer | `UNIFORM_BUFFER_DYNAMIC` | One descriptor points at whole slab; only offset changes per draw |
+| Single `mat4` model matrix (VS path) | **Push constants** (preferred in S1) or dynamic UBO | 64 B; avoids descriptor churn; **do not** put full 192 B `GpuCameraData` in push constants without checking `maxPushConstantsSize` (minimum is often 128 B) |
+
+**Alignment:** slab stride and dynamic offsets are multiples of `minUniformBufferOffsetAlignment` (`Vk_Core::PadUniformBufferSize`).
+
+**VulkanDesktop today (demo):** only **set 0** is bound. Camera UBO still includes a **demo-only** `model` matrix (`ENABLE_ROTATE`); S1 will move object transform to set 2 or push constants. Environment uses one buffer with **frame-indexed static offsets** in `vkUpdateDescriptorSets` at init — **not** `UNIFORM_BUFFER_DYNAMIC`. Code contract: `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, bindings in `Vk_Enum.h`.
+
+**Bindless vs traditional (S1 fork)**
 
 | Approach | Pros for DoD | Cons |
 |----------|----------------|------|
-| **Traditional** + heavy batching | Portable, easier validation/debug | More CPU sorting; more binds if batches are poor |
+| **Traditional** + batching + push/dynamic | Portable, easier validation/debug | More CPU sorting; more binds if batches are poor |
 | **Bindless** (descriptor indexing / descriptor buffers) | Natural “material index → table lookup” in shader | Extension matrix, harder debug, stricter layout discipline |
 
-Decision should be **explicit**, documented here when made, and reflected in shader tables and the extract format.
+Bindless remains a **separate S1 decision**; it does not replace the frequency-tiered set layout above.
 
 ### 5.4 Phase graph (CPU side)
 

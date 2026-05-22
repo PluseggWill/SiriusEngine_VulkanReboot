@@ -132,6 +132,9 @@
     <ClInclude Include="RenderCore\Vk_Core.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Enum.h">
       <Filter>RenderCore</Filter>
     </ClInclude>

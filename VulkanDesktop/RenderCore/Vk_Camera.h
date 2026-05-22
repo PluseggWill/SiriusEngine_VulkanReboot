@@ -3,9 +3,10 @@
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
-// std140 UBO, binding eVk_CameraBinding — alignas(16) for mat4 rows (Vulkan UBO rules).
+// std140 UBO, set 0 / eVk_CameraBinding - alignas(16) for mat4 rows.
 struct GpuCameraData {
-    alignas( 16 ) glm::mat4 model;
+    // TODO(descriptor-strategy): remove after S1 splits per-draw transform to push mat4 or Set 2 dynamic UBO.
+    alignas( 16 ) glm::mat4 model;  // demo-only (ENABLE_ROTATE)
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
 };

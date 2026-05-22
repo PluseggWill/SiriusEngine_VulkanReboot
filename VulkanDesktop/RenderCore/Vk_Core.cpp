@@ -447,6 +447,7 @@ void Vk_Core::CreateGfxPipeline() {
 
     // Step #12: Pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
+    // TODO(descriptor-strategy): setLayoutCount 3 (Frame/Material/Object) + push constant range for mat4 model (S1).
     pipelineLayoutCreateInfo.setLayoutCount             = 1;
     pipelineLayoutCreateInfo.pSetLayouts                = &myGlobalSetLayout;
 
@@ -676,7 +677,7 @@ void Vk_Core::CreateFrameData() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // Single env UBO buffer; each frame uses a slice at dynamic offset (see CreateDescriptorSets / UpdateUniformBuffer).
+    // Single env UBO slab; each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
@@ -831,6 +832,7 @@ void Vk_Core::RecreateSwapChain() {
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
+    // TODO(descriptor-strategy): add Set 1 (material) and Set 2 (UNIFORM_BUFFER_DYNAMIC) layouts; see Vk_DescriptorPolicy.h.
     VkDescriptorSetLayoutBinding uboLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
@@ -857,6 +859,7 @@ void Vk_Core::CreateDescriptorSetLayout() {
 }
 
 void Vk_Core::CreateDescriptorPool() {
+    // TODO(descriptor-strategy): pool UNIFORM_BUFFER_DYNAMIC counts when Set 2 is wired (S1 verification).
     std::array< VkDescriptorPoolSize, 3 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 10;
@@ -881,7 +884,7 @@ void Vk_Core::CreateDescriptorPool() {
 
 void Vk_Core::CreateDescriptorSets() {
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        // One descriptor set per in-flight frame; env binding uses offset i * padded stride.
+        // One descriptor set per in-flight frame; env binding uses static offset i * PadUniformBufferSize stride.
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool     = myDescriptorPool;
@@ -1045,7 +1048,7 @@ void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_Rend
     }
 }
 
-#pragma region Helpers — device, queues, shaders
+#pragma region Helpers - device, queues, shaders
 
 void Vk_Core::CheckExtensionSupport() const {
     uint32_t extensionCount = 0;
@@ -1304,6 +1307,7 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
     vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
     vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
+    // TODO(descriptor-strategy): bind Set 1 per material batch; Set 2 with dynamicOffset[] per draw (S1).
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
     myFrameStats.myDrawCalls++;
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
@@ -1398,6 +1402,7 @@ void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
     GpuCameraData cam{};
+    // TODO(descriptor-strategy): write model via push constant or Set 2 slab, not camera UBO (S1).
     cam.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
     cam.view  = myCamera.myView;
     cam.proj  = myCamera.myProj;
@@ -1717,7 +1722,7 @@ void Vk_Core::BeginFrame( float& aOutDeltaSeconds ) {
 }
 
 size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
-    // Dynamic UBO offsets must be multiples of minUniformBufferOffsetAlignment.
+    // Slab stride / future UNIFORM_BUFFER_DYNAMIC offsets - multiples of minUniformBufferOffsetAlignment.
     size_t minUboAlignment = myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
     size_t alignedSize     = anOriginalSize;
 

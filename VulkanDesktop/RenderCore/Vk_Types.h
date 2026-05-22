@@ -96,7 +96,7 @@ public:
     glm::mat4 myTransform;
 };
 
-// std140 UBO, binding eVk_EnvBinding — field order must match EnvironmentData in TriangleFrag_Lit.frag.
+// std140 UBO, binding eVk_EnvBinding - field order must match EnvironmentData in TriangleFrag_Lit.frag.
 struct GpuEnvironmentData {
     glm::vec4 myFogColor;           // reserved (fog not implemented in shader)
     glm::vec4 myFogDistance;        // REPURPOSED: x=specularStrength, y=shininess, z=textureBlend, w unused

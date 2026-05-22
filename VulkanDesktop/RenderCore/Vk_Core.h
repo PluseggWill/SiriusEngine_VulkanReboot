@@ -27,7 +27,7 @@ class Gfx_Mesh;
 class Gfx_RenderObject;
 
 // Vulkan backend singleton: window, device, swapchain, frame loop, GPU resource helpers.
-// Scene tables (myMeshMap, etc.) live here temporarily — see EngineArchitecture §3.1 for split target.
+// Scene tables (myMeshMap, etc.) live here temporarily - see EngineArchitecture section 3.1 for split target.
 class Vk_Core {
 public:
     static Vk_Core& GetInstance();
@@ -100,7 +100,7 @@ private:
     void InitScene();
     void InitImGui();
     void ShutdownImGui();
-    // Order: poll events → Δt → ImGui NewFrame → input sample → camera. Call once before DrawFrame.
+    // Order: poll events -> dt -> ImGui NewFrame -> input sample -> camera. Call once before DrawFrame.
     void BeginFrame( float& aOutDeltaSeconds );
 
     // Draw frame:

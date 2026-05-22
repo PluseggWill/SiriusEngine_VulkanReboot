@@ -1,5 +1,6 @@
 #version 450
 
+// TODO(descriptor-strategy): split model to push constant or Set 2 UBO; keep view/proj in Set 0 (S1).
 layout(binding = 0) uniform CameraData {
     mat4 model;
     mat4 view;

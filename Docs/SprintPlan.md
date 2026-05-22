@@ -54,7 +54,6 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Review descriptor strategy (`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`); lock one approach in code + `EngineArchitecture.md` §5.3.
 - [ ] Replace heuristic path probing with **asset root** configuration (file + CLI).
 - [ ] Startup checks: required shader ( `Shader_Generated/*.spv` ), models, textures exist before Vulkan init.
 - [ ] Pipeline creation diagnostics (`VkResult` + stage/layout summary).
@@ -80,17 +79,20 @@ flowchart LR
 - [ ] **Extract** phase: visible indices + `DrawInstance` (sort key, mesh id, material id, instance data offset) — **no Vulkan**.
 - [ ] Resource tables: mesh/material → GPU descriptor/buffer indices; draw records store indices only.
 - [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
+- [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
 
 ### Submission
 
 - [ ] CPU frustum cull + LOD (simple) → sort by `(pipeline, material, mesh, depth bucket)`.
 - [ ] Batch runs; `RecordCommandBuffer` scans batches only (remove hard-coded `myMeshMap[0]` draw).
-- [ ] **Bindless vs batch+push decision** — document in `EngineArchitecture.md`; implement tables + shader `materialIndex`.
+- [ ] **Verify descriptor policy (Set 0/1 + push):** split `model` out of `GpuCameraData` (push `mat4` or Set 2); Set 1 material bind once per batch; validation layers clean on multi-mesh path.
+- [ ] **Bindless vs batch+push decision** — document in `EngineArchitecture.md`; implement tables + shader `materialIndex` (must not contradict §5.3 hybrid policy).
 - [ ] Finish or delete **`DrawObjects` stub**; single documented render path.
 
 ### Milestone M1 acceptance
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
+- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO + (Set 1 batch **or** bindless table) + (Set 2 dynamic slab **or** push `mat4`) exercised on fixed test scene; no demo-only `model` in camera UBO.
 
 ---
 
@@ -114,6 +116,7 @@ flowchart LR
 - [ ] Scene description on disk (pick JSON/YAML/TOML); entities = transform + mesh + material + flags.
 - [ ] Flat world matrices first; hierarchy upgrade path documented.
 - [ ] GPU resource lifetime rules when scene edits (descriptor/pipeline rebuild policy).
+- [ ] **Verify descriptor policy (layout):** `VkPipelineLayout` lists Set 0/1/2 per `Vk_DescriptorPolicy.h`; rebuild path documented when materials change.
 
 ---
 
@@ -273,6 +276,7 @@ flowchart LR
 
 ### Engine / hygiene
 
+- [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
 - [x] **[S2]** Debug fly camera — `Docs/fps-camera_Plan.md`; sampling still in `Vk_Core` until input module.
 - [x] **[S0]** `Gfx_Mesh::LoadMesh` UV guard — `Vk_Types.cpp`.
 - [x] **[S0]** `UtilLoader::LoadTexture` fail-fast — `Util_Loader.cpp`.
