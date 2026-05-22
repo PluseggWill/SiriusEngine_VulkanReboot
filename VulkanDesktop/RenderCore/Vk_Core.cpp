@@ -453,9 +453,6 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #10: Color blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
-    // Step #11: Dynamic state (not using at this moment)
-    VkPipelineDynamicStateCreateInfo dynamicState = VkInit::Pipeline_DynamicStateCreateInfo();
-
     // Step #12: Pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
     // TODO(descriptor-strategy): setLayoutCount 3 (Frame/Material/Object) + push constant range for mat4 model (S1).
@@ -482,7 +479,7 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineBuilder.myMultisampling        = multisampling;
     pipelineBuilder.myDepthStencil         = depthStencilInfo;
     pipelineBuilder.myColorBlendAttachment = colorBlendAttachment;
-    pipelineBuilder.myDynamicState         = dynamicState;
+    pipelineBuilder.SetDefaultDynamicStates();
     pipelineBuilder.myPipelineLayout       = myPipelineLayout;
 
     Vk_GraphicsPipelineBuildInfo pipelineDiag{};

@@ -54,7 +54,7 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Fix `VkInit::Pipeline_DynamicStateCreateInfo()` (no pointers to temporaries).
+*(none — S0 must-complete queue cleared 2026-05-22.)*
 
 ### Should complete in S0
 
@@ -270,6 +270,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Fix `VkInit::Pipeline_DynamicStateCreateInfo` dangling `pDynamicStates`; wire dynamic state in `Vk_PipelineBuilder` — 2026-05-22; `Docs/pipeline-dynamic-state_Plan.md`.
 - [x] **[S0]** Validation layers: install guide, startup layer discovery log, runtime on/off (`--validation`, `--no-validation`, `engine.json`) — 2026-05-22; `Docs/validation-layers.md`, `Util_ValidationConfig`, `Util_ValidationLayers`.
 - [x] **[S0]** Pipeline creation diagnostics (`VkResult` + stage/layout summary) — 2026-05-22; `Util_VulkanResult`, `Vk_PipelineDiagnostics`, `Docs/pipeline-diagnostics_Plan.md`.
 - [x] **[S0]** Startup checks: required `Shader_Generated/*.spv`, demo models/textures exist before Vulkan init — 2026-05-22; `Util_StartupChecks`, `Util_DemoAssets.h` (temporary; migrate per `Docs/scene-load_Plan.md`), `Docs/startup-checks_Plan.md`.

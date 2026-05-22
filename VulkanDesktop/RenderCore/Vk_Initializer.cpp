@@ -1,5 +1,4 @@
 #include "Vk_Initializer.h"
-#include <array>
 
 VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry ) {
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -24,16 +23,11 @@ VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo
     return vertexInputInfo;
 }
 
-// Returns create info pointing at static storage (safe). Not wired in Vk_PipelineBuilder yet (pDynamicState is null).
-VkPipelineDynamicStateCreateInfo VkInit::Pipeline_DynamicStateCreateInfo() {
-    static const std::array< VkDynamicState, 2 > dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
-
-    VkPipelineDynamicStateCreateInfo dynamicState{};
-    dynamicState.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast< uint32_t >( dynamicStates.size() );
-    dynamicState.pDynamicStates    = dynamicStates.data();
-
-    return dynamicState;
+void VkInit::Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut ) {
+    aOut                   = {};
+    aOut.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    aOut.dynamicStateCount = static_cast< uint32_t >( aStorage.size() );
+    aOut.pDynamicStates    = aStorage.empty() ? nullptr : aStorage.data();
 }
 
 VkPipelineInputAssemblyStateCreateInfo VkInit::Pipeline_InputAssemblyCreateInfo( VkPrimitiveTopology aTopology ) {

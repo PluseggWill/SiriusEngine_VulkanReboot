@@ -115,5 +115,7 @@ void VkPipelineDiagnostics::LogGraphicsPipelineSummary( const Vk_GraphicsPipelin
     UtilLogger::Info( "PIPELINE", "vertexBindings=" + std::to_string( aBuilder.myVertexInputInfo.vertexBindingDescriptionCount ) + " vertexAttributes="
                                    + std::to_string( aBuilder.myVertexInputInfo.vertexAttributeDescriptionCount ) );
 
-    UtilLogger::Info( "PIPELINE", "colorBlendEnable=" + std::to_string( aBuilder.myColorBlendAttachment.blendEnable ) + " dynamicStateInBuilder=disabled" );
+    const uint32_t dynamicCount = aBuilder.myDynamicState.dynamicStateCount;
+    UtilLogger::Info( "PIPELINE", "colorBlendEnable=" + std::to_string( aBuilder.myColorBlendAttachment.blendEnable ) + " dynamicState count="
+                                   + std::to_string( dynamicCount ) + ( dynamicCount > 0 ? " wired" : " disabled" ) );
 }

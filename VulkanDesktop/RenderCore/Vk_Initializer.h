@@ -19,7 +19,8 @@ VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo( VkPolyg
 
 VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount );
 
-VkPipelineDynamicStateCreateInfo Pipeline_DynamicStateCreateInfo();
+// Fills aOut from aStorage; pDynamicStates points at aStorage.data() (storage must outlive pipeline create).
+void Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
 
 VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo();
 

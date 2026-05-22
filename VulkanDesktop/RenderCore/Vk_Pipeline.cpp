@@ -1,4 +1,5 @@
 #include "Vk_Pipeline.h"
+#include "Vk_Initializer.h"
 #include "Vk_PipelineDiagnostics.h"
 
 #include "../Util/Util_Logger.h"
@@ -6,6 +7,22 @@
 
 #include <stdexcept>
 #include <string>
+
+namespace {
+const std::initializer_list< VkDynamicState > kDefaultGraphicsDynamicStates = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_LINE_WIDTH,
+};
+}  // namespace
+
+void Vk_PipelineBuilder::SetDynamicStates( std::initializer_list< VkDynamicState > aStates ) {
+    myDynamicStatesStorage.assign( aStates.begin(), aStates.end() );
+    VkInit::Pipeline_FillDynamicStateCreateInfo( myDynamicStatesStorage, myDynamicState );
+}
+
+void Vk_PipelineBuilder::SetDefaultDynamicStates() {
+    SetDynamicStates( kDefaultGraphicsDynamicStates );
+}
 
 VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
     // Create the viewport state
@@ -43,7 +60,7 @@ VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPa
     pipelineInfo.pMultisampleState   = &myMultisampling;
     pipelineInfo.pDepthStencilState  = &myDepthStencil;
     pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDynamicState       = nullptr;
+    pipelineInfo.pDynamicState = ( myDynamicState.dynamicStateCount > 0 ) ? &myDynamicState : nullptr;
     pipelineInfo.layout              = myPipelineLayout;
     pipelineInfo.renderPass          = aPass;
     pipelineInfo.subpass             = 0;
