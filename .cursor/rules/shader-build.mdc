@@ -1,6 +1,6 @@
 ---
 description: GLSL/glslc shader build defaults, VS Custom Build pitfalls, and log paths for VulkanDesktop.
-globs: VulkanDesktop/Shader/**/*
+globs: VulkanDesktop/Shader/**/*,VulkanDesktop/Shader_Generated/**/*
 alwaysApply: false
 ---
 
@@ -8,9 +8,10 @@ alwaysApply: false
 
 ## Toolchain
 
-- **VS build + runtime**: **glslc** only — `TriangleVertex.vert` + `TriangleFrag_Lit.frag` → `TriangleVert.spv` / `TrianglePix.spv`.
-- **Pipeline entry point**: `"main"` in `Vk_Core::CreateGfxPipeline`.
-- **Custom Build** is on `Shader\TriangleVertex.vert`.
+- **Sources** (`Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (developer-edited GLSL).
+- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` — glslc output only; do not hand-edit.
+- **VS build + runtime**: **glslc** only; pipeline entry `"main"` in `Vk_Core::CreateGfxPipeline`.
+- **Custom Build** is on `Shader\TriangleVertex.vert`; **Outputs** go to `Shader_Generated\`.
 
 | Script | Role |
 |--------|------|
@@ -25,7 +26,7 @@ alwaysApply: false
 
 ## MSBuild Custom Build — do not break `.spv` outputs
 
-- **Never `echo` to stdout** in compile `.bat` used as Custom Build commands. MSBuild may write stdout into the **first** listed `Outputs` file (corrupting `TriangleVert.spv`).
+- **Never `echo` to stdout** in compile `.bat` used as Custom Build commands. MSBuild may write stdout into the **first** listed `Outputs` file (corrupting `Shader_Generated\TriangleVert.spv`).
 - Log to **stderr** (`1>&2`) and/or `shader_compile_log.txt` only.
 
 ## Descriptor / UBO contract

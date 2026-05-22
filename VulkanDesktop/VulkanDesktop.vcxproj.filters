@@ -22,6 +22,9 @@
     <Filter Include="Gfx\Shader">
       <UniqueIdentifier>{49330e1d-10f6-4ff6-a3ad-86b385f880b3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Gfx\Shader Generated">
+      <UniqueIdentifier>{7a8b9c0d-1e2f-4a5b-8c9d-0e1f2a3b4c5d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp" />
@@ -170,5 +173,11 @@
     <CustomBuild Include="Shader\TriangleVertex.vert">
       <Filter>Gfx\Shader</Filter>
     </CustomBuild>
+    <None Include="Shader_Generated\TriangleVert.spv">
+      <Filter>Gfx\Shader Generated</Filter>
+    </None>
+    <None Include="Shader_Generated\TrianglePix.spv">
+      <Filter>Gfx\Shader Generated</Filter>
+    </None>
   </ItemGroup>
 </Project>

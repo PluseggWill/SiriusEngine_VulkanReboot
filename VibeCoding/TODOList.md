@@ -22,7 +22,6 @@ These items unblock everything else: if shaders, paths, or validation are flaky,
 
 - [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `VibeCoding/notes-2026-05-22-shader-debug.md`.
 - [x] Repo-root logs for build + runtime (`Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`). — `ShaderBuild_Common.bat`, `UtilLogger`.
-- [ ] Add CI step to run `CompileShader_Glslc.bat` and fail fast on missing tools or compile errors.
 - [ ] Review descriptor type strategy (`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`) and lock one approach.
 - [ ] Replace heuristic path probing with a robust asset root configuration system.
 - [ ] Add startup checks that verify required resources (shader/model/texture) exist before initialization.
@@ -41,6 +40,7 @@ These items unblock everything else: if shaders, paths, or validation are flaky,
 
 ### P2 (nice to have / ongoing improvement)
 
+- [ ] **(deferred)** Add GitHub Actions CI to run `CompileShader_Glslc.bat` and fail fast on missing tools or compile errors. Local VS Custom Build + manual bat are sufficient for now; draft workflow was sketched but not checked in.
 - [ ] Document required runtime working directory behavior (or eliminate dependency on it).
 - [ ] Add per-day or per-run log rotation to prevent indefinite log growth.
 - [ ] Split logs by domain (build/runtime/rendering) with configurable verbosity.

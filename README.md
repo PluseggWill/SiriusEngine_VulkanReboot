@@ -8,9 +8,11 @@ Build `VulkanDesktop.sln` (Debug|x64), run `x64\Debug\VulkanDesktop.exe`.
 
 ## Shaders (GLSL → SPIR-V)
 
-**Sources:** `TriangleVertex.vert` + `TriangleFrag_Lit.frag` → SPIR-V via vendored **glslc** (`lib/VulkanSDK/1.2.182.0/Bin32/glslc.exe`).
+**Sources** (`VulkanDesktop/Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` → SPIR-V via vendored **glslc** (`lib/VulkanSDK/1.2.182.0/Bin32/glslc.exe`).
 
-In Visual Studio, `TriangleVertex.vert` is a **Custom Build** item: editing GLSL sources or compile scripts marks the project out of date; the next **Build** / **F5** recompiles `TriangleVert.spv` and `TrianglePix.spv`.
+**Generated** (`VulkanDesktop/Shader_Generated/`): `TriangleVert.spv`, `TrianglePix.spv` — do not edit by hand.
+
+In Visual Studio, `TriangleVertex.vert` is a **Custom Build** item: editing GLSL sources or compile scripts marks the project out of date; the next **Build** / **F5** recompiles SPIR-V into `Shader_Generated/`.
 
 Manual compile from `VulkanDesktop\Shader`:
 

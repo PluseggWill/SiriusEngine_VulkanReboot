@@ -14,7 +14,7 @@ Session outcome: **scene renders correctly with glslc**; HLSL/dxc path removed f
 ## Final toolchain policy
 
 - **Build**: `CompileShader_Glslc.bat` (VS Custom Build on `TriangleVertex.vert`).
-- **Runtime**: `TriangleVert.spv` + `TrianglePix.spv`, entry `"main"`.
+- **Runtime**: `Shader_Generated/TriangleVert.spv` + `Shader_Generated/TrianglePix.spv`, entry `"main"`.
 
 ## Artifacts
 

@@ -4,8 +4,10 @@ setlocal
 cd /d "%~dp0"
 call "%~dp0ShaderBuild_Common.bat" init "%~dp0"
 set "GLSLC=%SHADER_DIR%..\..\lib\VulkanSDK\1.2.182.0\Bin32\glslc.exe"
-set "VS_OUT=%SHADER_DIR%TriangleVert.spv"
-set "PS_OUT=%SHADER_DIR%TrianglePix.spv"
+set "GEN_DIR=%SHADER_DIR%..\Shader_Generated\"
+if not exist "%GEN_DIR%" mkdir "%GEN_DIR%"
+set "VS_OUT=%GEN_DIR%TriangleVert.spv"
+set "PS_OUT=%GEN_DIR%TrianglePix.spv"
 
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile started."
 
@@ -19,7 +21,7 @@ if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: TriangleVertex.vert"
     exit /b 1
 )
-call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: TriangleVert.spv"
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\TriangleVert.spv"
 
 if not exist "%SHADER_DIR%TriangleFrag_Lit.frag" (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Missing TriangleFrag_Lit.frag"
@@ -31,6 +33,6 @@ if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit.frag"
     exit /b 1
 )
-call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: TrianglePix.spv"
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix.spv"
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 exit /b 0

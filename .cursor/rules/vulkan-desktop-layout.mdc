@@ -15,7 +15,7 @@ alwaysApply: false
 | **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material 等），与 API 无关 |
 | **入口** | `VulkanDesktop/VulkanDesktop.cpp` | 应用 `main`，留在项目根，不归入三类 |
 
-着色器在 `VulkanDesktop/Shader/`（**GLSL 源** + `CompileShader*.bat`）；VS Custom Build 挂在 `TriangleVertex.vert`（glslc → `.spv`）。过滤器：**Gfx\Shader**。详见 **`shader-build.mdc`**。
+着色器：**源**在 `VulkanDesktop/Shader/`（GLSL + `CompileShader*.bat`），**生成物**在 `VulkanDesktop/Shader_Generated/`（`.spv`）。VS Custom Build 挂在 `TriangleVertex.vert`。过滤器：**Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
 
 ## Visual Studio 项目树（`.vcxproj.filters`）
 
@@ -27,7 +27,8 @@ Util/                    ← 全部 Util_* 与 Util 命名空间 API
   ThirdParty/imgui/      ← lib\imgui 引用项
 RenderCore/              ← 全部 Vk_*
 Gfx/
-  Shader/                ← *.vert, *.frag, CompileShader_Glslc.bat, CompileShader.bat
+  Shader/                ← *.vert, *.frag, CompileShader*.bat (sources + scripts)
+  Shader_Generated/      ← *.spv (glslc output; do not edit)
 ```
 
 新增/移动源文件时，**同时**更新 `VulkanDesktop.vcxproj` 与 `VulkanDesktop.vcxproj.filters`。

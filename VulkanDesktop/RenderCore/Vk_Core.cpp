@@ -35,8 +35,8 @@
 #endif
 
 // Demo asset paths (resolved via UtilLoader::ResolvePath from cwd / VulkanDesktop output dir).
-std::string vertShaderPath  = "Shader/TriangleVert.spv";
-std::string fragShaderPath  = "Shader/TrianglePix.spv";
+std::string vertShaderPath  = "Shader_Generated/TriangleVert.spv";
+std::string fragShaderPath  = "Shader_Generated/TrianglePix.spv";
 std::string texturePath     = "../Data/Textures/viking_room.png";
 std::string houseModelPath    = "../Data/Models/viking_room.obj";
 std::string monkeyModelPath   = "../Data/Models/monkey_smooth.obj";

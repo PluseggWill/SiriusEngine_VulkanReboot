@@ -213,9 +213,11 @@
       <FileType>Document</FileType>
       <Message>Compiling GLSL shaders to SPIR-V (glslc)</Message>
       <Command>call "$(ProjectDir)Shader\CompileShader.bat"</Command>
-      <Outputs>$(ProjectDir)Shader\TriangleVert.spv;$(ProjectDir)Shader\TrianglePix.spv</Outputs>
+      <Outputs>$(ProjectDir)Shader_Generated\TriangleVert.spv;$(ProjectDir)Shader_Generated\TrianglePix.spv</Outputs>
       <AdditionalInputs>$(ProjectDir)Shader\CompileShader.bat;$(ProjectDir)Shader\CompileShader_Glslc.bat;$(ProjectDir)Shader\ShaderBuild_Common.bat;$(ProjectDir)Shader\TriangleFrag_Lit.frag;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
+    <None Include="Shader_Generated\TriangleVert.spv" />
+    <None Include="Shader_Generated\TrianglePix.spv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
