@@ -54,7 +54,6 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Replace heuristic path probing with **asset root** configuration (file + CLI).
 - [ ] Startup checks: required shader ( `Shader_Generated/*.spv` ), models, textures exist before Vulkan init.
 - [ ] Pipeline creation diagnostics (`VkResult` + stage/layout summary).
 - [ ] Validation layers: install guide, startup layer discovery log, optional runtime on/off flag.
@@ -268,6 +267,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Asset root configuration (`Config/engine.json` + `--asset-root` / `--config` CLI); repo-relative paths; heuristic `BuildCandidateBases` removed — 2026-05-22; `Docs/asset-root_Plan.md`.
 - [x] **[S0]** Deterministic glslc compile + VS Custom Build — 2026-05-22; `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 - [x] **[S0]** Repo-root `Logs/shader_compile_log.txt` + `engine_runtime_log.txt` — `ShaderBuild_Common.bat`, `UtilLogger`.
 - [x] **[S0]** Shader scripts split; MSBuild stdout pitfall documented — `.cursor/rules/shader-build.mdc`.

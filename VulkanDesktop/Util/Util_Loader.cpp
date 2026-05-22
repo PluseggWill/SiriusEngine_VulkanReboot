@@ -1,4 +1,5 @@
 #include "Util_Loader.h"
+#include "Util_AssetConfig.h"
 #include "Util_Logger.h"
 #include "../RenderCore/Vk_Core.h"
 
@@ -8,37 +9,23 @@
 #include <fstream>
 #include <vector>
 
-namespace {
-
-// Search order when a relative asset path is not found in cwd (VS output dir varies).
-std::vector< std::filesystem::path > BuildCandidateBases() {
-    const auto cwd = std::filesystem::current_path();
-    return {
-        cwd,
-        cwd / "VulkanDesktop",
-        cwd.parent_path(),
-        cwd.parent_path() / "VulkanDesktop",
-        cwd.parent_path().parent_path(),
-        cwd.parent_path().parent_path() / "VulkanDesktop",
-    };
-}
-}  // namespace
-
 std::string UtilLoader::ResolvePath( const std::string& aFilename ) {
     const std::filesystem::path inputPath( aFilename );
+
+    if ( inputPath.is_absolute() && std::filesystem::exists( inputPath ) ) {
+        return std::filesystem::weakly_canonical( inputPath ).string();
+    }
+
+    const auto assetRelative = ( UtilAssetConfig::GetAssetRoot() / inputPath ).lexically_normal();
+    if ( std::filesystem::exists( assetRelative ) ) {
+        return std::filesystem::weakly_canonical( assetRelative ).string();
+    }
 
     if ( std::filesystem::exists( inputPath ) ) {
         return std::filesystem::weakly_canonical( inputPath ).string();
     }
 
-    for ( const auto& base : BuildCandidateBases() ) {
-        const auto candidate = ( base / inputPath ).lexically_normal();
-        if ( std::filesystem::exists( candidate ) ) {
-            return std::filesystem::weakly_canonical( candidate ).string();
-        }
-    }
-
-    return aFilename;
+    return assetRelative.string();
 }
 
 std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {

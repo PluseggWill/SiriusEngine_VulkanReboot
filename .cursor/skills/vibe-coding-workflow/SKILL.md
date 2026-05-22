@@ -2,9 +2,10 @@
 name: vibe-coding-workflow
 description: >-
   Runs a three-phase vibe coding workflow (clarify → design doc → implement with
-  progress logs). Creates and maintains Docs/[TaskName]_Plan.md and
-  Docs/[TaskName]_Progress.md under the workspace. Use when the user says
-  vibe coding, asks for this workflow, or works under Docs/.
+  progress logs and mandatory build/smoke-run before task close). Creates and
+  maintains Docs/[TaskName]_Plan.md and Docs/[TaskName]_Progress.md under the
+  workspace. Use when the user says vibe coding, asks for this workflow, or works
+  under Docs/.
 ---
 
 # Vibe Coding Workflow
@@ -35,7 +36,7 @@ Precondition: user has confirmed the clarified spec.
    - Design decisions (with alternatives considered if relevant)
    - File/module touch list (expected)
    - Step-by-step implementation plan (ordered, checkable)
-   - Test/verification plan
+   - **Build / smoke-run** plan (commands, expected signals, when N/A)
    - Risks and rollback notes if any
 
 Do not contradict the clarified spec in the plan; if something is still unclear, return to Phase 1.
@@ -53,6 +54,61 @@ Precondition: `Docs/{TaskName}_Plan.md` exists and is current.
    - How verified (commands run, manual checks)
 3. If the project uses Perforce (P4), check whether current edits touch files that are already checked out. If yes, explicitly remind the user.
 4. Debug until acceptance criteria in the plan are met; log each fix iteration in `_Progress.md` the same way.
+5. Before marking the task done or archiving a `SprintPlan.md` line, complete **Build / smoke-run** (below) unless the plan documents why it does not apply.
+
+### Build / smoke-run (mandatory before task close)
+
+Run after implementation (or after each batch that changes compile/runtime behavior). Record commands and outcomes in `_Progress.md` under **Verification**.
+
+| Step | When required | Action |
+|------|----------------|--------|
+| **Build** | Any change under `VulkanDesktop/`, shaders, or `.vcxproj` | Compile the solution; fix errors before closing the task. |
+| **Smoke-run** | Runnable app affected (startup, assets, render loop, CLI) | Short run; confirm no crash during init / one frame / `--help`. |
+| **Log check** | Smoke-run or loader/config changes | Tail `Logs/engine_runtime_log.txt` (and `shader_compile_log.txt` if shaders changed) for expected categories/paths. |
+
+**Do not** archive a sprint item or mark the plan “Done” on build/smoke-run failure without fixing or documenting a blocked deviation.
+
+#### VulkanDesktop (default for this repo)
+
+1. **Locate MSBuild** (if not on PATH):
+
+   ```powershell
+   & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+   ```
+
+2. **Build** (from workspace root):
+
+   ```powershell
+   & "<MSBuild.exe>" VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m
+   ```
+
+   Use `Release|x64` only when the plan or user asks for it.
+
+3. **Smoke-run** (pick what fits the task; at least one):
+
+   ```powershell
+   & "x64\Debug\VulkanDesktop.exe" --help
+   ```
+
+   ```powershell
+   Set-Location x64\Debug
+   $p = Start-Process -FilePath ".\VulkanDesktop.exe" -PassThru -WindowStyle Minimized
+   Start-Sleep -Seconds 4
+   if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+   ```
+
+   For asset/config work, also run from a **different cwd** with `--asset-root <repo-root>` and confirm resolution in the log.
+
+4. **Signals of success** (adjust per task in the plan):
+
+   - Build exit code 0; SPIR-V custom build OK when shaders touched.
+   - `[CONFIG] assetRoot=…` when asset root changed.
+   - `[SHADER]` / `[LOADER]` / `[RESOURCE]` lines show resolved paths under the repo.
+   - No new `[ERROR]` during init before intentional shutdown.
+
+#### When build/smoke-run is N/A
+
+Doc-only tasks, comment-only edits, or archived notes: state **“Build/smoke-run: N/A — …”** in the plan verification section and `_Progress.md`. Do not skip silently.
 
 ### Deviation handling protocol (mandatory)
 
@@ -91,7 +147,7 @@ Append blocks like:
 - **Plan ref:** …
 - **Files:** `path/a`, `path/b`
 - **What changed:** …
-- **Verification:** …
+- **Verification:** build command + exit code; smoke-run steps; log lines checked (or N/A + reason)
 ```
 
 ## Subagents (Task tool)
@@ -101,7 +157,7 @@ Use subagents to keep the main thread focused; **paste the current `TaskName` an
 | Situation | Subagent | Prompt essentials |
 |-----------|----------|---------------------|
 | Unknown codebase layout, “where is X?” | `explore` (readonly) | Goal, constraints, return file paths and short findings only |
-| Build, tests, grep-heavy commands | `shell` | Exact commands, cwd, report stdout/stderr summary |
+| Build, smoke-run, tests, grep-heavy commands | `shell` | MSBuild path, `Debug|x64`, smoke-run + log tail; stdout/stderr summary |
 | Broader multi-file change while you coordinate plan/progress | `generalPurpose` | Bound scope, must not edit `_Plan`/`_Progress` unless instructed |
 
 Rules for subagents:

@@ -2,6 +2,7 @@
 #include <GLFW\glfw3.h>
 
 #include "RenderCore/Vk_Core.h"
+#include "Util/Util_AssetConfig.h"
 #include "Util/Util_Logger.h"
 #include <cstdlib>
 #include <iostream>
@@ -21,9 +22,10 @@ const std::vector< const char* > validationLayers = { "VK_LAYER_KHRONOS_validati
 
 const std::vector< const char* > deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-int main() {
+int main( int argc, char** argv ) {
     UtilLogger::Init();
     UtilLogger::Info( "APP", "Application startup." );
+    UtilAssetConfig::Initialize( argc, argv );
 
     Vk_Core* app = &Vk_Core::GetInstance();
     app->SetSize( WIDTH, HEIGHT );

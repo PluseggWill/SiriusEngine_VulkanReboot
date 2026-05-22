@@ -28,6 +28,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp" />
+    <ClCompile Include="Util\Util_AssetConfig.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_FrameStats.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -93,6 +96,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Util\Util_AssetConfig.h">
+      <Filter>Util</Filter>
+    </ClInclude>
     <ClInclude Include="Util\Util_FrameStats.h">
       <Filter>Util</Filter>
     </ClInclude>

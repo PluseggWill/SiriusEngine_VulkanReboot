@@ -57,7 +57,7 @@ Apply when adding or editing comments in `VulkanDesktop/` (C++, GLSL). Prefer **
 - **Descriptors**: Binding index + type + stage; keep in sync with `Vk_Enum.h` and GLSL shaders.
 - **Queues**: State when graphics doubles as transfer; when `CONCURRENT` vs `EXCLUSIVE` sharing applies.
 - **Coordinates**: Z-up world, Y-flipped Vulkan projection (`proj[1][1] *= -1`), sunlight “toward sun” direction.
-- **Paths**: Note dependency on working directory only at resolution sites (`UtilLoader::ResolvePath`), not at every `ReadFile` call.
+- **Paths**: Note repo-relative logical paths and `UtilAssetConfig` / `UtilLoader::ResolvePath` at resolution sites, not at every `ReadFile` call.
 
 ## Cleanup
 
