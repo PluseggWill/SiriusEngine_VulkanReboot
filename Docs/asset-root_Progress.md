@@ -10,5 +10,5 @@
 ## 2026-05-22 — Code review (close)
 
 - **Review:** `UtilAssetConfig` precedence (CLI > config > `FindRepoRoot`) and directory check are correct; minimal JSON parser scoped to `assetRoot` only. `ResolvePath` is deterministic (asset root first, optional cwd fallback for absolute-adjacent paths). Demo paths repo-relative. No `BuildCandidateBases` left in code.
-- **Follow-ups (out of scope):** share `FindRepoRoot` with `UtilLogger`; startup existence checks (next S0).
+- **Follow-ups (out of scope):** share `FindRepoRoot` with `UtilLogger`; startup existence checks — done in `Docs/startup-checks_Plan.md`.
 - **Archived:** `Docs/SprintPlan.md` → `## Archived` [S0] asset-root.

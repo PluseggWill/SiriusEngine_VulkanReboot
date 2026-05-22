@@ -31,6 +31,9 @@
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_StartupChecks.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_FrameStats.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -97,6 +100,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Util\Util_AssetConfig.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_DemoAssets.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_StartupChecks.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_FrameStats.h">

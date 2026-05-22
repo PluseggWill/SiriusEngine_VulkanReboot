@@ -4,6 +4,7 @@
 #include "RenderCore/Vk_Core.h"
 #include "Util/Util_AssetConfig.h"
 #include "Util/Util_Logger.h"
+#include "Util/Util_StartupChecks.h"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -25,15 +26,17 @@ const std::vector< const char* > deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION
 int main( int argc, char** argv ) {
     UtilLogger::Init();
     UtilLogger::Info( "APP", "Application startup." );
-    UtilAssetConfig::Initialize( argc, argv );
 
     Vk_Core* app = &Vk_Core::GetInstance();
     app->SetSize( WIDTH, HEIGHT );
     app->SetEnableValidationLayers( enableValidationLayers, validationLayers );
     app->SetRequiredExtension( deviceExtensions );
-    UtilLogger::Info( "APP", "Core configuration prepared." );
 
     try {
+        UtilAssetConfig::Initialize( argc, argv );
+        UtilStartupChecks::VerifyRequiredAssets();
+        UtilLogger::Info( "APP", "Core configuration prepared." );
+
         UtilLogger::Info( "APP", "Entering engine run loop." );
         app->Run();
         UtilLogger::Info( "APP", "Engine exited run loop normally." );

@@ -54,7 +54,6 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Startup checks: required shader ( `Shader_Generated/*.spv` ), models, textures exist before Vulkan init.
 - [ ] Pipeline creation diagnostics (`VkResult` + stage/layout summary).
 - [ ] Validation layers: install guide, startup layer discovery log, optional runtime on/off flag.
 - [ ] Fix `VkInit::Pipeline_DynamicStateCreateInfo()` (no pointers to temporaries).
@@ -76,7 +75,7 @@ flowchart LR
 - [ ] SoA columns: transform, bounds, mesh/material indices, layer/mask.
 - [ ] Stable entity id (index + generation or slot map).
 - [ ] **Extract** phase: visible indices + `DrawInstance` (sort key, mesh id, material id, instance data offset) — **no Vulkan**.
-- [ ] Resource tables: mesh/material → GPU descriptor/buffer indices; draw records store indices only.
+- [ ] Resource tables: mesh/material → GPU descriptor/buffer indices; draw records store indices only — populated from scene manifest ([`scene-load_Plan.md`](scene-load_Plan.md) Phase C).
 - [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
 - [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
 
@@ -99,7 +98,7 @@ flowchart LR
 
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 
-- [ ] Application **lifecycle** (init → load scene → update → render → shutdown) separate from Vulkan bootstrap.
+- [ ] Application **lifecycle** (init → load scene → update → render → shutdown) separate from Vulkan bootstrap — see [`scene-load_Plan.md`](scene-load_Plan.md) Phase C.
 - [ ] Thin **scheduler** (update vs render step).
 - [ ] Central **config** (window, vsync, asset root, log level, feature flags).
 - [ ] Move `UtilInput::Sample` out of `Vk_Core`; input abstraction for gameplay + camera.
@@ -112,9 +111,15 @@ flowchart LR
 
 ### Scene (minimal for M1+)
 
-- [ ] Scene description on disk (pick JSON/YAML/TOML); entities = transform + mesh + material + flags.
-- [ ] Flat world matrices first; hierarchy upgrade path documented.
-- [ ] GPU resource lifetime rules when scene edits (descriptor/pipeline rebuild policy).
+*Design and phased rollout: [`scene-load_Plan.md`](scene-load_Plan.md). Replaces hard-coded `Util_DemoAssets` / `UtilStartupChecks` list with scene-derived `AssetManifest`.*
+
+- [ ] **Scene-load Phase A:** `Data/Scenes/demo.json` + `LoadSceneDesc` + `CollectDependencies` + CLI `--scene` (parse only; no GPU behavior change).
+- [ ] **Scene-load Phase B:** `VerifyManifest` before Vulkan; retire `Util_DemoAssets::kRequiredFiles` (manifest-driven `[STARTUP]` checks).
+- [ ] **Scene-load Phase C:** `LoadSceneResources` in lifecycle; remove demo mesh/texture/shader paths from `Vk_Core::InitVulkan`; entities use resource table ids.
+- [ ] **Scene-load Phase D:** `UnloadScene`, strict/warn asset policy, optional `Data/Scenes/smoke.json` smoke scene.
+- [ ] Scene description on disk (JSON v1 per plan); entities = transform + mesh + material + flags.
+- [ ] Flat world matrices first; hierarchy upgrade path documented (`scene-load_Plan.md` non-goals).
+- [ ] GPU resource lifetime rules when scene edits (descriptor/pipeline rebuild policy) — plan Phase D1.
 - [ ] **Verify descriptor policy (layout):** `VkPipelineLayout` lists Set 0/1/2 per `Vk_DescriptorPolicy.h`; rebuild path documented when materials change.
 
 ---
@@ -219,7 +224,7 @@ flowchart LR
 ### Scene & content
 
 - [ ] Primary play/benchmark scene in `Data/` (layout, lighting, camera spawn).
-- [ ] All referenced assets present or substitute with logged warnings.
+- [ ] All referenced assets present or substitute with logged warnings — manifest strict at boot, optional runtime warn (`scene-load_Plan.md` Phase D2).
 - [ ] Optional second tiny scene for load smoke tests.
 
 ### Gameplay
@@ -267,6 +272,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Startup checks: required `Shader_Generated/*.spv`, demo models/textures exist before Vulkan init — 2026-05-22; `Util_StartupChecks`, `Util_DemoAssets.h` (temporary; migrate per `Docs/scene-load_Plan.md`), `Docs/startup-checks_Plan.md`.
 - [x] **[S0]** Asset root configuration (`Config/engine.json` + `--asset-root` / `--config` CLI); repo-relative paths; heuristic `BuildCandidateBases` removed — 2026-05-22; `Docs/asset-root_Plan.md`.
 - [x] **[S0]** Deterministic glslc compile + VS Custom Build — 2026-05-22; `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 - [x] **[S0]** Repo-root `Logs/shader_compile_log.txt` + `engine_runtime_log.txt` — `ShaderBuild_Common.bat`, `UtilLogger`.

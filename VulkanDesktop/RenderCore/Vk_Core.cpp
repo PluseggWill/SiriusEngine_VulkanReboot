@@ -3,6 +3,7 @@
 #include "../Util/Util_Input.h"
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_StatsOverlay.h"
+#include "../Util/Util_DemoAssets.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
@@ -34,12 +35,12 @@
 #include <vk_mem_alloc.h>
 #endif
 
-// Demo logical paths (repo-relative; resolved via UtilLoader::ResolvePath + asset root).
-std::string vertShaderPath    = "VulkanDesktop/Shader_Generated/TriangleVert.spv";
-std::string fragShaderPath    = "VulkanDesktop/Shader_Generated/TrianglePix.spv";
-std::string texturePath       = "Data/Textures/viking_room.png";
-std::string houseModelPath    = "Data/Models/viking_room.obj";
-std::string monkeyModelPath   = "Data/Models/monkey_smooth.obj";
+// Demo logical paths (repo-relative; see Util_DemoAssets.h).
+std::string vertShaderPath  = std::string( UtilDemoAssets::kVertSpv );
+std::string fragShaderPath  = std::string( UtilDemoAssets::kFragSpv );
+std::string texturePath     = std::string( UtilDemoAssets::kDemoTexture );
+std::string houseModelPath  = std::string( UtilDemoAssets::kHouseModel );
+std::string monkeyModelPath = std::string( UtilDemoAssets::kMonkeyModel );
 
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}

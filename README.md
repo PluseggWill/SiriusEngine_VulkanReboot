@@ -8,6 +8,8 @@ Build `VulkanDesktop.sln` (Debug|x64), run `x64\Debug\VulkanDesktop.exe`.
 
 **Asset root:** relative paths (`Data/…`, `VulkanDesktop/Shader_Generated/…`) resolve under the repository root. Default: auto-detect via `VulkanDesktop.sln` walk from cwd. Override in `Config/engine.json` (`"assetRoot"`) or CLI `--asset-root <dir>`. Optional `--config <file>`.
 
+**Startup checks:** After asset root is configured, the app verifies required demo files exist (SPIR-V in `VulkanDesktop/Shader_Generated/`, meshes/textures under `Data/`) before Vulkan init. Failures log `[STARTUP]` with logical and resolved paths and exit non-zero. List is in `Util_DemoAssets.h` (migrating to scene manifest per `Docs/scene-load_Plan.md`).
+
 ## Shaders (GLSL → SPIR-V)
 
 **Sources** (`VulkanDesktop/Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` → SPIR-V via vendored **glslc** (`lib/VulkanSDK/1.2.182.0/Bin32/glslc.exe`).
