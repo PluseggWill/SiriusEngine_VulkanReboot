@@ -2,6 +2,8 @@
 
 This document tracks near-term fixes and longer-term work toward a **small but real game engine foundation**: a **runnable gameplay loop in a coherent scene**, plus a **controlled place to turn rendering features on/off** and observe **visual quality vs performance**.
 
+**Active work** lives in §1–§8 below. **Completed tasks** are moved to [§Archived](#archived) (do not leave `[x]` items in active sections).
+
 ---
 
 ## 0. North star (what “done” looks like)
@@ -20,16 +22,12 @@ These items unblock everything else: if shaders, paths, or validation are flaky,
 
 ### P0 (must fix first)
 
-- [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `Docs/Archived/notes-2026-05-22-shader-debug.md`.
-- [x] Repo-root logs for build + runtime (`Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`). — `ShaderBuild_Common.bat`, `UtilLogger`.
 - [ ] Review descriptor type strategy (`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`) and lock one approach.
 - [ ] Replace heuristic path probing with a robust asset root configuration system.
 - [ ] Add startup checks that verify required resources (shader/model/texture) exist before initialization.
 
 ### P1 (important, next iteration)
 
-- [x] Split shader compile scripts (glslc-only) and document MSBuild Custom Build stdout pitfall. — `.cursor/rules/shader-build.mdc`.
-- [x] Remove duplicated/legacy shader variants; single source of truth: `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (removed HLSL/dxc path 2026-05-22).
 - [ ] Add pipeline creation diagnostics (full `VkResult` + stage/layout summary) for faster triage.
 - [ ] Properly install and configure Vulkan validation layers for development machines.
 - [ ] Add explicit startup diagnostics for layer discovery paths and missing layer details.
@@ -60,7 +58,6 @@ Goal: grow `Vk_Core` and surrounding code into a **layered engine** without coll
 - [ ] Introduce a thin **scheduler** or fixed update step (vs render step) so gameplay and rendering rates are conceptually separated.
 - [ ] Central **configuration** (file + CLI overrides): window size, vsync, feature toggles, asset root, log level.
 - [ ] **Input abstraction** (keyboard/mouse first; gamepad later) consumed by gameplay and camera, not by `Vk_Core` directly.
-- [x] **Debug fly camera** (WASD, Q/E, RMB look, delta-time): `Util_InputSnapshot` + `UtilInput::Sample`, `Vk_Camera::ApplyInput`, `BeginFrame` ordering, ImGui **Camera** panel — see `Docs/fps-camera_Plan.md`. *Note: sampling still invoked from `Vk_Core` until a dedicated input/simulation module exists.*
 
 ### Scene & objects
 
@@ -183,12 +180,6 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 - **Delete or finish**: stale `TODO` / half-implemented draw paths create false “main paths”; resolve within one sprint or remove and track here.
 - **Consistent diagnostics**: prefer `UtilLogger` over ad-hoc `std::cout` in engine code; fix typos in identifiers when touching an area (`availableLayers`, etc.).
 
-### P0 (correctness — fix before new features)
-
-- [x] **`Gfx_Mesh::LoadMesh`**: guard `texcoord_index` (and empty `attrib.texcoords`); default UV when missing — avoids crash on OBJ without UVs (`Vk_Types.cpp`).
-- [x] **`UtilLoader::LoadTexture`**: check `stbi_load` result **before** computing `imageSize` / mip count; log resolved path on failure (`Util_Loader.cpp`).
-- [x] **Queue family selection**: treat graphics queue as transfer-capable when no dedicated transfer family exists; relax `Vk_QueueFamilyIndices::isComplete()` accordingly (`Vk_DataStruct.h`, `Vk_Core.cpp`).
-
 ### P1 (structure & consistency)
 
 - [ ] **`Vk_Core` decomposition (incremental)**: peel input sampling, resource tables, and draw-list build out of `Vk_Core` per `Docs/EngineArchitecture.md` §3.1 — aligns with §2 “application lifecycle” and “input abstraction”.
@@ -204,7 +195,6 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 - [ ] **Unify debug output**: replace `CheckExtensionSupport` / `CheckValidationLayerSupport` `std::cout` dumps with `UtilLogger` (or gate behind a dev flag).
 - [ ] **Global compile-time toggles**: move `ENABLE_ROTATE`, `USE_RUNTIME_MIPMAP`, shader paths in `Vk_Core.cpp` toward central config (§2 configuration) with defaults documented.
 - [ ] **Stale TODO sweep**: triage remaining `Vk_Core` TODOs (uniform buffer array, merged setters, device suitability checks) — implement, defer to §2/§4, or delete comment.
-- [x] **Comment conventions**: `.cursor/rules/cpp-comments.mdc` + core contract comments (descriptors, UBO packing, queues, mesh UV guards).
 
 ---
 
@@ -216,4 +206,28 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 ---
 
-*Maintenance: when closing items, prefer a one-line note in git commit or a dated entry in a progress log so preset/benchmark history stays traceable. Code-hygiene items live in **§7**; update `Docs/EngineArchitecture.md` when module boundaries change.*
+## Archived
+
+*Completed tasks (moved here from §1–§7). When closing a new item, append here and remove it from the active section.*
+
+### §1 — Toolchain, assets & stability
+
+- [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `Docs/Archived/notes-2026-05-22-shader-debug.md`.
+- [x] Repo-root logs for build + runtime (`Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`). — `ShaderBuild_Common.bat`, `UtilLogger`.
+- [x] Split shader compile scripts (glslc-only) and document MSBuild Custom Build stdout pitfall. — `.cursor/rules/shader-build.mdc`.
+- [x] Remove duplicated/legacy shader variants; single source of truth: `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (removed HLSL/dxc path 2026-05-22).
+
+### §2 — Engine foundation
+
+- [x] **Debug fly camera** (WASD, Q/E, RMB look, delta-time): `Util_InputSnapshot` + `UtilInput::Sample`, `Vk_Camera::ApplyInput`, `BeginFrame` ordering, ImGui **Camera** panel — see `Docs/fps-camera_Plan.md`. *Note: sampling still invoked from `Vk_Core` until a dedicated input/simulation module exists.*
+
+### §7 — Code maintainability & hygiene
+
+- [x] **`Gfx_Mesh::LoadMesh`**: guard `texcoord_index` (and empty `attrib.texcoords`); default UV when missing — avoids crash on OBJ without UVs (`Vk_Types.cpp`).
+- [x] **`UtilLoader::LoadTexture`**: check `stbi_load` result **before** computing `imageSize` / mip count; log resolved path on failure (`Util_Loader.cpp`).
+- [x] **Queue family selection**: treat graphics queue as transfer-capable when no dedicated transfer family exists; relax `Vk_QueueFamilyIndices::isComplete()` accordingly (`Vk_DataStruct.h`, `Vk_Core.cpp`).
+- [x] **Comment conventions**: `.cursor/rules/cpp-comments.mdc` + core contract comments (descriptors, UBO packing, queues, mesh UV guards).
+
+---
+
+*Maintenance: when closing items, move them to **§Archived**, add a one-line note or progress-log entry, and update `Docs/EngineArchitecture.md` when module boundaries change.*
