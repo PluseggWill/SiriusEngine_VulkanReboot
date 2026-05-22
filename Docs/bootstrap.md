@@ -87,8 +87,17 @@ Default config: `Config/engine.json`.
 
 | Log | Location |
 |-----|----------|
-| Runtime | `Logs/engine_runtime_log.txt` (repo root; written even when cwd is `x64\Debug`) |
+| Runtime | `Logs/engine_runtime_log.txt` (fresh each run; repo root even when cwd is `x64\Debug`) |
 | Shader compile | `Logs/shader_compile_log.txt` |
+| History | `Logs/HistoryLogs/` — previous runs renamed to `<name>_yyyyMMdd_HHmmss.txt` (10 kept per log type) |
+
+**Visual Studio F5** debugs `VulkanDesktop.exe` directly. Logs rotate via `RotateEngineLogs.bat` on each process start (`UtilLogger::Init`) and before **Build** (PreBuild event).
+
+Manual rotation only:
+
+```bat
+call VulkanDesktop\Scripts\RotateEngineLogs.bat
+```
 
 After a normal startup (not `--help`), expect lines similar to:
 

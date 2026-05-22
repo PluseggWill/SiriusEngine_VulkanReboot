@@ -10,7 +10,7 @@ enum class LogLevel {
     Debug,
 };
 
-// Default: <repo>/Logs/engine_runtime_log.txt (same folder as shader_compile_log.txt).
+// Default: <repo>/Logs/engine_runtime_log.txt (truncated each run). Init calls VulkanDesktop/Scripts/RotateEngineLogs.bat to archive prior logs.
 void Init( const std::string& aLogFilePath = "" );
 void Shutdown();
 

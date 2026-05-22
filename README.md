@@ -41,7 +41,7 @@ Manual compile from `VulkanDesktop\Shader`:
 CompileShader.bat
 ```
 
-Logs: `Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`.
+Logs: `Logs/engine_runtime_log.txt`, `Logs/shader_compile_log.txt`. Each run calls `VulkanDesktop/Scripts/RotateEngineLogs.bat` (archive to `Logs/HistoryLogs/`, max 10 per type); VS **PreBuild** runs the same bat before compile. **F5** debugs `VulkanDesktop.exe` directly.
 
 ## Debug camera
 

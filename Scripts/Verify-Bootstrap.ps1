@@ -61,6 +61,11 @@ try {
     $repo = Resolve-RepoRoot -Root $RepoRoot
     Add-StepResult "Repo root" $true "VulkanDesktop.sln at $repo"
 
+    $rotateBat = Join-Path $repo "VulkanDesktop\Scripts\RotateEngineLogs.bat"
+    if (Test-Path $rotateBat) {
+        cmd /c "call `"$rotateBat`" `"$repo`"" | Out-Null
+    }
+
     $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
     if (-not (Test-Path $vswhere)) {
         Add-StepResult "MSBuild locate" $false "vswhere.exe not found. Install Visual Studio 2022 with C++ workload."

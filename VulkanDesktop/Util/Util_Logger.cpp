@@ -8,6 +8,7 @@
 #include <iostream>
 #include <mutex>
 #include <sstream>
+#include <cstdlib>
 
 namespace {
 std::mutex        gLogMutex;
@@ -37,6 +38,20 @@ std::string DefaultRuntimeLogPath() {
     std::error_code ec;
     std::filesystem::create_directories( logsDir, ec );
     return ( logsDir / kDefaultRuntimeLogFileName ).string();
+}
+
+void RotateLogsViaBatchScript( const std::filesystem::path& aRepoRoot ) {
+#ifdef _WIN32
+    const std::filesystem::path bat = aRepoRoot / "VulkanDesktop" / "Scripts" / "RotateEngineLogs.bat";
+    if ( !std::filesystem::exists( bat ) ) {
+        return;
+    }
+
+    std::string cmd = "cmd /c call \"" + bat.string() + "\" \"" + aRepoRoot.string() + "\" >nul 2>&1";
+    std::system( cmd.c_str() );
+#else
+    (void)aRepoRoot;
+#endif
 }
 
 const char* ToString( const UtilLogger::LogLevel aLevel ) {
@@ -79,13 +94,15 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
         return;
     }
 
+    RotateLogsViaBatchScript( FindRepoRoot() );
+
     const std::string logPath = aLogFilePath.empty() ? DefaultRuntimeLogPath() : aLogFilePath;
     std::filesystem::path logFilePath( logPath );
     if ( logFilePath.has_parent_path() ) {
         std::error_code ec;
         std::filesystem::create_directories( logFilePath.parent_path(), ec );
     }
-    gLogFile.open( logPath, std::ios::out | std::ios::app );
+    gLogFile.open( logPath, std::ios::out );
 
     if ( !gLogFile.is_open() ) {
         std::cerr << "[LOGGER] Failed to open log file: " << logPath << " (cwd=" << std::filesystem::current_path().string() << ")" << std::endl;

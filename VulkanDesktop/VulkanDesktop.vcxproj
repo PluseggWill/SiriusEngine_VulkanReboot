@@ -124,6 +124,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <Command>call "$(ProjectDir)Scripts\RotateEngineLogs.bat" "$(SolutionDir)"</Command>
+      <Message>Rotating engine logs (PreBuild)...</Message>
+    </PreBuildEvent>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
@@ -143,6 +147,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>call "$(ProjectDir)Scripts\RotateEngineLogs.bat" "$(SolutionDir)"</Command>
+      <Message>Rotating engine logs (PreBuild)...</Message>
+    </PreBuildEvent>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -227,6 +235,8 @@
     <ClInclude Include="Util\Util_VulkanResult.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Scripts\LaunchVulkanDesktop.cmd" />
+    <None Include="Scripts\RotateEngineLogs.bat" />
     <None Include="Shader\CompileShader.bat" />
     <None Include="Shader\CompileShader_Glslc.bat" />
     <None Include="Shader\ShaderBuild_Common.bat" />

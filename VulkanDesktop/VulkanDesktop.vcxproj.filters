@@ -203,6 +203,12 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Scripts\LaunchVulkanDesktop.cmd">
+      <Filter>Util</Filter>
+    </None>
+    <None Include="Scripts\RotateEngineLogs.bat">
+      <Filter>Util</Filter>
+    </None>
     <None Include="Shader\CompileShader.bat">
       <Filter>Gfx\Shader</Filter>
     </None>
