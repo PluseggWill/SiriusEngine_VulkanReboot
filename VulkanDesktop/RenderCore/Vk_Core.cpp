@@ -6,6 +6,7 @@
 #include "../Util/Util_DemoAssets.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_PipelineDiagnostics.h"
 
@@ -183,10 +184,17 @@ void Vk_Core::ShutdownImGui() {
 }
 
 void Vk_Core::CreateInstance() {
-    // Check validation layer first
-    if ( myEnableValidationLayers && !CheckValidationLayerSupport() ) {
-        UtilLogger::Warn( "VULKAN", "Validation layers requested but unavailable. Continuing with validation disabled." );
-        myEnableValidationLayers = false;
+    UtilValidationLayers::LogInstanceLayerDiscovery();
+
+    if ( myEnableValidationLayers ) {
+        UtilLogger::Info( "VULKAN", "Validation layers: enabled" );
+        if ( !CheckValidationLayerSupport() ) {
+            UtilLogger::Warn( "VULKAN", "Validation layers requested but unavailable. Continuing with validation disabled." );
+            myEnableValidationLayers = false;
+        }
+    }
+    else {
+        UtilLogger::Info( "VULKAN", "Validation layers: disabled" );
     }
 
     VkApplicationInfo appInfo{};
@@ -1075,32 +1083,7 @@ void Vk_Core::CheckExtensionSupport() const {
 }
 
 bool Vk_Core::CheckValidationLayerSupport() const {
-    uint32_t layerCount;
-    vkEnumerateInstanceLayerProperties( &layerCount, nullptr );
-
-    std::vector< VkLayerProperties > availableLyaers( layerCount );
-    vkEnumerateInstanceLayerProperties( &layerCount, availableLyaers.data() );
-
-    std::cout << "Available validation layers:" << std::endl;
-
-    for ( const char* layerName : myValidationLayers ) {
-        bool layerFound = false;
-
-        for ( const auto& layerProperties : availableLyaers ) {
-            if ( strcmp( layerName, layerProperties.layerName ) == 0 ) {
-                layerFound = true;
-
-                std::cout << "\t" << layerName << std::endl;
-
-                break;
-            }
-        }
-
-        if ( !layerFound )
-            return false;
-    }
-
-    return true;
+    return UtilValidationLayers::AreLayersAvailable( myValidationLayers );
 }
 
 void Vk_Core::SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers ) {

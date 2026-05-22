@@ -186,6 +186,8 @@
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_AssetConfig.cpp" />
     <ClCompile Include="Util\Util_StartupChecks.cpp" />
+    <ClCompile Include="Util\Util_ValidationConfig.cpp" />
+    <ClCompile Include="Util\Util_ValidationLayers.cpp" />
     <ClCompile Include="Util\Util_FrameStats.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
     <ClCompile Include="Util\Util_Logger.cpp" />
@@ -215,6 +217,8 @@
     <ClInclude Include="Util\Util_AssetConfig.h" />
     <ClInclude Include="Util\Util_DemoAssets.h" />
     <ClInclude Include="Util\Util_StartupChecks.h" />
+    <ClInclude Include="Util\Util_ValidationConfig.h" />
+    <ClInclude Include="Util\Util_ValidationLayers.h" />
     <ClInclude Include="Util\Util_FrameStats.h" />
     <ClInclude Include="Util\Util_Loader.h" />
     <ClInclude Include="Util\Util_Logger.h" />

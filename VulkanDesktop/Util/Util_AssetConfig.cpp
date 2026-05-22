@@ -111,7 +111,9 @@ void UtilAssetConfig::PrintUsage( const char* aProgramName ) {
     const char* name = ( aProgramName != nullptr && aProgramName[ 0 ] != '\0' ) ? aProgramName : "VulkanDesktop";
     std::cerr << "Usage: " << name << " [options]\n"
               << "  --asset-root <dir>   Repository / content root (contains Data/, VulkanDesktop/)\n"
-              << "  --config <file>      JSON config with \"assetRoot\" (default: <repo>/Config/engine.json)\n"
+              << "  --config <file>      JSON config (assetRoot, enableValidationLayers)\n"
+              << "  --validation         Enable Vulkan validation layers\n"
+              << "  --no-validation      Disable Vulkan validation layers\n"
               << "  --help               Show this message\n";
 }
 
@@ -141,6 +143,9 @@ void UtilAssetConfig::Initialize( int aArgc, char** aArgv ) {
                 throw std::runtime_error( "Missing value for --config" );
             }
             cliConfigPath = aArgv[ ++i ];
+            continue;
+        }
+        if ( arg == "--validation" || arg == "--enable-validation" || arg == "--no-validation" || arg == "--disable-validation" ) {
             continue;
         }
         throw std::runtime_error( "Unknown argument: " + arg );

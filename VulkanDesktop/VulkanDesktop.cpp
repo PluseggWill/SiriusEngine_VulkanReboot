@@ -5,6 +5,7 @@
 #include "Util/Util_AssetConfig.h"
 #include "Util/Util_Logger.h"
 #include "Util/Util_StartupChecks.h"
+#include "Util/Util_ValidationConfig.h"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -13,27 +14,28 @@
 const uint32_t WIDTH  = 1600;
 const uint32_t HEIGHT = 1200;
 
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
-const bool enableValidationLayers = true;
-#endif  // NDEBUG
-
-const std::vector< const char* > validationLayers = { "VK_LAYER_KHRONOS_validation" };
-
 const std::vector< const char* > deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 int main( int argc, char** argv ) {
     UtilLogger::Init();
     UtilLogger::Info( "APP", "Application startup." );
 
+    UtilValidationConfig::ParseCli( argc, argv );
+
     Vk_Core* app = &Vk_Core::GetInstance();
     app->SetSize( WIDTH, HEIGHT );
-    app->SetEnableValidationLayers( enableValidationLayers, validationLayers );
     app->SetRequiredExtension( deviceExtensions );
 
     try {
         UtilAssetConfig::Initialize( argc, argv );
+        UtilValidationConfig::LoadFromConfigFile( UtilAssetConfig::GetConfigPathUsed() );
+#ifdef NDEBUG
+        const bool buildDefaultValidation = false;
+#else
+        const bool buildDefaultValidation = true;
+#endif
+        app->SetEnableValidationLayers( UtilValidationConfig::ResolveEnabled( buildDefaultValidation ),
+                                        UtilValidationConfig::GetRequestedLayerNames() );
         UtilStartupChecks::VerifyRequiredAssets();
         UtilLogger::Info( "APP", "Core configuration prepared." );
 

@@ -54,14 +54,13 @@ flowchart LR
 
 ### Must complete
 
-- [ ] Validation layers: install guide, startup layer discovery log, optional runtime on/off flag.
 - [ ] Fix `VkInit::Pipeline_DynamicStateCreateInfo()` (no pointers to temporaries).
 
 ### Should complete in S0
 
 - [ ] Expand `README.md` + **new-machine bootstrap** (toolchain versions, verify commands).
 - [ ] **Debug messenger** (validation utils) or document intentional omission.
-- [ ] Unify extension/layer probes: `UtilLogger` instead of `std::cout` in `CheckExtensionSupport` / `CheckValidationLayerSupport`.
+- [ ] Unify extension/layer probes: `UtilLogger` instead of `std::cout` in `CheckExtensionSupport` (`CheckValidationLayerSupport` done — `Util_ValidationLayers`).
 
 ---
 
@@ -271,6 +270,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Validation layers: install guide, startup layer discovery log, runtime on/off (`--validation`, `--no-validation`, `engine.json`) — 2026-05-22; `Docs/validation-layers.md`, `Util_ValidationConfig`, `Util_ValidationLayers`.
 - [x] **[S0]** Pipeline creation diagnostics (`VkResult` + stage/layout summary) — 2026-05-22; `Util_VulkanResult`, `Vk_PipelineDiagnostics`, `Docs/pipeline-diagnostics_Plan.md`.
 - [x] **[S0]** Startup checks: required `Shader_Generated/*.spv`, demo models/textures exist before Vulkan init — 2026-05-22; `Util_StartupChecks`, `Util_DemoAssets.h` (temporary; migrate per `Docs/scene-load_Plan.md`), `Docs/startup-checks_Plan.md`.
 - [x] **[S0]** Asset root configuration (`Config/engine.json` + `--asset-root` / `--config` CLI); repo-relative paths; heuristic `BuildCandidateBases` removed — 2026-05-22; `Docs/asset-root_Plan.md`.
