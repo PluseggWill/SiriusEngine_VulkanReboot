@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -36,10 +35,9 @@
 #endif
 
 // Demo asset paths (resolved via UtilLoader::ResolvePath from cwd / VulkanDesktop output dir).
-std::string vertShaderPath    = "Shader/TriangleVert.spv";
-std::string fragShaderPath    = "Shader/TrianglePix.spv";
-std::string fragLitShaderPath = "Shader/TriangleFrag_Lit.spv";  // legacy; active path uses TrianglePix + HLSL lighting
-std::string texturePath       = "../Data/Textures/viking_room.png";
+std::string vertShaderPath  = "Shader/TriangleVert.spv";
+std::string fragShaderPath  = "Shader/TrianglePix.spv";
+std::string texturePath     = "../Data/Textures/viking_room.png";
 std::string houseModelPath    = "../Data/Models/viking_room.obj";
 std::string monkeyModelPath   = "../Data/Models/monkey_smooth.obj";
 
@@ -406,22 +404,9 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #1 & 2: Load & Create shader module
     VkShaderModule vertShaderModule = CreateShaderModule( vertShaderPath );
 
-    // VkShaderModule fragShaderModule = CreateShaderModule( fragLitShaderPath );
     VkShaderModule fragShaderModule = CreateShaderModule( fragShaderPath );
 
-    // Step #3: Create shader stage info
-    char*  useDxcEnvValue = nullptr;
-    size_t useDxcLen      = 0;
-    _dupenv_s( &useDxcEnvValue, &useDxcLen, "USE_DXC" );
-    const bool useDxc = ( useDxcEnvValue != nullptr && std::string( useDxcEnvValue ) == "1" );
-    if ( useDxcEnvValue != nullptr ) {
-        free( useDxcEnvValue );
-    }
-    const char* primaryVsEntry   = useDxc ? "VSMain" : "main";
-    const char* primaryPsEntry   = useDxc ? "PSMain" : "main";
-    const char* fallbackVsEntry  = useDxc ? "main" : "VSMain";
-    const char* fallbackPsEntry  = useDxc ? "main" : "PSMain";
-
+    // Step #3: glslc SPIR-V entry point is "main" (TriangleVertex.vert / TriangleFrag_Lit.frag).
     // Step #4: Create vertex input state
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
 
@@ -470,35 +455,26 @@ void Vk_Core::CreateGfxPipeline() {
     }
 
     // Step #13: Combine
-    auto buildPipelineWithEntries = [&]( const char* aVsEntry, const char* aPsEntry ) {
-        VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, aVsEntry );
-        VkPipelineShaderStageCreateInfo fragShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, aPsEntry );
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo =
+        VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main" );
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo =
+        VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main" );
 
-        Vk_PipelineBuilder pipelineBuilder;
-        pipelineBuilder.myShaderStages.push_back( vertShaderStageInfo );
-        pipelineBuilder.myShaderStages.push_back( fragShaderStageInfo );
-        pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
-        pipelineBuilder.myInputAssembly        = inputAssembly;
-        pipelineBuilder.myViewport             = viewport;
-        pipelineBuilder.myScissor              = scissor;
-        pipelineBuilder.myRasterizer           = rasterizer;
-        pipelineBuilder.myMultisampling        = multisampling;
-        pipelineBuilder.myDepthStencil         = depthStencilInfo;
-        pipelineBuilder.myColorBlendAttachment = colorBlendAttachment;
-        pipelineBuilder.myDynamicState         = dynamicState;
-        pipelineBuilder.myPipelineLayout       = myPipelineLayout;
+    Vk_PipelineBuilder pipelineBuilder;
+    pipelineBuilder.myShaderStages.push_back( vertShaderStageInfo );
+    pipelineBuilder.myShaderStages.push_back( fragShaderStageInfo );
+    pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
+    pipelineBuilder.myInputAssembly        = inputAssembly;
+    pipelineBuilder.myViewport             = viewport;
+    pipelineBuilder.myScissor              = scissor;
+    pipelineBuilder.myRasterizer           = rasterizer;
+    pipelineBuilder.myMultisampling        = multisampling;
+    pipelineBuilder.myDepthStencil         = depthStencilInfo;
+    pipelineBuilder.myColorBlendAttachment = colorBlendAttachment;
+    pipelineBuilder.myDynamicState         = dynamicState;
+    pipelineBuilder.myPipelineLayout       = myPipelineLayout;
 
-        return pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
-    };
-
-    try {
-        myBasicPipeline = buildPipelineWithEntries( primaryVsEntry, primaryPsEntry );
-    }
-    catch ( const std::exception& e ) {
-        UtilLogger::Warn( "PIPELINE", std::string( "Primary shader entrypoints failed (" ) + primaryVsEntry + "/" + primaryPsEntry + "): " + e.what() );
-        UtilLogger::Warn( "PIPELINE", std::string( "Retrying with fallback entrypoints " ) + fallbackVsEntry + "/" + fallbackPsEntry + "." );
-        myBasicPipeline = buildPipelineWithEntries( fallbackVsEntry, fallbackPsEntry );
-    }
+    myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass );
     UtilLogger::Info( "PIPELINE", "Graphics pipeline created." );
 
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
@@ -513,58 +489,33 @@ void Vk_Core::CreateGfxPipeline() {
 
 void Vk_Core::CreateRenderPass() {
     UtilLogger::Info( "RENDERPASS", "Creating render pass." );
-    // Step #1: Attachment description
-    VkAttachmentDescription colorAttachment{};
-    colorAttachment.format         = mySwapChainImageFormat;
-    colorAttachment.samples        = myMSAASamples;
-    colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    // Step #2: Create depth attachment
     VkAttachmentDescription depthAttachment{};
-    depthAttachment.format         = FindDepthFormat();
-    depthAttachment.samples        = myMSAASamples;
-    depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    // Step #3: Create resolve attachment & reference
-    VkAttachmentDescription colorAttachmentResolve{};
-    colorAttachmentResolve.format         = mySwapChainImageFormat;
-    colorAttachmentResolve.samples        = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachmentResolve.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachmentResolve.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachmentResolve.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachmentResolve.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachmentResolve.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference colorAttachmentResolveRef{};
-    colorAttachmentResolveRef.attachment = 2;
-    colorAttachmentResolveRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    // Step #4: Subpasses and attachment references
-    VkAttachmentReference colorAttachmentRefs{};
-    colorAttachmentRefs.attachment = 0;
-    colorAttachmentRefs.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    depthAttachment.format           = FindDepthFormat();
+    depthAttachment.samples          = myMSAASamples;
+    depthAttachment.loadOp           = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp    = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthAttachmentRef{};
     depthAttachmentRef.attachment = 1;
     depthAttachmentRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorAttachmentResolveRef{};
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount    = 1;
-    subpass.pColorAttachments       = &colorAttachmentRefs;
+    subpass.pColorAttachments       = &colorAttachmentRef;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
-    subpass.pResolveAttachments     = &colorAttachmentResolveRef;
+    subpass.pResolveAttachments     = nullptr;
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
@@ -574,16 +525,71 @@ void Vk_Core::CreateRenderPass() {
     dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    // Step #5: Render pass
-    std::array< VkAttachmentDescription, 3 > attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
-    VkRenderPassCreateInfo                   renderPassInfo{};
-    renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
-    renderPassInfo.pAttachments    = attachments.data();
-    renderPassInfo.subpassCount    = 1;
-    renderPassInfo.pSubpasses      = &subpass;
+    std::vector< VkAttachmentDescription > attachments;
+    attachments.reserve( 3 );
+
+    const bool useMsaaResolve = ( myMSAASamples != VK_SAMPLE_COUNT_1_BIT );
+
+    if ( useMsaaResolve ) {
+        VkAttachmentDescription colorAttachment{};
+        colorAttachment.format         = mySwapChainImageFormat;
+        colorAttachment.samples        = myMSAASamples;
+        colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentDescription colorAttachmentResolve{};
+        colorAttachmentResolve.format         = mySwapChainImageFormat;
+        colorAttachmentResolve.samples        = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachmentResolve.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachmentResolve.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachmentResolve.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachmentResolve.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        depthAttachmentRef.attachment = 1;
+
+        colorAttachmentResolveRef.attachment = 2;
+        colorAttachmentResolveRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        subpass.pResolveAttachments          = &colorAttachmentResolveRef;
+
+        attachments.push_back( colorAttachment );
+        attachments.push_back( depthAttachment );
+        attachments.push_back( colorAttachmentResolve );
+        UtilLogger::Info( "RENDERPASS", "MSAA resolve path (samples > 1)." );
+    }
+    else {
+        // No MSAA: draw directly to swapchain image (attachment 0). Do not set pResolveAttachments.
+        VkAttachmentDescription colorAttachment{};
+        colorAttachment.format         = mySwapChainImageFormat;
+        colorAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+        // ImGui overlay pass loads swapchain with PRESENT_SRC_KHR.
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        depthAttachmentRef.attachment = 1;
+
+        attachments.push_back( colorAttachment );
+        attachments.push_back( depthAttachment );
+        UtilLogger::Info( "RENDERPASS", "Direct-to-swapchain path (no MSAA resolve)." );
+    }
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount   = static_cast< uint32_t >( attachments.size() );
+    renderPassInfo.pAttachments      = attachments.data();
+    renderPassInfo.subpassCount      = 1;
+    renderPassInfo.pSubpasses        = &subpass;
     renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies   = &dependency;
+    renderPassInfo.pDependencies     = &dependency;
 
     if ( vkCreateRenderPass( myDevice, &renderPassInfo, nullptr, &myRenderPass ) != VK_SUCCESS ) {
         UtilLogger::Error( "RENDERPASS", "vkCreateRenderPass failed." );
@@ -591,25 +597,28 @@ void Vk_Core::CreateRenderPass() {
     }
     UtilLogger::Info( "RENDERPASS", "Render pass created." );
 
-    // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() { vkDestroyRenderPass( myDevice, myRenderPass, nullptr ); } );
 }
 
 void Vk_Core::CreateFrameBuffers() {
     mySwapChainFrameBuffers.resize( mySwapChainImageViews.size() );
 
+    const bool useMsaaResolve = ( myMSAASamples != VK_SAMPLE_COUNT_1_BIT );
+
     for ( size_t i = 0; i < mySwapChainImageViews.size(); i++ ) {
-        std::array< VkImageView, 3 > attachments = {
-            myColorTexture.ImageView(),
-            myDepthTexture.ImageView(),
-            mySwapChainImageViews[ i ],
-        };
+        std::vector< VkImageView > attachments;
+        if ( useMsaaResolve ) {
+            attachments = { myColorTexture.ImageView(), myDepthTexture.ImageView(), mySwapChainImageViews[ i ] };
+        }
+        else {
+            attachments = { mySwapChainImageViews[ i ], myDepthTexture.ImageView() };
+        }
 
         VkFramebufferCreateInfo frameBufferInfo{};
         frameBufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         frameBufferInfo.renderPass      = myRenderPass;
         frameBufferInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
-        frameBufferInfo.pAttachments    = attachments.data();
+        frameBufferInfo.pAttachments    = attachments.data();  // order must match CreateRenderPass attachments
         frameBufferInfo.width           = mySwapChainExtent.width;
         frameBufferInfo.height          = mySwapChainExtent.height;
         frameBufferInfo.layers          = 1;
@@ -709,17 +718,29 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     }
 
     myFrameStats.ResetPerFrameCounters();
-    UtilStatsOverlay::Build( myFrameStats );
+    UpdateUniformBuffer( myCurrentFrame );
+
+    vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
+    vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
+
+    const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
+    if ( vkBeginCommandBuffer( aFrameData.myCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to begin recording command buffer!" );
+    }
+
+    RecordScenePass( aFrameData.myCommandBuffer, imageIndex );
+
+    // ImGui widgets must be built after NewFrame and before ImGui::Render (WithinFrameScope).
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
-    UpdateUniformBuffer( myCurrentFrame );
+    UtilStatsOverlay::Build( myFrameStats );
     ImGui::Render();
 
-    // Only reset the fence if we are submitting work
-    vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
+    RecordImGuiPass( aFrameData.myCommandBuffer, imageIndex );
 
-    vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
-    RecordCommandBuffer( aFrameData.myCommandBuffer, imageIndex );
+    if ( vkEndCommandBuffer( aFrameData.myCommandBuffer ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to record command buffer!" );
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -947,6 +968,11 @@ void Vk_Core::CreateDepthResources() {
 }
 
 void Vk_Core::CreateColorResources() {
+    if ( myMSAASamples == VK_SAMPLE_COUNT_1_BIT ) {
+        UtilLogger::Info( "RESOURCE", "Skipping MSAA color target (single-sample / direct swapchain)." );
+        return;
+    }
+
     const VkFormat colorFormat = mySwapChainImageFormat;
 
     CreateImage( mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -993,7 +1019,7 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     myQueueFamilyIndices.ApplyTransferFallback();
 }
 
-// TODO(draw-stream): incomplete batching path; live rendering uses RecordCommandBuffer + mesh 0.
+// TODO(draw-stream): incomplete batching path; live rendering uses RecordScenePass + mesh 0.
 void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
     Gfx_Mesh*     lastMesh     = nullptr;
     Gfx_Material* lastMaterial = nullptr;
@@ -1251,13 +1277,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     return shaderModule;
 }
 
-void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
-
-    if ( vkBeginCommandBuffer( aCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to begin recording command buffer!" );
-    }
-
+void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass        = myRenderPass;
@@ -1289,12 +1309,10 @@ void Vk_Core::RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anIm
     vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
 
     vkCmdEndRenderPass( aCommandBuffer );
+}
 
+void Vk_Core::RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     myImGuiLayer.Render( aCommandBuffer, anImageIndex, mySwapChainExtent );
-
-    if ( vkEndCommandBuffer( aCommandBuffer ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to record command buffer!" );
-    }
 }
 
 void Vk_Core::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {

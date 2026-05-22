@@ -133,9 +133,6 @@
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -156,9 +153,6 @@
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Util\Util_CameraPanel.cpp" />
@@ -208,17 +202,20 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shader\CompileShader.bat" />
+    <None Include="Shader\CompileShader_Glslc.bat" />
+    <None Include="Shader\ShaderBuild_Common.bat" />
     <None Include="Shader\TriangleFrag.frag" />
     <None Include="Shader\TriangleFrag_Lit.frag" />
-    <None Include="Shader\TriangleVertex.vert" />
   </ItemGroup>
+  <!-- Custom build: recompile SPIR-V when GLSL sources or compile scripts change. -->
   <ItemGroup>
-    <None Include="Shader\TrianglePix.hlsl">
+    <CustomBuild Include="Shader\TriangleVertex.vert">
       <FileType>Document</FileType>
-    </None>
-    <None Include="Shader\TriangleShader.hlsl">
-      <FileType>Document</FileType>
-    </None>
+      <Message>Compiling GLSL shaders to SPIR-V (glslc)</Message>
+      <Command>call "$(ProjectDir)Shader\CompileShader.bat"</Command>
+      <Outputs>$(ProjectDir)Shader\TriangleVert.spv;$(ProjectDir)Shader\TrianglePix.spv</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shader\CompileShader.bat;$(ProjectDir)Shader\CompileShader_Glslc.bat;$(ProjectDir)Shader\ShaderBuild_Common.bat;$(ProjectDir)Shader\TriangleFrag_Lit.frag;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

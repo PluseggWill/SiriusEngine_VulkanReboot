@@ -10,10 +10,34 @@
 #include <sstream>
 
 namespace {
-std::mutex         gLogMutex;
-std::ofstream      gLogFile;
-bool               gIsInitialized = false;
-const std::string  kDefaultLogPath = "Logs/engine_log.txt";
+std::mutex        gLogMutex;
+std::ofstream     gLogFile;
+bool              gIsInitialized = false;
+const char* const kDefaultRuntimeLogFileName = "engine_runtime_log.txt";
+
+std::filesystem::path FindRepoRoot() {
+    std::filesystem::path dir = std::filesystem::current_path();
+    for ( int i = 0; i < 10; ++i ) {
+        if ( std::filesystem::exists( dir / "VulkanDesktop.sln" ) ) {
+            return dir;
+        }
+        if ( std::filesystem::exists( dir / "VulkanDesktop" / "VulkanDesktop.vcxproj" ) ) {
+            return dir;
+        }
+        if ( !dir.has_parent_path() || dir == dir.parent_path() ) {
+            break;
+        }
+        dir = dir.parent_path();
+    }
+    return std::filesystem::current_path();
+}
+
+std::string DefaultRuntimeLogPath() {
+    const auto logsDir = FindRepoRoot() / "Logs";
+    std::error_code ec;
+    std::filesystem::create_directories( logsDir, ec );
+    return ( logsDir / kDefaultRuntimeLogFileName ).string();
+}
 
 const char* ToString( const UtilLogger::LogLevel aLevel ) {
     switch ( aLevel ) {
@@ -55,7 +79,7 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
         return;
     }
 
-    const std::string logPath = aLogFilePath.empty() ? kDefaultLogPath : aLogFilePath;
+    const std::string logPath = aLogFilePath.empty() ? DefaultRuntimeLogPath() : aLogFilePath;
     std::filesystem::path logFilePath( logPath );
     if ( logFilePath.has_parent_path() ) {
         std::error_code ec;
@@ -64,12 +88,15 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
     gLogFile.open( logPath, std::ios::out | std::ios::app );
 
     if ( !gLogFile.is_open() ) {
-        std::cerr << "[LOGGER] Failed to open log file: " << logPath << std::endl;
+        std::cerr << "[LOGGER] Failed to open log file: " << logPath << " (cwd=" << std::filesystem::current_path().string() << ")" << std::endl;
         return;
     }
 
     gIsInitialized = true;
-    gLogFile << "[" << NowTimestamp() << "] [INFO] [LOGGER] Logger initialized. Output: " << logPath << std::endl;
+    const std::string absPath = std::filesystem::absolute( logFilePath ).string();
+    const std::string initLine = "[" + NowTimestamp() + "] [INFO] [LOGGER] Logger initialized. Output: " + absPath;
+    gLogFile << initLine << std::endl;
+    std::cerr << initLine << std::endl;
 }
 
 void UtilLogger::Shutdown() {

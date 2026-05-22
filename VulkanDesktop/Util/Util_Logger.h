@@ -10,7 +10,8 @@ enum class LogLevel {
     Debug,
 };
 
-void Init( const std::string& aLogFilePath );
+// Default: <repo>/Logs/engine_runtime_log.txt (same folder as shader_compile_log.txt).
+void Init( const std::string& aLogFilePath = "" );
 void Shutdown();
 
 void Log( LogLevel aLevel, const std::string& aCategory, const std::string& aMessage );

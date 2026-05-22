@@ -107,7 +107,8 @@ private:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
-    void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex );
 
     // Helper functions:
@@ -201,7 +202,6 @@ private:
     bool                  myFramebufferResized = false;
     uint32_t              myCurrentFrame       = 0;
     VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
-
     Util_ImGuiLayer                                              myImGuiLayer;
     std::chrono::high_resolution_clock::time_point             myLastFrameTime;
     bool                                                       myHasLastFrameTime = false;

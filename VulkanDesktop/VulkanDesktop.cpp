@@ -22,7 +22,7 @@ const std::vector< const char* > validationLayers = { "VK_LAYER_KHRONOS_validati
 const std::vector< const char* > deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 int main() {
-    UtilLogger::Init( "Logs/engine_runtime_log.txt" );
+    UtilLogger::Init();
     UtilLogger::Info( "APP", "Application startup." );
 
     Vk_Core* app = &Vk_Core::GetInstance();

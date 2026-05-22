@@ -155,20 +155,20 @@
     <None Include="Shader\CompileShader.bat">
       <Filter>Gfx\Shader</Filter>
     </None>
+    <None Include="Shader\CompileShader_Glslc.bat">
+      <Filter>Gfx\Shader</Filter>
+    </None>
+    <None Include="Shader\ShaderBuild_Common.bat">
+      <Filter>Gfx\Shader</Filter>
+    </None>
     <None Include="Shader\TriangleFrag.frag">
       <Filter>Gfx\Shader</Filter>
     </None>
     <None Include="Shader\TriangleFrag_Lit.frag">
       <Filter>Gfx\Shader</Filter>
     </None>
-    <None Include="Shader\TriangleVertex.vert">
+    <CustomBuild Include="Shader\TriangleVertex.vert">
       <Filter>Gfx\Shader</Filter>
-    </None>
-    <None Include="Shader\TrianglePix.hlsl">
-      <Filter>Gfx\Shader</Filter>
-    </None>
-    <None Include="Shader\TriangleShader.hlsl">
-      <Filter>Gfx\Shader</Filter>
-    </None>
+    </CustomBuild>
   </ItemGroup>
 </Project>

@@ -66,6 +66,8 @@ The desktop app is not fully layered yet, but the **debug camera path** follows 
 
 Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_InputState`) out of `Vk_Core` into an application or simulation/input module; keep `ApplyInput` as the render-facing consumer.
 
+**Shaders (2026-05-22):** Production path is **GLSL → glslc** (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`, SPIR-V entry `main`). Build/run pitfalls (log paths, Custom Build stdout corrupting `.spv`) are in `.cursor/rules/shader-build.mdc` and `VibeCoding/notes-2026-05-22-shader-debug.md`.
+
 ---
 
 ## 4. Data-oriented architecture (data plane)

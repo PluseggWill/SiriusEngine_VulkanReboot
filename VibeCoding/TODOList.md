@@ -20,18 +20,17 @@ These items unblock everything else: if shaders, paths, or validation are flaky,
 
 ### P0 (must fix first)
 
-- [ ] Vendor a stable `dxc` build with SPIR-V codegen enabled into the repository (or pinned artifact source).
-- [ ] Make shader compiler selection deterministic: prefer repo-local tools over system `PATH`.
-- [ ] Add CI step to run shader compilation and fail fast on tool mismatch.
-- [ ] Unify shader contracts (descriptor sets/bindings and entry points) between DXC and GLSLC paths.
+- [x] Make shader compilation deterministic: vendored **glslc** (`lib/VulkanSDK/…/glslc.exe`), repo-local scripts (`CompileShader_Glslc.bat`), VS Custom Build on `TriangleVertex.vert`. — 2026-05-22; see `VibeCoding/notes-2026-05-22-shader-debug.md`.
+- [x] Repo-root logs for build + runtime (`Logs/shader_compile_log.txt`, `Logs/engine_runtime_log.txt`). — `ShaderBuild_Common.bat`, `UtilLogger`.
+- [ ] Add CI step to run `CompileShader_Glslc.bat` and fail fast on missing tools or compile errors.
 - [ ] Review descriptor type strategy (`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`) and lock one approach.
 - [ ] Replace heuristic path probing with a robust asset root configuration system.
 - [ ] Add startup checks that verify required resources (shader/model/texture) exist before initialization.
 
 ### P1 (important, next iteration)
 
-- [ ] Add shader tool version logging (`dxc --version`, `glslc --version`) to build logs.
-- [ ] Remove duplicated/legacy shader variants and keep one clear source of truth.
+- [x] Split shader compile scripts (glslc-only) and document MSBuild Custom Build stdout pitfall. — `.cursor/rules/shader-build.mdc`.
+- [x] Remove duplicated/legacy shader variants; single source of truth: `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (removed HLSL/dxc path 2026-05-22).
 - [ ] Add pipeline creation diagnostics (full `VkResult` + stage/layout summary) for faster triage.
 - [ ] Properly install and configure Vulkan validation layers for development machines.
 - [ ] Add explicit startup diagnostics for layer discovery paths and missing layer details.
@@ -165,7 +164,7 @@ Goal: every listed feature should be **toggleable**, **measured**, and **documen
 
 - [ ] **Engine overview** diagram (modules + data flow) in `README.md` or `Docs/` once structure stabilizes.
 - [ ] **“How to add a rendering experiment”** checklist: shader, pipeline flag, preset entry, benchmark note.
-- [ ] **Troubleshooting matrix**: black screen, validation spam, wrong working directory, missing layers.
+- [ ] **Troubleshooting matrix**: black screen (wrong shader entry vs `.spv`, Custom Build corrupting `.spv`), validation spam, wrong working directory, missing layers — seed from `notes-2026-05-22-shader-debug.md`.
 - [ ] **License and third-party** inventory (`lib/`, SDK binaries) for redistribution clarity.
 
 ---

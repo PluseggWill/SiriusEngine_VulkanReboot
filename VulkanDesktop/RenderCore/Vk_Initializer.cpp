@@ -12,14 +12,6 @@ VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShader
     return shaderStageInfo;
 }
 
-VkPipelineShaderStageCreateInfo VkInit::Pipeline_PixelShaderStageCreateInfo(VkShaderModule aShaderModule ) {
-    return Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, aShaderModule, "PSMain" );
-}
-
-VkPipelineShaderStageCreateInfo VkInit::Pipeline_VertexShaderStageCreateInfo(VkShaderModule aShaderModule ) {
-    return Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, aShaderModule, "VSMain" );
-}
-
 VkPipelineVertexInputStateCreateInfo VkInit::Pipeline_VertexInputStateCreateInfo() {
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 

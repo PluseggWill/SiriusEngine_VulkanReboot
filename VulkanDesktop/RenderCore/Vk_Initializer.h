@@ -9,8 +9,6 @@ namespace VkInit {
 // Pipeline
 
 VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry );
-VkPipelineShaderStageCreateInfo Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule);
-VkPipelineShaderStageCreateInfo Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule);
 
 VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
 

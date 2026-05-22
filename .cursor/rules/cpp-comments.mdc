@@ -1,12 +1,12 @@
 ---
-description: C/C++ and HLSL comment style for VulkanDesktop — clarity at contracts and pitfalls.
+description: C/C++ and GLSL shader comment style for VulkanDesktop — clarity at contracts and pitfalls.
 globs: VulkanDesktop/**/*
 alwaysApply: false
 ---
 
 # VulkanDesktop — Comment conventions
 
-Apply when adding or editing comments in `VulkanDesktop/` (C++, HLSL). Prefer **English** in source; keep comments **short and purposeful**.
+Apply when adding or editing comments in `VulkanDesktop/` (C++, GLSL). Prefer **English** in source; keep comments **short and purposeful**.
 
 ## When to comment
 
@@ -41,7 +41,7 @@ Apply when adding or editing comments in `VulkanDesktop/` (C++, HLSL). Prefer **
 **Contract / pitfall** (high-signal):
 
 ```cpp
-// CONTRACT: eVk_* bindings must match TriangleShader.hlsl register(b# / t#).
+// CONTRACT: eVk_* bindings must match TriangleVertex.vert / TriangleFrag_Lit.frag layout(binding = N).
 // WARNING: texcoord_index may be -1; never index attrib.texcoords without a guard.
 ```
 
@@ -54,7 +54,7 @@ Apply when adding or editing comments in `VulkanDesktop/` (C++, HLSL). Prefer **
 ## Domain rules
 
 - **Gpu* / UBO**: Document `std140` layout, which shader `register` it maps to, and any **repurposed** fields (e.g. `myFogDistance` packs material params).
-- **Descriptors**: Binding index + type + stage; keep in sync with `Vk_Enum.h` and HLSL.
+- **Descriptors**: Binding index + type + stage; keep in sync with `Vk_Enum.h` and GLSL shaders.
 - **Queues**: State when graphics doubles as transfer; when `CONCURRENT` vs `EXCLUSIVE` sharing applies.
 - **Coordinates**: Z-up world, Y-flipped Vulkan projection (`proj[1][1] *= -1`), sunlight “toward sun” direction.
 - **Paths**: Note dependency on working directory only at resolution sites (`UtilLoader::ResolvePath`), not at every `ReadFile` call.
