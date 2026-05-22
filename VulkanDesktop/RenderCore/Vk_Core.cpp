@@ -21,7 +21,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <limits>
 #include <optional>
 #include <set>
@@ -1086,10 +1085,9 @@ void Vk_Core::CheckExtensionSupport() const {
     std::vector< VkExtensionProperties > extensions( extensionCount );
     vkEnumerateInstanceExtensionProperties( nullptr, &extensionCount, extensions.data() );
 
-    std::cout << "Available extensions:" << std::endl;
-
+    UtilLogger::Info( "VULKAN", "Instance extension discovery (" + std::to_string( extensionCount ) + "):" );
     for ( const VkExtensionProperties& extension : extensions ) {
-        std::cout << "\t" << extension.extensionName << std::endl;
+        UtilLogger::Info( "VULKAN", std::string( "  " ) + extension.extensionName );
     }
 }
 
@@ -1127,7 +1125,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     }
 
 #ifdef _DEBUG
-    std::cout << "The GPU has a minimum buffer alignment of " << myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;
+    UtilLogger::Debug( "GPU", "minUniformBufferOffsetAlignment=" + std::to_string( myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment ) );
 #endif  // _DEBUG
 
     // TODO: More check options
@@ -1209,6 +1207,17 @@ bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
 
     for ( const auto& extension : availableExtensions ) {
         requiredExtensions.erase( extension.extensionName );
+    }
+
+    if ( !requiredExtensions.empty() ) {
+        std::string missing;
+        for ( const std::string& name : requiredExtensions ) {
+            if ( !missing.empty() ) {
+                missing += ", ";
+            }
+            missing += name;
+        }
+        UtilLogger::Warn( "VULKAN", "Device missing required extensions: " + missing );
     }
 
     return requiredExtensions.empty();

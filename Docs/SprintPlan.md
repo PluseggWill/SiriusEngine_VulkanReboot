@@ -58,7 +58,7 @@ flowchart LR
 
 ### Should complete in S0
 
-- [ ] Unify extension/layer probes: `UtilLogger` instead of `std::cout` in `CheckExtensionSupport` (`CheckValidationLayerSupport` done — `Util_ValidationLayers`).
+*(none — S0 should-complete queue cleared 2026-05-23.)*
 
 ---
 
@@ -268,6 +268,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Extension/layer probes via `UtilLogger` (instance discovery, device missing ext Warn, GPU alignment Debug) — 2026-05-23; `Docs/extension-probes_Plan.md`.
 - [x] **[S0]** Debug messenger (`VK_EXT_debug_utils` → `UtilLogger` `[VULKAN-VALIDATION]`) — 2026-05-23; `Docs/debug-messenger_Plan.md`, `Util_DebugMessenger`.
 - [x] **[S0]** Expand `README.md` + new-machine bootstrap (`Docs/bootstrap.md`, `Scripts/Verify-Bootstrap.ps1`) — 2026-05-23; `Docs/bootstrap_Plan.md`.
 - [x] **[S0]** Fix `VkInit::Pipeline_DynamicStateCreateInfo` dangling `pDynamicStates`; wire dynamic state in `Vk_PipelineBuilder` — 2026-05-22; `Docs/pipeline-dynamic-state_Plan.md`.
