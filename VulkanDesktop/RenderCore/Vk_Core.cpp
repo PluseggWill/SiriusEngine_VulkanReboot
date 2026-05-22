@@ -6,6 +6,7 @@
 #include "../Util/Util_DemoAssets.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_PipelineDiagnostics.h"
@@ -119,6 +120,7 @@ void Vk_Core::Clear() {
 
     vkDestroySurfaceKHR( myInstance, mySurface, nullptr );
 
+    UtilDebugMessenger::Destroy( myInstance );
     vkDestroyInstance( myInstance, nullptr );
 
     glfwDestroyWindow( myWindow );
@@ -131,7 +133,6 @@ void Vk_Core::InitVulkan() {
     UtilLogger::Info( "VULKAN", "Initializing Vulkan pipeline." );
     // Part 1: Base
     CreateInstance();
-    // TODO: Set up debug messenger
     CreateSurface();
     PickPhysicalDevice();
     InitVk_QueueFamilyIndices();
@@ -208,30 +209,43 @@ void Vk_Core::CreateInstance() {
     uint32_t     glfwExtensionCount = 0;
     const char** glfwExtensions     = glfwGetRequiredInstanceExtensions( &glfwExtensionCount );
 
+    std::vector< const char* > instanceExtensions;
+    instanceExtensions.reserve( glfwExtensionCount + 1u );
+    for ( uint32_t i = 0; i < glfwExtensionCount; ++i ) {
+        instanceExtensions.push_back( glfwExtensions[ i ] );
+    }
+    if ( myEnableValidationLayers && UtilDebugMessenger::IsExtensionAvailable() ) {
+        instanceExtensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
+    }
+
     VkInstanceCreateInfo createInfo{};
     createInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo        = &appInfo;
-    createInfo.enabledExtensionCount   = glfwExtensionCount;
-    createInfo.ppEnabledExtensionNames = glfwExtensions;
+    createInfo.enabledExtensionCount   = static_cast< uint32_t >( instanceExtensions.size() );
+    createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    // Modify the createInfo if the validation layers are enabled
     if ( myEnableValidationLayers ) {
         createInfo.enabledLayerCount   = static_cast< uint32_t >( myValidationLayers.size() );
         createInfo.ppEnabledLayerNames = myValidationLayers.data();
+        UtilDebugMessenger::SetupForInstanceCreate( createInfo );
     }
-    else
+    else {
         createInfo.enabledLayerCount = 0;
+    }
 
 #ifdef _DEBUG
     CheckExtensionSupport();
 #endif  // _DEBUG
 
-    // VkResult result = vkCreateInstance(&createInfo, nullptr, &myInstance);
     if ( vkCreateInstance( &createInfo, nullptr, &myInstance ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "vkCreateInstance failed." );
         throw std::runtime_error( "failed to create instance!" );
     }
     UtilLogger::Info( "VULKAN", "Vulkan instance created." );
+
+    if ( myEnableValidationLayers ) {
+        UtilDebugMessenger::Create( myInstance );
+    }
 }
 
 void Vk_Core::PickPhysicalDevice() {

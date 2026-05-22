@@ -1,6 +1,6 @@
 # Vulkan validation layers (Windows)
 
-The engine can enable the Khronos validation layer (`VK_LAYER_KHRONOS_validation`) at instance and device creation. Messages appear in the debugger output and (with a future debug messenger) in the log.
+The engine can enable the Khronos validation layer (`VK_LAYER_KHRONOS_validation`) at instance and device creation. When validation is on, `VK_EXT_debug_utils` routes layer messages to `Logs/engine_runtime_log.txt` under `[VULKAN-VALIDATION]` (VERBOSE through ERROR).
 
 ## Install
 
@@ -49,6 +49,8 @@ Example `Config/engine.json`:
    - `[VULKAN] Instance layer discovery (N available):`
    - `[VULKAN] Validation layers: enabled` (or `disabled`)
    - `[VULKAN] Requested validation layer present: VK_LAYER_KHRONOS_validation` when enabled
+   - `[VULKAN] Debug utils messenger created.` when messenger setup succeeds
+   - `[VULKAN-VALIDATION]` lines when the layer reports issues (may be absent on a clean run)
 
 4. Force off without recompiling:
 
@@ -64,6 +66,7 @@ If validation is requested but the layer is missing, the app logs a warning and 
 |---------|--------|
 | Layer not in discovery list | Reinstall Vulkan SDK; run `vulkaninfo` |
 | `validation=disabled` in Release | Expected; use Debug or `--validation` |
-| No validation messages in log | Debug messenger not implemented yet (S0 Should); use Visual Studio **Output** window or attach debugger |
+| No validation messages in log | No layer violations on that run; confirm `Debug utils messenger created` and validation enabled |
+| `Extension not available: VK_EXT_debug_utils` | Update GPU driver / Vulkan loader; layers may still print to the debugger only |
 
 See also: `Docs/validation-layers_Plan.md`, `Docs/SprintPlan.md` (S0).

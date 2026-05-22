@@ -25,7 +25,7 @@ Build `VulkanDesktop.sln` (Debug|x64), run `x64\Debug\VulkanDesktop.exe`.
 
 **Startup checks:** After asset root is configured, the app verifies required demo files exist (SPIR-V in `VulkanDesktop/Shader_Generated/`, meshes/textures under `Data/`) before Vulkan init. Failures log `[STARTUP]` with logical and resolved paths and exit non-zero. List is in `Util_DemoAssets.h` (migrating to scene manifest per `Docs/scene-load_Plan.md`).
 
-**Validation layers:** Khronos validation (`VK_LAYER_KHRONOS_validation`) is on in Debug builds by default, off in Release. Override with `Config/engine.json` (`enableValidationLayers`) or `--validation` / `--no-validation`. Startup logs list installed instance layers under `[VULKAN]`. Install and troubleshooting: [`Docs/validation-layers.md`](Docs/validation-layers.md).
+**Validation layers:** Khronos validation (`VK_LAYER_KHRONOS_validation`) is on in Debug builds by default, off in Release. Override with `Config/engine.json` (`enableValidationLayers`) or `--validation` / `--no-validation`. Layer messages go to `Logs/engine_runtime_log.txt` as `[VULKAN-VALIDATION]` when the debug utils messenger is active. Install and troubleshooting: [`Docs/validation-layers.md`](Docs/validation-layers.md).
 
 ## Shaders (GLSL → SPIR-V)
 

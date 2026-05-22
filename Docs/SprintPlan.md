@@ -58,7 +58,6 @@ flowchart LR
 
 ### Should complete in S0
 
-- [ ] **Debug messenger** (validation utils) or document intentional omission.
 - [ ] Unify extension/layer probes: `UtilLogger` instead of `std::cout` in `CheckExtensionSupport` (`CheckValidationLayerSupport` done — `Util_ValidationLayers`).
 
 ---
@@ -269,6 +268,7 @@ flowchart LR
 
 ### Toolchain & stability
 
+- [x] **[S0]** Debug messenger (`VK_EXT_debug_utils` → `UtilLogger` `[VULKAN-VALIDATION]`) — 2026-05-23; `Docs/debug-messenger_Plan.md`, `Util_DebugMessenger`.
 - [x] **[S0]** Expand `README.md` + new-machine bootstrap (`Docs/bootstrap.md`, `Scripts/Verify-Bootstrap.ps1`) — 2026-05-23; `Docs/bootstrap_Plan.md`.
 - [x] **[S0]** Fix `VkInit::Pipeline_DynamicStateCreateInfo` dangling `pDynamicStates`; wire dynamic state in `Vk_PipelineBuilder` — 2026-05-22; `Docs/pipeline-dynamic-state_Plan.md`.
 - [x] **[S0]** Validation layers: install guide, startup layer discovery log, runtime on/off (`--validation`, `--no-validation`, `engine.json`) — 2026-05-22; `Docs/validation-layers.md`, `Util_ValidationConfig`, `Util_ValidationLayers`.
