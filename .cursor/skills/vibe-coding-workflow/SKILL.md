@@ -12,7 +12,7 @@ description: >-
 All paths are relative to the **workspace root**. Artifact directory: `Docs/`.
 
 - Per-task: `Docs/{TaskName}_Plan.md`, `Docs/{TaskName}_Progress.md`
-- Cross-task roadmap: `Docs/TODOList.md`
+- Cross-task roadmap: `Docs/SprintPlan.md`
 - Architecture intent: `Docs/EngineArchitecture.md`
 
 ## Phase 1 — Clarify
@@ -75,11 +75,11 @@ Required actions:
    - **Major deviation** (scope/acceptance/risk changes): ask user confirmation first, then update plan and continue.
 4. Do not continue coding with silent deviation.
 
-### `Docs/TODOList.md` maintenance
+### `Docs/SprintPlan.md` maintenance
 
-- Active sections (§1–§8): **only** open `[ ]` tasks.
-- When a roadmap item is completed: **move** the line to **`## Archived`** under the matching source section (e.g. §1, §2, §7); preserve completion notes/dates.
-- Do not leave checked `[x]` items in active sections.
+- Active sprints (S0–S7, parallel): **only** open `[ ]` tasks.
+- When completed: **move** the line to **`## Archived`** with sprint tag (`[S0]`…`[S7]`, `[parallel]`); preserve completion notes/dates.
+- Do not leave checked `[x]` items in active sprints.
 
 ### Progress log entry template
 

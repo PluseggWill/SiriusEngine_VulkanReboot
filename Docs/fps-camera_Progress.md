@@ -17,6 +17,6 @@
 ## 2026-05-20 — Manual verification + docs
 
 - **Plan ref:** Verification / runbook
-- **Files:** `Docs/fps-camera_Plan.md`, `Docs/TODOList.md`, `Docs/EngineArchitecture.md`
+- **Files:** `Docs/fps-camera_Plan.md`, `Docs/SprintPlan.md`, `Docs/EngineArchitecture.md`
 - **What changed:** Plan marked done; TODO and architecture notes updated.
 - **Verification:** User confirmed runtime behavior; Camera panel tuning OK.

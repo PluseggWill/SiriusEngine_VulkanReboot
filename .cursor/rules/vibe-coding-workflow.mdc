@@ -9,8 +9,8 @@ alwaysApply: false
 When this rule applies (files under `Docs/` are in context):
 
 1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
-2. Cross-task roadmap: **`Docs/TODOList.md`**. Architecture intent: **`Docs/EngineArchitecture.md`** (both git-tracked under `Docs/`).
-3. **TODOList hygiene:** active sections (§1–§8) list only open `[ ]` tasks. When a tracked item is done, **move it to `## Archived`** (group by original section); do not leave `[x]` items in active sections.
+2. Cross-task roadmap: **`Docs/SprintPlan.md`**. Architecture intent: **`Docs/EngineArchitecture.md`** (both git-tracked under `Docs/`).
+3. **SprintPlan hygiene:** active sprints list only open `[ ]` tasks. When done, **move to `## Archived`** with sprint tag (`[S0]`…`[S7]`); do not leave `[x]` in active sections.
 4. Do not skip clarification for new tasks unless the user explicitly waives it.
 5. Implementation changes must remain traceable in `_Progress.md` after each completed plan step or coherent batch of work.
 6. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.

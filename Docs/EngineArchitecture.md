@@ -1,6 +1,6 @@
 # Engine Architecture — Design Notes
 
-This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable task checklists live in `Docs/TODOList.md`; keep this file for **structure, invariants, and tradeoffs**.
+This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable **sprint checklists** live in `Docs/SprintPlan.md`; keep this file for **structure, invariants, and tradeoffs**.
 
 ---
 
@@ -15,7 +15,7 @@ This document captures **architecture intent and reasoning** for the SiriusEngin
 - How the **rendering path** should be shaped so it consumes flat buffers, not pointer-heavy scene graphs.
 - Known **risks** and **anti-patterns**.
 
-Out of scope here: exact class names in the repo, shader code, or step-by-step build instructions (those belong in code comments, `README.md`, or the TODO list).
+Out of scope here: exact class names in the repo, shader code, or step-by-step build instructions (those belong in code comments, `README.md`, or `SprintPlan.md`).
 
 ---
 
@@ -31,6 +31,7 @@ Summarized from the roadmap; these are **acceptance criteria** for “engine, no
 | **Rendering lab** | Presets/flags, timing (CPU + GPU where possible), optional screenshots for A/B. |
 | **Evidence** | Benchmark scenes + a short runbook so numbers are reproducible on a fresh machine within a stated variance band. |
 | **Data-oriented data plane** | Hot paths use **SoA / columnar** storage, **stable indices**, **sequential scans**, and **explicit buffers** for GPU upload — not deep OO graphs as the primary per-frame execution model. |
+| **Mesh-shader GPU-driven renderer** | Long-term raster path: **GPU** cull/compact → **mesh shader** (optional Task later) → fragment; **VS + indexed indirect** fallback when extensions missing. CPU SoA + extract remain **source of truth** until GPU path is parity-tested. |
 
 ---
 
@@ -66,7 +67,9 @@ The desktop app is not fully layered yet, but the **debug camera path** follows 
 
 Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_InputState`) out of `Vk_Core` into an application or simulation/input module; keep `ApplyInput` as the render-facing consumer.
 
-**Shaders (2026-05-22):** Production path is **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/` (entry `main`). Build/run pitfalls (log paths, Custom Build stdout corrupting `.spv`) are in `.cursor/rules/shader-build.mdc` and `Docs/Archived/notes-2026-05-22-shader-debug.md`.
+**Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
+
+**Render path (target):** See **§5.6** and `Docs/SprintPlan.md` (S1→S6). Today: indexed draw from `Vk_Core`; target: draw stream → GPU indirect → mesh tasks + mesh shader.
 
 ---
 
@@ -153,18 +156,37 @@ Input → Simulation → Transform resolve → Extract → Cull/LOD → Sort →
 
 Each phase declares **inputs/outputs** as buffers. Hidden cross-talk between phases (globals, singletons mutating unknown columns) undermines reasoning and parallelization.
 
-### 5.5 Optional GPU-driven path (later)
+### 5.5 GPU-driven path (staged)
 
-**GPU culling / indirect draws** can reduce CPU cost but:
+**GPU culling / indirect draws** reduce CPU record cost but complicate debugging. **Policy**: keep **CPU SoA + extract** as the **source of truth** until a GPU path is **proven equivalent** (golden frame or statistical comparison on fixed camera paths). Implemented in **`SprintPlan.md` S3** (indexed indirect, VS/FS) before mesh shaders.
 
-- Obscures determinism and debugging.
-- Interacts badly with ad-hoc validation assumptions if not carefully staged.
+### 5.6 Mesh shader + GPU-driven target (decisions)
 
-**Policy**: keep **CPU SoA + extract** as the **source of truth** until a GPU path is **proven equivalent** (golden frame or statistical comparison on fixed camera paths).
+Long-term **production** raster path for scene geometry:
+
+```text
+SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasksIndirect*
+     → Task? (deferred) → Mesh → Fragment
+```
+
+| Decision | Choice (v1) | Notes |
+|----------|---------------|--------|
+| Vulkan baseline | 1.2 + `VK_EXT_mesh_shader` | Matches vendored SDK; revisit 1.3 later. |
+| Task shader | **Deferred** | Add only if meshlet count/thread pressure requires it. |
+| Geometry | **Meshlets** (offline cluster) | e.g. meshoptimizer; bounds per meshlet for GPU cull. |
+| Materials | **Bindless or large SSBO tables** (decide in S1) | Mesh/fragment shaders index tables by `materialId`. |
+| Fallback | **S3 path**: VS + `DrawIndexedIndirect` | Required when mesh shader unsupported; same instance/meshlet buffers where possible. |
+| Scope | 1k+ instances, single-digit cascades later | No Nanite-scale occlusion/clip in v1. |
+
+**Milestones** (detail in `SprintPlan.md`): **M1** CPU draw stream → **M2** GPU indirect → **M3** meshlet assets → **M4** mesh shader → **M5** GPU mesh tasks + fallback → **M6** rendering lab on new path.
+
+**Anti-pattern**: jumping to mesh shaders before **draw stream**, **descriptor policy**, and **meshlet buffers** exist — yields a non-extensible demo draw.
 
 ---
 
-## 6. Data-flow diagram (render path)
+## 6. Data-flow diagrams
+
+### 6.1 Current target (CPU extract → batch record)
 
 ```mermaid
 flowchart LR
@@ -181,12 +203,28 @@ flowchart LR
     S[Sort by key]
     R[Batch runs]
   end
-  subgraph vk [Vulkan]
+  subgraph vk [Vulkan today / S1]
     CB[Cmd buffer record]
+    VS[VS + FS draw]
   end
   soa --> extract
   extract --> prep
   prep --> vk
+```
+
+### 6.2 End state (GPU-driven mesh shader)
+
+```mermaid
+flowchart LR
+  soa[SoA + Extract columns]
+  gpu[GPU cull + compact meshlets]
+  mt[vkCmdDrawMeshTasksIndirect]
+  ms[Mesh shader]
+  fs[Fragment]
+  soa --> gpu
+  gpu --> mt
+  mt --> ms
+  ms --> fs
 ```
 
 ---
@@ -211,9 +249,10 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 | **Unstable draw order** | Explicit tie-break in sort key; document transparency policy. |
 | **GPU resource lifetime vs SoA edits** | Generations / frame-delayed free lists; version counters on tables. |
 | **Layout mismatch CPU/GPU** | Single header or code-generated struct metadata; assert sizes in debug. |
-| **Monolith `Vk_Core`** | Incrementally peel “world” and “extract” out; TODO tracks lifecycle split. |
-| **Premature GPU-driven rendering** | Gate behind preset; require parity tests vs CPU path. |
-| **Descriptor strategy churn** | Lock `UNIFORM_BUFFER` vs `DYNAMIC` vs SSBO policy per material frequency (see TODO P0). |
+| **Monolith `Vk_Core`** | Incrementally peel “world” and “extract” out; **S2** in `SprintPlan.md`. |
+| **Premature GPU-driven / mesh shader** | Follow S1→S6 order; presets + parity tests before dropping fallback. |
+| **Descriptor strategy churn** | Lock policy in **S0**; reflected in mesh/fragment table layouts. |
+| **Mesh shader portability** | Always ship **S3 fallback** preset; probe features at startup. |
 
 ### Anti-patterns (discouraged on the hot path)
 
@@ -238,9 +277,9 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ## 10. Document maintenance
 
-- When **binding model** or **extract layout** changes, update **§5** and add a note in the benchmark / preset changelog (see TODO list).
-- When **north star** priorities shift, update **§2** and keep `Docs/TODOList.md` in sync.
+- When **binding model** or **extract layout** changes, update **§5** and note in preset/benchmark changelog (**S7**).
+- When **north star** or sprint order changes, update **§2** / **§5.6** and `Docs/SprintPlan.md`.
 
 ---
 
-*Last aligned with `Docs/TODOList.md` roadmap sections 0, 2, 4, and 5.*
+*Last aligned with `Docs/SprintPlan.md` (S0–S7 + parallel vertical slice).*
