@@ -75,6 +75,12 @@ Required actions:
    - **Major deviation** (scope/acceptance/risk changes): ask user confirmation first, then update plan and continue.
 4. Do not continue coding with silent deviation.
 
+### `Docs/TODOList.md` maintenance
+
+- Active sections (§1–§8): **only** open `[ ]` tasks.
+- When a roadmap item is completed: **move** the line to **`## Archived`** under the matching source section (e.g. §1, §2, §7); preserve completion notes/dates.
+- Do not leave checked `[x]` items in active sections.
+
 ### Progress log entry template
 
 Append blocks like:

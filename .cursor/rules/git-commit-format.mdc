@@ -53,4 +53,5 @@ Add cpp-comments.mdc; link from layout and vibe-coding-entry rules.
 ## When closing Docs workflow tasks
 
 - Mention plan/progress or `TODOList.md` in the body if the commit completes a tracked item.
+- **Move the completed line from active sections to `## Archived`** in `Docs/TODOList.md` (group by original §); active sections must not keep `[x]` items.
 - Prefer one logical change per commit (matches recent maintenance commits).
