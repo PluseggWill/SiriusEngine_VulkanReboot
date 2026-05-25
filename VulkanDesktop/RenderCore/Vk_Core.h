@@ -12,11 +12,12 @@
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
 #include "../Gfx/Gfx_DrawExtract.h"
+#include "Vk_ResourceTables.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
 constexpr bool USE_RUNTIME_MIPMAP   = false;
 constexpr bool USE_MANUAL_VERTICES  = false;  // if true, skip OBJ load path (legacy)
-constexpr bool ENABLE_ROTATE        = true;   // demo: spin model in GpuCameraData.model
+constexpr bool ENABLE_ROTATE        = true;   // demo: spin applied in push-constant model matrix
 constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
@@ -28,8 +29,10 @@ class Gfx_Mesh;
 class Gfx_RenderObject;
 
 // Vulkan backend singleton: window, device, swapchain, frame loop, GPU resource helpers.
-// Scene tables (myMeshMap, etc.) live here temporarily - see EngineArchitecture section 3.1 for split target.
+class Vk_ResourceTables;
+
 class Vk_Core {
+    friend class Vk_ResourceTables;  // Load path uses myAllocator/myDevice; TODO: Vk_ResourceContext instead
 public:
     static Vk_Core& GetInstance();
     Vk_Core( const Vk_Core& ) = delete;
@@ -113,6 +116,7 @@ private:
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
+    glm::mat4 ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) const;
 
     // Helper functions:
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -133,15 +137,6 @@ private:
     VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
     size_t                  PadUniformBufferSize( size_t anOriginalSize ) const;
 
-#pragma region View Data Functions
-    Gfx_Material* CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
-    Gfx_Material* GetMaterial( const uint32_t anIndex );
-    Gfx_Mesh*     CreateMesh( const std::string& aFilename, const uint32_t anIndex );
-    Gfx_Mesh*     GetMesh( const uint32_t anIndex );
-    Gfx_Texture*  CreateTexture( const std::string& aFilename, const uint32_t anIndex );
-    Gfx_Texture*  GetTexture( const uint32_t anIndex );
-#pragma endregion
-
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
@@ -156,9 +151,7 @@ public:
     GpuEnvironmentData   myEnvironmentData;
     Vk_AllocatedBuffer    myEnvDataBuffer;
 
-    std::unordered_map< uint32_t, Gfx_Material > myMaterialMap;
-    std::unordered_map< uint32_t, Gfx_Mesh >     myMeshMap;
-    std::unordered_map< uint32_t, Gfx_Texture >  myTextureMap;
+    Vk_ResourceTables                            myResourceTables;
     std::vector< Gfx_RenderObject >              myRenderObjects;
     Gfx_SceneSoA                                 mySceneSoA;
     Gfx_ExtractResult                            myExtractResult;

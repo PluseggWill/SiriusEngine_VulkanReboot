@@ -3,6 +3,7 @@
 #include "../Util/Util_Input.h"
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_StatsOverlay.h"
+#include "../Gfx/Gfx_ResourceManifest.h"
 #include "../Util/Util_DemoAssets.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
@@ -41,10 +42,6 @@
 // Demo logical paths (repo-relative; see Util_DemoAssets.h).
 std::string vertShaderPath  = std::string( UtilDemoAssets::kVertSpv );
 std::string fragShaderPath  = std::string( UtilDemoAssets::kFragSpv );
-std::string texturePath     = std::string( UtilDemoAssets::kDemoTexture );
-std::string houseModelPath  = std::string( UtilDemoAssets::kHouseModel );
-std::string monkeyModelPath = std::string( UtilDemoAssets::kMonkeyModel );
-
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
 
@@ -111,6 +108,7 @@ void Vk_Core::Clear() {
     mySwapChainDeletionQueue.flush();
 
     myDeletionQueue.flush();
+    myResourceTables.Clear();
 
     vkDestroyCommandPool( myDevice, myGraphicsCommandPool, nullptr );
     vkDestroyCommandPool( myDevice, myTransferCommandPool, nullptr );
@@ -145,20 +143,17 @@ void Vk_Core::InitVulkan() {
     CreateDescriptorSetLayout();
     CreateGfxPipeline();
 
-    // TODO: Remove this
-    CreateMaterial( myBasicPipeline, myPipelineLayout, 0 );
-
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
 
-    // Part 3: Prepare for draw frames resources
-    CreateTexture( texturePath, 0 );
-    CreateTextureSampler();
+    // Part 3: Resource tables from demo manifest (scene-load Phase C will replace manifest source).
     {
-        CreateMesh( houseModelPath, 0 );
-        CreateMesh( monkeyModelPath, 1 );
+        Gfx_ResourceManifest manifest{};
+        Gfx_BuildDemoResourceManifest( manifest );
+        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myPipelineLayout );
     }
+    CreateTextureSampler();
     InitDemoSceneEntities();
     CreateFrameData();
     CreateUniformBuffers();
@@ -467,13 +462,19 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #10: Color blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
-    // Step #12: Pipeline layout
+    // Step #12: Pipeline layout — Set 0 frame UBO + push mat4 model per draw.
+    VkPushConstantRange pushRange{};
+    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushRange.offset     = 0;
+    pushRange.size       = static_cast< uint32_t >( sizeof( glm::mat4 ) );
+
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
-    // TODO(descriptor-strategy): setLayoutCount 3 (Frame/Material/Object) + push constant range for mat4 model (S1).
     pipelineLayoutCreateInfo.setLayoutCount             = 1;
     pipelineLayoutCreateInfo.pSetLayouts                = &myGlobalSetLayout;
+    pipelineLayoutCreateInfo.pushConstantRangeCount     = 1;
+    pipelineLayoutCreateInfo.pPushConstantRanges        = &pushRange;
 
-    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=1 pushConstants=0 (Set0 Frame, bindings=3 per eVk_BindingCount)." );
+    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=1 pushConstants=1 (mat4 model, VERTEX)." );
     UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ), "vkCreatePipelineLayout" );
 
     // Step #13: Combine
@@ -831,7 +832,8 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 
 void Vk_Core::CreateCamera() {
     myCamera.SetLens( 45.0f, 0.1f, 10.0f, static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
-    myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    // Demo entities at x = +/-4; pull back so both meshes are visible.
+    myCamera.LookAt( glm::vec3( 0.0f, 2.5f, 7.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 }
 
 void Vk_Core::InitDefaultEnvironmentData() {
@@ -953,7 +955,10 @@ void Vk_Core::CreateDescriptorSets() {
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView   = myTextureMap[ 0 ].ImageView();
+        // TODO(descriptor-strategy): per-frame Set 0 texture from each material batch (Set 1), not hard-coded 0.
+        const uint32_t     textureId = myResourceTables.GetTextureIdForMaterial( 0 );
+        const Gfx_Texture& texture   = myResourceTables.GetTexture( textureId );
+        imageInfo.imageView          = texture.ImageView();
         imageInfo.sampler     = myTextureSampler;
 
         descriptorWrites[ 0 ] =
@@ -1068,8 +1073,9 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 void Vk_Core::InitDemoSceneEntities() {
     mySceneSoA.Clear();
 
-    mySceneSoA.AllocEntity( 0, 0, glm::mat4( 1.0f ) );
-    mySceneSoA.AllocEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.0f, 0.0f, 0.0f ) ) );
+    // Demo layout: mesh 0 left, mesh 1 right (world units; mesh bounds ~1–2 units).
+    mySceneSoA.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
+    mySceneSoA.AllocEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
@@ -1314,21 +1320,35 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    // Demo Vulkan record path (S1): still draws mesh 0 only; CPU extract fills myExtractResult for batch/cull tasks.
-    myFrameStats.myPipelineBinds++;
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
-    SetGraphicsDynamicState( aCommandBuffer );
+    // Resolve mesh/material ids from extract via Vk_ResourceTables (§4.2). TODO(draw-stream): sort opaque
+    // list, batch by material, bind Set 0/1 once per batch; only pushConstants + IB/VB per draw (§5.2).
+    bool pipelineBound = false;
+    for ( const Gfx_DrawInstance& draw : myExtractResult.myDrawInstances ) {
+        const Gfx_Material& material = myResourceTables.GetMaterial( draw.myMaterialId );
+        const Gfx_Mesh&     mesh     = myResourceTables.GetMesh( draw.myMeshId );
 
-    VkBuffer     vertexBuffers[] = { myMeshMap[ 0 ].myVertexBuffer.myBuffer };
-    VkDeviceSize offsets[]       = { 0 };
+        if ( !pipelineBound || material.myPipeline != myBasicPipeline ) {
+            myFrameStats.myPipelineBinds++;
+            vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
+            SetGraphicsDynamicState( aCommandBuffer );
+            pipelineBound = true;
+        }
 
-    vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
-    vkCmdBindIndexBuffer( aCommandBuffer, myMeshMap[ 0 ].myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+        VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
+        VkDeviceSize offsets[]       = { 0 };
+        vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
+        vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-    // TODO(descriptor-strategy): bind Set 1 per material batch; Set 2 with dynamicOffset[] per draw (S1).
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, 0, 1, &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
-    myFrameStats.myDrawCalls++;
-    vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( myMeshMap[ 0 ].myIndices.size() ), 1, 0, 0, 0 );
+        // TODO(instance-slab): read model from draw.myInstanceDataOffset, not SoA (EngineArchitecture §4.4).
+        const glm::mat4 modelMatrix = ComputeDemoModelMatrix( mySceneSoA.GetTransform( draw.myEntityIndex ) );
+
+        // TODO(descriptor-strategy): bind Set 0 once per batch; Set 1 per materialId (texture from table).
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, 0, 1,
+                                 &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
+        vkCmdPushConstants( aCommandBuffer, material.myPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( glm::mat4 ), &modelMatrix );
+        myFrameStats.myDrawCalls++;
+        vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
+    }
 
     vkCmdEndRenderPass( aCommandBuffer );
 }
@@ -1414,16 +1434,20 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
+// Demo-only: world matrix from SoA plus optional Z spin. Replace when gameplay/sim writes transforms only.
+glm::mat4 Vk_Core::ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) const {
     static auto startTime = std::chrono::high_resolution_clock::now();
     const auto  currentTime = std::chrono::high_resolution_clock::now();
     const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
+    const glm::mat4 spin = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0.0f, glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    return aWorldTransform * spin;
+}
+
+void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     GpuCameraData cam{};
-    // TODO(descriptor-strategy): write model via push constant or Set 2 slab, not camera UBO (S1).
-    cam.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
-    cam.view  = myCamera.myView;
-    cam.proj  = myCamera.myProj;
+    cam.view = myCamera.myView;
+    cam.proj = myCamera.myProj;
 
     void* data;
     vmaMapMemory( myAllocator, myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation, &data );
@@ -1748,90 +1772,6 @@ size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
         alignedSize = ( alignedSize + minUboAlignment - 1 ) & ~( minUboAlignment - 1 );
 
     return alignedSize;
-}
-
-#pragma endregion
-
-#pragma region Scene resource tables (mesh / material / texture)
-
-Gfx_Material* Vk_Core::CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t anIndex ) {
-    Gfx_Material tempMat;
-
-    tempMat.myPipeline       = aPipeline;
-    tempMat.myPipelineLayout = aLayout;
-    myMaterialMap[ anIndex ] = tempMat;
-
-    return &myMaterialMap[ anIndex ];
-}
-
-Gfx_Material* Vk_Core::GetMaterial( const uint32_t anIndex ) {
-    auto it = myMaterialMap.find( anIndex );
-    if ( it == myMaterialMap.end() ) {
-        return nullptr;
-    }
-    else {
-        return &( *it ).second;
-    }
-}
-
-Gfx_Mesh* Vk_Core::CreateMesh( const std::string& aFilename, const uint32_t anIndex ) {
-    const std::string resolvedPath = UtilLoader::ResolvePath( aFilename );
-    UtilLogger::Info( "RESOURCE", "Loading mesh: " + resolvedPath );
-    Gfx_Mesh tempMesh;
-
-    tempMesh.LoadMesh( resolvedPath );
-
-    tempMesh.BuildBuffers();
-
-    myMeshMap[ anIndex ] = tempMesh;
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myVertexBuffer.myBuffer, myMeshMap[ anIndex ].myVertexBuffer.myAllocation );
-        vmaDestroyBuffer( myAllocator, myMeshMap[ anIndex ].myIndexBuffer.myBuffer, myMeshMap[ anIndex ].myIndexBuffer.myAllocation );
-    } );
-
-    return &myMeshMap[ anIndex ];
-}
-
-Gfx_Mesh* Vk_Core::GetMesh( const uint32_t anIndex ) {
-    auto it = myMeshMap.find( anIndex );
-    if ( it == myMeshMap.end() ) {
-        return nullptr;
-    }
-    else {
-        return &( *it ).second;
-    }
-}
-
-Gfx_Texture* Vk_Core::CreateTexture( const std::string& aFilename, const uint32_t anIndex ) {
-    UtilLogger::Info( "RESOURCE", "Loading texture: " + aFilename );
-    Gfx_Texture tempTexture;
-
-    if ( UtilLoader::LoadTexture( aFilename, tempTexture, myTextureImageMipLevels ) != true ) {
-        throw std::runtime_error( "failed to load texture!" );
-    }
-    tempTexture.ImageView() = CreateImageView( tempTexture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, myTextureImageMipLevels );
-
-    myTextureMap[ anIndex ] = tempTexture;
-
-    // Deletion Queue
-    myDeletionQueue.pushFunction( [ = ]() {
-        vmaDestroyImage( myAllocator, myTextureMap[ anIndex ].Image(), myTextureMap[ anIndex ].Allocation() );
-        vkDestroyImageView( myDevice, myTextureMap[ anIndex ].ImageView(), nullptr );
-    } );
-
-    return &myTextureMap[ anIndex ];
-}
-
-Gfx_Texture* Vk_Core::GetTexture( const uint32_t anIndex ) {
-    auto it = myTextureMap.find( anIndex );
-    if ( it == myTextureMap.end() ) {
-        return nullptr;
-    }
-    else {
-        return &( *it ).second;
-    }
 }
 
 #pragma endregion

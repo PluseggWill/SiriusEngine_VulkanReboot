@@ -175,7 +175,7 @@ VkPipelineLayoutCreateInfo VkInit::Pipeline_LayoutCreateInfo() {
     layoutInfo.flags                  = 0;
     layoutInfo.setLayoutCount         = 0;
     layoutInfo.pSetLayouts            = nullptr;
-    // TODO(descriptor-strategy): VkPushConstantRange mat4 model, VK_SHADER_STAGE_VERTEX_BIT (S1).
+    // Push constant ranges are set by the caller (e.g. Vk_Core::CreateGfxPipeline — mat4 model, VERTEX).
     layoutInfo.pushConstantRangeCount = 0;
     layoutInfo.pPushConstantRanges    = nullptr;
 

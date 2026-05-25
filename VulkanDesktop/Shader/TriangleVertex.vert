@@ -1,8 +1,11 @@
 #version 450
 
-// TODO(descriptor-strategy): split model to push constant or Set 2 UBO; keep view/proj in Set 0 (S1).
-layout(binding = 0) uniform CameraData {
+// Per-draw model via push constants; view/proj in Set 0 frame UBO (VkDescriptorPolicy).
+layout(push_constant) uniform PushConstants {
     mat4 model;
+} pushConstants;
+
+layout(binding = 0) uniform CameraData {
     mat4 view;
     mat4 proj;
 } cameraData;
@@ -19,10 +22,10 @@ layout(location = 3) out vec3 outWorldPos;
 
 void main()
 {
-    vec4 worldPosition = cameraData.model * vec4(inPosition, 1.0);
+    vec4 worldPosition = pushConstants.model * vec4(inPosition, 1.0);
     gl_Position = cameraData.proj * cameraData.view * worldPosition;
     outColor = inColor;
     outTexCoord = inTexCoord;
-    outWorldNormal = normalize(mat3(cameraData.model) * inNormal);
+    outWorldNormal = normalize(mat3(pushConstants.model) * inNormal);
     outWorldPos = worldPosition.xyz;
 }

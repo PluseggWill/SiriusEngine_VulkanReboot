@@ -77,7 +77,9 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Today: indexed draw from `Vk_Core`; target: draw stream → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
+**Render path (today):** `Gfx_SceneSoA` → `Gfx_ExtractDrawInstances` → `RecordScenePass` resolves `Gfx_DrawInstance` mesh/material ids via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** is a **vertex push constant**; Set 0 UBO holds `view` / `proj` + env + one demo texture (material 0). No sort/batch/cull yet.
+
+**Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
 **Shader tooling (target):** SPIR-V reflection → permutation registry → `VkPipelineCache` + disk cache (**§5.7**). Executable tasks: S2 shader systems, S7 presets.
 
@@ -101,6 +103,14 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Entities** refer to meshes/materials via **small integer indices** into **tables**.
 - **Tables** map stable resource ids to GPU-facing data: buffer handles, descriptor indices, pipeline layout compatibility groups, etc.
 - **Draw records** store indices only; **resolution** to Vulkan handles happens at **batch boundaries** or in a dedicated “resolve” pass — keeps the draw array trivially serializable and sortable.
+
+**Implemented (S1 v0):**
+
+- **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure.
+- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
+- **Per-draw transform (demo):** `mat4 model` via **push constant** (§5.3); Set 0 `GpuCameraData` is `view` + `proj` only. Demo spin + entity translation are composed in `Vk_Core::ComputeDemoModelMatrix` (temporary; record still reads `Gfx_SceneSoA` by `myEntityIndex` — should move to instance slab / `myInstanceDataOffset`).
+
+**Still open (S1):** Set 1 material batch binds; instance ring/slab (`UNIFORM_BUFFER_DYNAMIC` or sustained push layout); sort + batch before record; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
 
 ### 4.3 Extract step (render-facing boundary)
 
@@ -171,7 +181,7 @@ After extract:
 
 | Set | Role | Typical bindings | Descriptor type | Bind frequency |
 |-----|------|------------------|-----------------|----------------|
-| **0 — Frame** | Camera view/proj, environment, later frame-wide tables | `eVk_CameraBinding`, `eVk_EnvBinding`, … | `UNIFORM_BUFFER` | Once per **in-flight frame** (separate descriptor set per slot; memcpy UBO, no `vkUpdateDescriptorSets` on hot path) |
+| **0 — Frame** | Camera **view/proj** (no model in UBO), environment, demo texture until Set 1 | `eVk_CameraBinding`, `eVk_EnvBinding`, `eVk_TextureBinding`, … | `UNIFORM_BUFFER` | Once per **in-flight frame** (separate descriptor set per slot; memcpy UBO, no `vkUpdateDescriptorSets` on hot path) |
 | **1 — Material** | Material params, textures (until bindless) | TBD in S1 | `UNIFORM_BUFFER`, `COMBINED_IMAGE_SAMPLER` | Once per **material batch** |
 | **2 — Object** | Per-instance / per-draw data | Instance struct in slab | `UNIFORM_BUFFER_DYNAMIC` (+ optional push) | Set bound per batch; **`dynamicOffset`** per draw |
 
@@ -184,6 +194,8 @@ After extract:
 | Single `mat4` model matrix (VS path) | **Push constants** (preferred in S1) or dynamic UBO | 64 B; avoids descriptor churn; **do not** put full 192 B `GpuCameraData` in push constants without checking `maxPushConstantsSize` (minimum is often 128 B) |
 
 **Alignment:** slab stride and dynamic offsets are multiples of `minUniformBufferOffsetAlignment` (`Vk_Core::PadUniformBufferSize`).
+
+**Implemented on desktop (2026-05-26):** `TriangleVertex.vert` + `GpuCameraData` — **push constant** `mat4 model` (64 B, vertex stage); frame UBO = `view`, `proj` only. Do not patch `model` through the camera UBO between draws (same descriptor set); use push constants or Set 2 dynamic offsets instead.
 
 **VulkanDesktop today (demo):** only **set 0** is bound. Camera UBO still includes a **demo-only** `model` matrix (`ENABLE_ROTATE`); S1 will move object transform to set 2 or push constants. Environment uses one buffer with **frame-indexed static offsets** in `vkUpdateDescriptorSets` at init — **not** `UNIFORM_BUFFER_DYNAMIC`. Code contract: `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, bindings in `Vk_Enum.h`.
 
@@ -433,4 +445,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 SoA + extract v0; S0–S8, task dependency graph; 2026-05-25).*
+*Last aligned with `Docs/SprintPlan.md` (S1 resource tables + per-draw model push constant; 2026-05-26).*

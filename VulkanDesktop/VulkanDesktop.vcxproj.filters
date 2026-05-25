@@ -91,6 +91,9 @@
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -101,6 +104,9 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Core.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ResourceTables.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Initializer.cpp">
@@ -171,6 +177,9 @@
     <ClInclude Include="Gfx\Gfx_DrawExtract.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ResourceManifest.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_SceneSoA.h">
       <Filter>Gfx</Filter>
     </ClInclude>
@@ -184,6 +193,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Core.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ResourceTables.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h">

@@ -38,6 +38,10 @@ public:
         return myImageView;
     }
 
+    const VkImageView& ImageView() const {
+        return myImageView;
+    }
+
     Vk_AllocatedImage& AllocImage() {
         return myAllocImage;
     }

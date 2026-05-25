@@ -183,7 +183,6 @@ flowchart TB
 
 ### Data plane
 
-- [ ] Resource tables: mesh/material → GPU descriptor/buffer indices; draw records store indices only — populated from scene manifest ([`scene-load_Plan.md`](scene-load_Plan.md) Phase C).
 - [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
 - [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
 
@@ -499,6 +498,7 @@ flowchart LR
 
 ### S1 — CPU draw stream (M1)
 
+- [x] **[S1]** Resource tables: mesh/material/texture ids → `Vk_ResourceTables`; demo `Gfx_ResourceManifest`; `RecordScenePass` resolves `Gfx_DrawInstance` ids — 2026-05-26; `Docs/resource-tables_Plan.md` (scene JSON manifest: `scene-load` Phase C).
 - [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; `Docs/draw-extract_Plan.md`, `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
 - [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; `Docs/scene-soa_Plan.md`, `Gfx_SceneSoA.*`.
 - [x] **[S1]** Finish or delete `DrawObjects` stub; `RecordScenePass` documented as live Vulkan path — 2026-05-25 (with extract task).
