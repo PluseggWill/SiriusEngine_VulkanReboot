@@ -1,0 +1,31 @@
+---
+description: Per-draw transforms and frame UBO pitfalls for VulkanDesktop render/descriptor work.
+globs: VulkanDesktop/RenderCore/**,VulkanDesktop/Gfx/**,VulkanDesktop/Shader/**
+alwaysApply: false
+---
+
+# VulkanDesktop — per-draw data & descriptors
+
+Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Docs/descriptor-strategy_Plan.md`.
+
+## Per-draw `mat4` model (and similar)
+
+- **Do not** patch a **shared** per-frame `UNIFORM_BUFFER` (e.g. `GpuCameraData.model`) between multiple `vkCmdDraw*` calls that reuse the **same** bound descriptor set. Later draws may all see the **last** CPU write.
+- **Do** use one of:
+  - **Push constants** — `mat4` model, vertex stage (current desktop path; `TriangleVertex.vert`).
+  - **`UNIFORM_BUFFER_DYNAMIC`** — one slab, distinct `dynamicOffset` per draw (Set 2; S1 verification task).
+- When a demo looks wrong (meshes stacked): check **transform delivery** first, not only wider entity spacing in SoA.
+
+## Record path boundaries
+
+- **Target:** `RecordScenePass` consumes **`Gfx_DrawInstance` only** (+ resource table resolve). Per-instance data via `myInstanceDataOffset` into an instance slab (§4.4).
+- **Today (debt):** record may still call `Gfx_SceneSoA::GetTransform(myEntityIndex)` — acceptable only until instance-slab task; do not add new SoA reads from record.
+
+## Multi-mesh / batching
+
+- Prefer **bind Set 0 / Set 1 once per material batch**; per draw: push constants + VB/IB only (§5.2).
+- Set 0 texture bound only to **material 0** at init is demo-only — wire **Set 1** before claiming multi-material done.
+
+## Shader / C++ contract
+
+- Changing UBO layout or push ranges requires **same change set**: `GpuCameraData`, `TriangleVertex.vert`, `CreateGfxPipeline` layout, SPIR-V rebuild, and `EngineArchitecture.md` §5.3 note (see `docs-roadmap-arch-sync.mdc`).

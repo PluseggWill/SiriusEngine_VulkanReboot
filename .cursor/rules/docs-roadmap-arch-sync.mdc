@@ -18,7 +18,7 @@ Editing **either** file in the same change set (or PR) requires updating the **o
 | Sprint order, milestones M1–M6, task checklists | `SprintPlan.md` | `EngineArchitecture.md` §2 north star, §5.6 milestones (summary only) |
 | Task dependency graph / epic ordering | `SprintPlan.md` § Task dependency graph | §3 system map, §5.4 phase graph if boundaries shift |
 | Layer boundaries, Extract vs Vulkan, SoA rules | `EngineArchitecture.md` §3–4 | Matching S1/S2 tasks or acceptance bullets |
-| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S1/S2/S5/S6 tasks + bindless decision task |
+| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S1/S2/S5/S6 tasks + bindless decision task; update **§ S1 — implementation notes** when desktop path changes (push vs UBO model, Set 0/1 wiring) |
 | Frame graph, multi-view, transparency, LOD policy | `EngineArchitecture.md` §5–7 (add/update subsection) | S1/S2/S7 tasks + dependency table row |
 | Shader reflection / permutation / cache | `EngineArchitecture.md` § tooling or §5 | S2 shader systems + S7 presets |
 | Physics / Animation / AI | `EngineArchitecture.md` §3 layer map | `SprintPlan.md` S8 + dependency graph |

@@ -55,3 +55,4 @@ Add cpp-comments.mdc; link from layout and vibe-coding-entry rules.
 - Mention plan/progress or `SprintPlan.md` in the body if the commit completes a tracked item.
 - **Move the completed line to `## Archived`** in `Docs/SprintPlan.md` (tag sprint, e.g. `[S1]`); active sprints must not keep `[x]` items.
 - Prefer one logical change per commit (matches recent maintenance commits).
+- If a session delivers **both** a sprint plan task **and** a separate policy/shader fix (e.g. resource tables + push-constant `model`), use **two commits** when history clarity matters; reference both in `_Progress.md`.

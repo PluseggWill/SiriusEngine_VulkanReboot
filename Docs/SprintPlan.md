@@ -181,6 +181,18 @@ flowchart TB
 
 *Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream.*
 
+### S1 — implementation notes *(living; trim rows when follow-up tasks close)*
+
+| Topic | State | Next / owner task |
+|-------|--------|-------------------|
+| Resource tables | Done — `Gfx_ResourceManifest`, `Vk_ResourceTables`, `RecordScenePass` resolves mesh/material ids | `scene-load` Phase C replaces demo manifest |
+| Per-draw `model` | **Push constant** (vertex); removed from `GpuCameraData` UBO (2026-05-26) | Set 2 slab may share or supersede push path — descriptor verify task |
+| Record ↔ transforms | **Debt:** `RecordScenePass` reads `Gfx_SceneSoA::GetTransform(myEntityIndex)` | **Instance slab** — use `DrawInstance.myInstanceDataOffset` |
+| Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — bind per material batch |
+| Draw submission | No cull / sort / batch; `vkCmdBindDescriptorSets` per draw | Submission tasks below |
+
+**Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
+
 ### Data plane
 
 - [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
@@ -189,8 +201,8 @@ flowchart TB
 ### Submission
 
 - [ ] CPU frustum cull → sort opaque by `(pipeline, material, mesh, depth bucket)` — *deps: Extract, resource tables*.
-- [ ] Batch runs; `RecordCommandBuffer` scans batches only (remove hard-coded `myMeshMap[0]` draw).
-- [ ] **Verify descriptor policy (Set 0/1 + push):** split `model` out of `GpuCameraData` (push `mat4` or Set 2); Set 1 material bind once per batch; validation layers clean on multi-mesh path.
+- [ ] Batch runs; `RecordScenePass` scans batch runs only (minimal `vkCmdBind*` per batch).
+- [ ] **Verify descriptor policy (Set 0/1 + push):** `mat4` model via **push constant** (done 2026-05-26); remaining — Set 1 texture/material per batch, bind Set 0 once per batch, optional Set 2 slab vs push; validation layers clean on multi-mesh path — see § S1 implementation notes.
 
 ### LOD v0 (CPU) — *deps: SoA, resource tables, cull; unblocks S3 GPU LOD*
 
@@ -216,7 +228,7 @@ flowchart TB
 ### Milestone M1 acceptance
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
-- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO + (Set 1 batch **or** bindless table v0) + (Set 2 dynamic slab **or** push `mat4`) exercised on fixed test scene; no demo-only `model` in camera UBO.
+- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO (`view`/`proj` only) + (Set 1 batch **or** bindless table v0) + (Set 2 dynamic slab **or** push `mat4` — push path live 2026-05-26) exercised on fixed test scene.
 - [ ] At least one **transparent** object draws correctly over opaque (order + blend).
 - [ ] **LOD v0:** camera distance change swaps LOD on a test mesh (logged `meshId`).
 

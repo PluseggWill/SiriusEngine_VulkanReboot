@@ -165,6 +165,19 @@ Rules for subagents:
 - Readonly exploration must not modify files unless the task explicitly allows implementation.
 - On return, integrate findings into the plan or implementation; log substantive outcomes in `_Progress.md`.
 
+## VulkanDesktop pitfalls (from shipped tasks)
+
+Apply when a task touches **draw stream**, **descriptors**, or **multi-entity demos** (see also `.cursor/rules/vulkan-descriptor-per-draw.mdc`):
+
+| Pitfall | Do instead |
+|---------|------------|
+| Per-draw data written into a **shared frame UBO** between draws | Push constants or `UNIFORM_BUFFER_DYNAMIC` + offset (§5.3) |
+| Demo meshes overlap | Fix transform path first; then adjust SoA spacing |
+| Plan task done + **descriptor policy fix** in same session | Prefer **two commits** (implementation vs policy/shader); one Progress entry can cover both |
+| Shader/UBO layout or §5.3 policy changes | Update `EngineArchitecture.md` + `SprintPlan.md` S1 notes in the **same** change set (`docs-roadmap-arch-sync.mdc`) |
+
+After closing a render/data-plane task, skim `Docs/SprintPlan.md` **§ S1 — implementation notes** and trim or extend the table if debt shifted.
+
 ## Invocation
 
 - User may say: “按 vibe coding 流程做” or `@vibe-coding-workflow`.
