@@ -1,0 +1,44 @@
+---
+description: Keep Docs/SprintPlan.md and Docs/EngineArchitecture.md aligned when either changes.
+globs: Docs/SprintPlan.md, Docs/EngineArchitecture.md
+alwaysApply: false
+---
+
+# SprintPlan ↔ EngineArchitecture sync
+
+`Docs/SprintPlan.md` = **executable roadmap** (sprints, `[ ]` tasks, dependencies, acceptance).
+`Docs/EngineArchitecture.md` = **intent & invariants** (layering, data plane, render policy, risks, tradeoffs).
+
+Editing **either** file in the same change set (or PR) requires updating the **other** so they do not contradict. Do not finish the edit with only one file updated unless the user explicitly waives sync for that change.
+
+## Division of truth
+
+| Topic | Primary home | Mirror in the other |
+|-------|----------------|---------------------|
+| Sprint order, milestones M1–M6, task checklists | `SprintPlan.md` | `EngineArchitecture.md` §2 north star, §5.6 milestones (summary only) |
+| Task dependency graph / epic ordering | `SprintPlan.md` § Task dependency graph | §3 system map, §5.4 phase graph if boundaries shift |
+| Layer boundaries, Extract vs Vulkan, SoA rules | `EngineArchitecture.md` §3–4 | Matching S1/S2 tasks or acceptance bullets |
+| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S1/S2/S5/S6 tasks + bindless decision task |
+| Frame graph, multi-view, transparency, LOD policy | `EngineArchitecture.md` §5–7 (add/update subsection) | S1/S2/S7 tasks + dependency table row |
+| Shader reflection / permutation / cache | `EngineArchitecture.md` § tooling or §5 | S2 shader systems + S7 presets |
+| Physics / Animation / AI | `EngineArchitecture.md` §3 layer map | `SprintPlan.md` S8 + dependency graph |
+| Risks, anti-patterns, non-goals | `EngineArchitecture.md` §8 | SprintPlan backlog / parking lot (no duplicate prose) |
+| New sprint (e.g. S8) or renamed milestone | `SprintPlan.md` sprint map first | §2 table + footer “Last aligned with …” |
+
+## Sync checklist (run before marking doc work done)
+
+1. **Scan the diff** — list decisions that appear in only one file (new epic, deferred item, policy lock, sprint tag).
+2. **SprintPlan → Architecture** — update north star (§2), system map (§3), render/subsystem sections (§5–7), risks (§8) as needed; keep Architecture **free of task checkboxes**.
+3. **Architecture → SprintPlan** — add/move/adjust tasks, dependency graph, sprint map row, acceptance criteria; do not leave Architecture-only promises with no sprint home.
+4. **Cross-links** — preserve mutual links at top of each file; bump Architecture footer: *Last aligned with `Docs/SprintPlan.md` (…)*.
+5. **Hygiene** — `SprintPlan.md` active sections stay `[ ]` only; completed items go to `## Archived` with `[Sx]` tag.
+
+## Minimal vs full sync
+
+- **Minimal (required):** any change to milestone order, north star pillars, locked render/descriptor policy, or new top-level subsystem → at least one matching bullet/row in the other file + footer date.
+- **Full (preferred):** dependency graph, epic table, and related §5–§8 subsections updated in the same session.
+
+## When editing related docs
+
+- `{TaskName}_Plan.md` / `_Progress.md`: no mandatory Architecture rewrite unless the plan **changes** a locked policy or sprint boundary — then run this checklist.
+- `Docs/SprintPlan.md` only (task wording): Architecture sync can be a short §2/§5 bullet if intent unchanged.

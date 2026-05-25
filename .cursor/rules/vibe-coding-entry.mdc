@@ -11,5 +11,5 @@ If the user says "vibe coding", asks to follow a three-phase workflow, or refere
 2. Enforce phase gates: Clarify before Plan, Plan before Implement.
 3. During implementation, do not allow silent deviations from `{TaskName}_Plan.md`; apply the deviation protocol first. Before task close: **build + smoke-run** (skill § Phase 3) unless documented N/A.
 4. For P4-managed projects, remind the user when edits touch already checked-out files.
-5. Engine docs under `Docs/`: roadmap `SprintPlan.md`, architecture `EngineArchitecture.md`; per-task `{TaskName}_Plan.md` and `_Progress.md`; archived session notes under `Docs/Archived/`. When closing a sprint item, **move it to `SprintPlan.md` → `## Archived`** (do not leave `[x]` in active sprints).
+5. Engine docs under `Docs/`: roadmap `SprintPlan.md`, architecture `EngineArchitecture.md` — **edit both together** when either changes (`docs-roadmap-arch-sync.mdc`); per-task `{TaskName}_Plan.md` and `_Progress.md`; archived session notes under `Docs/Archived/`. When closing a sprint item, **move it to `SprintPlan.md` → `## Archived`** (do not leave `[x]` in active sprints).
 6. Code comments in `VulkanDesktop/`: follow **`cpp-comments.mdc`**.

@@ -30,7 +30,8 @@ Executable roadmap for a **small but real engine foundation** and a **mesh-shade
 | **S4** | **M3** | **Meshlet** offline build + GPU tables + debug viz. |
 | **S5** | **M4** | **Mesh shader** pipeline (Mesh + Fragment; Task deferred). |
 | **S6** | **M5** | **GPU-driven mesh tasks** + VS/indirect fallback. |
-| **S7** | **M6** | Rendering presets, benchmarks, feature experiments on new path. |
+| **S7** | **M6** | Frame graph, multi-view, presets, benchmarks, feature experiments. |
+| **S8** | — | Simulation: Physics → Animation → AI (parallel after S2). |
 
 ```mermaid
 flowchart LR
@@ -42,9 +43,123 @@ flowchart LR
   S3 --> S6[S6 GPU mesh tasks]
   S5 --> S6
   S6 --> S7[S7 Render lab]
+  S1 --> S8[S8 Simulation]
+  S2 --> S8
 ```
 
-**Parallel track** (any time after S1): [Vertical slice](#parallel-vertical-slice) — does not block render architecture spikes.
+**Parallel tracks** (see [dependency graph](#task-dependency-graph)):
+
+- After **M1**: [Vertical slice](#parallel-vertical-slice) — does not block render spikes.
+- After **S2 scheduler**: [S8 — Simulation](#s8--simulation-physics--animation--ai) (Physics → Animation → AI).
+- **Shader stack** (reflection → permutation → cache): [S1](#s1--cpu-draw-stream-milestone-m1) late / [S2](#s2--engine-layering--hygiene) — blocks heavy S7 feature permutations.
+- **Frame graph + multi-view**: [S7](#s7--rendering-lab--hardening-milestone-m6) — after M1 sort/batch; shadow pass benefits from FG.
+
+---
+
+## Task dependency graph
+
+*Epics added 2026-05-25. Arrows = **must complete first** (or sign off decision doc). Tasks in a sprint are not strictly serial unless noted.*
+
+```mermaid
+flowchart TB
+  subgraph foundation [S0 done]
+    S0[S0 toolchain descriptors]
+  end
+
+  subgraph s1 [S1 M1]
+    SoA[SoA + Extract + resource tables]
+    Sort[Sort + batch + Record]
+    LOD0[LOD v0 CPU]
+    Trans[Transparency dual lists]
+    BindDec[Bindless decision + tables v0]
+    SoA --> Sort
+    SoA --> LOD0
+    SoA --> Trans
+    Sort --> Trans
+    BindDec --> Sort
+  end
+
+  subgraph shader [Shader stack S1 late / S2]
+    Reflect[Shader reflection SPIRV]
+    Perm[Permutation registry]
+    Cache[Pipeline + disk cache]
+    Reflect --> Perm
+    Perm --> Cache
+  end
+
+  subgraph s2 [S2]
+    Life[lifecycle + scheduler]
+    Scene[scene-load C]
+    MultiCam[Multi-view RenderView]
+    Life --> MultiCam
+    SoA --> MultiCam
+  end
+
+  subgraph render_adv [S3–S7]
+    GPUcull[S3 GPU cull indirect]
+    Meshlet[S4 meshlets]
+    MeshSh[S5 mesh shader]
+    GPUMesh[S6 GPU mesh tasks]
+    FG[Frame graph v1]
+    LODgpu[LOD GPU parity]
+    SoA --> GPUcull
+    LOD0 --> LODgpu
+    GPUcull --> LODgpu
+    Sort --> FG
+    Perm --> FG
+    MultiCam --> FG
+    GPUcull --> Meshlet
+    Meshlet --> MeshSh
+    BindDec --> MeshSh
+    MeshSh --> GPUMesh
+    GPUMesh --> FG
+  end
+
+  subgraph s7 [S7 lab]
+    Preset[Presets + benchmarks]
+    FG --> Preset
+    Perm --> Preset
+    Cache --> Preset
+  end
+
+  subgraph s8 [S8 parallel S2+]
+    Phys[Physics]
+    Anim[Animation]
+    AI[AI v0]
+    Life --> Phys
+    Phys --> Anim
+    Anim --> AI
+  end
+
+  subgraph mt [Backlog threading]
+    Jobs[Job system + SoA sync]
+    SoA --> Jobs
+    LOD0 --> Jobs
+    Jobs --> GPUcull
+  end
+
+  S0 --> SoA
+  Sort --> Reflect
+  Scene --> MultiCam
+  Trans --> FG
+```
+
+| Epic | Depends on | Unblocks | Primary home |
+|------|------------|----------|--------------|
+| **SoA / Extract / batch** | S0, scene-load B/C | Everything render + sim | S1 |
+| **LOD v0 (CPU)** | SoA, resource tables, cull | GPU LOD, meshlet LOD | S1, S3, S4 |
+| **Transparency** | Extract, sort key policy | FG transparent pass, alpha perm | S1, S7 |
+| **Bindless** | M1 Set 1 path, decision doc | Mesh shader materials, S6 fallback | S1, S5, S6 |
+| **Shader reflection** | SPIR-V pipeline (S0), Set layout policy | Permutation, layout codegen, bindless debug | S1 late / S2 |
+| **Shader permutation** | Reflection, material flags | S7 presets, shadows/IBL variants | S2, S7 |
+| **Shader / pipeline cache** | Permutation registry, `VkDevice` | Fast restarts, CI benchmarks | S2, S7 |
+| **Multi-camera** | M1 extract, S2 lifecycle | FG per-view, debug minimap | S2, S7 |
+| **Frame graph** | M1 record path, ≥2 passes worth | Shadows, post, multi-view RT | S7 (spike after M2 optional) |
+| **GPU cull / mesh** | M1 buffers | GPU LOD, M5 | S3–S6 |
+| **Multi-threading** | M1 SoA columns, S2 scheduler | Parallel cull/LOD/anim | Backlog → promote after M2 |
+| **Physics → Animation → AI** | S2 scheduler, SoA writes | Vertical slice enemies, moving props | S8 |
+
+**Parallel track** (any time after S1): [Vertical slice](#parallel-vertical-slice) — gameplay hooks; **S8 AI** enhances enemies but does not block S3–S6.
 
 ---
 
@@ -77,16 +192,38 @@ flowchart LR
 
 ### Submission
 
-- [ ] CPU frustum cull + LOD (simple) → sort by `(pipeline, material, mesh, depth bucket)`.
+- [ ] CPU frustum cull → sort opaque by `(pipeline, material, mesh, depth bucket)` — *deps: Extract, resource tables*.
 - [ ] Batch runs; `RecordCommandBuffer` scans batches only (remove hard-coded `myMeshMap[0]` draw).
 - [ ] **Verify descriptor policy (Set 0/1 + push):** split `model` out of `GpuCameraData` (push `mat4` or Set 2); Set 1 material bind once per batch; validation layers clean on multi-mesh path.
-- [ ] **Bindless vs batch+push decision** — document in `EngineArchitecture.md`; implement tables + shader `materialIndex` (must not contradict §5.3 hybrid policy).
 - [ ] Finish or delete **`DrawObjects` stub**; single documented render path.
+
+### LOD v0 (CPU) — *deps: SoA, resource tables, cull; unblocks S3 GPU LOD*
+
+- [ ] Asset: mesh **LOD chain** (per-LOD mesh id or geometry path) + import doc sample in `Data/`.
+- [ ] SoA: `lodBias` / resolved `meshLodIndex` → resource table `meshId`.
+- [ ] Distance (or screen-size) → `lodLevel` in cull; hysteresis doc to avoid flicker.
+- [ ] Sort/batch uses **resolved** `meshId` (not logical mesh handle).
+
+### Transparency — *deps: Extract, opaque sort; unblocks S7 FG pass*
+
+- [ ] Render flags on entity/material: opaque vs transparent.
+- [ ] Extract → **opaque** + **transparent** `DrawInstance` lists (still no Vulkan).
+- [ ] Transparent sort: back-to-front eye-space Z; documented tie-break (`EngineArchitecture.md` §8).
+- [ ] Record: opaque pass then transparent pass (blend state); ≥1 test object in scene.
+
+### Bindless v0 — *deps: Set 1 verification; unblocks S5/S6 materials*
+
+- [ ] **Bindless vs batch+push decision** — document in `EngineArchitecture.md` (indexing vs SSBO table vs hybrid).
+- [ ] Extension probe: `VK_EXT_descriptor_indexing` (or SSBO-only path); log + fallback preset hook.
+- [ ] GPU **material/texture table** + shader `materialIndex` (must not contradict §5.3 hybrid policy).
+- [ ] Draw sort key includes table generation / compatibility group if needed for batching.
 
 ### Milestone M1 acceptance
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
-- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO + (Set 1 batch **or** bindless table) + (Set 2 dynamic slab **or** push `mat4`) exercised on fixed test scene; no demo-only `model` in camera UBO.
+- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO + (Set 1 batch **or** bindless table v0) + (Set 2 dynamic slab **or** push `mat4`) exercised on fixed test scene; no demo-only `model` in camera UBO.
+- [ ] At least one **transparent** object draws correctly over opaque (order + blend).
+- [ ] **LOD v0:** camera distance change swaps LOD on a test mesh (logged `meshId`).
 
 ---
 
@@ -118,6 +255,19 @@ flowchart LR
 - [ ] GPU resource lifetime rules when scene edits (descriptor/pipeline rebuild policy) — plan Phase D1.
 - [ ] **Verify descriptor policy (layout):** `VkPipelineLayout` lists Set 0/1/2 per `Vk_DescriptorPolicy.h`; rebuild path documented when materials change.
 
+### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
+
+- [ ] **Shader reflection:** offline SPIRV-Reflect (or equivalent) → JSON bindings (`set`/`binding`/types); validate against `Vk_DescriptorPolicy.h` — plan `shader-reflection_Plan.md`.
+- [ ] **Permutation registry:** feature key bits (`SHADOWS`, `IBL`, `ALPHA_CLIP`, …) + offline glslc variants → `Shader_Generated/`; sort key carries `pipelinePermutationId`.
+- [ ] **Pipeline cache:** `VkPipelineCache` + disk `Cache/pipeline_*.bin` (versioned); invalidate on shader timestamp / driver change.
+
+### Multi-view — *deps: M1 Extract, lifecycle; unblocks S7 FG*
+
+- [ ] `RenderView`: camera id, viewport, layer/cull masks, optional render target — plan `multi-view_Plan.md`.
+- [ ] Extract per view (or shared visible set + per-view filter); per-view Set 0 (view/proj).
+- [ ] Record loop: foreach active view; scene JSON `cameras[]` + default active.
+- [ ] Debug: second view (minimap / picture-in-picture) or ImGui view switch.
+
 ---
 
 ## S3 — GPU-driven indirect (milestone M2)
@@ -129,6 +279,7 @@ flowchart LR
 - [ ] `vkCmdDrawIndexedIndirect` / multi-draw indirect; CPU record cost ~flat.
 - [ ] Optional GPU compaction pass for dense visible list.
 - [ ] **Parity test**: GPU path vs CPU cull on fixed camera (golden or statistical) per `EngineArchitecture.md` §5.5.
+- [ ] **LOD GPU:** cull/indirect uses same LOD table as S1; subset parity vs CPU on fixed camera — *deps: S1 LOD v0*.
 
 ### M2 acceptance
 
@@ -142,6 +293,7 @@ flowchart LR
 
 - [ ] Choose meshlet builder (e.g. meshoptimizer) + documented cluster params.
 - [ ] Asset format: meshlet table + vertex/index views + per-meshlet bounds (import or offline step).
+- [ ] Optional **meshlet LOD** cluster rules documented — *deps: S1 LOD asset chains*.
 - [ ] Upload global vertex/index + meshlet metadata buffers.
 - [ ] Debug draw: meshlet bounds (VS or compute viz) on test mesh.
 
@@ -156,8 +308,8 @@ flowchart LR
 *Raster path switch. Vulkan 1.2 + `VK_EXT_mesh_shader`; **no Task shader** in v1.*
 
 - [ ] Device capability probe: mesh shader features; log + graceful disable.
-- [ ] Enable extensions; mesh + fragment pipeline layout aligned with material tables.
-- [ ] Shaders: `Mesh` (+ reuse/adapt `TriangleFrag_Lit.frag`) → `Shader_Generated/`.
+- [ ] Enable extensions; mesh + fragment pipeline layout aligned with **bindless / material tables** (S1) — *deps: bindless v0 or documented fallback*.
+- [ ] Shaders: `Mesh` (+ reuse/adapt `TriangleFrag_Lit.frag`) → `Shader_Generated/`; `materialIndex` from tables.
 - [ ] `vkCreateGraphicsPipeline` mesh stages; payload reads meshlet + instance from SSBO.
 - [ ] RenderDoc / validation capture checklist in docs.
 
@@ -174,7 +326,7 @@ flowchart LR
 - [ ] Compute: meshlet frustum cull (+ optional backface cone later).
 - [ ] Compact visible meshlet list → indirect mesh-task buffer.
 - [ ] `vkCmdDrawMeshTasksIndirectEXT`; mesh shader consumes compact list + instance table.
-- [ ] **Fallback preset**: S3 VS + indirect when mesh shader unsupported.
+- [ ] **Fallback preset**: S3 VS + indirect when mesh shader unsupported; **bindless-off** uses Set 1 batch path (S1).
 - [ ] Preset enum: `Traditional` / `GpuIndirect` / `MeshShader` / `FullGpuMesh`.
 
 ### M5 acceptance
@@ -185,20 +337,28 @@ flowchart LR
 
 ## S7 — Rendering lab & hardening (milestone M6)
 
-*Old §4 experiments + §5 measurement + §6 docs — on top of S6 path.*
+*Old §4 experiments + §5 measurement + §6 docs — on top of S6 path. Frame graph + multi-view land here after M1/M2 draw path is stable.*
+
+### Frame graph — *deps: M1 Record, S2 multi-view optional, S2 permutation; unblocks shadow/post passes*
+
+- [ ] `framegraph_Plan.md`: pass/resource nodes, transient RT pool, import/export rules.
+- [ ] `FrameGraphBuilder`: topological sort + barrier emission; migrate **ForwardLit** to `addPass`.
+- [ ] **Transparent pass** as FG node (reads depth) — *deps: S1 transparency*.
+- [ ] Preset toggles FG topology (enable/disable shadow, post) without breaking sort keys.
 
 ### Infrastructure
 
-- [ ] Presets `Low / Base / High / Custom` wired to concrete flags.
+- [ ] Presets `Low / Base / High / Custom` wired to concrete flags **and permutation subset** (S2 registry).
 - [ ] GPU timestamp queries + CPU p50/p95 logging.
 - [ ] Standard benchmark procedure (scene, camera path, warmup, CSV/JSON).
 - [ ] Screenshot capture keyed to preset + pose.
 - [ ] RenderDoc expectations per preset; preset changelog.
+- [ ] Benchmark: cold vs warm **pipeline cache** load (S2 cache task).
 
-### Feature experiments (order flexible)
+### Feature experiments (order flexible; prefer after FG-2)
 
 - [ ] MSAA vs post AA vs none.
-- [ ] Shadow map (single cascade).
+- [ ] Shadow map (single cascade) — *deps: frame graph v1 + shadow permutation*.
 - [ ] IBL / environment upgrade.
 - [ ] Tonemap / exposure modes.
 - [ ] Bloom (optional).
@@ -210,6 +370,46 @@ flowchart LR
 - [ ] “How to add a rendering experiment” checklist.
 - [ ] Troubleshooting matrix (seed: `Docs/Archived/notes-2026-05-22-shader-debug.md`).
 - [ ] Third-party / SDK license inventory.
+
+### M6 acceptance
+
+- [ ] Frame graph drives forward + at least one extra pass (e.g. shadow or tonemap) on benchmark scene.
+- [ ] Two **RenderView**s or FG multi-target documented in runbook; presets switch permutations without validation errors.
+
+---
+
+## S8 — Simulation (Physics → Animation → AI)
+
+*Parallel after **S2 scheduler** + M1 SoA. Does not block S3–S6. Writes simulation columns only; Extract reads results.*
+
+```mermaid
+flowchart LR
+  PH[Physics] --> AN[Animation]
+  AN --> AI[AI v0]
+```
+
+### Physics — *deps: S2 scheduler, SoA transform/bounds; unblocks gameplay + anim*
+
+- [ ] `physics_Plan.md`: library choice (built-in AABB vs Jolt/PhysX) + collision layers.
+- [ ] `PhysicsWorld::SimStep(fixed_dt)`; entity handle ↔ body mapping; no Vulkan includes in sim code.
+- [ ] Write back SoA: `transform`, `bounds` (Extract uses for cull).
+- [ ] Scene JSON physics components; debug draw AABB (debug pass or ImGui).
+
+### Animation — *deps: Physics optional, resource tables, S4+ for GPU path later*
+
+- [ ] Skeleton asset import (glTF or custom) + clip playback v0 (single clip).
+- [ ] `AnimationSystem` before Extract: skin matrices → deform buffer or CPU skinned mesh path.
+- [ ] Plan mesh-shader / GPU skinning alignment with S5 (non-blocking for v0 CPU path).
+
+### AI — *deps: Animation optional, Parallel player controller*
+
+- [ ] Agent SoA columns: state, target, perception radius.
+- [ ] v0 state machine or minimal behavior tree (Idle / Chase / Flee); one enemy uses player position.
+- [ ] Debug: ImGui agent state; optional tie to Parallel objective.
+
+### S8 acceptance
+
+- [ ] Dynamic props fall/settle (physics); one skinned mesh plays clip; one agent chases player in play scene.
 
 ---
 
@@ -240,6 +440,11 @@ flowchart LR
 - [ ] Simple game state / mode stack (Play, Pause, Dev overlay).
 - [ ] Event channel gameplay ↔ UI ↔ debug.
 
+### Simulation hooks (tie to S8, after S8-Physics)
+
+- [ ] Interact / damage hooks read physics overlap or ray — *deps: S8 Physics*.
+- [ ] Enemy uses **S8 AI** for chase objective — *deps: S8 AI, Parallel objective*.
+
 ---
 
 ## Backlog (deferred / unscheduled)
@@ -252,13 +457,18 @@ flowchart LR
 - [ ] **Task shader** for mesh amplification (post-M5).
 - [ ] GPU occlusion / hierarchical Z (post-M5).
 - [ ] Deferred vs forward decision (only if G-buffer committed).
-- [ ] Job system / parallel column updates (SoA write sets).
-- [ ] Editor, networking, physics, non-Windows — see parking lot.
+- [ ] **Multi-threading v1:** thread model doc + frame SoA double-buffer — *deps: M1 SoA, S2 scheduler*.
+- [ ] **Multi-threading v2:** job system parallel cull/LOD/transform — *deps: MT v1, S1 LOD*; unblocks faster M2 record prep.
+- [ ] **Multi-threading v3 (optional):** render thread + command stream — *deps: S7 frame graph stable*.
+- [ ] Shader reflection-driven **layout codegen** (full auto `VkPipelineLayout`) — *deps: S2 reflection JSON*.
+- [ ] `VK_KHR_pipeline_binary` disk cache research — *deps: S2 pipeline cache*.
+- [ ] Editor, networking, non-Windows — see parking lot.
 
 ### Parking lot
 
-- In-engine property editor (post slice).
+- In-engine property editor (post slice; benefits from shader reflection).
 - Cross-platform windowing (on product request).
+- Navmesh / full behavior trees (post S8 AI v0).
 
 ---
 
@@ -293,4 +503,4 @@ flowchart LR
 
 ---
 
-*When closing a task: move here, tag sprint (`[S0]`…`[S7]`, `[parallel]`), note verification. Update `EngineArchitecture.md` when boundaries or render target change.*
+*When closing a task: move here, tag sprint (`[S0]`…`[S8]`, `[parallel]`), note verification. Update `EngineArchitecture.md` when boundaries or render target change.*

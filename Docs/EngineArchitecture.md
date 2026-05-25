@@ -41,21 +41,29 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│  Application (lifecycle, config, modes)                    │
+│  Application (lifecycle, config, modes, scheduler)         │
 ├─────────────────────────────────────────────────────────────┤
-│  Gameplay / rules (optional thin layer on top of world)     │
+│  Gameplay / rules (objectives, modes — parallel slice)      │
 ├─────────────────────────────────────────────────────────────┤
-│  Simulation & input → writes SoA / columns                  │
+│  Simulation (S8): Physics → Animation → AI → SoA columns   │  ← no Vulkan
+├─────────────────────────────────────────────────────────────┤
+│  Input → camera / player controllers                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Scene / world store (SoA, handles, resource tables)       │
 ├─────────────────────────────────────────────────────────────┤
-│  Render extract (visibility, draw instances, sort keys)      │  ← no Vulkan
+│  Render extract (per-view visible sets, draw instances)     │  ← no Vulkan
 ├─────────────────────────────────────────────────────────────┤
-│  Render backend (Vulkan: passes, pipelines, cmd buffers)   │  ← consumes extract only
+│  Render prep (cull/LOD, opaque + transparent sorts, batch)   │
+├─────────────────────────────────────────────────────────────┤
+│  Render backend: frame graph → passes → Vulkan record       │  ← consumes prep only
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Rule of thumb**: `Vk_Core` (or its successor) should sit in the **bottom** box. It should **not** own high-level game rules; it **should** own swap chains, pipelines, and command recording driven by **already prepared** draw streams.
+**Rule of thumb**: `Vk_Core` (or its successor) should sit in the **render backend** box. It should **not** own high-level game rules or physics; it **should** own swap chains, **frame-graph orchestration**, pipelines, and command recording driven by **already prepared** draw streams.
+
+**S8 (simulation)** runs in parallel after application scheduler exists (**S2**): fixed-step physics and animation write SoA; AI writes intent columns. None of these call Vulkan. See **§4.6** and `SprintPlan.md` S8.
+
+**Multi-view**: one world SoA, multiple **RenderView** configs (camera, viewport, masks). Extract may run per view or filter a shared visible set. Each view carries its own frame UBO (view/proj). Details: **§5.9**.
 
 ### 3.1 VulkanDesktop today (incremental)
 
@@ -69,7 +77,9 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (target):** See **§5.6** and `Docs/SprintPlan.md` (S1→S6). Today: indexed draw from `Vk_Core`; target: draw stream → GPU indirect → mesh tasks + mesh shader.
+**Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Today: indexed draw from `Vk_Core`; target: draw stream → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
+
+**Shader tooling (target):** SPIR-V reflection → permutation registry → `VkPipelineCache` + disk cache (**§5.7**). Executable tasks: S2 shader systems, S7 presets.
 
 ---
 
@@ -96,9 +106,12 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 Each frame (or sub-step), a dedicated **extract** phase:
 
-1. Reads SoA (transforms, bounds, visibility masks).
-2. Outputs **flat arrays**: visible entity indices, `DrawInstance` structs (sort key, mesh id, material id, per-instance data offset, etc.).
-3. **Does not** call Vulkan.
+1. Reads SoA (transforms, bounds, visibility/layer masks, render flags).
+2. Outputs **flat arrays**: visible entity indices; **`DrawInstance`** structs (sort key, resolved mesh id after LOD, material id, per-instance data offset, pipeline permutation id when used).
+3. Splits **opaque** and **transparent** instance lists when transparency is enabled (**§5.8**).
+4. **Does not** call Vulkan.
+
+Per **RenderView**, extract uses that view’s camera frustum and masks. Multiple views share the same SoA and resource tables.
 
 This isolates **game/scene semantics** from **GPU API** and makes unit testing and profiling easier.
 
@@ -117,6 +130,20 @@ Hierarchy complicates pure SoA updates. Practical options:
 
 Recursive virtual calls per node are a poor fit for the stated data-plane goals.
 
+### 4.6 Simulation layer (S8)
+
+Simulation is **not** part of the render extract path but **feeds** it:
+
+| System | Writes (SoA / buffers) | Reads | Sprint home |
+|--------|------------------------|-------|-------------|
+| **Physics** | `transform`, `bounds` | Prior transform, collision layers | S8 |
+| **Animation** | Deformed vertices or skin palette / attachment transforms | Skeleton clips, mesh handles | S8 |
+| **AI** | Steering, state flags, target handles | Player position, perception | S8 |
+
+**Order (CPU, same frame):** `Input → Simulation (physics step, animation, AI) → Transform resolve → Extract → …`
+
+Physics uses a **fixed dt** step under the application scheduler; render may interpolate for display later. Simulation code must not include Vulkan headers.
+
 ---
 
 ## 5. Rendering pipeline alignment (submission model)
@@ -125,11 +152,12 @@ Recursive virtual calls per node are a poor fit for the stated data-plane goals.
 
 After extract:
 
-1. **Cull / LOD** (CPU first): produce candidate draw indices or instances.
-2. **Assign sort keys**: e.g. `(pipelineId, materialId, meshId, depthBucket)` packed into a `uint64` or struct with documented tie-break for stability (transparency, UI).
-3. **Sort** `DrawInstance` array by key.
-4. **Batch**: compute run lengths or secondary `Batch` array for contiguous draws sharing bind state.
-5. **Record** command buffer: single forward scan over batches; minimal `vkCmdBind*` churn.
+1. **Cull** (frustum + layer masks per view).
+2. **LOD** (CPU v0 in **S1**): distance or screen metric → `lodLevel` → resolved **mesh id** from asset LOD chain; optional hysteresis to reduce flicker. GPU path (**S3**) and meshlet path (**S4**) reuse the same LOD table.
+3. **Assign sort keys** for **opaque**: e.g. `(pipelinePermutationId, materialId, meshId, depthBucket)` with documented tie-break.
+4. **Sort** opaque `DrawInstance` array; **transparent** list sorted **back-to-front** (eye-space Z), separate pass (**§5.8**).
+5. **Batch**: run lengths for contiguous draws sharing bind state (material table generation must match batch boundaries).
+6. **Record** (or hand off to **frame graph** §5.9): forward opaque, then transparent; minimal `vkCmdBind*` churn.
 
 ### 5.2 Vulkan recording principles
 
@@ -166,17 +194,21 @@ After extract:
 | **Traditional** + batching + push/dynamic | Portable, easier validation/debug | More CPU sorting; more binds if batches are poor |
 | **Bindless** (descriptor indexing / descriptor buffers) | Natural “material index → table lookup” in shader | Extension matrix, harder debug, stricter layout discipline |
 
-Bindless remains a **separate S1 decision**; it does not replace the frequency-tiered set layout above.
+**Bindless v0 (S1 decision, locked before S5):** choose descriptor indexing, large SSBO tables, or hybrid. Shaders use **`materialIndex`** into GPU material/texture tables. **Fallback preset** (S6): when indexing unavailable, use Set 1 batch binds. Bindless does not remove tiered layout for frame (set 0) and instance (set 2 / push) data.
 
 ### 5.4 Phase graph (CPU side)
 
 Recommended explicit order (names illustrative):
 
 ```text
-Input → Simulation → Transform resolve → Extract → Cull/LOD → Sort → Record → Present
+Input → Simulation (physics, animation, AI) → Transform resolve
+     → Extract (per RenderView) → Cull/LOD → Sort (opaque + transparent)
+     → Batch → FrameGraph/Record → Present
 ```
 
 Each phase declares **inputs/outputs** as buffers. Hidden cross-talk between phases (globals, singletons mutating unknown columns) undermines reasoning and parallelization.
+
+**Threading (backlog):** parallelize cull/LOD/column updates via job system only after frame SoA sync rules exist; render-thread submission is optional and comes after frame graph stabilizes (`SprintPlan.md` backlog MT v1–v3).
 
 ### 5.5 GPU-driven path (staged)
 
@@ -200,9 +232,55 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | Fallback | **S3 path**: VS + `DrawIndexedIndirect` | Required when mesh shader unsupported; same instance/meshlet buffers where possible. |
 | Scope | 1k+ instances, single-digit cascades later | No Nanite-scale occlusion/clip in v1. |
 
-**Milestones** (detail in `SprintPlan.md`): **M1** CPU draw stream → **M2** GPU indirect → **M3** meshlet assets → **M4** mesh shader → **M5** GPU mesh tasks + fallback → **M6** rendering lab on new path.
+**Milestones** (checklists in `SprintPlan.md`):
 
-**Anti-pattern**: jumping to mesh shaders before **draw stream**, **descriptor policy**, and **meshlet buffers** exist — yields a non-extensible demo draw.
+| Milestone | Sprint | Outcome (summary) |
+|-----------|--------|-------------------|
+| **M1** | S1 | CPU draw stream; LOD v0; transparency; bindless v0 or batch path signed off |
+| **M2** | S3 | GPU frustum cull + indirect; LOD GPU parity subset |
+| **M3** | S4 | Meshlet assets + debug viz |
+| **M4** | S5 | Mesh shader forward lit vs VS parity |
+| **M5** | S6 | GPU mesh tasks + preset fallbacks |
+| **M6** | S7 | Frame graph + multi-view + presets/permutations + benchmarks |
+
+**S8** has no render milestone; acceptance is physics + skinned clip + one AI agent in play scene.
+
+**Anti-pattern**: jumping to mesh shaders before **draw stream**, **descriptor policy**, **meshlet buffers**, and **material tables** exist — yields a non-extensible demo draw.
+
+### 5.7 Shader systems (reflection, permutation, cache)
+
+| Layer | Role | Policy |
+|-------|------|--------|
+| **Reflection** | Offline SPIR-V → binding metadata JSON | Validate against `Vk_DescriptorPolicy.h`; reduces layout drift (S2) |
+| **Permutation** | Feature flags → limited shader/pipeline variants | Registry with explicit key bits; sort key includes `pipelinePermutationId`; avoid combinatorial explosion |
+| **Cache** | `VkPipelineCache` + versioned disk blob | Invalidate on shader timestamp or driver change; benchmark cold/warm in S7 |
+
+Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph passes**, not per-object virtual branches.
+
+### 5.8 Transparency
+
+- **Flags** on entity or material: opaque vs transparent.
+- **Extract** produces two lists; transparent sort is **back-to-front** with documented tie-break (same entity, material stability).
+- **Record**: opaque pass first (depth write); transparent pass with blending (depth test on, typically depth write off).
+- **Frame graph**: transparent pass is a separate FG node that **reads** depth from opaque pass (S7).
+
+### 5.9 Multi-view and frame graph
+
+**RenderView** (conceptual): `cameraId`, viewport, render target handle, layer/cull masks. Scene JSON may define multiple cameras; application picks active views.
+
+**Frame graph (S7):** declarative pass/resource DAG for a frame (or per view):
+
+- **Pass node**: reads/writes transient or imported resources (color, depth, shadow map).
+- **Resource lifetime** managed per frame (and **import** for TAA/history later).
+- Replaces ad-hoc barrier chains in `Vk_Core` for multi-pass features.
+
+Dependency: stable **sort/batch** from S1; **permutations** from S2; optional **multi-view** from S2 before shadow/post FG in S7.
+
+```text
+[Shadow pass] ─writes→ shadow map ─reads→ [Opaque forward] ─writes→ color+depth
+                                                      ─reads→ [Transparent pass]
+                                                      ─reads→ [Tonemap / post …]
+```
 
 ---
 
@@ -249,17 +327,52 @@ flowchart LR
   ms --> fs
 ```
 
+### 6.3 Opaque + transparent extract
+
+```mermaid
+flowchart LR
+  E[Extract]
+  O[Opaque DrawInstances]
+  T[Transparent DrawInstances]
+  SO[Sort opaque by batch key]
+  ST[Sort transparent back-to-front]
+  E --> O
+  E --> T
+  O --> SO
+  T --> ST
+```
+
+### 6.4 Simulation → extract (S8)
+
+```mermaid
+flowchart LR
+  IN[Input]
+  PH[Physics]
+  AN[Animation]
+  AI[AI]
+  SOA[SoA columns]
+  EX[Extract]
+  IN --> PH
+  PH --> SOA
+  AN --> SOA
+  AI --> SOA
+  SOA --> EX
+```
+
 ---
 
 ## 7. Rendering feature lab (architectural hooks)
 
 Features (MSAA, shadows, IBL, tonemap, etc.) should map to:
 
-- **Preset bundles** (Low/Base/High/Custom) that flip concrete flags.
+- **Preset bundles** (Low/Base/High/Custom) that flip **concrete flags** and a **permutation subset** (§5.7).
+- **Frame graph topology** (which passes exist), not scattered per-draw branches.
 - **Pipeline variants** keyed consistently so the **draw sort key** remains coherent when toggling features.
-- **Measurement**: same scene + camera path + warmup + p50/p95 frame time; optional GPU timestamps.
+- **Measurement**: same scene + camera path + warmup + p50/p95 frame time; optional GPU timestamps; pipeline cache cold vs warm documented in runbook.
 
-Architecturally: **feature code** should not scatter “if (feature)” inside per-object virtual calls; it should change **which passes/pipelines exist** and **which columns** extract reads — still fed by the same draw-stream machinery.
+Architecturally: **feature code** should not scatter “if (feature)” inside per-object virtual calls; it should change **which FG passes/pipelines exist** and **which columns** extract reads — still fed by the same draw-stream machinery.
+
+**M6 acceptance (summary):** frame graph drives forward + at least one extra pass; multi-view or multi-target documented; preset permutation switches pass validation cleanly (`SprintPlan.md` S7).
 
 ---
 
@@ -275,6 +388,11 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 | **Premature GPU-driven / mesh shader** | Follow S1→S6 order; presets + parity tests before dropping fallback. |
 | **Descriptor strategy churn** | Lock policy in **S0**; reflected in mesh/fragment table layouts. |
 | **Mesh shader portability** | Always ship **S3 fallback** preset; probe features at startup. |
+| **Permutation explosion** | Cap feature key bits; offline variant list; preset maps to subset only. |
+| **Frame graph complexity** | Introduce FG only when ≥2 passes (shadow/post); keep forward path working without FG until S7. |
+| **Bindless debugging** | Keep batch+fallback preset; validation-friendly non-bindless path for captures. |
+| **Multi-threaded SoA races** | Frame double-buffer or phase barriers before parallel cull (backlog MT). |
+| **Physics ↔ render coupling** | Physics in S8 module only; bounds/transform written to SoA for Extract. |
 
 ### Anti-patterns (discouraged on the hot path)
 
@@ -282,6 +400,12 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 - Scene graph traversal from inside `vkCmd` recording.
 - Per-draw heap allocations or string operations.
 - Implicit global mutable state without a named owner phase.
+- Mixing transparent instances into opaque sort without a separate pass/policy.
+- Building shadow/post passes before permutation registry and sort keys are stable.
+
+### Explicit non-goals (v1)
+
+Aligned with `SprintPlan.md` backlog / parking lot: full editor, networking, cross-platform RHI, world streaming, navmesh, Task shader (until needed), Nanite-scale occlusion. Audio subsystem deferred.
 
 ---
 
@@ -294,14 +418,19 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 1. Introduce a **plain-data** scene or object list that `Vk_Core` **reads** each frame (even if small).
 2. Add an **extract** function that fills a `std::vector<DrawInstance>` (or equivalent) before any `vkCmd*` for scene objects.
 3. Move sort/batch assumptions into that path; shrink direct coupling from gameplay-ish state to Vulkan structs.
+4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record.
+5. Add **simulation** module stub (S8) writing transforms only, before physics library integration.
 
 ---
 
 ## 10. Document maintenance
 
-- When **binding model** or **extract layout** changes, update **§5** and note in preset/benchmark changelog (**S7**).
-- When **north star** or sprint order changes, update **§2** / **§5.6** and `Docs/SprintPlan.md`.
+- **Pairwise sync:** editing this file or `Docs/SprintPlan.md` requires updating the other in the same change set — see `.cursor/rules/docs-roadmap-arch-sync.mdc`.
+- When **binding model**, **bindless decision**, or **extract layout** changes, update **§5** and matching sprint tasks / acceptance.
+- When **north star**, **milestones**, or **epic dependencies** change, update **§2** / **§5.6** table and `SprintPlan.md` § Task dependency graph.
+- When **frame graph**, **multi-view**, **shader stack**, or **S8** boundaries change, update **§3**, **§5.7–§5.9**, **§6**, and S7/S8 sections in the sprint plan.
+- Bump the footer line below on every aligned edit.
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S0–S7 + parallel vertical slice).*
+*Last aligned with `Docs/SprintPlan.md` (S0–S8, task dependency graph, transparency/LOD/bindless, shader stack, frame graph, multi-view; 2026-05-25).*
