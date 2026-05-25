@@ -754,10 +754,10 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         Gfx_ExtractViewParams extractView{};
         extractView.myView = myCamera.myView;
         extractView.myProj = myCamera.myProj;
-        Gfx_ExtractDrawInstances( mySceneEntities, extractView, myExtractResult );
+        Gfx_ExtractDrawInstances( mySceneSoA, extractView, myExtractResult );
         if ( !myExtractLoggedOnce ) {
             UtilLogger::Info( "EXTRACT",
-                              "entities=" + std::to_string( mySceneEntities.size() ) + " visible=" +
+                              "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " visible=" +
                                   std::to_string( myExtractResult.myVisibleEntityIndices.size() ) + " draws=" +
                                   std::to_string( myExtractResult.myDrawInstances.size() ) );
             myExtractLoggedOnce = true;
@@ -1066,26 +1066,12 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 }
 
 void Vk_Core::InitDemoSceneEntities() {
-    mySceneEntities.clear();
+    mySceneSoA.Clear();
 
-    Gfx_SceneEntity house{};
-    house.myId.myIndex     = 0;
-    house.myId.myGeneration = 0;
-    house.myMeshId         = 0;
-    house.myMaterialId     = 0;
-    house.myWorldTransform = glm::mat4( 1.0f );
+    mySceneSoA.AllocEntity( 0, 0, glm::mat4( 1.0f ) );
+    mySceneSoA.AllocEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.0f, 0.0f, 0.0f ) ) );
 
-    Gfx_SceneEntity monkey{};
-    monkey.myId.myIndex       = 1;
-    monkey.myId.myGeneration  = 0;
-    monkey.myMeshId           = 1;
-    monkey.myMaterialId       = 0;
-    monkey.myWorldTransform   = glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.0f, 0.0f, 0.0f ) );
-
-    mySceneEntities.push_back( house );
-    mySceneEntities.push_back( monkey );
-
-    UtilLogger::Info( "SCENE", "Demo scene entities initialized: " + std::to_string( mySceneEntities.size() ) );
+    UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
 
 #pragma region Helpers - device, queues, shaders

@@ -185,6 +185,7 @@
     <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
     <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
@@ -212,6 +213,7 @@
     <ClInclude Include="Util\Util_StatsOverlay.h" />
     <ClInclude Include="Util\Util_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawExtract.h" />
+    <ClInclude Include="Gfx\Gfx_SceneSoA.h" />
     <ClInclude Include="Gfx\Gfx_ViewData.h" />
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />

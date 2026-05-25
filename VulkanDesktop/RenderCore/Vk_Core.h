@@ -160,7 +160,7 @@ public:
     std::unordered_map< uint32_t, Gfx_Mesh >     myMeshMap;
     std::unordered_map< uint32_t, Gfx_Texture >  myTextureMap;
     std::vector< Gfx_RenderObject >              myRenderObjects;
-    std::vector< Gfx_SceneEntity >               mySceneEntities;
+    Gfx_SceneSoA                                 mySceneSoA;
     Gfx_ExtractResult                            myExtractResult;
     bool                                         myExtractLoggedOnce = false;
 #pragma endregion

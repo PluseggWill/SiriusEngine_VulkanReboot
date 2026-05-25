@@ -415,7 +415,7 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 **Incremental alignment** (suggested direction):
 
-1. Introduce a **plain-data** scene or object list that `Vk_Core` **reads** each frame (even if small). **Done (v0):** `Gfx_SceneEntity` + `mySceneEntities` demo list in `Vk_Core`.
+1. Introduce a **plain-data** scene or object list that `Vk_Core` **reads** each frame (even if small). **Done (v0):** `Gfx_SceneSoA` column store + stable `(index, generation)` slots in `Vk_Core`.
 2. Add an **extract** function that fills a `std::vector<DrawInstance>` (or equivalent) before any `vkCmd*` for scene objects. **Done (v0):** `Gfx_ExtractDrawInstances` → `myExtractResult`; Vulkan record still uses `RecordScenePass` until cull/sort/batch.
 3. Move sort/batch assumptions into that path; shrink direct coupling from gameplay-ish state to Vulkan structs.
 4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record.
@@ -433,4 +433,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 extract v0 landed; S0–S8, task dependency graph; 2026-05-25).*
+*Last aligned with `Docs/SprintPlan.md` (S1 SoA + extract v0; S0–S8, task dependency graph; 2026-05-25).*

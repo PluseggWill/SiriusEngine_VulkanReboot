@@ -91,6 +91,9 @@
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_SceneSoA.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_ViewData.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -166,6 +169,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawExtract.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SceneSoA.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_ViewData.h">
