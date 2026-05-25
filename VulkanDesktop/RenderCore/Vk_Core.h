@@ -11,6 +11,7 @@
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
+#include "../Gfx/Gfx_DrawExtract.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
 constexpr bool USE_RUNTIME_MIPMAP   = false;
@@ -97,7 +98,7 @@ private:
     void CreateCamera();
     void InitDefaultEnvironmentData();
     void CreateUniformBuffers();
-    void InitScene();
+    void InitDemoSceneEntities();
     void InitImGui();
     void ShutdownImGui();
     // Order: poll events -> dt -> ImGui NewFrame -> input sample -> camera. Call once before DrawFrame.
@@ -107,11 +108,11 @@ private:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
+    // Live Vulkan scene path until cull/sort/batch record consumes myExtractResult (S1 submission).
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
-    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex );
 
     // Helper functions:
     void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -159,6 +160,9 @@ public:
     std::unordered_map< uint32_t, Gfx_Mesh >     myMeshMap;
     std::unordered_map< uint32_t, Gfx_Texture >  myTextureMap;
     std::vector< Gfx_RenderObject >              myRenderObjects;
+    std::vector< Gfx_SceneEntity >               mySceneEntities;
+    Gfx_ExtractResult                            myExtractResult;
+    bool                                         myExtractLoggedOnce = false;
 #pragma endregion
 
 private:

@@ -159,6 +159,7 @@ void Vk_Core::InitVulkan() {
         CreateMesh( houseModelPath, 0 );
         CreateMesh( monkeyModelPath, 1 );
     }
+    InitDemoSceneEntities();
     CreateFrameData();
     CreateUniformBuffers();
     CreateDescriptorPool();
@@ -749,6 +750,20 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     myFrameStats.ResetPerFrameCounters();
     UpdateUniformBuffer( myCurrentFrame );
 
+    {
+        Gfx_ExtractViewParams extractView{};
+        extractView.myView = myCamera.myView;
+        extractView.myProj = myCamera.myProj;
+        Gfx_ExtractDrawInstances( mySceneEntities, extractView, myExtractResult );
+        if ( !myExtractLoggedOnce ) {
+            UtilLogger::Info( "EXTRACT",
+                              "entities=" + std::to_string( mySceneEntities.size() ) + " visible=" +
+                                  std::to_string( myExtractResult.myVisibleEntityIndices.size() ) + " draws=" +
+                                  std::to_string( myExtractResult.myDrawInstances.size() ) );
+            myExtractLoggedOnce = true;
+        }
+    }
+
     vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
     vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
 
@@ -1050,31 +1065,27 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     myQueueFamilyIndices.ApplyTransferFallback();
 }
 
-// TODO(draw-stream): incomplete batching path; live rendering uses RecordScenePass + mesh 0.
-void Vk_Core::DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< Gfx_RenderObject >& someRenderObjects, uint32_t anImageIndex ) {
-    Gfx_Mesh*     lastMesh     = nullptr;
-    Gfx_Material* lastMaterial = nullptr;
+void Vk_Core::InitDemoSceneEntities() {
+    mySceneEntities.clear();
 
-    for ( auto renderObject = someRenderObjects.begin(); renderObject != someRenderObjects.end(); renderObject++ ) {
-        // Bind pipeline based on the mesh material
-        if ( renderObject->myMaterial != lastMaterial ) {
-            vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObject->myMaterial->myPipeline );
-            SetGraphicsDynamicState( aCommandBuffer );
+    Gfx_SceneEntity house{};
+    house.myId.myIndex     = 0;
+    house.myId.myGeneration = 0;
+    house.myMeshId         = 0;
+    house.myMaterialId     = 0;
+    house.myWorldTransform = glm::mat4( 1.0f );
 
-            lastMaterial = renderObject->myMaterial;
-        }
+    Gfx_SceneEntity monkey{};
+    monkey.myId.myIndex       = 1;
+    monkey.myId.myGeneration  = 0;
+    monkey.myMeshId           = 1;
+    monkey.myMaterialId       = 0;
+    monkey.myWorldTransform   = glm::translate( glm::mat4( 1.0f ), glm::vec3( 2.0f, 0.0f, 0.0f ) );
 
-        static auto startTime = std::chrono::high_resolution_clock::now();
+    mySceneEntities.push_back( house );
+    mySceneEntities.push_back( monkey );
 
-        auto  currentTime = std::chrono::high_resolution_clock::now();
-        float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
-
-        GpuCameraData ubo{};
-        ubo.model = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0, glm::vec3( 0.0f, 0.0f, 1.0f ) );
-        ubo.view  = myCamera.myView;
-        ubo.proj  = myCamera.myProj;
-
-    }
+    UtilLogger::Info( "SCENE", "Demo scene entities initialized: " + std::to_string( mySceneEntities.size() ) );
 }
 
 #pragma region Helpers - device, queues, shaders
@@ -1317,7 +1328,7 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    // Demo draw path: single mesh (index 0), one global descriptor set for myCurrentFrame.
+    // Demo Vulkan record path (S1): still draws mesh 0 only; CPU extract fills myExtractResult for batch/cull tasks.
     myFrameStats.myPipelineBinds++;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBasicPipeline );
     SetGraphicsDynamicState( aCommandBuffer );

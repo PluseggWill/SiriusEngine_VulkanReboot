@@ -185,7 +185,6 @@ flowchart TB
 
 - [ ] SoA columns: transform, bounds, mesh/material indices, layer/mask.
 - [ ] Stable entity id (index + generation or slot map).
-- [ ] **Extract** phase: visible indices + `DrawInstance` (sort key, mesh id, material id, instance data offset) — **no Vulkan**.
 - [ ] Resource tables: mesh/material → GPU descriptor/buffer indices; draw records store indices only — populated from scene manifest ([`scene-load_Plan.md`](scene-load_Plan.md) Phase C).
 - [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
 - [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
@@ -500,6 +499,10 @@ flowchart LR
 - [x] **[S0]** `UtilLoader::LoadTexture` fail-fast — `Util_Loader.cpp`.
 - [x] **[S0]** Queue family graphics-as-transfer fallback — `Vk_DataStruct.h`, `Vk_Core.cpp`.
 - [x] **[S0]** Comment conventions — `.cursor/rules/cpp-comments.mdc`.
+
+### S1 — CPU draw stream (M1)
+
+- [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; `Docs/draw-extract_Plan.md`, `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
 
 ---
 

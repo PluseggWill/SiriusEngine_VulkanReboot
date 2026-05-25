@@ -88,6 +88,9 @@
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp">
       <Filter>Util\ThirdParty\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_ViewData.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -161,6 +164,9 @@
     </ClInclude>
     <ClInclude Include="Util\Util_ImGuiLayer.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DrawExtract.h">
+      <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_ViewData.h">
       <Filter>Gfx</Filter>
