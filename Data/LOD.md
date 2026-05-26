@@ -19,6 +19,8 @@ Logical id: `"tree"` in `Data/Scenes/demo.json` → `logicalMeshes` (runtime: `G
 
 Legacy C++ reference (not used at runtime): `Gfx_BuildDemoResourceManifest` + `Gfx_BuildDemoLodTable` — see `Docs/scene-load_Plan.md` → Legacy retained.
 
+**Scene JSON:** define chains under `logicalMeshes` in `Data/Scenes/*.json` — see [`Docs/SceneJSON.md`](../Docs/SceneJSON.md).
+
 ## Hysteresis (v0)
 
 At threshold `T` (demo tree: 14 m), switching uses a 15% margin to reduce flicker:

@@ -54,3 +54,24 @@
 - **Plan ref:** Phase C close-out / `scene-load_Plan.md` → Legacy retained
 - **What:** Documented why `Gfx_BuildDemoResourceManifest` stays in tree (reference ids + manifest shape; not called from `Vk_Core`). Header comments in `Gfx_ResourceManifest.*`, `Util_DemoAssets.h`.
 - **Verification:** N/A (docs/comments only)
+
+## 2026-05-27 — Session pause: handoff + SceneJSON guide (no Phase D code)
+
+- **Plan ref:** `scene-load_Plan.md` → Handoff — 2026-05-27 pause; Phase D deferred
+- **Files:** `Docs/scene-load_Plan.md`, `Docs/scene-load_Progress.md`, `Docs/SprintPlan.md`, `Docs/SceneJSON.md`, `Data/Scenes/README.md`, `Docs/README.md`
+- **What changed:**
+  - Recorded **current runtime flow**, completed vs open gaps, **mermaid dependency graph**, and explicit note that SprintPlan **Application lifecycle** ≠ Phase C C1.
+  - **Decision:** Do **not** start Phase D until S2 Application lifecycle (`LoadSceneResources` out of `InitVulkan`, `UnloadScene` API).
+  - Added **[`SceneJSON.md`](SceneJSON.md)** — v1 schema, transform 约定, id 下标规则, 自检清单, demo 对照表.
+- **Next session (recommended order):**
+  1. S2 Application lifecycle plan/implement
+  2. Thin scheduler (optional same PR)
+  3. scene-load Phase D (D1 → D3)
+- **Verification:** N/A (documentation only)
+
+## 2026-05-27 — SceneJSON.en.md + README links
+
+- **Plan ref:** Handoff doc index
+- **Files:** `Docs/SceneJSON.en.md`, `Docs/SceneJSON.md`, `README.md`, `Docs/README.md`, `Data/Scenes/README.md`, `Docs/scene-load_Plan.md`, `Docs/SprintPlan.md`
+- **What changed:** Full English scene JSON authoring guide (mirror of Chinese doc); cross-links EN/中文; root README points to both.
+- **Verification:** N/A (documentation only)

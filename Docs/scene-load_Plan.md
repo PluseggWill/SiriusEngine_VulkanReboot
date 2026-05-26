@@ -1,8 +1,8 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** In progress — Phase D next (Phase C done 2026-05-27)  
-**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md)
+**Status:** Paused after Phase C (2026-05-27). **Do not start Phase D yet** — complete S2 **Application lifecycle** first (see [Handoff](#handoff--2026-05-27-pause)).  
+**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`SceneJSON.md`](SceneJSON.md), [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md), [`SprintPlan.md`](SprintPlan.md) § S2
 
 ## Problem
 
@@ -68,8 +68,10 @@ Keep `Util_DemoAssets` only until the first scene file drives the same demo; the
 | Manifest | `CollectDependencies(SceneDesc)` returns `std::vector<std::string>` or small `AssetManifest` struct (paths + optional kind enum) |
 | Startup policy | **Strict** at boot for manifest (missing file → throw, log `[STARTUP]`); runtime optional assets → warn + placeholder (parallel slice; config later) |
 | Default scene | `Data/Scenes/demo.json` equivalent to current demo content |
-| Lifecycle order | `Init` → `LoadSceneDesc` → `VerifyManifest` → `InitWindow` / `InitVulkan` → `LoadSceneResources` → loop → `UnloadScene` / shutdown |
-| Modules (proposed) | `Gfx_SceneDesc` or `Util_SceneLoader` (parse); `Util_AssetManifest` (collect + verify); `Application` or thin `VulkanDesktop` lifecycle coordinator |
+| Lifecycle order (target) | `InitApp` → `LoadSceneDesc` → `VerifyManifest` → `InitWindow` → `InitRenderDevice` → **`LoadSceneResources`** → loop → **`UnloadScene`** → shutdown |
+| Lifecycle order (today) | `main`: parse/verify/`SetLoadedScene` → `Run()` → `InitWindow` → `InitVulkan` (**still loads SoA + GPU tables inside InitVulkan**) → loop → `Clear()` |
+| Scene authoring | [`SceneJSON.en.md`](SceneJSON.en.md), [`SceneJSON.md`](SceneJSON.md) |
+| Modules (today) | `Gfx_SceneLoader`, `Gfx_SceneApply`, `Util_AssetManifest`; coordinator still `VulkanDesktop.cpp` + `Vk_Core` (no `Application` type yet) |
 
 ### Example scene sketch (v1)
 
@@ -118,7 +120,7 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 ### Phase C — Lifecycle + resource load (S2 + S1)
 
-- [x] **C1** — Application lifecycle: init → load scene desc → verify → `SetLoadedScene` → `Run()` / Vulkan bootstrap → load resources.
+- [x] **C1** — Boot order: load scene desc → verify → `SetLoadedScene` → `Run()` / Vulkan bootstrap → load resources. *(Does **not** close SprintPlan **Application lifecycle** — see [Handoff](#handoff--2026-05-27-pause).)*
 - [x] **C2** — `Gfx_BuildResourceManifestFromSceneDesc` + `Vk_ResourceTables::LoadFromManifest` (one load per path).
 - [x] **C3** — Removed `InitDemoSceneEntities` / `Gfx_BuildDemoResourceManifest` from `Vk_Core::InitVulkan`; shader paths from scene `shaders.lit`.
 - [x] **C4** — `Gfx_PopulateSceneSoAFromSceneDesc` + `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON).
@@ -133,11 +135,110 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 Runtime path (Phase C): `Gfx_LoadSceneDesc` → `SetLoadedScene` → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest`.
 
-### Phase D — Scene change & policy (later)
+### Phase D — Scene change & policy (deferred)
 
-- [ ] **D1** — `UnloadScene` + GPU lifetime rules (`DeletionQueue`, descriptor rebuild policy).
-- [ ] **D2** — `engine.json` or scene flag: strict vs warn for missing optional assets.
-- [ ] **D3** — Second tiny scene for load smoke tests (`Data/Scenes/smoke.json`).
+**Gate:** S2 Application lifecycle (explicit `LoadSceneResources` / `UnloadScene`, peel load out of `InitVulkan`) before D1. D2/D3 are soft-gated (can be small follow-ups after lifecycle).
+
+- [ ] **D1** — `UnloadScene` + GPU lifetime rules (`DeletionQueue`, material descriptor free/rebuild policy).
+- [ ] **D2** — `engine.json` or scene flag: strict vs warn for missing optional assets (overlaps S2 central config).
+- [ ] **D3** — Second tiny scene for load smoke tests (`Data/Scenes/smoke.json`); best as lifecycle smoke after D1.
+
+## Handoff — 2026-05-27 pause
+
+### What is done (shipped on `VibeCoding`)
+
+| Phase | Summary | Key symbols |
+|-------|---------|-------------|
+| **A** | JSON parse, `--scene`, dependency collect | `Gfx_LoadSceneDesc`, `Util_CollectDependencies`, `Data/Scenes/demo.json`, `lib/nlohmann/json.hpp` |
+| **B** | Manifest startup verify | `Util_VerifyManifest`; removed `Util_StartupChecks` |
+| **C** | Scene drives SoA, LOD, resource tables, lit shader paths | `Gfx_SceneApply`, `SetLoadedScene`, `Gfx_BuildResourceManifestFromSceneDesc`, `logicalMeshes` in JSON |
+
+**Commits (reference):** Phase A `cb5ed00`, Phase B `67c52f1`, Phase C + legacy notes `cbad9a9`.
+
+### What is NOT done (do not assume)
+
+| Gap | Detail |
+|-----|--------|
+| **S2 Application lifecycle** | SprintPlan item still `[ ]`. No `Application` class; `Vk_Core::InitVulkan` still owns SoA populate + `LoadFromManifest`. |
+| **Phase D** | No `UnloadScene`, no scene reload, no `smoke.json`, boot verify always **strict** (no warn mode). |
+| **Scheduler** | No `Update` / `Render` split in app layer. |
+| **Scene graph** | Flat world matrices only; no parent/child in JSON. |
+| **Hierarchy in SprintPlan** | Lines “Scene description on disk” / “Flat world matrices” / “GPU resource lifetime rules” remain open — partially satisfied by A–C; close or reword when lifecycle lands. |
+
+### Runtime flow today (for next session)
+
+```text
+VulkanDesktop::main
+  UtilAssetConfig::Initialize     // --asset-root, --scene, --config
+  Gfx_LoadSceneDesc(path)
+  Util_VerifyManifest(CollectDependencies(scene))
+  Vk_Core::SetLoadedScene(scene)
+  Vk_Core::Run()
+    InitWindow()
+    InitVulkan()
+      Gfx_PopulateSceneSoAFromSceneDesc
+      Gfx_BuildLodTableFromSceneDesc
+      CreateGfxPipeline()         // vert/frag from scene shaders["lit"]
+      Gfx_BuildResourceManifestFromSceneDesc → LoadFromManifest
+    MainLoop() …
+    Clear()                       // full teardown; no mid-run UnloadScene
+```
+
+### Dependency graph (what blocks what)
+
+```mermaid
+flowchart TB
+  subgraph done [Done A–C]
+    JSON[Scene JSON + parser]
+    Verify[Util_VerifyManifest]
+    Hydrate[Gfx_SceneApply → SoA / LOD / manifest]
+  end
+
+  subgraph s2next [S2 — do next]
+    AppLife[Application lifecycle]
+    Sched[Thin scheduler Update/Render]
+    Config[Central config]
+  end
+
+  subgraph deferred [scene-load Phase D — after AppLife]
+    D1[UnloadScene + GPU policy]
+    D2[strict/warn assets]
+    D3[smoke.json]
+  end
+
+  subgraph later [Later S2 / S7]
+    MultiCam[Multi-view RenderView]
+    VkPeel[Vk_Core decomposition]
+  end
+
+  JSON --> Verify
+  Verify --> Hydrate
+  Hydrate --> AppLife
+  AppLife --> D1
+  AppLife --> Sched
+  Config --> D2
+  D1 --> D3
+  AppLife --> MultiCam
+  D1 --> VkPeel
+```
+
+| If you work on… | Depends on | Unblocks |
+|-----------------|------------|----------|
+| **Application lifecycle** | Phase C (done) | Phase D1, multi-view, clean reload, moving load out of `InitVulkan` |
+| **Phase D1 UnloadScene** | Application lifecycle | Scene hot-swap, D3 smoke |
+| **Phase D2 warn policy** | Optional; central config helps | Vertical slice optional assets |
+| **Phase D3 smoke.json** | D1 ideal; can author file earlier using [`SceneJSON.md`](SceneJSON.md) | CI / manual load tests |
+| **Multi-view** | Lifecycle + Extract (S1 done) | S7 frame graph experiments |
+
+### Recommended next task (team decision 2026-05-27)
+
+1. **S2 Application lifecycle** — new `application-lifecycle_Plan.md` or expand SprintPlan checklist; peel `LoadSceneResources` from `InitVulkan`; define `UnloadScene` API (can stub until D1).
+2. **Thin scheduler** — same PR or immediately after.
+3. **Then** scene-load Phase D (D1 → D3, D2 with config).
+
+### Doc index for scene JSON
+
+Authoring: **[`SceneJSON.en.md`](SceneJSON.en.md)** / [`SceneJSON.md`](SceneJSON.md). LOD: [`Data/LOD.md`](../Data/LOD.md). Example: [`Data/Scenes/demo.json`](../Data/Scenes/demo.json).
 
 ## Files (expected touch list)
 

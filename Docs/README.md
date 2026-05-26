@@ -7,7 +7,8 @@
 | [`SprintPlan.md`](SprintPlan.md) | Executable roadmap (S0–S8), open `[ ]` tasks, **Archived** history |
 | [`S1-回顾总结.md`](S1-回顾总结.md) | **S1 / M1 中文回顾**：做了什么、为什么、可改进点（2026-05-26） |
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Architecture intent, invariants, render/data-plane policy |
-| [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene manifest + lifecycle (in progress) |
+| [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–C done; **paused** before Phase D — see plan Handoff |
+| [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | **Scene JSON v1 authoring** (EN / 中文) |
 | [`descriptor-strategy_Plan.md`](descriptor-strategy_Plan.md) / [`descriptor-strategy_Progress.md`](descriptor-strategy_Progress.md) | Locked Set 0/1/2 + push policy (referenced by S1 descriptor tasks) |
 | [`instance-slab_Plan.md`](instance-slab_Plan.md) / [`instance-slab_Progress.md`](instance-slab_Progress.md) | S1 instance ring UBO (done; plan stays here for the sprint) |
 | [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md) / [`descriptor-set2-verify_Progress.md`](descriptor-set2-verify_Progress.md) | S1 Set 2 UNIFORM_BUFFER_DYNAMIC verification |
@@ -27,6 +28,7 @@
 |------|---------|
 | [`bootstrap.md`](bootstrap.md) | New-machine toolchain, build, run, logs |
 | [`validation-layers.md`](validation-layers.md) | Validation layer install + runtime toggles |
+| [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | Scene JSON v1 schema and authoring (EN / 中文) |
 
 ## Archived
 
