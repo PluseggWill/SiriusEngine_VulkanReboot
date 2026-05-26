@@ -179,7 +179,7 @@ flowchart TB
 
 ## S1 — CPU draw stream (milestone M1)
 
-*Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream.*
+*Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream. **Retrospective (中文):** [`S1-回顾总结.md`](S1-回顾总结.md).*
 
 ### S1 — implementation notes *(living; trim rows when follow-up tasks close)*
 

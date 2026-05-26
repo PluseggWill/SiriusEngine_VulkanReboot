@@ -5,6 +5,7 @@
 | File | Purpose |
 |------|---------|
 | [`SprintPlan.md`](SprintPlan.md) | Executable roadmap (S0–S8), open `[ ]` tasks, **Archived** history |
+| [`S1-回顾总结.md`](S1-回顾总结.md) | **S1 / M1 中文回顾**：做了什么、为什么、可改进点（2026-05-26） |
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Architecture intent, invariants, render/data-plane policy |
 | [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene manifest + lifecycle (in progress) |
 | [`descriptor-strategy_Plan.md`](descriptor-strategy_Plan.md) / [`descriptor-strategy_Progress.md`](descriptor-strategy_Progress.md) | Locked Set 0/1/2 + push policy (referenced by S1 descriptor tasks) |
