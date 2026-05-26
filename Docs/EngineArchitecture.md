@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** (`Gfx_DrawCullSort`) → `RecordScenePass` via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** is a **vertex push constant**; Set 0 UBO holds `view` / `proj` + env + demo texture (material 0). **Batch** and Set 1 per material not done yet.
+**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** → **`FillInstanceSlab`** → `RecordScenePass` via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** is a **vertex push constant** read from the instance slab; Set 0 UBO holds `view` / `proj` + env + demo texture (material 0). **Batch** and Set 1 per material not done yet.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -107,10 +107,11 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 **Implemented (S1 v0):**
 
 - **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure.
-- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
-- **Per-draw transform (demo):** `mat4 model` via **push constant** (§5.3); Set 0 `GpuCameraData` is `view` + `proj` only. Demo spin + entity translation are composed in `Vk_Core::ComputeDemoModelMatrix` (temporary; record still reads `Gfx_SceneSoA` by `myEntityIndex` — should move to instance slab / `myInstanceDataOffset`).
+- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
+- **Per-draw transform (demo):** `mat4 model` via **push constant** sourced from the per-frame **instance slab** (`GpuObjectData` in ring UBO); `FillInstanceSlab` writes slab + sets `DrawInstance.myInstanceDataOffset` after cull/sort; `RecordScenePass` does not read SoA. Demo spin still composed in `Vk_Core::ComputeDemoModelMatrix` during fill (temporary until sim owns transforms).
+- **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** Set 1 material batch binds; instance ring/slab (`UNIFORM_BUFFER_DYNAMIC` or sustained push layout); sort + batch before record; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
+**Still open (S1):** Set 1 material batch binds; **Set 2** `UNIFORM_BUFFER_DYNAMIC` descriptor bind (slab exists; push path still used for model); sort + batch before record; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
 
 ### 4.3 Extract step (render-facing boundary)
 
@@ -445,4 +446,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 cull+sort, resource tables, push model; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 instance slab, cull+sort, resource tables; 2026-05-26).*

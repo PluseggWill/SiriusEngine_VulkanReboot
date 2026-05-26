@@ -136,6 +136,7 @@ Required actions:
 - Active sprints (S0–S7, parallel): **only** open `[ ]` tasks.
 - When completed: **move** the line to **`## Archived`** with sprint tag (`[S0]`…`[S7]`, `[parallel]`); preserve completion notes/dates.
 - Do not leave checked `[x]` items in active sprints.
+- **`{TaskName}_Plan.md` / `_Progress.md`:** keep at **`Docs/` root for the current sprint** — do **not** move to `Docs/Archived/plans/` when a task line archives (older sprints may stay under `Archived/plans/`).
 
 ### Progress log entry template
 

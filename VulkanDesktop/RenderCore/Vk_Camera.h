@@ -9,6 +9,11 @@ struct GpuCameraData {
     alignas( 16 ) glm::mat4 proj;
 };
 
+// std140 UBO slice in per-frame instance slab (Set 2 / UNIFORM_BUFFER_DYNAMIC — S1 verify task).
+struct GpuObjectData {
+    alignas( 16 ) glm::mat4 model;
+};
+
 // Z-up fly camera: yaw about +Z, pitch about camera right; writes myView/myProj for GpuCameraData.
 class Vk_Camera {
 public:

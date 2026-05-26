@@ -98,6 +98,7 @@ private:
 
     // Part 4: Prepare for draw frames
     void CreateFrameData();
+    void CreateInstanceSlabs();
     void CreateCamera();
     void InitDefaultEnvironmentData();
     void CreateUniformBuffers();
@@ -111,6 +112,8 @@ private:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
+    void FillInstanceSlab( uint32_t aCurrentFrame );
+    size_t InstanceSlabStride() const;
     // Live Vulkan scene path until cull/sort/batch record consumes myExtractResult (S1 submission).
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );

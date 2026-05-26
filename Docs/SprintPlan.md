@@ -1,6 +1,6 @@
 # Sprint Plan — SiriusEngine / VulkanDesktop
 
-Executable roadmap for a **small but real engine foundation** and a **mesh-shader, GPU-driven** render path. Architecture intent and tradeoffs: [`EngineArchitecture.md`](EngineArchitecture.md). Doc index: [`README.md`](README.md). Active task logs: `Docs/{TaskName}_Plan.md` / `_Progress.md` (completed → [`Archived/plans/`](Archived/plans/)).
+Executable roadmap for a **small but real engine foundation** and a **mesh-shader, GPU-driven** render path. Architecture intent and tradeoffs: [`EngineArchitecture.md`](EngineArchitecture.md). Doc index: [`README.md`](README.md). Task logs: `Docs/{TaskName}_Plan.md` / `_Progress.md` at repo `Docs/` root (**current sprint** — not moved to `Archived/plans/` on task close).
 
 **Hygiene:** Active sprints list only open `[ ]` tasks. When done, **move the line to [Archived](#archived)** (keep sprint tag + completion note). Do not leave `[x]` in active sections.
 
@@ -187,7 +187,7 @@ flowchart TB
 |-------|--------|-------------------|
 | Resource tables | Done — `Gfx_ResourceManifest`, `Vk_ResourceTables`, `RecordScenePass` resolves mesh/material ids | `scene-load` Phase C replaces demo manifest |
 | Per-draw `model` | **Push constant** (vertex); removed from `GpuCameraData` UBO (2026-05-26) | Set 2 slab may share or supersede push path — descriptor verify task |
-| Record ↔ transforms | **Debt:** `RecordScenePass` reads `Gfx_SceneSoA::GetTransform(myEntityIndex)` | **Instance slab** — use `DrawInstance.myInstanceDataOffset` |
+| Record ↔ transforms | **Done** — `FillInstanceSlab` + record reads `myInstanceDataOffset` into ring UBO | Set 2 dynamic descriptor bind (next task) |
 | Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — bind per material batch |
 | Draw submission | Cull + opaque sort done; no batch yet; `vkCmdBindDescriptorSets` per draw | **Batch** task below |
 
@@ -195,7 +195,6 @@ flowchart TB
 
 ### Data plane
 
-- [ ] Per-frame instance slab (ring UBO/SSBO); no per-object heap allocs on hot path.
 - [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
 
 ### Submission
@@ -509,11 +508,12 @@ flowchart LR
 
 ### S1 — CPU draw stream (M1)
 
-- [x] **[S1]** Resource tables: mesh/material/texture ids → `Vk_ResourceTables`; demo `Gfx_ResourceManifest`; `RecordScenePass` resolves `Gfx_DrawInstance` ids — 2026-05-26; `Docs/Archived/plans/resource-tables_Plan.md` (scene JSON manifest: `scene-load` Phase C).
-- [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; `Docs/Archived/plans/draw-extract_Plan.md`, `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
-- [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; `Docs/Archived/plans/scene-soa_Plan.md`, `Gfx_SceneSoA.*`.
+- [x] **[S1]** Resource tables: mesh/material/texture ids → `Vk_ResourceTables`; demo `Gfx_ResourceManifest`; `RecordScenePass` resolves `Gfx_DrawInstance` ids — 2026-05-26; [`resource-tables_Plan.md`](resource-tables_Plan.md) (scene JSON manifest: `scene-load` Phase C).
+- [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; [`draw-extract_Plan.md`](draw-extract_Plan.md), `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
+- [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; [`scene-soa_Plan.md`](scene-soa_Plan.md), `Gfx_SceneSoA.*`.
 - [x] **[S1]** Finish or delete `DrawObjects` stub; `RecordScenePass` documented as live Vulkan path — 2026-05-25 (with extract task).
-- [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; `Docs/Archived/plans/draw-cull-sort_Plan.md`, `Gfx_DrawCullSort.*`.
+- [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), `Gfx_DrawCullSort.*`.
+- [x] **[S1]** Per-frame instance slab (ring UBO, `FillInstanceSlab`, record via `myInstanceDataOffset`) — 2026-05-26; [`instance-slab_Plan.md`](instance-slab_Plan.md).
 
 ---
 

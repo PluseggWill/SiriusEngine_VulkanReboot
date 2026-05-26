@@ -23,4 +23,7 @@ constexpr uint32_t kSetObject   = 2;  // S1
 // TODO(descriptor-strategy): prove on GPU in S1 (2+ draws, distinct dynamicOffset); until then policy-only.
 inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
 
+// Max draws written into the per-frame instance ring UBO (FillInstanceSlab); no per-draw heap alloc.
+inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
+
 }  // namespace VkDescriptorPolicy

@@ -157,6 +157,7 @@ void Vk_Core::InitVulkan() {
     CreateTextureSampler();
     InitDemoSceneEntities();
     CreateFrameData();
+    CreateInstanceSlabs();
     CreateUniformBuffers();
     CreateDescriptorPool();
     CreateDescriptorSets();
@@ -707,6 +708,28 @@ void Vk_Core::CreateFrameData() {
     }
 }
 
+void Vk_Core::CreateInstanceSlabs() {
+    const VkDeviceSize slabSize =
+        static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * static_cast< VkDeviceSize >( InstanceSlabStride() );
+
+    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+        CreateBuffer( slabSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myObjectBuffer, true );
+
+        void* mapped = nullptr;
+        vmaMapMemory( myAllocator, myFrameDatas[ i ].myObjectBuffer.myAllocation, &mapped );
+        myFrameDatas[ i ].myInstanceSlabMapped = mapped;
+
+        myDeletionQueue.pushFunction( [ = ]() {
+            vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myObjectBuffer.myBuffer, myFrameDatas[ i ].myObjectBuffer.myAllocation );
+            myFrameDatas[ i ].myInstanceSlabMapped = nullptr;
+        } );
+    }
+
+    UtilLogger::Info( "RESOURCE",
+                      "Instance slab: entries=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) +
+                          " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
+}
+
 void Vk_Core::CreateUniformBuffers() {
     // Single env UBO slab; each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
@@ -771,6 +794,8 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
                                   std::to_string( myExtractResult.myDrawInstances.size() ) + " (frustum+layer)" );
             myExtractLoggedOnce = true;
         }
+
+        FillInstanceSlab( myCurrentFrame );
     }
 
     vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
@@ -1346,8 +1371,10 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
         vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
         vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-        // TODO(instance-slab): read model from draw.myInstanceDataOffset, not SoA (EngineArchitecture §4.4).
-        const glm::mat4 modelMatrix = ComputeDemoModelMatrix( mySceneSoA.GetTransform( draw.myEntityIndex ) );
+        const char* const slabBase = static_cast< const char* >( myFrameDatas[ myCurrentFrame ].myInstanceSlabMapped );
+        const auto* const objectData =
+            reinterpret_cast< const GpuObjectData* >( slabBase + static_cast< size_t >( draw.myInstanceDataOffset ) );
+        const glm::mat4 modelMatrix = objectData->model;
 
         // TODO(descriptor-strategy): bind Set 0 once per batch; Set 1 per materialId (texture from table).
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, 0, 1,
@@ -1449,6 +1476,44 @@ glm::mat4 Vk_Core::ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) co
 
     const glm::mat4 spin = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0.0f, glm::vec3( 0.0f, 0.0f, 1.0f ) );
     return aWorldTransform * spin;
+}
+
+size_t Vk_Core::InstanceSlabStride() const {
+    return PadUniformBufferSize( sizeof( GpuObjectData ) );
+}
+
+void Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
+    Vk_FrameData& frame = myFrameDatas[ aCurrentFrame ];
+    if ( frame.myInstanceSlabMapped == nullptr ) {
+        UtilLogger::Error( "RESOURCE", "Instance slab not mapped for frame " + std::to_string( aCurrentFrame ) );
+        return;
+    }
+
+    char* const slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
+    const size_t stride  = InstanceSlabStride();
+
+    const size_t drawCount = myExtractResult.myDrawInstances.size();
+    if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
+        UtilLogger::Error( "RESOURCE",
+                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
+                               std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
+    }
+
+    const size_t writes = std::min( drawCount, static_cast< size_t >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
+    for ( size_t i = 0; i < writes; ++i ) {
+        Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ i ];
+        draw.myInstanceDataOffset = static_cast< uint32_t >( i * stride );
+
+        GpuObjectData objectData{};
+        objectData.model = ComputeDemoModelMatrix( mySceneSoA.GetTransform( draw.myEntityIndex ) );
+        memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
+    }
+
+    static bool loggedOnce = false;
+    if ( !loggedOnce ) {
+        UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( writes ) + " instance(s)" );
+        loggedOnce = true;
+    }
 }
 
 void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {

@@ -15,7 +15,9 @@ struct Vk_FrameData {
     Vk_AllocatedBuffer myCameraBuffer;   // sizeof(GpuCameraData), one per frame
     VkDescriptorSet    myGlobalDescriptor;  // set 0 (Frame): camera + env + texture - see Vk_DescriptorPolicy.h
 
-    // TODO(descriptor-strategy): Set 2 instance slab + UNIFORM_BUFFER_DYNAMIC; verify per SprintPlan S1 Set-2 task.
+    // Per-frame instance ring UBO (GpuObjectData slices); persistently CPU-mapped for FillInstanceSlab.
     Vk_AllocatedBuffer myObjectBuffer;
-    VkDescriptorSet    myObjectDescriptor;
+    void*              myInstanceSlabMapped = nullptr;
+    // TODO(descriptor-strategy): myObjectDescriptor + UNIFORM_BUFFER_DYNAMIC bind (S1 Set-2 verify).
+    VkDescriptorSet myObjectDescriptor;
 };

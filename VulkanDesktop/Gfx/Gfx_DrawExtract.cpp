@@ -51,8 +51,8 @@ void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewPar
         draw.mySortKey               = sortKey;
         draw.myMeshId                = meshId;
         draw.myMaterialId            = materialId;
-        // TODO(instance-slab): record uses this offset into ring UBO/SSBO instead of SoA lookup (S1).
-        draw.myInstanceDataOffset    = slot * sizeof( glm::mat4 );
+        // myInstanceDataOffset assigned in Vk_Core::FillInstanceSlab after cull/sort (aligned slab stride).
+        draw.myInstanceDataOffset    = 0;
         draw.myPipelinePermutationId = 0;
         draw.myEntityIndex           = slot;
 

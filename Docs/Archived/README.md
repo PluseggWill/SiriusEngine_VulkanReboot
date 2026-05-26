@@ -1,6 +1,6 @@
 # Docs/Archived
 
-Historical artifacts — **not** the active task queue. Open work stays in [`../SprintPlan.md`](../SprintPlan.md) and plan/progress files at [`../`](../README.md) root.
+Historical artifacts — **not** the active task queue. Open work stays in [`../SprintPlan.md`](../SprintPlan.md). **Current sprint** plan/progress stay at [`../`](../README.md) root (including completed S1 tasks); this folder holds **older** sprint pairs (e.g. S0) and notes.
 
 ## Layout
 
@@ -18,7 +18,7 @@ Historical artifacts — **not** the active task queue. Open work stays in [`../
 
 ### S1 — CPU draw stream
 
-`draw-extract`, `scene-soa`, `draw-cull-sort`, `resource-tables`
+*Plans for S1 live at `Docs/` root (`draw-extract`, `scene-soa`, `draw-cull-sort`, `resource-tables`, `instance-slab`, …).*
 
 ### S2 / hygiene
 
