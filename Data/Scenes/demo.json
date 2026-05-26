@@ -7,6 +7,19 @@
       "frag": "VulkanDesktop/Shader_Generated/TrianglePix.spv"
     }
   },
+  "logicalMeshes": [
+    { "id": "viking", "lodMeshes": ["viking_room"] },
+    { "id": "monkey", "lodMeshes": ["monkey"] },
+    {
+      "id": "tree",
+      "lodMeshes": ["kenney_tree_detailed", "kenney_tree_simple"],
+      "lodDistances": [14.0]
+    },
+    { "id": "rock", "lodMeshes": ["kenney_rock_large"] },
+    { "id": "campfire", "lodMeshes": ["kenney_campfire"] },
+    { "id": "tent", "lodMeshes": ["kenney_tent"] },
+    { "id": "stump", "lodMeshes": ["kenney_stump"] }
+  ],
   "meshes": [
     { "id": "viking_room", "path": "Data/Models/viking_room.obj" },
     { "id": "monkey", "path": "Data/Models/monkey_smooth.obj" },

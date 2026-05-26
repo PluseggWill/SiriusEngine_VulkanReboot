@@ -9,13 +9,15 @@ CPU LOD v0 uses a **logical mesh id** on each entity. `Gfx_LodTable` maps logica
 | 0 (high) | mesh id `2` | `Data/Models/kenney_tree_detailed.obj` | eye distance &lt; 14 m (with hysteresis) |
 | 1 (low) | mesh id `3` | `Data/Models/kenney_tree_simple.obj` | eye distance ≥ 14 m |
 
-Logical id: `UtilDemoAssets::kLogicalTree` (see `Gfx_BuildDemoLodTable`).
+Logical id: `"tree"` in `Data/Scenes/demo.json` → `logicalMeshes` (runtime: `Gfx_BuildLodTableFromSceneDesc`).
 
-## Adding a chain (code until scene JSON)
+## Adding a chain (scene JSON, shipped)
 
-1. Register each physical mesh in `Gfx_BuildDemoResourceManifest`.
-2. `Gfx_LodTable::SetChain( logicalId, { meshIdLod0, meshIdLod1, ... }, { threshold0, ... } )`.
-3. Spawn entities with the **logical** id, optional `lodBias` on `AllocEntity`.
+1. List physical meshes under `meshes` in the scene file.
+2. Add a `logicalMeshes` entry with `lodMeshes` (and optional `lodDistances`).
+3. Reference the logical id from `entities[].logicalMesh`.
+
+Legacy C++ reference (not used at runtime): `Gfx_BuildDemoResourceManifest` + `Gfx_BuildDemoLodTable` — see `Docs/scene-load_Plan.md` → Legacy retained.
 
 ## Hysteresis (v0)
 

@@ -38,8 +38,14 @@ struct Gfx_SceneMaterialEntry {
     bool        myIsTransparent = false;
 };
 
+struct Gfx_SceneLogicalMeshEntry {
+    std::string              myId;
+    std::vector< std::string > myLodMeshes;
+    std::vector< float >     myLodDistances;
+};
+
 struct Gfx_SceneEntityEntry {
-    std::string     myLogicalMeshId;  // Maps to SoA logical mesh id in Phase C (LOD chains stay in Gfx_LodTable).
+    std::string     myLogicalMeshId;  // Key in Gfx_SceneLogicalMeshEntry::myId → SoA logical mesh index.
     std::string     myMaterialId;
     glm::mat4       myTransform{ 1.0f };
     Gfx_RenderFlags myRenderFlags = Gfx_RenderOpaque;
@@ -51,8 +57,19 @@ struct Gfx_SceneDesc {
     uint32_t myVersion = 0;
     std::string myName;
     std::unordered_map< std::string, Gfx_SceneShaderPair > myShaders;
+    std::vector< Gfx_SceneLogicalMeshEntry > myLogicalMeshes;
     std::vector< Gfx_SceneMeshEntry > myMeshes;
     std::vector< Gfx_SceneTextureEntry > myTextures;
     std::vector< Gfx_SceneMaterialEntry > myMaterials;
     std::vector< Gfx_SceneEntityEntry > myEntities;
 };
+
+// Stable string-id → dense table index maps (array order in scene JSON).
+struct Gfx_SceneIdTables {
+    std::unordered_map< std::string, uint32_t > myMeshIdByName;
+    std::unordered_map< std::string, uint32_t > myTextureIdByName;
+    std::unordered_map< std::string, uint32_t > myMaterialIdByName;
+    std::unordered_map< std::string, uint32_t > myLogicalMeshIdByName;
+};
+
+Gfx_SceneIdTables Gfx_BuildSceneIdTables( const Gfx_SceneDesc& aScene );

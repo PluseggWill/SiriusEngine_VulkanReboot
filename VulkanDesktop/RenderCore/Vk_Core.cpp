@@ -3,8 +3,7 @@
 #include "../Util/Util_Input.h"
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_StatsOverlay.h"
-#include "../Gfx/Gfx_ResourceManifest.h"
-#include "../Util/Util_DemoAssets.h"
+#include "../Gfx/Gfx_SceneApply.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_DebugMessenger.h"
@@ -42,9 +41,9 @@
 #include <vk_mem_alloc.h>
 #endif
 
-// Demo logical paths (repo-relative; see Util_DemoAssets.h).
-std::string vertShaderPath         = std::string( UtilDemoAssets::kVertSpv );
-std::string fragShaderPath         = std::string( UtilDemoAssets::kFragSpv );
+// Set from loaded scene before CreateGfxPipeline (repo-relative paths).
+std::string vertShaderPath;
+std::string fragShaderPath;
 std::string bindlessFragShaderPath = "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv";
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
@@ -153,9 +152,22 @@ void Vk_Core::InitVulkan() {
     CreateDepthResources();
     CreateFrameBuffers();
 
-    InitDemoSceneEntities();
-    Gfx_BuildDemoLodTable( myLodTable );
+    if ( !myHasLoadedScene ) {
+        throw std::runtime_error( "Vk_Core::InitVulkan: no scene loaded (call SetLoadedScene before Run)" );
+    }
+
+    const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
+    vertShaderPath                        = litShader.myVertPath;
+    fragShaderPath                        = litShader.myFragPath;
+
+    Gfx_PopulateSceneSoAFromSceneDesc( myLoadedScene, mySceneIdTables, mySceneSoA, myDemoBaseTransforms );
+    Gfx_BuildLodTableFromSceneDesc( myLoadedScene, mySceneIdTables, myLodTable );
     myLodState.Clear();
+    {
+        const auto treeIt = mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
+        myLodDebugLogicalMeshId = treeIt != mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
+    }
+
     CreateFrameData();
     CreateInstanceSlabs();
     CreateUniformBuffers();
@@ -169,10 +181,10 @@ void Vk_Core::InitVulkan() {
         CreateBindlessGfxPipelines();
     }
 
-    // Part 3: Resource tables from demo manifest (scene-load Phase C will replace manifest source).
+    // Part 3: Resource tables from scene manifest.
     {
         Gfx_ResourceManifest manifest{};
-        Gfx_BuildDemoResourceManifest( manifest );
+        Gfx_BuildResourceManifestFromSceneDesc( myLoadedScene, mySceneIdTables, manifest );
         myTextureImageMipLevels = 1;
         const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
         const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
@@ -834,14 +846,15 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 
         if ( !myLodLoggedOnce ) {
             for ( const Gfx_DrawInstance& draw : myFrameExtract.myOpaque.myDrawInstances ) {
-                if ( mySceneSoA.GetLogicalMeshId( draw.myEntityIndex ) != UtilDemoAssets::kLogicalTree ) {
+                if ( myLodDebugLogicalMeshId == UINT32_MAX ||
+                     mySceneSoA.GetLogicalMeshId( draw.myEntityIndex ) != myLodDebugLogicalMeshId ) {
                     continue;
                 }
                 const glm::vec3 center = ( mySceneSoA.GetBounds( draw.myEntityIndex ).myMin + mySceneSoA.GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
                 const float     dist   = glm::length( center - myCamera.myEye );
                 UtilLogger::Info( "LOD",
                                   "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" +
-                                      std::to_string( UtilDemoAssets::kLogicalTree ) + " resolvedMeshId=" + std::to_string( draw.myMeshId ) +
+                                      std::to_string( myLodDebugLogicalMeshId ) + " resolvedMeshId=" + std::to_string( draw.myMeshId ) +
                                       " dist=" + std::to_string( dist ) );
             }
             myLodLoggedOnce = true;
@@ -1511,42 +1524,6 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     myQueueFamilyIndices.ApplyTransferFallback();
 }
 
-void Vk_Core::InitDemoSceneEntities() {
-    mySceneSoA.Clear();
-    myLodState.Clear();
-    myDemoBaseTransforms.clear();
-
-    auto addDemoEntity = [ this ]( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform,
-                                   Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque, float aLodBias = 0.0f ) {
-        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aLogicalMeshId, aMaterialId, aBaseTransform, 0xFFFFFFFFu, aRenderFlags, aLodBias );
-        if ( id.myIndex >= myDemoBaseTransforms.size() ) {
-            myDemoBaseTransforms.resize( id.myIndex + 1 );
-        }
-        myDemoBaseTransforms[ id.myIndex ] = aBaseTransform;
-    };
-
-    auto placeScaled = []( const glm::vec3& aPosition, const glm::vec3& aScale ) {
-        glm::mat4 transform = glm::translate( glm::mat4( 1.0f ), aPosition );
-        return glm::scale( transform, aScale );
-    };
-
-    // Heroes: viking left, monkey right; transparent monkey in front (material 2, alpha 0.35).
-    addDemoEntity( UtilDemoAssets::kLogicalViking, UtilDemoAssets::kMatViking, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalMonkey, UtilDemoAssets::kMatMonkey, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalMonkey, UtilDemoAssets::kMatTransparent, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ),
-                   Gfx_RenderTransparent );
-
-    // Kenney nature camp (scaled ~3–4×). Trees share kLogicalTree LOD chain (see Data/LOD.md).
-    addDemoEntity( UtilDemoAssets::kLogicalTree, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( -6.0f, 0.0f, -1.0f ), glm::vec3( 4.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalTree, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 0.0f, 0.0f, -16.0f ), glm::vec3( 4.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalRock, UtilDemoAssets::kMatRock, placeScaled( glm::vec3( 0.0f, 0.0f, -6.5f ), glm::vec3( 3.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalTent, UtilDemoAssets::kMatWood, placeScaled( glm::vec3( -3.0f, 0.0f, -4.0f ), glm::vec3( 3.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalCampfire, UtilDemoAssets::kMatMetal, placeScaled( glm::vec3( 3.0f, 0.0f, -4.0f ), glm::vec3( 2.5f ) ) );
-    addDemoEntity( UtilDemoAssets::kLogicalStump, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 6.5f, 0.0f, -3.0f ), glm::vec3( 2.5f ) ) );
-
-    UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
-}
-
 void Vk_Core::ApplyDemoTransformAnimation() {
     for ( const uint32_t slot : mySceneSoA.GetActiveSlots() ) {
         if ( slot >= myDemoBaseTransforms.size() ) {
@@ -1584,6 +1561,12 @@ void Vk_Core::SetEnableValidationLayers( bool aEnableValidationLayers, std::vect
 
 void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensions ) {
     myDeviceExtensions = someDeviceExtensions;
+}
+
+void Vk_Core::SetLoadedScene( Gfx_SceneDesc aScene ) {
+    myLoadedScene     = std::move( aScene );
+    myHasLoadedScene  = true;
+    mySceneIdTables   = Gfx_BuildSceneIdTables( myLoadedScene );
 }
 
 bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {

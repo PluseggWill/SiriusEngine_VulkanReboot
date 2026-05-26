@@ -123,6 +123,43 @@ void ParseTextures( const Json& aRoot, Gfx_SceneDesc& aOut ) {
     }
 }
 
+void ParseLogicalMeshes( const Json& aRoot, Gfx_SceneDesc& aOut ) {
+    if ( !aRoot.contains( "logicalMeshes" ) ) {
+        return;
+    }
+    RequireArray( aRoot[ "logicalMeshes" ], "logicalMeshes" );
+    std::unordered_set< std::string > seenIds;
+    for ( const Json& entry : aRoot[ "logicalMeshes" ] ) {
+        RequireObject( entry, "logicalMeshes[]" );
+        Gfx_SceneLogicalMeshEntry logical{};
+        logical.myId = RequireString( entry, "id", "logicalMeshes[]" );
+        RequireUniqueId( seenIds, logical.myId, "logicalMeshes" );
+
+        if ( !entry.contains( "lodMeshes" ) ) {
+            throw std::runtime_error( "[SCENE] logicalMeshes[] requires lodMeshes array" );
+        }
+        RequireArray( entry[ "lodMeshes" ], "logicalMeshes[].lodMeshes" );
+        for ( const Json& meshRef : entry[ "lodMeshes" ] ) {
+            if ( !meshRef.is_string() ) {
+                throw std::runtime_error( "[SCENE] logicalMeshes[].lodMeshes entries must be strings" );
+            }
+            logical.myLodMeshes.push_back( meshRef.get< std::string >() );
+        }
+
+        if ( entry.contains( "lodDistances" ) ) {
+            RequireArray( entry[ "lodDistances" ], "logicalMeshes[].lodDistances" );
+            for ( const Json& distance : entry[ "lodDistances" ] ) {
+                if ( !distance.is_number() ) {
+                    throw std::runtime_error( "[SCENE] lodDistances entries must be numeric" );
+                }
+                logical.myLodDistances.push_back( distance.get< float >() );
+            }
+        }
+
+        aOut.myLogicalMeshes.push_back( std::move( logical ) );
+    }
+}
+
 void ParseMaterials( const Json& aRoot, Gfx_SceneDesc& aOut ) {
     if ( !aRoot.contains( "materials" ) ) {
         return;
@@ -223,14 +260,15 @@ Gfx_SceneDesc Gfx_LoadSceneDesc( const std::string& aLogicalPath ) {
     }
 
     ParseShaders( root, scene );
+    ParseLogicalMeshes( root, scene );
     ParseMeshes( root, scene );
     ParseTextures( root, scene );
     ParseMaterials( root, scene );
     ParseEntities( root, scene );
 
-    UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName + "' meshes=" +
-                                   std::to_string( scene.myMeshes.size() ) + " textures=" + std::to_string( scene.myTextures.size() ) +
-                                   " materials=" + std::to_string( scene.myMaterials.size() ) + " entities=" +
-                                   std::to_string( scene.myEntities.size() ) );
+    UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName + "' logicalMeshes=" +
+                                   std::to_string( scene.myLogicalMeshes.size() ) + " meshes=" + std::to_string( scene.myMeshes.size() ) +
+                                   " textures=" + std::to_string( scene.myTextures.size() ) + " materials=" +
+                                   std::to_string( scene.myMaterials.size() ) + " entities=" + std::to_string( scene.myEntities.size() ) );
     return scene;
 }

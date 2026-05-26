@@ -1,7 +1,7 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** In progress — Phase C next (Phase B done 2026-05-26)  
+**Status:** In progress — Phase D next (Phase C done 2026-05-27)  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md)
 
 ## Problem
@@ -118,10 +118,20 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 ### Phase C — Lifecycle + resource load (S2 + S1)
 
-- [ ] **C1** — Application lifecycle: init → load scene desc → verify → Vulkan bootstrap → **load resources** → update/render → shutdown.
-- [ ] **C2** — `LoadSceneResources`: populate mesh/texture tables from manifest; one load per unique path.
-- [ ] **C3** — Remove `CreateMesh` / `CreateTexture` hard-coded paths from `Vk_Core::InitVulkan`.
-- [ ] **C4** — Entities reference table ids; draw path uses indices (coordinate with S1 draw-stream tasks).
+- [x] **C1** — Application lifecycle: init → load scene desc → verify → `SetLoadedScene` → `Run()` / Vulkan bootstrap → load resources.
+- [x] **C2** — `Gfx_BuildResourceManifestFromSceneDesc` + `Vk_ResourceTables::LoadFromManifest` (one load per path).
+- [x] **C3** — Removed `InitDemoSceneEntities` / `Gfx_BuildDemoResourceManifest` from `Vk_Core::InitVulkan`; shader paths from scene `shaders.lit`.
+- [x] **C4** — `Gfx_PopulateSceneSoAFromSceneDesc` + `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON).
+
+### Legacy retained after Phase C
+
+| Symbol | Why keep (for now) | Remove when |
+|--------|-------------------|-------------|
+| `Gfx_BuildDemoResourceManifest` | Reference manifest with the same dense ids as `Data/Scenes/demo.json`; compare/debug against `Gfx_BuildResourceManifestFromSceneDesc` without loading JSON; optional headless tests. | `Gfx_BuildDemoLodTable` is scene-driven and no code/docs depend on the C++ builder. |
+| `Gfx_BuildDemoLodTable` | Still uses `UtilDemoAssets` logical/physical ids; not wired from `logicalMeshes` in JSON yet (runtime LOD **is** scene-driven via `Gfx_BuildLodTableFromSceneDesc`). | Delete demo LOD builder or make it a thin wrapper over scene tables. |
+| `UtilDemoAssets` | Id constants for the two legacy builders above. | Both builders removed or scene-only. |
+
+Runtime path (Phase C): `Gfx_LoadSceneDesc` → `SetLoadedScene` → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest`.
 
 ### Phase D — Scene change & policy (later)
 

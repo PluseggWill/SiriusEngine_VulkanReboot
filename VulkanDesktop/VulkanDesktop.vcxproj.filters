@@ -103,6 +103,9 @@
     <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_SceneApply.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_SceneLoader.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -202,6 +205,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_ResourceManifest.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SceneApply.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_SceneDesc.h">

@@ -189,6 +189,7 @@
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
     <ClCompile Include="Gfx\Gfx_Lod.cpp" />
     <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneLoader.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
     <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
@@ -224,6 +225,7 @@
     <ClInclude Include="Gfx\Gfx_DrawExtract.h" />
     <ClInclude Include="Gfx\Gfx_Lod.h" />
     <ClInclude Include="Gfx\Gfx_ResourceManifest.h" />
+    <ClInclude Include="Gfx\Gfx_SceneApply.h" />
     <ClInclude Include="Gfx\Gfx_SceneDesc.h" />
     <ClInclude Include="Gfx\Gfx_SceneLoader.h" />
     <ClInclude Include="Gfx\Gfx_SceneSoA.h" />

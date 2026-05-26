@@ -38,9 +38,9 @@ int main( int argc, char** argv ) {
         app->SetEnableValidationLayers( UtilValidationConfig::ResolveEnabled( buildDefaultValidation ),
                                         UtilValidationConfig::GetRequestedLayerNames() );
 
-        const Gfx_SceneDesc      sceneDesc     = Gfx_LoadSceneDesc( UtilAssetConfig::GetSceneLogicalPath() );
-        const Util_AssetManifest sceneManifest = Util_CollectDependencies( sceneDesc );
-        Util_VerifyManifest( sceneManifest );
+        Gfx_SceneDesc sceneDesc = Gfx_LoadSceneDesc( UtilAssetConfig::GetSceneLogicalPath() );
+        Util_VerifyManifest( Util_CollectDependencies( sceneDesc ) );
+        app->SetLoadedScene( std::move( sceneDesc ) );
         UtilLogger::Info( "APP", "Core configuration prepared." );
 
         UtilLogger::Info( "APP", "Entering engine run loop." );

@@ -34,3 +34,23 @@
   - Build Debug|x64 — exit 0
   - Smoke-run: `[STARTUP] Verifying scene asset manifest (16 path(s))`, all OK, app init OK
   - Grep: no `kRequiredFiles` / `VerifyRequiredAssets` under `VulkanDesktop/`
+
+## 2026-05-27 — Phase C: scene-driven SoA, LOD, and resource tables
+
+- **Plan ref:** Phase C (C1–C4)
+- **Files:** `Gfx_SceneApply.{h,cpp}`, `Gfx_SceneDesc.h`, `Gfx_SceneLoader.cpp`, `Data/Scenes/demo.json` (`logicalMeshes`), `Vk_Core.{h,cpp}`, `VulkanDesktop.cpp`, vcxproj/filters, docs
+- **What changed:**
+  - `SetLoadedScene` + lifecycle: main loads/verifies scene → passes desc to `Vk_Core` before `Run()`.
+  - `Gfx_BuildResourceManifestFromSceneDesc` / `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc`.
+  - `Vk_Core::InitVulkan` uses scene shaders (`lit`), scene manifest for `LoadFromManifest`; removed `InitDemoSceneEntities` and demo manifest builder.
+  - `demo.json` adds `logicalMeshes` (tree LOD chain + distances).
+- **Verification:**
+  - Build Debug|x64 — exit 0
+  - Smoke-run: `[SCENE] Populated SoA … entities=9`, `[RESOURCE-TABLE] meshes=8 materials=7`, `[EXTRACT] entities=9 draws=9`
+  - Grep: no `UtilDemoAssets` / `Data/Models` in `Vk_Core.cpp`
+
+## 2026-05-27 — Review note: legacy manifest builder
+
+- **Plan ref:** Phase C close-out / `scene-load_Plan.md` → Legacy retained
+- **What:** Documented why `Gfx_BuildDemoResourceManifest` stays in tree (reference ids + manifest shape; not called from `Vk_Core`). Header comments in `Gfx_ResourceManifest.*`, `Util_DemoAssets.h`.
+- **Verification:** N/A (docs/comments only)

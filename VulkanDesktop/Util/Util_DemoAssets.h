@@ -3,8 +3,9 @@
 #include <cstdint>
 #include <string_view>
 
-// Repo-relative paths and stable ids for the demo scene (Vk_Core / Gfx_Lod until scene-load Phase C).
-// Asset paths live in Data/Scenes/demo.json; startup verify uses Util_VerifyManifest on that closure.
+// Stable numeric ids for demo content (logical/physical mesh, material indices).
+// Paths and entities live in Data/Scenes/demo.json; runtime uses Gfx_BuildResourceManifestFromSceneDesc.
+// Still used by Gfx_BuildDemoResourceManifest (reference) and Gfx_BuildDemoLodTable (until scene JSON LOD only).
 
 namespace UtilDemoAssets {
 inline constexpr std::string_view kVertSpv = "VulkanDesktop/Shader_Generated/TriangleVert.spv";

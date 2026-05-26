@@ -14,6 +14,7 @@
 #include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_Lod.h"
+#include "../Gfx/Gfx_SceneDesc.h"
 #include "Vk_Bindless.h"
 #include "Vk_ResourceTables.h"
 
@@ -47,6 +48,9 @@ public:
     // TODO: maybe merge all the set function when initializing?
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
+
+    // Parsed scene from disk (set before Run(); required for InitVulkan resource + SoA setup).
+    void SetLoadedScene( Gfx_SceneDesc aScene );
 
     // Resource helpers (used by Gfx/Util loaders; prefer injecting context long-term).
     // isExclusive: true = single queue family; false = graphics+transfer concurrent when families differ.
@@ -110,7 +114,6 @@ private:
     void CreateCamera();
     void InitDefaultEnvironmentData();
     void CreateUniformBuffers();
-    void InitDemoSceneEntities();
     void InitImGui();
     void ShutdownImGui();
     // Order: poll events -> dt -> ImGui NewFrame -> input sample -> camera. Call once before DrawFrame.
@@ -181,11 +184,15 @@ public:
     bool                                         myInstanceSlabOverflowLogged = false;
     bool                                         myMaterialBindLoggedOnce     = false;
     bool                                         myLodLoggedOnce              = false;
+    uint32_t                                     myLodDebugLogicalMeshId      = UINT32_MAX;
     bool                                         myBindlessLoggedOnce         = false;
     bool                                         myM1PerfLoggedOnce           = false;
     Vk_BindlessCapabilities                      myBindlessCaps{};
     Vk_RenderMaterialPath                        myMaterialPath               = Vk_RenderMaterialPath::Batch;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
+    Gfx_SceneDesc                                myLoadedScene;
+    Gfx_SceneIdTables                            mySceneIdTables;
+    bool                                         myHasLoadedScene = false;
     std::vector< VkDescriptorSet >               myMaterialDescriptorSets;
 #pragma endregion
 

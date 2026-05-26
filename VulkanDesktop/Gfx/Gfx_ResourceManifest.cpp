@@ -14,6 +14,7 @@ Gfx_MaterialManifestEntry MakeOpaqueMaterial( uint32_t aId, uint32_t aTextureId 
 
 }  // namespace
 
+// See Gfx_ResourceManifest.h — shipped path is Gfx_BuildResourceManifestFromSceneDesc (Gfx_SceneApply.cpp).
 void Gfx_BuildDemoResourceManifest( Gfx_ResourceManifest& aOut ) {
     aOut.myMeshes.clear();
     aOut.myTextures.clear();
