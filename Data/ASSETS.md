@@ -32,6 +32,10 @@ Full pack (~330 models) is not in-repo; re-download from Kenney/OpenGameArt if y
 
 Diffuse-only 1K JPGs; sufficient for albedo sampling in the current lit shader.
 
+## LOD chains
+
+See [`LOD.md`](LOD.md) for the demo tree chain (`kenney_tree_detailed` → `kenney_tree_simple` at 14 m).
+
 ## Usage
 
 Paths are repo-relative under `Data/` (see `Util_AssetConfig` / `UtilLoader::ResolvePath`). New meshes are **not** wired into `Util_DemoAssets::kRequiredFiles` until a test scene or manifest references them.

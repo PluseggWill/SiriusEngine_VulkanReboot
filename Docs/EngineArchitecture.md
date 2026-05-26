@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** demo transforms → extract (**opaque** + **transparent** lists) → cull → opaque sort + transparent back-to-front (eye-space Z) → batch → `FillInstanceSlab` → `RecordScenePass` (opaque batches then transparent; blend pipeline, depth write off). **Set 0** once per pass; **Set 1** per material batch (texture + alpha); **Set 2** per draw.
+**Render path (today):** demo transforms → extract (**opaque** + **transparent** lists) → cull → **LOD** (`Gfx_ApplyLodToFrameExtract`: logical mesh → resolved physical `meshId`, 15% hysteresis) → opaque sort + transparent back-to-front (eye-space Z) → batch → `FillInstanceSlab` → `RecordScenePass` (opaque batches then transparent; blend pipeline, depth write off). **Set 0** once per pass; **Set 1** per material batch (texture + alpha); **Set 2** per draw. Demo tree LOD chain: `Data/LOD.md`.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -112,7 +112,9 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** Bindless v0 decision / production material tables; transparency; LOD v0.
+**Still open (S1):** Bindless v0 decision / production material tables.
+
+**LOD v0 (2026-05-26):** SoA stores **logical** mesh id + optional `lodBias`; `Gfx_LodTable` maps logical → physical mesh chain; after cull, `Gfx_ApplyLodToFrameExtract` writes **resolved** `myMeshId` on draws and refreshes opaque sort keys (15% distance hysteresis). Sample chain: `Data/LOD.md`, [`lod-v0_Plan.md`](lod-v0_Plan.md).
 
 ### 4.3 Extract step (render-facing boundary)
 
@@ -165,7 +167,7 @@ Physics uses a **fixed dt** step under the application scheduler; render may int
 After extract:
 
 1. **Cull** (frustum + layer masks per view).
-2. **LOD** (CPU v0 in **S1**): distance or screen metric → `lodLevel` → resolved **mesh id** from asset LOD chain; optional hysteresis to reduce flicker. GPU path (**S3**) and meshlet path (**S4**) reuse the same LOD table.
+2. **LOD** (CPU v0, **shipped**): eye-distance to bounds center → `lodLevel` → resolved **mesh id** via `Gfx_LodTable`; 15% threshold hysteresis (`Gfx_LodState` per slot). Runs after frustum cull, before sort. GPU path (**S3**) and meshlet path (**S4**) reuse the same LOD table.
 3. **Assign sort keys** for **opaque**: e.g. `(pipelinePermutationId, materialId, meshId, depthBucket)` with documented tie-break.
 4. **Sort** opaque `DrawInstance` array; **transparent** list sorted **back-to-front** (eye-space Z), separate pass (**§5.8**).
 5. **Batch**: run lengths for contiguous draws sharing bind state (material table generation must match batch boundaries).

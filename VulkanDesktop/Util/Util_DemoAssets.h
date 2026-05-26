@@ -27,7 +27,16 @@ inline constexpr std::string_view kKenneyCampfire     = "Data/Models/kenney_camp
 inline constexpr std::string_view kKenneyTent         = "Data/Models/kenney_tent_closed.obj";
 inline constexpr std::string_view kKenneyStump        = "Data/Models/kenney_stump_round.obj";
 
-// Mesh / texture / material ids (Gfx_BuildDemoResourceManifest).
+// Logical mesh ids (SoA + Gfx_LodTable). Physical mesh ids below are resource-table indices.
+inline constexpr uint32_t kLogicalViking   = 0;
+inline constexpr uint32_t kLogicalMonkey   = 1;
+inline constexpr uint32_t kLogicalTree     = 2;
+inline constexpr uint32_t kLogicalRock     = 3;
+inline constexpr uint32_t kLogicalCampfire = 4;
+inline constexpr uint32_t kLogicalTent     = 5;
+inline constexpr uint32_t kLogicalStump    = 6;
+
+// Physical mesh ids (Gfx_BuildDemoResourceManifest).
 inline constexpr uint32_t kMeshViking       = 0;
 inline constexpr uint32_t kMeshMonkey       = 1;
 inline constexpr uint32_t kMeshTreeDetailed = 2;

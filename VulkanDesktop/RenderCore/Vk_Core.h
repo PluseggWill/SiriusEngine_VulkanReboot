@@ -13,6 +13,7 @@
 #include "Vk_FrameData.h"
 #include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawExtract.h"
+#include "../Gfx/Gfx_Lod.h"
 #include "Vk_ResourceTables.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
@@ -161,6 +162,8 @@ public:
     Vk_ResourceTables                            myResourceTables;
     std::vector< Gfx_RenderObject >              myRenderObjects;
     Gfx_SceneSoA                                 mySceneSoA;
+    Gfx_LodTable                                 myLodTable;
+    Gfx_LodState                                 myLodState;
     Gfx_FrameExtract                             myFrameExtract;
     std::vector< Gfx_BatchRun >                  myOpaqueBatchRuns;
     std::vector< Gfx_BatchRun >                  myTransparentBatchRuns;
@@ -169,6 +172,7 @@ public:
     bool                                         myTransLoggedOnce          = false;
     bool                                         myInstanceSlabOverflowLogged = false;
     bool                                         myMaterialBindLoggedOnce     = false;
+    bool                                         myLodLoggedOnce              = false;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
     std::vector< VkDescriptorSet >               myMaterialDescriptorSets;
 #pragma endregion

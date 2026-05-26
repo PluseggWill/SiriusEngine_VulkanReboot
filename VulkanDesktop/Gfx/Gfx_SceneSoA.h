@@ -26,8 +26,8 @@ class Gfx_SceneSoA {
 public:
     void Clear();
 
-    Gfx_StableEntityId AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask = 0xFFFFFFFFu,
-                                    Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque );
+    Gfx_StableEntityId AllocEntity( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask = 0xFFFFFFFFu,
+                                    Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque, float aLodBias = 0.0f );
     bool               FreeEntity( Gfx_StableEntityId aId );
     bool               IsAlive( Gfx_StableEntityId aId ) const;
 
@@ -39,7 +39,8 @@ public:
 
     const glm::mat4& GetTransform( uint32_t aSlot ) const;
     const Gfx_Bounds& GetBounds( uint32_t aSlot ) const;
-    uint32_t         GetMeshId( uint32_t aSlot ) const;
+    uint32_t         GetLogicalMeshId( uint32_t aSlot ) const;
+    float            GetLodBias( uint32_t aSlot ) const;
     uint32_t         GetMaterialId( uint32_t aSlot ) const;
     uint32_t         GetLayerMask( uint32_t aSlot ) const;
     Gfx_RenderFlags  GetRenderFlags( uint32_t aSlot ) const;
@@ -53,7 +54,8 @@ private:
 
     std::vector< glm::mat4 >  myTransforms;
     std::vector< Gfx_Bounds > myBounds;
-    std::vector< uint32_t >   myMeshIds;
+    std::vector< uint32_t >   myLogicalMeshIds;
+    std::vector< float >      myLodBiases;
     std::vector< uint32_t >   myMaterialIds;
     std::vector< uint32_t >   myLayerMasks;
     std::vector< uint32_t >   myRenderFlags;

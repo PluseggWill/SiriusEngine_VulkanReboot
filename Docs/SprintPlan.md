@@ -192,6 +192,7 @@ flowchart TB
 | Set 0 / Set 1 | **Done** — Set 0 camera + env; Set 1 albedo per material, bound once per batch (2026-05-26) | bindless v0 decision |
 | Draw submission | **Done** — batch runs; set 0 once per pass; set 1 per batch; set 2 per draw | — |
 | Transparency | **Done** — opaque + transparent lists; `myTransparentPipeline` (blend, depth write off) — [`transparency_Plan.md`](transparency_Plan.md) | — |
+| LOD v0 (CPU) | **Done** — logical mesh + `Gfx_LodTable`; distance + hysteresis → resolved `meshId` — [`lod-v0_Plan.md`](lod-v0_Plan.md) | GPU LOD parity (S3) |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
@@ -199,12 +200,9 @@ flowchart TB
 
 *(descriptor policy verification queue cleared 2026-05-26 — see Archived.)*
 
-### LOD v0 (CPU) — *deps: SoA, resource tables, cull; unblocks S3 GPU LOD*
+### LOD v0 (CPU)
 
-- [ ] Asset: mesh **LOD chain** (per-LOD mesh id or geometry path) + import doc sample in `Data/`.
-- [ ] SoA: `lodBias` / resolved `meshLodIndex` → resource table `meshId`.
-- [ ] Distance (or screen-size) → `lodLevel` in cull; hysteresis doc to avoid flicker.
-- [ ] Sort/batch uses **resolved** `meshId` (not logical mesh handle).
+*(cleared 2026-05-26 — see Archived; unblocks S3 GPU LOD.)*
 
 ### Transparency
 
@@ -221,7 +219,8 @@ flowchart TB
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
 - [ ] At least one **transparent** object draws correctly over opaque (order + blend).
-- [ ] **LOD v0:** camera distance change swaps LOD on a test mesh (logged `meshId`).
+
+*(LOD v0 acceptance met 2026-05-26 — see Archived.)*
 
 ---
 
@@ -514,6 +513,7 @@ flowchart LR
 - [x] **[S1]** Demo transform/cull sync (SoA updated before extract; slab uses same matrix) — 2026-05-26; [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md).
 - [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
 - [x] **[S1]** Transparency: dual extract/sort lists, eye-space Z sort, opaque then transparent record, demo overlay monkey — 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
+- [x] **[S1]** LOD v0 (CPU): logical mesh + `Gfx_LodTable`, distance LOD + hysteresis, resolved meshId in draw/batch, demo tree chain — 2026-05-26; [`lod-v0_Plan.md`](lod-v0_Plan.md), `Data/LOD.md`.
 
 ---
 

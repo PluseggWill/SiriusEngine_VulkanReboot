@@ -8,7 +8,7 @@ namespace {
 constexpr float kDepthBucketScale = 256.0f;
 
 void AppendDraw( Gfx_ExtractResult& aOut, uint32_t aSlot, const Gfx_SceneSoA& aScene, uint16_t aDepthBucket ) {
-    const uint32_t meshId     = aScene.GetMeshId( aSlot );
+    const uint32_t meshId     = aScene.GetLogicalMeshId( aSlot );
     const uint32_t materialId = aScene.GetMaterialId( aSlot );
     const uint64_t sortKey    = Gfx_PackOpaqueSortKey( 0, materialId, meshId, aDepthBucket );
 

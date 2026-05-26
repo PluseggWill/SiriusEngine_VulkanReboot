@@ -9,7 +9,8 @@ constexpr uint32_t kInvalidSlot = UINT32_MAX;
 void Gfx_SceneSoA::Clear() {
     myTransforms.clear();
     myBounds.clear();
-    myMeshIds.clear();
+    myLogicalMeshIds.clear();
+    myLodBiases.clear();
     myMaterialIds.clear();
     myLayerMasks.clear();
     myRenderFlags.clear();
@@ -21,7 +22,8 @@ void Gfx_SceneSoA::Clear() {
 void Gfx_SceneSoA::GrowOneSlot() {
     myTransforms.emplace_back( 1.0f );
     myBounds.emplace_back();
-    myMeshIds.push_back( 0 );
+    myLogicalMeshIds.push_back( 0 );
+    myLodBiases.push_back( 0.0f );
     myMaterialIds.push_back( 0 );
     myLayerMasks.push_back( 0xFFFFFFFFu );
     myRenderFlags.push_back( Gfx_RenderOpaque );
@@ -43,8 +45,8 @@ void Gfx_SceneSoA::UpdateBoundsForSlot( uint32_t aSlot ) {
     myBounds[ aSlot ] = bounds;
 }
 
-Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask,
-                                            Gfx_RenderFlags aRenderFlags ) {
+Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask,
+                                            Gfx_RenderFlags aRenderFlags, float aLodBias ) {
     uint32_t slot = kInvalidSlot;
     if ( !myFreeSlots.empty() ) {
         slot = myFreeSlots.back();
@@ -55,7 +57,8 @@ Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aMeshId, uint32_t aMateri
         GrowOneSlot();
     }
 
-    myMeshIds[ slot ]       = aMeshId;
+    myLogicalMeshIds[ slot ] = aLogicalMeshId;
+    myLodBiases[ slot ]      = aLodBias;
     myMaterialIds[ slot ]   = aMaterialId;
     myLayerMasks[ slot ]    = aLayerMask;
     myRenderFlags[ slot ]   = aRenderFlags;
@@ -105,8 +108,12 @@ const Gfx_Bounds& Gfx_SceneSoA::GetBounds( uint32_t aSlot ) const {
     return myBounds.at( aSlot );
 }
 
-uint32_t Gfx_SceneSoA::GetMeshId( uint32_t aSlot ) const {
-    return myMeshIds.at( aSlot );
+uint32_t Gfx_SceneSoA::GetLogicalMeshId( uint32_t aSlot ) const {
+    return myLogicalMeshIds.at( aSlot );
+}
+
+float Gfx_SceneSoA::GetLodBias( uint32_t aSlot ) const {
+    return myLodBiases.at( aSlot );
 }
 
 uint32_t Gfx_SceneSoA::GetMaterialId( uint32_t aSlot ) const {

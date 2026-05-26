@@ -149,6 +149,8 @@ void Vk_Core::InitVulkan() {
     CreateFrameBuffers();
 
     InitDemoSceneEntities();
+    Gfx_BuildDemoLodTable( myLodTable );
+    myLodState.Clear();
     CreateFrameData();
     CreateInstanceSlabs();
     CreateUniformBuffers();
@@ -796,6 +798,23 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
             myFrameExtract.myOpaque.myDrawInstances.size() + myFrameExtract.myTransparent.myDrawInstances.size();
         Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myOpaque );
         Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myTransparent );
+        Gfx_ApplyLodToFrameExtract( mySceneSoA, myCamera.myEye, myLodTable, myLodState, myFrameExtract );
+
+        if ( !myLodLoggedOnce ) {
+            for ( const Gfx_DrawInstance& draw : myFrameExtract.myOpaque.myDrawInstances ) {
+                if ( mySceneSoA.GetLogicalMeshId( draw.myEntityIndex ) != UtilDemoAssets::kLogicalTree ) {
+                    continue;
+                }
+                const glm::vec3 center = ( mySceneSoA.GetBounds( draw.myEntityIndex ).myMin + mySceneSoA.GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
+                const float     dist   = glm::length( center - myCamera.myEye );
+                UtilLogger::Info( "LOD",
+                                  "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" +
+                                      std::to_string( UtilDemoAssets::kLogicalTree ) + " resolvedMeshId=" + std::to_string( draw.myMeshId ) +
+                                      " dist=" + std::to_string( dist ) );
+            }
+            myLodLoggedOnce = true;
+        }
+
         Gfx_SortOpaqueDrawInstances( myFrameExtract.myOpaque );
         Gfx_SortTransparentDrawInstances( myFrameExtract.myTransparent, mySceneSoA, myCamera.myView );
         Gfx_BuildOpaqueDrawBatches( myFrameExtract.myOpaque.myDrawInstances, myOpaqueBatchRuns );
@@ -1244,11 +1263,12 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 
 void Vk_Core::InitDemoSceneEntities() {
     mySceneSoA.Clear();
+    myLodState.Clear();
     myDemoBaseTransforms.clear();
 
-    auto addDemoEntity = [ this ]( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform,
-                                   Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque ) {
-        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aMeshId, aMaterialId, aBaseTransform, 0xFFFFFFFFu, aRenderFlags );
+    auto addDemoEntity = [ this ]( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform,
+                                   Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque, float aLodBias = 0.0f ) {
+        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aLogicalMeshId, aMaterialId, aBaseTransform, 0xFFFFFFFFu, aRenderFlags, aLodBias );
         if ( id.myIndex >= myDemoBaseTransforms.size() ) {
             myDemoBaseTransforms.resize( id.myIndex + 1 );
         }
@@ -1261,18 +1281,18 @@ void Vk_Core::InitDemoSceneEntities() {
     };
 
     // Heroes: viking left, monkey right; transparent monkey in front (material 2, alpha 0.35).
-    addDemoEntity( UtilDemoAssets::kMeshViking, UtilDemoAssets::kMatViking, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshMonkey, UtilDemoAssets::kMatMonkey, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshMonkey, UtilDemoAssets::kMatTransparent, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ),
+    addDemoEntity( UtilDemoAssets::kLogicalViking, UtilDemoAssets::kMatViking, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalMonkey, UtilDemoAssets::kMatMonkey, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalMonkey, UtilDemoAssets::kMatTransparent, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ),
                    Gfx_RenderTransparent );
 
-    // Kenney nature camp (scaled ~3–4×; models are ~1 unit tall in asset space).
-    addDemoEntity( UtilDemoAssets::kMeshTreeDetailed, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( -7.0f, 0.0f, -5.5f ), glm::vec3( 4.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshTreeSimple, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 7.0f, 0.0f, -5.0f ), glm::vec3( 3.5f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshRock, UtilDemoAssets::kMatRock, placeScaled( glm::vec3( 0.0f, 0.0f, -6.5f ), glm::vec3( 3.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshTent, UtilDemoAssets::kMatWood, placeScaled( glm::vec3( -3.0f, 0.0f, -4.0f ), glm::vec3( 3.0f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshCampfire, UtilDemoAssets::kMatMetal, placeScaled( glm::vec3( 3.0f, 0.0f, -4.0f ), glm::vec3( 2.5f ) ) );
-    addDemoEntity( UtilDemoAssets::kMeshStump, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 6.5f, 0.0f, -3.0f ), glm::vec3( 2.5f ) ) );
+    // Kenney nature camp (scaled ~3–4×). Trees share kLogicalTree LOD chain (see Data/LOD.md).
+    addDemoEntity( UtilDemoAssets::kLogicalTree, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( -6.0f, 0.0f, -1.0f ), glm::vec3( 4.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalTree, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 0.0f, 0.0f, -16.0f ), glm::vec3( 4.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalRock, UtilDemoAssets::kMatRock, placeScaled( glm::vec3( 0.0f, 0.0f, -6.5f ), glm::vec3( 3.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalTent, UtilDemoAssets::kMatWood, placeScaled( glm::vec3( -3.0f, 0.0f, -4.0f ), glm::vec3( 3.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalCampfire, UtilDemoAssets::kMatMetal, placeScaled( glm::vec3( 3.0f, 0.0f, -4.0f ), glm::vec3( 2.5f ) ) );
+    addDemoEntity( UtilDemoAssets::kLogicalStump, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 6.5f, 0.0f, -3.0f ), glm::vec3( 2.5f ) ) );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
