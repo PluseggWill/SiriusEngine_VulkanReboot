@@ -32,11 +32,11 @@ After opaque sort, `RecordScenePass` iterates every `Gfx_DrawInstance` and binds
 
 ## Steps
 
-- [ ] P1 — `Gfx_DrawBatch` API + build from sorted draws
-- [ ] P2 — `DrawFrame` build batches after sort; log counts
-- [ ] P3 — `RecordScenePass` batch loop; set 0 once per pass
-- [ ] P4 — Build + smoke-run
-- [ ] P5 — Archive sprint line; update S1 notes
+- [x] P1 — `Gfx_DrawBatch` API + build from sorted draws
+- [x] P2 — `DrawFrame` build batches after sort; log counts
+- [x] P3 — `RecordScenePass` batch loop; set 0 once per pass
+- [x] P4 — Build + smoke-run
+- [x] P5 — Archive sprint line; update S1 notes
 
 ## Build / smoke-run
 

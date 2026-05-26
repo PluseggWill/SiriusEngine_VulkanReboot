@@ -36,3 +36,4 @@ MSBuild Debug|x64; smoke-run; log `[CULL]` once; both demo meshes visible with d
 - Removed duplicate **`Gfx_ExtractViewParams`**; extract uses **`Gfx_CullViewParams`** from `Gfx_DrawCullSort.h`.
 - Sort reorders **`Gfx_ExtractResult`** parallel arrays in lockstep (fixes index/draw mismatch after sort).
 - Dropped unused `<cmath>` in `Gfx_DrawCullSort.cpp`.
+- Demo Z-spin moved to SoA before extract — [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md) (cull/bounds match rendered matrix).

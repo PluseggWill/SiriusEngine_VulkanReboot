@@ -776,7 +776,10 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     myFrameStats.ResetPerFrameCounters();
     UpdateUniformBuffer( myCurrentFrame );
 
+    bool slabOk = true;
     {
+        ApplyDemoTransformAnimation();
+
         Gfx_CullViewParams viewParams{};
         viewParams.myView = myCamera.myView;
         viewParams.myProj = myCamera.myProj;
@@ -804,7 +807,11 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
             myExtractLoggedOnce = true;
         }
 
-        FillInstanceSlab( myCurrentFrame );
+        slabOk = FillInstanceSlab( myCurrentFrame );
+        if ( !slabOk && !myInstanceSlabOverflowLogged ) {
+            UtilLogger::Warn( "RESOURCE", "Skipping RecordScenePass: instance slab overflow (see FillInstanceSlab error)." );
+            myInstanceSlabOverflowLogged = true;
+        }
     }
 
     vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
@@ -815,7 +822,9 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    RecordScenePass( aFrameData.myCommandBuffer, imageIndex );
+    if ( slabOk ) {
+        RecordScenePass( aFrameData.myCommandBuffer, imageIndex );
+    }
 
     // ImGui widgets must be built after NewFrame and before ImGui::Render (WithinFrameScope).
     UtilLightingPanel::Build( myEnvironmentData );
@@ -1161,12 +1170,32 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 
 void Vk_Core::InitDemoSceneEntities() {
     mySceneSoA.Clear();
+    myDemoBaseTransforms.clear();
+
+    auto addDemoEntity = [ this ]( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform ) {
+        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aMeshId, aMaterialId, aBaseTransform );
+        if ( id.myIndex >= myDemoBaseTransforms.size() ) {
+            myDemoBaseTransforms.resize( id.myIndex + 1 );
+        }
+        myDemoBaseTransforms[ id.myIndex ] = aBaseTransform;
+    };
 
     // Demo layout: mesh 0 left, mesh 1 right (world units; mesh bounds ~1–2 units).
-    mySceneSoA.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
-    mySceneSoA.AllocEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
+}
+
+void Vk_Core::ApplyDemoTransformAnimation() {
+    for ( const uint32_t slot : mySceneSoA.GetActiveSlots() ) {
+        if ( slot >= myDemoBaseTransforms.size() ) {
+            continue;
+        }
+        const glm::mat4& base = myDemoBaseTransforms[ slot ];
+        const glm::mat4   world = ENABLE_ROTATE ? ComputeDemoModelMatrix( base ) : base;
+        mySceneSoA.SetTransform( slot, world );
+    }
 }
 
 #pragma region Helpers - device, queues, shaders
@@ -1527,7 +1556,7 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-// Demo-only: world matrix from SoA plus optional Z spin. Replace when gameplay/sim writes transforms only.
+// Demo-only: optional Z spin on base transform. Applied to SoA in ApplyDemoTransformAnimation before extract.
 glm::mat4 Vk_Core::ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) const {
     static auto startTime = std::chrono::high_resolution_clock::now();
     const auto  currentTime = std::chrono::high_resolution_clock::now();
@@ -1541,43 +1570,45 @@ size_t Vk_Core::InstanceSlabStride() const {
     return PadUniformBufferSize( sizeof( GpuObjectData ) );
 }
 
-void Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
+bool Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
     Vk_FrameData& frame = myFrameDatas[ aCurrentFrame ];
     if ( frame.myInstanceSlabMapped == nullptr ) {
         UtilLogger::Error( "RESOURCE", "Instance slab not mapped for frame " + std::to_string( aCurrentFrame ) );
-        return;
+        return false;
     }
-
-    char* const slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
-    const size_t stride  = InstanceSlabStride();
 
     const size_t drawCount = myExtractResult.myDrawInstances.size();
     if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
         UtilLogger::Error( "RESOURCE",
                            "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
                                std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
+        return false;
     }
 
-    const size_t writes = std::min( drawCount, static_cast< size_t >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
-    for ( size_t i = 0; i < writes; ++i ) {
+    char* const  slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
+    const size_t stride   = InstanceSlabStride();
+
+    for ( size_t i = 0; i < drawCount; ++i ) {
         Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ i ];
         draw.myInstanceDataOffset = static_cast< uint32_t >( i * stride );
 
         GpuObjectData objectData{};
-        objectData.model = ComputeDemoModelMatrix( mySceneSoA.GetTransform( draw.myEntityIndex ) );
+        objectData.model = mySceneSoA.GetTransform( draw.myEntityIndex );
         memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
     }
 
     static bool loggedOnce = false;
     if ( !loggedOnce ) {
-        UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( writes ) + " instance(s)" );
-        if ( writes >= 2 ) {
+        UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( drawCount ) + " instance(s)" );
+        if ( drawCount >= 2 ) {
             const uint32_t offset0 = myExtractResult.myDrawInstances[ 0 ].myInstanceDataOffset;
             const uint32_t offset1 = myExtractResult.myDrawInstances[ 1 ].myInstanceDataOffset;
             UtilLogger::Info( "DESCRIPTOR", "Set 2 dynamicOffsets (sample): " + std::to_string( offset0 ) + ", " + std::to_string( offset1 ) );
         }
         loggedOnce = true;
     }
+
+    return true;
 }
 
 void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {

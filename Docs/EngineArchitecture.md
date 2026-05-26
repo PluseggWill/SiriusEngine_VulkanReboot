@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** → `RecordScenePass` (iterates batch runs). Per-draw `model` via Set 2 dynamic UBO; **set 0 bound once per pass**; pipeline once per batch; set 2 per draw. Set 1 material batch not done yet.
+**Render path (today):** demo transforms (incl. optional Z spin) written to **SoA before extract** → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** (copies SoA matrix) → `RecordScenePass` (batch runs). Per-draw `model` via Set 2 dynamic UBO; **set 0 bound once per pass**; pipeline once per batch; set 2 per draw. Instance slab **fail-closed** on overflow. Set 1 material batch not done yet ([`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md)).
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -108,7 +108,8 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 - **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure.
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
-- **Per-draw transform (demo):** `mat4 model` in **Set 2** dynamic UBO slice (`GpuObjectData`); `FillInstanceSlab` writes the instance slab and sets `DrawInstance.myInstanceDataOffset`; `RecordScenePass` binds set 2 with `vkCmdBindDescriptorSets(..., dynamicOffset)` per draw (no SoA, no model push constant on demo pipeline). Demo spin composed in `ComputeDemoModelMatrix` during fill (temporary).
+- **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
+- **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
 **Still open (S1):** Set 1 material batch binds; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
@@ -192,7 +193,7 @@ After extract:
 |------|------|-----|
 | Frame camera (view, proj), env, material constants | `UNIFORM_BUFFER` | Offset fixed at alloc or batch; rare `vkCmdBindDescriptorSets` |
 | Many instances in one GPU buffer | `UNIFORM_BUFFER_DYNAMIC` | One descriptor points at whole slab; only offset changes per draw |
-| Single `mat4` model matrix (VS path) | **Push constants** (preferred in S1) or dynamic UBO | 64 B; avoids descriptor churn; **do not** put full 192 B `GpuCameraData` in push constants without checking `maxPushConstantsSize` (minimum is often 128 B) |
+| Single `mat4` model matrix (VS path) | **Push constants** or **dynamic UBO** (demo uses Set 2) | 64 B; policy allows either; **do not** put full 192 B `GpuCameraData` in push constants without checking `maxPushConstantsSize` (minimum is often 128 B) |
 
 **Alignment:** slab stride and dynamic offsets are multiples of `minUniformBufferOffsetAlignment` (`Vk_Core::PadUniformBufferSize`).
 
@@ -406,6 +407,8 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 | **Bindless debugging** | Keep batch+fallback preset; validation-friendly non-bindless path for captures. |
 | **Multi-threaded SoA races** | Frame double-buffer or phase barriers before parallel cull (backlog MT). |
 | **Physics ↔ render coupling** | Physics in S8 module only; bounds/transform written to SoA for Extract. |
+| **Cull vs final matrix** | Extract/cull/sort must see the same transform written to the instance slab; demo spin lives in SoA update, not record-only. |
+| **Opaque depth key quality** | `depthBucket` today uses entity-origin NDC Z; backlog: bounds-center eye-space Z + tighter world AABB for rotation (`SprintPlan.md` backlog). |
 
 ### Anti-patterns (discouraged on the hot path)
 
@@ -446,4 +449,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 draw batching, Set 2 dynamic UBO; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 Set 2 verified, batching, slab overflow, demo transform sync; descriptor Set 1 open; 2026-05-26).*

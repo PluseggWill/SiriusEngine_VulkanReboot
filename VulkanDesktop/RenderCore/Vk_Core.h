@@ -18,7 +18,7 @@
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
 constexpr bool USE_RUNTIME_MIPMAP   = false;
 constexpr bool USE_MANUAL_VERTICES  = false;  // if true, skip OBJ load path (legacy)
-constexpr bool ENABLE_ROTATE        = true;   // demo: spin applied in push-constant model matrix
+constexpr bool ENABLE_ROTATE        = true;   // demo: Z spin applied to SoA before extract (see ApplyDemoTransformAnimation)
 constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
@@ -113,8 +113,9 @@ private:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
-    void FillInstanceSlab( uint32_t aCurrentFrame );
+    bool FillInstanceSlab( uint32_t aCurrentFrame );
     size_t InstanceSlabStride() const;
+    void ApplyDemoTransformAnimation();
     // Live Vulkan scene path until cull/sort/batch record consumes myExtractResult (S1 submission).
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
@@ -160,8 +161,10 @@ public:
     Gfx_SceneSoA                                 mySceneSoA;
     Gfx_ExtractResult                            myExtractResult;
     std::vector< Gfx_BatchRun >                  myOpaqueBatchRuns;
-    bool                                         myExtractLoggedOnce = false;
-    bool                                         myBatchLoggedOnce   = false;
+    bool                                         myExtractLoggedOnce        = false;
+    bool                                         myBatchLoggedOnce          = false;
+    bool                                         myInstanceSlabOverflowLogged = false;
+    std::vector< glm::mat4 >                     myDemoBaseTransforms;
 #pragma endregion
 
 private:
