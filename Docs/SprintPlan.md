@@ -189,7 +189,7 @@ flowchart TB
 | Per-draw `model` | **Push constant** (vertex); removed from `GpuCameraData` UBO (2026-05-26) | Set 2 slab may share or supersede push path — descriptor verify task |
 | Record ↔ transforms | **Debt:** `RecordScenePass` reads `Gfx_SceneSoA::GetTransform(myEntityIndex)` | **Instance slab** — use `DrawInstance.myInstanceDataOffset` |
 | Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — bind per material batch |
-| Draw submission | No cull / sort / batch; `vkCmdBindDescriptorSets` per draw | Submission tasks below |
+| Draw submission | Cull + opaque sort done; no batch yet; `vkCmdBindDescriptorSets` per draw | **Batch** task below |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
@@ -200,7 +200,6 @@ flowchart TB
 
 ### Submission
 
-- [ ] CPU frustum cull → sort opaque by `(pipeline, material, mesh, depth bucket)` — *deps: Extract, resource tables*.
 - [ ] Batch runs; `RecordScenePass` scans batch runs only (minimal `vkCmdBind*` per batch).
 - [ ] **Verify descriptor policy (Set 0/1 + push):** `mat4` model via **push constant** (done 2026-05-26); remaining — Set 1 texture/material per batch, bind Set 0 once per batch, optional Set 2 slab vs push; validation layers clean on multi-mesh path — see § S1 implementation notes.
 
@@ -514,6 +513,7 @@ flowchart LR
 - [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; `Docs/draw-extract_Plan.md`, `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
 - [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; `Docs/scene-soa_Plan.md`, `Gfx_SceneSoA.*`.
 - [x] **[S1]** Finish or delete `DrawObjects` stub; `RecordScenePass` documented as live Vulkan path — 2026-05-25 (with extract task).
+- [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; `Docs/draw-cull-sort_Plan.md`, `Gfx_DrawCullSort.*`.
 
 ---
 

@@ -16,6 +16,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
+#include "../Gfx/Gfx_DrawCullSort.h"
 
 #include <algorithm>
 #include <array>
@@ -756,11 +757,21 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         extractView.myView = myCamera.myView;
         extractView.myProj = myCamera.myProj;
         Gfx_ExtractDrawInstances( mySceneSoA, extractView, myExtractResult );
+
+        Gfx_CullViewParams cullView{};
+        cullView.myView = extractView.myView;
+        cullView.myProj = extractView.myProj;
+        const size_t drawCountBeforeCull = myExtractResult.myDrawInstances.size();
+        Gfx_CullDrawInstancesInPlace( mySceneSoA, cullView, myExtractResult );
+        Gfx_SortOpaqueDrawInstances( myExtractResult.myDrawInstances );
+
         if ( !myExtractLoggedOnce ) {
             UtilLogger::Info( "EXTRACT",
-                              "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " visible=" +
-                                  std::to_string( myExtractResult.myVisibleEntityIndices.size() ) + " draws=" +
-                                  std::to_string( myExtractResult.myDrawInstances.size() ) );
+                              "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " draws=" +
+                                  std::to_string( drawCountBeforeCull ) );
+            UtilLogger::Info( "CULL",
+                              "in=" + std::to_string( drawCountBeforeCull ) + " out=" +
+                                  std::to_string( myExtractResult.myDrawInstances.size() ) + " (frustum+layer)" );
             myExtractLoggedOnce = true;
         }
     }
@@ -1320,8 +1331,7 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    // Resolve mesh/material ids from extract via Vk_ResourceTables (§4.2). TODO(draw-stream): sort opaque
-    // list, batch by material, bind Set 0/1 once per batch; only pushConstants + IB/VB per draw (§5.2).
+    // Consumes cull+sorted myExtractResult (§5.1). TODO(draw-stream): batch by material; bind Set 0/1 once per batch.
     bool pipelineBound = false;
     for ( const Gfx_DrawInstance& draw : myExtractResult.myDrawInstances ) {
         const Gfx_Material& material = myResourceTables.GetMaterial( draw.myMaterialId );

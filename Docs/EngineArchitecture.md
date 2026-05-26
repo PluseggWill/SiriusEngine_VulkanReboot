@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** `Gfx_SceneSoA` → `Gfx_ExtractDrawInstances` → `RecordScenePass` resolves `Gfx_DrawInstance` mesh/material ids via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** is a **vertex push constant**; Set 0 UBO holds `view` / `proj` + env + one demo texture (material 0). No sort/batch/cull yet.
+**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** (`Gfx_DrawCullSort`) → `RecordScenePass` via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** is a **vertex push constant**; Set 0 UBO holds `view` / `proj` + env + demo texture (material 0). **Batch** and Set 1 per material not done yet.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -445,4 +445,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 resource tables + per-draw model push constant; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 cull+sort, resource tables, push model; 2026-05-26).*
