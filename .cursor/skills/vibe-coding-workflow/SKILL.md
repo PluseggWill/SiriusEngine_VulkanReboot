@@ -1,11 +1,11 @@
 ---
 name: vibe-coding-workflow
 description: >-
-  Runs a three-phase vibe coding workflow (clarify → design doc → implement with
-  progress logs and mandatory build/smoke-run before task close). Creates and
-  maintains Docs/[TaskName]_Plan.md and Docs/[TaskName]_Progress.md under the
-  workspace. Use when the user says vibe coding, asks for this workflow, or works
-  under Docs/.
+  Runs a three-phase vibe coding workflow (clarify + confirm landing details →
+  design doc → implement with progress logs and mandatory build/smoke-run before
+  task close). Phase 1 requires explicit user sign-off on implementation landing
+  details before writing Docs/[TaskName]_Plan.md. Use when the user says vibe
+  coding, asks for this workflow, or works under Docs/.
 ---
 
 # Vibe Coding Workflow
@@ -16,21 +16,39 @@ All paths are relative to the **workspace root**. Artifact directory: `Docs/`.
 - Cross-task roadmap: `Docs/SprintPlan.md`
 - Architecture intent: `Docs/EngineArchitecture.md`
 
-## Phase 1 — Clarify
+## Phase 1 — Clarify & confirm landing details
 
-Goal: agree on a complete, unambiguous task spec with the user.
+Goal: agree on a complete, unambiguous task spec **and** implementation landing details with the user before any plan file or code.
+
+### 1a — Task spec
 
 - Ask targeted questions until scope, inputs/outputs, constraints, acceptance criteria, and out-of-scope items are explicit.
 - Do **not** assume unstated requirements; surface options and let the user choose.
-- Do **not** create `*_Plan.md` or write implementation code until the user confirms the spec is sufficient to proceed (or explicitly asks to skip remaining questions).
+
+### 1b — Landing details (落地细节)
+
+After the spec is clear, **propose concrete landing details in chat** (do not write `*_Plan.md` yet) and get explicit user confirmation. Cover at least what will appear in the plan:
+
+| Area | Confirm with user |
+|------|-------------------|
+| **Touch list** | Files/modules to add or change (and what stays untouched) |
+| **Design choices** | APIs, data layout, shader/descriptor strategy, config paths — with 1–2 alternatives when trade-offs matter |
+| **Implementation order** | Ordered steps / milestones (what ships first, dependencies) |
+| **Verification** | Build config, smoke-run commands, log signals, or documented N/A |
+| **Risks / rollback** | Anything that could break existing behavior or needs a revert path |
+
+- If the user disagrees or is unsure on any item, revise the proposal and ask again; do **not** fold unconfirmed choices into the plan.
+- Do **not** create `*_Plan.md` or write implementation code until the user confirms **both** the spec **and** the landing details (or explicitly asks to skip remaining questions / defer a specific item with a noted follow-up).
+
+**Phase 1 exit gate (user must confirm):** “Spec + landing details are agreed; proceed to write `{TaskName}_Plan.md`.”
 
 ## Phase 2 — Design
 
-Precondition: user has confirmed the clarified spec.
+Precondition: user has confirmed the clarified spec **and** the landing details from Phase 1b.
 
 1. Pick a short `TaskName` (ASCII, no spaces; e.g. `add-login-form`).
 2. Ensure `Docs/` exists.
-3. Create `Docs/{TaskName}_Plan.md` from the **confirmed** spec only. Include at minimum:
+3. Create `Docs/{TaskName}_Plan.md` from the **user-confirmed** spec and landing details only (no new design choices in the doc without returning to Phase 1). Include at minimum:
    - Problem statement and goals
    - Non-goals / out of scope
    - Design decisions (with alternatives considered if relevant)
@@ -39,7 +57,7 @@ Precondition: user has confirmed the clarified spec.
    - **Build / smoke-run** plan (commands, expected signals, when N/A)
    - Risks and rollback notes if any
 
-Do not contradict the clarified spec in the plan; if something is still unclear, return to Phase 1.
+Do not contradict the confirmed spec or landing details in the plan; if something is still unclear or was not user-confirmed, return to Phase 1 (1a or 1b) before editing the plan further.
 
 ## Phase 3 — Implement
 

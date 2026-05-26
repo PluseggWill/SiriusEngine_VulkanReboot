@@ -8,7 +8,7 @@ alwaysApply: false
 
 When this rule applies (files under `Docs/` are in context):
 
-1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
+1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify + confirm landing details → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
 2. Cross-task roadmap: **`Docs/SprintPlan.md`**. Architecture intent: **`Docs/EngineArchitecture.md`** (both git-tracked under `Docs/`). When either file changes, keep the other aligned per **`docs-roadmap-arch-sync.mdc`** (same change set unless user waives).
 3. **SprintPlan hygiene:** active sprints list only open `[ ]` tasks. When done, **move the task line** to `## Archived` with sprint tag (`[S0]`…`[S8]`, `[parallel]`); do not leave `[x]` in active sections. Keep `{TaskName}_Plan.md` / `_Progress.md` at **`Docs/` root for the current sprint** — do not move them to `Archived/plans/` on task close.
 4. Do not skip clarification for new tasks unless the user explicitly waives it.
