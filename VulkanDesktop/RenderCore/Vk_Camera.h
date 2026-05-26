@@ -3,7 +3,7 @@
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
-// std140 UBO, set 0 / eVk_CameraBinding — view/proj only; per-draw model is vertex push constant (TriangleVertex.vert).
+// std140 UBO, set 0 / eVk_CameraBinding — view/proj only; per-draw model is Set 2 dynamic UBO (TriangleVertex.vert).
 struct GpuCameraData {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;

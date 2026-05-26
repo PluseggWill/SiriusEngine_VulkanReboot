@@ -142,11 +142,18 @@ void Vk_Core::InitVulkan() {
     CreateSwapChain();
     CreateRenderPass();
     CreateDescriptorSetLayout();
-    CreateGfxPipeline();
 
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
+
+    CreateTextureSampler();
+    InitDemoSceneEntities();
+    CreateFrameData();
+    CreateInstanceSlabs();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateGfxPipeline();
 
     // Part 3: Resource tables from demo manifest (scene-load Phase C will replace manifest source).
     {
@@ -154,12 +161,8 @@ void Vk_Core::InitVulkan() {
         Gfx_BuildDemoResourceManifest( manifest );
         myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myPipelineLayout );
     }
-    CreateTextureSampler();
-    InitDemoSceneEntities();
-    CreateFrameData();
-    CreateInstanceSlabs();
-    CreateUniformBuffers();
-    CreateDescriptorPool();
+
+    // After resource tables: Set 0 texture binding uses material→texture lookup.
     CreateDescriptorSets();
     CreateCamera();
     InitDefaultEnvironmentData();
@@ -464,19 +467,16 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #10: Color blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
-    // Step #12: Pipeline layout — Set 0 frame UBO + push mat4 model per draw.
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = static_cast< uint32_t >( sizeof( glm::mat4 ) );
+    // Step #12: Pipeline layout — sets 0 (frame), 1 (material placeholder), 2 (object dynamic UBO).
+    const std::array< VkDescriptorSetLayout, 3 > setLayouts = { myGlobalSetLayout, myMaterialSetLayout, myObjectSetLayout };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutCreateInfo.setLayoutCount             = 1;
-    pipelineLayoutCreateInfo.pSetLayouts                = &myGlobalSetLayout;
-    pipelineLayoutCreateInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutCreateInfo.pPushConstantRanges        = &pushRange;
+    pipelineLayoutCreateInfo.setLayoutCount             = static_cast< uint32_t >( setLayouts.size() );
+    pipelineLayoutCreateInfo.pSetLayouts                = setLayouts.data();
+    pipelineLayoutCreateInfo.pushConstantRangeCount     = 0;
+    pipelineLayoutCreateInfo.pPushConstantRanges        = nullptr;
 
-    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=1 pushConstants=1 (mat4 model, VERTEX)." );
+    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=3 (frame, material placeholder, object dynamic)." );
     UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ), "vkCreatePipelineLayout" );
 
     // Step #13: Combine
@@ -504,7 +504,7 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineDiag.myVertShaderPath          = vertShaderPath.c_str();
     pipelineDiag.myFragShaderPath          = fragShaderPath.c_str();
     pipelineDiag.myPipelineLayoutSetCount  = pipelineLayoutCreateInfo.setLayoutCount;
-    pipelineDiag.myPipelineLayoutPushCount = pipelineLayoutCreateInfo.pushConstantRangeCount;
+    pipelineDiag.myPipelineLayoutPushCount = 0;
     pipelineDiag.myColorFormat             = mySwapChainImageFormat;
     pipelineDiag.myDepthFormat             = FindDepthFormat();
 
@@ -910,7 +910,7 @@ void Vk_Core::RecreateSwapChain() {
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
-    // TODO(descriptor-strategy): add Set 1 (material) and Set 2 (UNIFORM_BUFFER_DYNAMIC) layouts; see Vk_DescriptorPolicy.h.
+    // Set 0 — frame (camera, env, texture).
     VkDescriptorSetLayoutBinding uboLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
@@ -920,37 +920,63 @@ void Vk_Core::CreateDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding samplerLayoutBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_TextureBinding );
 
-    std::array< VkDescriptorSetLayoutBinding, 3 > bindings = { uboLayoutBinding, gpuEnvDataLayoutBinding, samplerLayoutBinding };
+    std::array< VkDescriptorSetLayoutBinding, 3 > frameBindings = { uboLayoutBinding, gpuEnvDataLayoutBinding, samplerLayoutBinding };
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.pNext        = nullptr;
-    layoutInfo.flags        = 0;
-    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
-    layoutInfo.pBindings    = bindings.data();
+    VkDescriptorSetLayoutCreateInfo frameLayoutInfo{};
+    frameLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    frameLayoutInfo.bindingCount = static_cast< uint32_t >( frameBindings.size() );
+    frameLayoutInfo.pBindings    = frameBindings.data();
 
-    if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myGlobalSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create descriptor set layout!" );
+    if ( vkCreateDescriptorSetLayout( myDevice, &frameLayoutInfo, nullptr, &myGlobalSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create frame descriptor set layout!" );
     }
 
-    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myGlobalSetLayout, nullptr ); } );
+    // Set 1 — material placeholder (no bindings until batching task).
+    VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
+    materialLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    materialLayoutInfo.bindingCount = 0;
+    materialLayoutInfo.pBindings    = nullptr;
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &materialLayoutInfo, nullptr, &myMaterialSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create material placeholder descriptor set layout!" );
+    }
+
+    // Set 2 — object instance slab (dynamic UBO).
+    VkDescriptorSetLayoutBinding objectBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
+        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, eVk_ObjectModelBinding );
+
+    VkDescriptorSetLayoutCreateInfo objectLayoutInfo{};
+    objectLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    objectLayoutInfo.bindingCount = 1;
+    objectLayoutInfo.pBindings    = &objectBinding;
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &objectLayoutInfo, nullptr, &myObjectSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create object descriptor set layout!" );
+    }
+
+    myDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyDescriptorSetLayout( myDevice, myGlobalSetLayout, nullptr );
+        vkDestroyDescriptorSetLayout( myDevice, myMaterialSetLayout, nullptr );
+        vkDestroyDescriptorSetLayout( myDevice, myObjectSetLayout, nullptr );
+    } );
 }
 
 void Vk_Core::CreateDescriptorPool() {
-    // TODO(descriptor-strategy): pool UNIFORM_BUFFER_DYNAMIC counts when Set 2 is wired (S1 verification).
-    std::array< VkDescriptorPoolSize, 3 > poolSizes{};
+    std::array< VkDescriptorPoolSize, 4 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 10;
     poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 1 ].descriptorCount = 10;
     poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[ 2 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSizes[ 3 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * 2;
 
     if ( vkCreateDescriptorPool( myDevice, &poolInfo, nullptr, &myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor pool!" );
@@ -1002,6 +1028,27 @@ void Vk_Core::CreateDescriptorSets() {
                                                                     eVk_TextureBinding, 1 );
 
         vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
+
+        // Set 2 — one dynamic UBO descriptor per frame pointing at the instance slab (offset via dynamicOffset at draw).
+        VkDescriptorSetAllocateInfo objectAllocInfo{};
+        objectAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        objectAllocInfo.descriptorPool     = myDescriptorPool;
+        objectAllocInfo.descriptorSetCount = 1;
+        objectAllocInfo.pSetLayouts        = &myObjectSetLayout;
+
+        if ( vkAllocateDescriptorSets( myDevice, &objectAllocInfo, &myFrameDatas[ i ].myObjectDescriptor ) != VK_SUCCESS ) {
+            throw std::runtime_error( "failed to allocate object descriptor sets!" );
+        }
+
+        VkDescriptorBufferInfo objectBufferInfo{};
+        objectBufferInfo.buffer = myFrameDatas[ i ].myObjectBuffer.myBuffer;
+        objectBufferInfo.offset = 0;
+        objectBufferInfo.range  = sizeof( GpuObjectData );
+
+        VkWriteDescriptorSet objectWrite = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myObjectDescriptor,
+                                                                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &objectBufferInfo,
+                                                                                 eVk_ObjectModelBinding, 1 );
+        vkUpdateDescriptorSets( myDevice, 1, &objectWrite, 0, nullptr );
     }
 }
 
@@ -1371,15 +1418,13 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
         vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
         vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-        const char* const slabBase = static_cast< const char* >( myFrameDatas[ myCurrentFrame ].myInstanceSlabMapped );
-        const auto* const objectData =
-            reinterpret_cast< const GpuObjectData* >( slabBase + static_cast< size_t >( draw.myInstanceDataOffset ) );
-        const glm::mat4 modelMatrix = objectData->model;
+        const uint32_t dynamicOffset = draw.myInstanceDataOffset;
 
         // TODO(descriptor-strategy): bind Set 0 once per batch; Set 1 per materialId (texture from table).
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, 0, 1,
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
                                  &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
-        vkCmdPushConstants( aCommandBuffer, material.myPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( glm::mat4 ), &modelMatrix );
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, VkDescriptorPolicy::kSetObject, 1,
+                                 &myFrameDatas[ myCurrentFrame ].myObjectDescriptor, 1, &dynamicOffset );
         myFrameStats.myDrawCalls++;
         vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
     }
@@ -1512,6 +1557,11 @@ void Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
     static bool loggedOnce = false;
     if ( !loggedOnce ) {
         UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( writes ) + " instance(s)" );
+        if ( writes >= 2 ) {
+            const uint32_t offset0 = myExtractResult.myDrawInstances[ 0 ].myInstanceDataOffset;
+            const uint32_t offset1 = myExtractResult.myDrawInstances[ 1 ].myInstanceDataOffset;
+            UtilLogger::Info( "DESCRIPTOR", "Set 2 dynamicOffsets (sample): " + std::to_string( offset0 ) + ", " + std::to_string( offset1 ) );
+        }
         loggedOnce = true;
     }
 }

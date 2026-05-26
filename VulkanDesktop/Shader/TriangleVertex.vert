@@ -1,14 +1,14 @@
 #version 450
 
-// Per-draw model via push constants; view/proj in Set 0 frame UBO (VkDescriptorPolicy).
-layout(push_constant) uniform PushConstants {
-    mat4 model;
-} pushConstants;
-
-layout(binding = 0) uniform CameraData {
+// Set 0 frame UBO; Set 2 per-instance model via UNIFORM_BUFFER_DYNAMIC + dynamicOffset (VkDescriptorPolicy).
+layout(set = 0, binding = 0) uniform CameraData {
     mat4 view;
     mat4 proj;
 } cameraData;
+
+layout(set = 2, binding = 0) uniform ObjectData {
+    mat4 model;
+} objectData;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -22,10 +22,10 @@ layout(location = 3) out vec3 outWorldPos;
 
 void main()
 {
-    vec4 worldPosition = pushConstants.model * vec4(inPosition, 1.0);
+    vec4 worldPosition = objectData.model * vec4(inPosition, 1.0);
     gl_Position = cameraData.proj * cameraData.view * worldPosition;
     outColor = inColor;
     outTexCoord = inTexCoord;
-    outWorldNormal = normalize(mat3(pushConstants.model) * inNormal);
+    outWorldNormal = normalize(mat3(objectData.model) * inNormal);
     outWorldPos = worldPosition.xyz;
 }

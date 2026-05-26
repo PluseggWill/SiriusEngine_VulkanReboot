@@ -18,6 +18,5 @@ struct Vk_FrameData {
     // Per-frame instance ring UBO (GpuObjectData slices); persistently CPU-mapped for FillInstanceSlab.
     Vk_AllocatedBuffer myObjectBuffer;
     void*              myInstanceSlabMapped = nullptr;
-    // TODO(descriptor-strategy): myObjectDescriptor + UNIFORM_BUFFER_DYNAMIC bind (S1 Set-2 verify).
-    VkDescriptorSet myObjectDescriptor;
+    VkDescriptorSet myObjectDescriptor;  // set 2 | UNIFORM_BUFFER_DYNAMIC | instance slab
 };

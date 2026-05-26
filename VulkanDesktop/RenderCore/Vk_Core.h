@@ -177,6 +177,8 @@ private:
     VkFormat              mySwapChainImageFormat;
     VkExtent2D            mySwapChainExtent;
     VkDescriptorSetLayout myGlobalSetLayout;
+    VkDescriptorSetLayout myMaterialSetLayout;  // placeholder (no bindings) until Set 1 batching
+    VkDescriptorSetLayout myObjectSetLayout;
     VkDescriptorPool      myDescriptorPool;
     VkPipelineLayout      myPipelineLayout;
     VkRenderPass          myRenderPass;

@@ -12,14 +12,14 @@ Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_
 
 - **Do not** patch a **shared** per-frame `UNIFORM_BUFFER` (e.g. `GpuCameraData.model`) between multiple `vkCmdDraw*` calls that reuse the **same** bound descriptor set. Later draws may all see the **last** CPU write.
 - **Do** use one of:
-  - **Push constants** — `mat4` model, vertex stage (current desktop path; `TriangleVertex.vert`).
-  - **`UNIFORM_BUFFER_DYNAMIC`** — one slab, distinct `dynamicOffset` per draw (Set 2; S1 verification task).
+  - **`UNIFORM_BUFFER_DYNAMIC`** — one slab, distinct `dynamicOffset` per draw (Set 2; **demo path** in `TriangleVertex.vert`).
+  - **Push constants** — `mat4` model still valid per policy for other pipelines.
 - When a demo looks wrong (meshes stacked): check **transform delivery** first, not only wider entity spacing in SoA.
 
 ## Record path boundaries
 
 - **Target:** `RecordScenePass` consumes **`Gfx_DrawInstance` only** (+ resource table resolve). Per-instance data via `myInstanceDataOffset` into an instance slab (§4.4).
-- **Today (debt):** record may still call `Gfx_SceneSoA::GetTransform(myEntityIndex)` — acceptable only until instance-slab task; do not add new SoA reads from record.
+- **Today:** transforms written in `FillInstanceSlab` from SoA; record binds Set 2 with `myInstanceDataOffset` only.
 
 ## Multi-mesh / batching
 

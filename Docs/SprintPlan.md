@@ -186,16 +186,12 @@ flowchart TB
 | Topic | State | Next / owner task |
 |-------|--------|-------------------|
 | Resource tables | Done — `Gfx_ResourceManifest`, `Vk_ResourceTables`, `RecordScenePass` resolves mesh/material ids | `scene-load` Phase C replaces demo manifest |
-| Per-draw `model` | **Push constant** (vertex); removed from `GpuCameraData` UBO (2026-05-26) | Set 2 slab may share or supersede push path — descriptor verify task |
-| Record ↔ transforms | **Done** — `FillInstanceSlab` + record reads `myInstanceDataOffset` into ring UBO | Set 2 dynamic descriptor bind (next task) |
+| Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | Set 1 material batch |
+| Record ↔ transforms | **Done** — `FillInstanceSlab` + Set 2 bind per draw | — |
 | Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — bind per material batch |
 | Draw submission | Cull + opaque sort done; no batch yet; `vkCmdBindDescriptorSets` per draw | **Batch** task below |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
-
-### Data plane
-
-- [ ] **Verify descriptor policy (Set 2):** wire `UNIFORM_BUFFER_DYNAMIC` on instance slab; 2+ draws with distinct `vkCmdBindDescriptorSets` `dynamicOffset` — see `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`.
 
 ### Submission
 
@@ -514,6 +510,7 @@ flowchart LR
 - [x] **[S1]** Finish or delete `DrawObjects` stub; `RecordScenePass` documented as live Vulkan path — 2026-05-25 (with extract task).
 - [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), `Gfx_DrawCullSort.*`.
 - [x] **[S1]** Per-frame instance slab (ring UBO, `FillInstanceSlab`, record via `myInstanceDataOffset`) — 2026-05-26; [`instance-slab_Plan.md`](instance-slab_Plan.md).
+- [x] **[S1]** Verify descriptor policy (Set 2): `UNIFORM_BUFFER_DYNAMIC` on instance slab, distinct `dynamicOffset` per draw — 2026-05-26; [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md).
 
 ---
 

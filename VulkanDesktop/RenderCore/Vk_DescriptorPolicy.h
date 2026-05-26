@@ -20,7 +20,7 @@ constexpr uint32_t kSetFrame    = 0;
 constexpr uint32_t kSetMaterial = 1;  // S1
 constexpr uint32_t kSetObject   = 2;  // S1
 
-// TODO(descriptor-strategy): prove on GPU in S1 (2+ draws, distinct dynamicOffset); until then policy-only.
+// Set 2 UNIFORM_BUFFER_DYNAMIC path wired in RecordScenePass (S1 verify 2026-05-26).
 inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
 
 // Max draws written into the per-frame instance ring UBO (FillInstanceSlab); no per-draw heap alloc.
