@@ -2,34 +2,52 @@
 
 #include "../Util/Util_DemoAssets.h"
 
+namespace {
+
+Gfx_MaterialManifestEntry MakeOpaqueMaterial( uint32_t aId, uint32_t aTextureId ) {
+    Gfx_MaterialManifestEntry entry{};
+    entry.myId                    = aId;
+    entry.myTextureId             = aTextureId;
+    entry.myPipelinePermutationId = 0;
+    return entry;
+}
+
+}  // namespace
+
 void Gfx_BuildDemoResourceManifest( Gfx_ResourceManifest& aOut ) {
     aOut.myMeshes.clear();
     aOut.myTextures.clear();
     aOut.myMaterials.clear();
 
-    aOut.myMeshes.push_back( { 0, std::string( UtilDemoAssets::kHouseModel ) } );
-    aOut.myMeshes.push_back( { 1, std::string( UtilDemoAssets::kMonkeyModel ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshViking, std::string( UtilDemoAssets::kHouseModel ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshMonkey, std::string( UtilDemoAssets::kMonkeyModel ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshTreeDetailed, std::string( UtilDemoAssets::kKenneyTreeDetailed ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshTreeSimple, std::string( UtilDemoAssets::kKenneyTreeSimple ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshRock, std::string( UtilDemoAssets::kKenneyRockLarge ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshCampfire, std::string( UtilDemoAssets::kKenneyCampfire ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshTent, std::string( UtilDemoAssets::kKenneyTent ) } );
+    aOut.myMeshes.push_back( { UtilDemoAssets::kMeshStump, std::string( UtilDemoAssets::kKenneyStump ) } );
 
     aOut.myTextures.push_back( { 0, std::string( UtilDemoAssets::kDemoTexture ) } );
     aOut.myTextures.push_back( { 1, std::string( UtilDemoAssets::kAltTexture ) } );
+    aOut.myTextures.push_back( { 2, std::string( UtilDemoAssets::kTexRock ) } );
+    aOut.myTextures.push_back( { 3, std::string( UtilDemoAssets::kTexGrass ) } );
+    aOut.myTextures.push_back( { 4, std::string( UtilDemoAssets::kTexMetal ) } );
+    aOut.myTextures.push_back( { 5, std::string( UtilDemoAssets::kTexWood ) } );
 
-    Gfx_MaterialManifestEntry material0{};
-    material0.myId                    = 0;
-    material0.myTextureId             = 0;
-    material0.myPipelinePermutationId = 0;
-    aOut.myMaterials.push_back( material0 );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatViking, 0 ) );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatMonkey, 1 ) );
 
-    Gfx_MaterialManifestEntry material1{};
-    material1.myId                    = 1;
-    material1.myTextureId             = 1;
-    material1.myPipelinePermutationId = 0;
-    aOut.myMaterials.push_back( material1 );
+    Gfx_MaterialManifestEntry transparent{};
+    transparent.myId                    = UtilDemoAssets::kMatTransparent;
+    transparent.myTextureId             = 0;
+    transparent.myPipelinePermutationId = 0;
+    transparent.myAlpha                 = 0.35f;
+    transparent.myIsTransparent         = true;
+    aOut.myMaterials.push_back( transparent );
 
-    Gfx_MaterialManifestEntry material2{};
-    material2.myId                    = 2;
-    material2.myTextureId             = 0;
-    material2.myPipelinePermutationId = 0;
-    material2.myAlpha                 = 0.35f;
-    material2.myIsTransparent         = true;
-    aOut.myMaterials.push_back( material2 );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatRock, 2 ) );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatGrass, 3 ) );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatMetal, 4 ) );
+    aOut.myMaterials.push_back( MakeOpaqueMaterial( UtilDemoAssets::kMatWood, 5 ) );
 }

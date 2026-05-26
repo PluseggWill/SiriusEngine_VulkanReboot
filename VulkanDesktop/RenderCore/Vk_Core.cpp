@@ -907,9 +907,9 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 }
 
 void Vk_Core::CreateCamera() {
-    myCamera.SetLens( 45.0f, 0.1f, 10.0f, static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
-    // Demo entities at x = +/-4; pull back so both meshes are visible.
-    myCamera.LookAt( glm::vec3( 0.0f, 2.5f, 7.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    myCamera.SetLens( 45.0f, 0.1f, 32.0f, static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
+    // Demo: hero meshes at x=+/-4, Kenney camp props toward -Z; eye pulled back for full layout.
+    myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 9.0f ), glm::vec3( 0.0f, 0.5f, -2.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 }
 
 void Vk_Core::InitDefaultEnvironmentData() {
@@ -1255,10 +1255,24 @@ void Vk_Core::InitDemoSceneEntities() {
         myDemoBaseTransforms[ id.myIndex ] = aBaseTransform;
     };
 
-    // Demo layout: viking left, monkey right; transparent monkey in front (material 2, alpha 0.35).
-    addDemoEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( 1, 1, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( 1, 2, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ), Gfx_RenderTransparent );
+    auto placeScaled = []( const glm::vec3& aPosition, const glm::vec3& aScale ) {
+        glm::mat4 transform = glm::translate( glm::mat4( 1.0f ), aPosition );
+        return glm::scale( transform, aScale );
+    };
+
+    // Heroes: viking left, monkey right; transparent monkey in front (material 2, alpha 0.35).
+    addDemoEntity( UtilDemoAssets::kMeshViking, UtilDemoAssets::kMatViking, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshMonkey, UtilDemoAssets::kMatMonkey, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshMonkey, UtilDemoAssets::kMatTransparent, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ),
+                   Gfx_RenderTransparent );
+
+    // Kenney nature camp (scaled ~3–4×; models are ~1 unit tall in asset space).
+    addDemoEntity( UtilDemoAssets::kMeshTreeDetailed, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( -7.0f, 0.0f, -5.5f ), glm::vec3( 4.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshTreeSimple, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 7.0f, 0.0f, -5.0f ), glm::vec3( 3.5f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshRock, UtilDemoAssets::kMatRock, placeScaled( glm::vec3( 0.0f, 0.0f, -6.5f ), glm::vec3( 3.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshTent, UtilDemoAssets::kMatWood, placeScaled( glm::vec3( -3.0f, 0.0f, -4.0f ), glm::vec3( 3.0f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshCampfire, UtilDemoAssets::kMatMetal, placeScaled( glm::vec3( 3.0f, 0.0f, -4.0f ), glm::vec3( 2.5f ) ) );
+    addDemoEntity( UtilDemoAssets::kMeshStump, UtilDemoAssets::kMatGrass, placeScaled( glm::vec3( 6.5f, 0.0f, -3.0f ), glm::vec3( 2.5f ) ) );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
