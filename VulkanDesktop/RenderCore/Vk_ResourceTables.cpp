@@ -36,7 +36,7 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
 
     for ( const Gfx_MaterialManifestEntry& entry : aManifest.myMaterials ) {
         VkPipeline pipeline = entry.myIsTransparent ? aTransparentPipeline : aOpaquePipeline;
-        CreateMaterialEntry( entry.myId, entry.myTextureId, pipeline, aLayout, entry.myAlpha );
+        CreateMaterialEntry( entry.myId, entry.myTextureId, pipeline, aLayout, entry.myAlpha, entry.myIsTransparent );
     }
 
     ++myMaterialTableGeneration;
@@ -97,7 +97,18 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t 
     return &texture;
 }
 
-Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha ) {
+void Vk_ResourceTables::RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout ) {
+    for ( Gfx_Material& material : myMaterials ) {
+        if ( material.myPipeline == VK_NULL_HANDLE ) {
+            continue;
+        }
+        material.myPipeline       = material.myIsTransparent ? aTransparentPipeline : aOpaquePipeline;
+        material.myPipelineLayout = aLayout;
+    }
+}
+
+Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha,
+                                                    bool aIsTransparent ) {
     if ( aMaterialId >= myMaterials.size() ) {
         myMaterials.resize( aMaterialId + 1 );
     }
@@ -106,6 +117,7 @@ Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint
     material.myPipeline       = aPipeline;
     material.myPipelineLayout = aLayout;
     material.myAlpha          = aAlpha;
+    material.myIsTransparent  = aIsTransparent;
 
     if ( aMaterialId >= myMaterialTextureIds.size() ) {
         myMaterialTextureIds.resize( aMaterialId + 1, UINT32_MAX );

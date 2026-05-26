@@ -1013,9 +1013,18 @@ void Vk_Core::RecreateSwapChain() {
     const uint32_t minImageCount = std::max( 2u, imageCount );
     myImGuiLayer.CreateSwapchainResources( mySwapChainImageFormat, mySwapChainExtent, mySwapChainImageViews, imageCount, minImageCount );
 
+    RefreshMaterialPipelinesAfterSwapchainRecreate();
+
     // Reset the camera's aspect
     myCamera.SetAspect( static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
     UtilLogger::Info( "SWAPCHAIN", "Swapchain recreation completed." );
+}
+
+void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
+    const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
+    const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
+    const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
+    myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {

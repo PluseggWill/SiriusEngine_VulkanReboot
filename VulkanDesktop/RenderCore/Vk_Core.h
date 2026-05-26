@@ -119,6 +119,7 @@ private:
     // Draw frame:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
+    void RefreshMaterialPipelinesAfterSwapchainRecreate();
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
     bool FillInstanceSlab( uint32_t aCurrentFrame );
     size_t InstanceSlabStride() const;

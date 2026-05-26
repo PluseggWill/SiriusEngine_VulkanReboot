@@ -50,7 +50,8 @@ public:
 struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
-    float            myAlpha = 1.0f;
+    float            myAlpha         = 1.0f;
+    bool             myIsTransparent = false;
 };
 
 // std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag.

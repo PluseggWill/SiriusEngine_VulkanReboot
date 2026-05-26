@@ -32,10 +32,14 @@ public:
 
     uint16_t GetMaterialTableGeneration() const { return myMaterialTableGeneration; }
 
+    // After swapchain recreate: Vk pipelines are recreated; refresh stored handles (same material ids).
+    void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
+
 private:
     Gfx_Mesh*     LoadMesh( const std::string& aPath, uint32_t aMeshId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue );
     Gfx_Texture*  LoadTexture( const std::string& aPath, uint32_t aTextureId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aMipLevels );
-    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha );
+    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha,
+                                       bool aIsTransparent );
 
     std::vector< Gfx_Mesh >     myMeshes;
     std::vector< Gfx_Material > myMaterials;
