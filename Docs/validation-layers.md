@@ -69,4 +69,4 @@ If validation is requested but the layer is missing, the app logs a warning and 
 | No validation messages in log | No layer violations on that run; confirm `Debug utils messenger created` and validation enabled |
 | `Extension not available: VK_EXT_debug_utils` | Update GPU driver / Vulkan loader; layers may still print to the debugger only |
 
-See also: `Docs/validation-layers_Plan.md`, `Docs/SprintPlan.md` (S0).
+See also: `Docs/Archived/plans/validation-layers_Plan.md`, `Docs/SprintPlan.md` (S0).

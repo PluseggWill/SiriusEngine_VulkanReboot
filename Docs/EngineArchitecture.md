@@ -107,7 +107,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 **Implemented (S1 v0):**
 
 - **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure.
-- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
+- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** `mat4 model` via **push constant** (§5.3); Set 0 `GpuCameraData` is `view` + `proj` only. Demo spin + entity translation are composed in `Vk_Core::ComputeDemoModelMatrix` (temporary; record still reads `Gfx_SceneSoA` by `myEntityIndex` — should move to instance slab / `myInstanceDataOffset`).
 
 **Still open (S1):** Set 1 material batch binds; instance ring/slab (`UNIFORM_BUFFER_DYNAMIC` or sustained push layout); sort + batch before record; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).

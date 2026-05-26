@@ -52,4 +52,4 @@ Logs: `Logs/engine_runtime_log.txt`, `Logs/shader_compile_log.txt`. Each run cal
 | Hold **RMB** + mouse | Look around |
 | ImGui **Camera** panel | Move speed, mouse sensitivity |
 
-Details: `Docs/fps-camera_Plan.md`. Roadmap: `Docs/SprintPlan.md`. Architecture: `Docs/EngineArchitecture.md` §3.1.
+Details: `Docs/Archived/plans/fps-camera_Plan.md`. Roadmap: `Docs/SprintPlan.md`. Architecture: `Docs/EngineArchitecture.md` §3.1.
