@@ -9,6 +9,15 @@ void Util_FrameStats::ResetPerFrameCounters() {
     myMaterialSetBinds = 0;
 }
 
+void Util_FrameStats::SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws,
+                                            uint32_t aOpaqueBatchRuns, uint32_t aTransparentBatchRuns ) {
+    myActiveEntities          = aActiveEntities;
+    myVisibleOpaqueDraws      = aVisibleOpaqueDraws;
+    myVisibleTransparentDraws = aVisibleTransparentDraws;
+    myOpaqueBatchRuns         = aOpaqueBatchRuns;
+    myTransparentBatchRuns    = aTransparentBatchRuns;
+}
+
 void Util_FrameStats::PushFrameTime( float aFrameMs ) {
     myFrameMs = aFrameMs;
     if ( aFrameMs > 0.f )

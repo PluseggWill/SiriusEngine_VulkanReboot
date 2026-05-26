@@ -214,10 +214,7 @@ flowchart TB
 
 ### Milestone M1 acceptance
 
-- [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
-
-*(LOD v0 acceptance met 2026-05-26 — see Archived.)*
-*(M1 transparent-over-opaque acceptance met 2026-05-26 — visual sign-off; see Archived.)*
+*(cleared 2026-05-26 — see Archived; S1 M1 complete.)*
 
 ---
 
@@ -513,6 +510,7 @@ flowchart LR
 - [x] **[S1]** LOD v0 (CPU): logical mesh + `Gfx_LodTable`, distance LOD + hysteresis, resolved meshId in draw/batch, demo tree chain — 2026-05-26; [`lod-v0_Plan.md`](lod-v0_Plan.md), `Data/LOD.md`.
 - [x] **[S1]** Bindless v0: hybrid batch/bindless paths, indexing probe, material SSBO table + `materialIndex`, sort-key table generation — 2026-05-26; [`bindless-v0_Plan.md`](bindless-v0_Plan.md).
 - [x] **[M1]** Transparent object over opaque (order + blend): demo overlay monkey; opaque behind visible — visual sign-off 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
+- [x] **[M1]** Multi-mesh batch scaling + frame time: demo 9 entities / 8+1 batch runs; ImGui + `[PERF]` log after warmup — 2026-05-26; [`m1-acceptance_Plan.md`](m1-acceptance_Plan.md).
 
 ---
 

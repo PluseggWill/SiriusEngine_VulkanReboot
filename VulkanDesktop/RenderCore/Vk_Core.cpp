@@ -852,6 +852,12 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         Gfx_BuildOpaqueDrawBatches( myFrameExtract.myOpaque.myDrawInstances, myOpaqueBatchRuns );
         Gfx_BuildOpaqueDrawBatches( myFrameExtract.myTransparent.myDrawInstances, myTransparentBatchRuns );
 
+        myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
+                                           static_cast< uint32_t >( myFrameExtract.myOpaque.myDrawInstances.size() ),
+                                           static_cast< uint32_t >( myFrameExtract.myTransparent.myDrawInstances.size() ),
+                                           static_cast< uint32_t >( myOpaqueBatchRuns.size() ),
+                                           static_cast< uint32_t >( myTransparentBatchRuns.size() ) );
+
         if ( !myBatchLoggedOnce ) {
             UtilLogger::Info( "BATCH",
                               "opaque runs=" + std::to_string( myOpaqueBatchRuns.size() ) + " draws=" +
@@ -967,6 +973,26 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         UtilLogger::Error( "FRAME", "vkQueuePresentKHR failed." );
         throw std::runtime_error( "failed to present swap chain image!" );
     }
+
+    // MainLoop increments myFrameNumber after DrawFrame; log once the 60th frame completes (counter still 59 here).
+    if ( !myM1PerfLoggedOnce && myFrameNumber >= 59 ) {
+        LogM1PerfSnapshot();
+        myM1PerfLoggedOnce = true;
+    }
+}
+
+void Vk_Core::LogM1PerfSnapshot() const {
+    const uint32_t visibleDraws = myFrameStats.myVisibleOpaqueDraws + myFrameStats.myVisibleTransparentDraws;
+    const uint32_t batchRuns    = myFrameStats.myOpaqueBatchRuns + myFrameStats.myTransparentBatchRuns;
+    UtilLogger::Info( "PERF",
+                      "frameMs=" + std::to_string( myFrameStats.myFrameMs ) + " fps=" + std::to_string( myFrameStats.myFps ) +
+                          " entities=" + std::to_string( myFrameStats.myActiveEntities ) + " visibleDraws=" + std::to_string( visibleDraws ) +
+                          " batchRuns=" + std::to_string( batchRuns ) + " (opaque=" + std::to_string( myFrameStats.myOpaqueBatchRuns ) +
+                          " transparent=" + std::to_string( myFrameStats.myTransparentBatchRuns ) + ")" +
+                          " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) +
+                          " pipelineBinds=" + std::to_string( myFrameStats.myPipelineBinds ) +
+                          " drawCalls=" + std::to_string( myFrameStats.myDrawCalls ) + " materialPath=" +
+                          Vk_RenderMaterialPathName( myMaterialPath ) );
 }
 
 void Vk_Core::CreateCamera() {

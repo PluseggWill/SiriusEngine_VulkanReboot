@@ -120,6 +120,7 @@ private:
     void DrawFrame( const Vk_FrameData aFrameData );
     void RecreateSwapChain();
     void RefreshMaterialPipelinesAfterSwapchainRecreate();
+    void LogM1PerfSnapshot() const;
     void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
     bool FillInstanceSlab( uint32_t aCurrentFrame );
     size_t InstanceSlabStride() const;
@@ -181,6 +182,7 @@ public:
     bool                                         myMaterialBindLoggedOnce     = false;
     bool                                         myLodLoggedOnce              = false;
     bool                                         myBindlessLoggedOnce         = false;
+    bool                                         myM1PerfLoggedOnce           = false;
     Vk_BindlessCapabilities                      myBindlessCaps{};
     Vk_RenderMaterialPath                        myMaterialPath               = Vk_RenderMaterialPath::Batch;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;

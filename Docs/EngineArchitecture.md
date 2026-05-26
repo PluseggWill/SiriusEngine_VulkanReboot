@@ -112,7 +112,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** M1 acceptance (multi-mesh batch scaling + frame-time logging sign-off). **Transparent-over-opaque** met 2026-05-26 (visual sign-off; [`transparency_Plan.md`](transparency_Plan.md)).
+**S1 / M1 (2026-05-26):** CPU draw stream complete — multi-mesh demo, opaque batch runs, Set 1 binds ≤ batch runs (batch path), frame ms in ImGui + `[PERF]` warmup log ([`m1-acceptance_Plan.md`](m1-acceptance_Plan.md)).
 
 **LOD v0 (2026-05-26):** SoA stores **logical** mesh id + optional `lodBias`; `Gfx_LodTable` maps logical → physical mesh chain; after cull, `Gfx_ApplyLodToFrameExtract` writes **resolved** `myMeshId` on draws and refreshes opaque sort keys (15% distance hysteresis). Sample chain: `Data/LOD.md`, [`lod-v0_Plan.md`](lod-v0_Plan.md).
 
