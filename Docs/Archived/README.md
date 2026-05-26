@@ -1,12 +1,13 @@
 # Docs/Archived
 
-Historical artifacts — **not** the active task queue. Open work stays in [`../SprintPlan.md`](../SprintPlan.md). **Current sprint** plan/progress stay at [`../`](../README.md) root (including completed S1 tasks); this folder holds **older** sprint pairs (e.g. S0) and notes.
+Historical artifacts — **not** the active task queue. Open work stays in [`../SprintPlan.md`](../SprintPlan.md). **Current sprint** plan/progress stay at [`../`](../README.md) root (e.g. `scene-load_*` for S2).
 
 ## Layout
 
 | Path | Contents |
 |------|----------|
 | [`plans/`](plans/) | Completed `{TaskName}_Plan.md` + `{TaskName}_Progress.md` from vibe-coding |
+| [`S1-回顾总结.md`](S1-回顾总结.md) | S1 / M1 中文回顾（2026-05-26） |
 | [`notes-2026-05-22-shader-debug.md`](notes-2026-05-22-shader-debug.md) | Shader / glslc / MSBuild pitfalls |
 | [`TODOList.md`](TODOList.md) | Pre–sprint-plan backlog (superseded by `SprintPlan.md`) |
 
@@ -14,11 +15,11 @@ Historical artifacts — **not** the active task queue. Open work stays in [`../
 
 ### S0 — foundation
 
-`asset-root`, `bootstrap`, `debug-messenger`, `extension-probes`, `naming-prefix`, `pipeline-diagnostics`, `pipeline-dynamic-state`, `startup-checks`, `validation-layers`, `vs-file-layout`, `basic-lighting`, `lighting-plus`
+`asset-root`, `bootstrap`, `debug-messenger`, `extension-probes`, `naming-prefix`, `pipeline-diagnostics`, `pipeline-dynamic-state`, `startup-checks`, `validation-layers`, `vs-file-layout`, `basic-lighting`, `lighting-plus`, `descriptor-strategy`
 
-### S1 — CPU draw stream
+### S1 — CPU draw stream (M1)
 
-*Plans for S1 live at `Docs/` root (`draw-extract`, `scene-soa`, `draw-cull-sort`, `resource-tables`, `instance-slab`, …).*
+`bindless-v0`, `demo-transform-sync`, `descriptor-set1-verify`, `descriptor-set2-verify`, `draw-batch`, `draw-cull-sort`, `draw-extract`, `instance-slab`, `instance-slab-overflow`, `lod-v0`, `m1-acceptance`, `resource-tables`, `scene-soa`, `transparency`
 
 ### S2 / hygiene
 
@@ -26,4 +27,4 @@ Historical artifacts — **not** the active task queue. Open work stays in [`../
 
 ---
 
-*Moved 2026-05-26 during Docs cleanup. Link from `SprintPlan.md` → **Archived** uses `Docs/Archived/plans/…` paths.*
+*S1 plan/progress moved from `Docs/` root 2026-05-27. `SprintPlan.md` → **Archived** links use `Archived/plans/…` paths.*

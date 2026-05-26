@@ -107,10 +107,10 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 **Implemented (S1 v0):**
 
 - **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest`. Boot verify: `Util_VerifyManifest` on scene closure before `vkCreateInstance`. SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). `Vk_Core::SetLoadedScene` before `Run()`.
-- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
+- **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
-- **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
+- **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/Archived/plans/instance-slab_Plan.md`.
 
 **S1 / M1 (2026-05-26):** CPU draw stream complete — multi-mesh demo, opaque batch runs, Set 1 binds ≤ batch runs (batch path), frame ms in ImGui + `[PERF]` warmup log ([`m1-acceptance_Plan.md`](m1-acceptance_Plan.md)).
 

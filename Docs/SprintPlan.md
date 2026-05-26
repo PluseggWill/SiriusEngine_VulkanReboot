@@ -179,7 +179,7 @@ flowchart TB
 
 ## S1 — CPU draw stream (milestone M1)
 
-*Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream. **Retrospective (中文):** [`S1-回顾总结.md`](S1-回顾总结.md).*
+*Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream. **Retrospective (中文):** [`Archived/S1-回顾总结.md`](Archived/S1-回顾总结.md).*
 
 ### S1 — implementation notes *(living; trim rows when follow-up tasks close)*
 
@@ -188,11 +188,11 @@ flowchart TB
 | Resource tables | Done — `Gfx_ResourceManifest`, `Vk_ResourceTables`, `RecordScenePass` resolves mesh/material ids | `scene-load` Phase C replaces demo manifest |
 | Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | — |
 | Record ↔ transforms | **Done** — SoA updated before extract (`demo-transform-sync`); slab copies SoA matrix; Set 2 per draw | — |
-| Instance slab | **Done** — overflow fail-closed — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) | — |
-| Set 0 / Set 1 | **Done** — batch path + bindless path (indexing probe, material SSBO table, `materialIndex` in Set 2) — [`bindless-v0_Plan.md`](bindless-v0_Plan.md) | S7 preset toggle |
+| Instance slab | **Done** — overflow fail-closed — [`instance-slab-overflow_Plan.md`](Archived/plans/instance-slab-overflow_Plan.md) | — |
+| Set 0 / Set 1 | **Done** — batch path + bindless path (indexing probe, material SSBO table, `materialIndex` in Set 2) — [`bindless-v0_Plan.md`](Archived/plans/bindless-v0_Plan.md) | S7 preset toggle |
 | Draw submission | **Done** — batch runs; set 0 once per pass; set 1 per batch; set 2 per draw | — |
-| Transparency | **Done** — opaque + transparent lists; `myTransparentPipeline` (blend, depth write off) — [`transparency_Plan.md`](transparency_Plan.md) | — |
-| LOD v0 (CPU) | **Done** — logical mesh + `Gfx_LodTable`; distance + hysteresis → resolved `meshId` — [`lod-v0_Plan.md`](lod-v0_Plan.md) | GPU LOD parity (S3) |
+| Transparency | **Done** — opaque + transparent lists; `myTransparentPipeline` (blend, depth write off) — [`transparency_Plan.md`](Archived/plans/transparency_Plan.md) | — |
+| LOD v0 (CPU) | **Done** — logical mesh + `Gfx_LodTable`; distance + hysteresis → resolved `meshId` — [`lod-v0_Plan.md`](Archived/plans/lod-v0_Plan.md) | GPU LOD parity (S3) |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
@@ -482,7 +482,7 @@ flowchart LR
 
 ### Engine / hygiene
 
-- [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
+- [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/Archived/plans/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `scene-load_Plan.md` Handoff.
 - [x] **[S2]** Scene-load Phase C: scene-driven SoA/LOD/manifest + `Vk_ResourceTables::LoadFromManifest`; `SetLoadedScene` before `Run()` — 2026-05-27; `Docs/scene-load_Plan.md` Phase C.
 - [x] **[S2]** Scene-load Phase B: `Util_VerifyManifest` replaces `UtilStartupChecks` / `kRequiredFiles` — 2026-05-26; `Docs/scene-load_Plan.md` Phase B.
@@ -495,22 +495,22 @@ flowchart LR
 
 ### S1 — CPU draw stream (M1)
 
-- [x] **[S1]** Resource tables: mesh/material/texture ids → `Vk_ResourceTables`; demo `Gfx_ResourceManifest`; `RecordScenePass` resolves `Gfx_DrawInstance` ids — 2026-05-26; [`resource-tables_Plan.md`](resource-tables_Plan.md) (scene JSON manifest: `scene-load` Phase C).
-- [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; [`draw-extract_Plan.md`](draw-extract_Plan.md), `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
-- [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; [`scene-soa_Plan.md`](scene-soa_Plan.md), `Gfx_SceneSoA.*`.
+- [x] **[S1]** Resource tables: mesh/material/texture ids → `Vk_ResourceTables`; demo `Gfx_ResourceManifest`; `RecordScenePass` resolves `Gfx_DrawInstance` ids — 2026-05-26; [`resource-tables_Plan.md`](Archived/plans/resource-tables_Plan.md) (scene JSON manifest: `scene-load` Phase C).
+- [x] **[S1]** Extract phase: `Gfx_DrawInstance` + `Gfx_ExtractDrawInstances` (sort key, mesh/material ids, instance offset); demo entities; no Vulkan in Gfx module — 2026-05-25; [`draw-extract_Plan.md`](Archived/plans/draw-extract_Plan.md), `Gfx_DrawExtract.*`, `Vk_Core` frame hook; removed dead `DrawObjects` stub.
+- [x] **[S1]** SoA columns + stable entity id: `Gfx_SceneSoA` (transform, bounds, mesh/material, layer mask; slot + generation); extract reads columns — 2026-05-25; [`scene-soa_Plan.md`](Archived/plans/scene-soa_Plan.md), `Gfx_SceneSoA.*`.
 - [x] **[S1]** Finish or delete `DrawObjects` stub; `RecordScenePass` documented as live Vulkan path — 2026-05-25 (with extract task).
-- [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), `Gfx_DrawCullSort.*`.
-- [x] **[S1]** Per-frame instance slab (ring UBO, `FillInstanceSlab`, record via `myInstanceDataOffset`) — 2026-05-26; [`instance-slab_Plan.md`](instance-slab_Plan.md).
-- [x] **[S1]** Verify descriptor policy (Set 2): `UNIFORM_BUFFER_DYNAMIC` on instance slab, distinct `dynamicOffset` per draw — 2026-05-26; [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md).
-- [x] **[S1]** Batch runs: `Gfx_BuildOpaqueDrawBatches`, `RecordScenePass` scans batch runs; set 0 once per pass — 2026-05-26; [`draw-batch_Plan.md`](draw-batch_Plan.md).
-- [x] **[S1]** Instance slab overflow fail-closed — 2026-05-26; [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
-- [x] **[S1]** Demo transform/cull sync (SoA updated before extract; slab uses same matrix) — 2026-05-26; [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md).
-- [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
-- [x] **[S1]** Transparency: dual extract/sort lists, eye-space Z sort, opaque then transparent record, demo overlay monkey — 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
-- [x] **[S1]** LOD v0 (CPU): logical mesh + `Gfx_LodTable`, distance LOD + hysteresis, resolved meshId in draw/batch, demo tree chain — 2026-05-26; [`lod-v0_Plan.md`](lod-v0_Plan.md), `Data/LOD.md`.
-- [x] **[S1]** Bindless v0: hybrid batch/bindless paths, indexing probe, material SSBO table + `materialIndex`, sort-key table generation — 2026-05-26; [`bindless-v0_Plan.md`](bindless-v0_Plan.md).
-- [x] **[M1]** Transparent object over opaque (order + blend): demo overlay monkey; opaque behind visible — visual sign-off 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
-- [x] **[M1]** Multi-mesh batch scaling + frame time: demo 9 entities / 8+1 batch runs; ImGui + `[PERF]` log after warmup — 2026-05-26; [`m1-acceptance_Plan.md`](m1-acceptance_Plan.md).
+- [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; [`draw-cull-sort_Plan.md`](Archived/plans/draw-cull-sort_Plan.md), `Gfx_DrawCullSort.*`.
+- [x] **[S1]** Per-frame instance slab (ring UBO, `FillInstanceSlab`, record via `myInstanceDataOffset`) — 2026-05-26; [`instance-slab_Plan.md`](Archived/plans/instance-slab_Plan.md).
+- [x] **[S1]** Verify descriptor policy (Set 2): `UNIFORM_BUFFER_DYNAMIC` on instance slab, distinct `dynamicOffset` per draw — 2026-05-26; [`descriptor-set2-verify_Plan.md`](Archived/plans/descriptor-set2-verify_Plan.md).
+- [x] **[S1]** Batch runs: `Gfx_BuildOpaqueDrawBatches`, `RecordScenePass` scans batch runs; set 0 once per pass — 2026-05-26; [`draw-batch_Plan.md`](Archived/plans/draw-batch_Plan.md).
+- [x] **[S1]** Instance slab overflow fail-closed — 2026-05-26; [`instance-slab-overflow_Plan.md`](Archived/plans/instance-slab-overflow_Plan.md).
+- [x] **[S1]** Demo transform/cull sync (SoA updated before extract; slab uses same matrix) — 2026-05-26; [`demo-transform-sync_Plan.md`](Archived/plans/demo-transform-sync_Plan.md).
+- [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](Archived/plans/descriptor-set1-verify_Plan.md).
+- [x] **[S1]** Transparency: dual extract/sort lists, eye-space Z sort, opaque then transparent record, demo overlay monkey — 2026-05-26; [`transparency_Plan.md`](Archived/plans/transparency_Plan.md).
+- [x] **[S1]** LOD v0 (CPU): logical mesh + `Gfx_LodTable`, distance LOD + hysteresis, resolved meshId in draw/batch, demo tree chain — 2026-05-26; [`lod-v0_Plan.md`](Archived/plans/lod-v0_Plan.md), `Data/LOD.md`.
+- [x] **[S1]** Bindless v0: hybrid batch/bindless paths, indexing probe, material SSBO table + `materialIndex`, sort-key table generation — 2026-05-26; [`bindless-v0_Plan.md`](Archived/plans/bindless-v0_Plan.md).
+- [x] **[M1]** Transparent object over opaque (order + blend): demo overlay monkey; opaque behind visible — visual sign-off 2026-05-26; [`transparency_Plan.md`](Archived/plans/transparency_Plan.md).
+- [x] **[M1]** Multi-mesh batch scaling + frame time: demo 9 entities / 8+1 batch runs; ImGui + `[PERF]` log after warmup — 2026-05-26; [`m1-acceptance_Plan.md`](Archived/plans/m1-acceptance_Plan.md).
 
 ---
 

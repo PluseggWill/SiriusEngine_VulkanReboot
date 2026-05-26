@@ -6,7 +6,7 @@ alwaysApply: false
 
 # VulkanDesktop — per-draw data & descriptors
 
-Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Docs/descriptor-strategy_Plan.md`.
+Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Docs/Archived/plans/descriptor-strategy_Plan.md`.
 
 ## Per-draw `mat4` model (and similar)
 
