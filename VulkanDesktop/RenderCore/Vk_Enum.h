@@ -19,6 +19,7 @@ enum eDescriptorBinding {
 // Set 1 (Material) - TriangleFrag_Lit.frag set 1; bound once per material batch.
 enum eVk_MaterialBinding : uint32_t {
     eVk_MaterialTextureBinding = 0,  // FRAGMENT | combined image sampler (albedo)
+    eVk_MaterialAlphaBinding   = 1,  // FRAGMENT | GpuMaterialParams (alpha)
 };
 
 // Set 2 (Object) - TriangleVertex.vert binding 0; UNIFORM_BUFFER_DYNAMIC + dynamicOffset per draw.

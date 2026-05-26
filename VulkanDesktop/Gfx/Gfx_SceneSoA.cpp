@@ -12,6 +12,7 @@ void Gfx_SceneSoA::Clear() {
     myMeshIds.clear();
     myMaterialIds.clear();
     myLayerMasks.clear();
+    myRenderFlags.clear();
     myGenerations.clear();
     myActiveSlots.clear();
     myFreeSlots.clear();
@@ -23,6 +24,7 @@ void Gfx_SceneSoA::GrowOneSlot() {
     myMeshIds.push_back( 0 );
     myMaterialIds.push_back( 0 );
     myLayerMasks.push_back( 0xFFFFFFFFu );
+    myRenderFlags.push_back( Gfx_RenderOpaque );
     myGenerations.push_back( 0 );
 }
 
@@ -41,7 +43,8 @@ void Gfx_SceneSoA::UpdateBoundsForSlot( uint32_t aSlot ) {
     myBounds[ aSlot ] = bounds;
 }
 
-Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask ) {
+Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask,
+                                            Gfx_RenderFlags aRenderFlags ) {
     uint32_t slot = kInvalidSlot;
     if ( !myFreeSlots.empty() ) {
         slot = myFreeSlots.back();
@@ -55,6 +58,7 @@ Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aMeshId, uint32_t aMateri
     myMeshIds[ slot ]       = aMeshId;
     myMaterialIds[ slot ]   = aMaterialId;
     myLayerMasks[ slot ]    = aLayerMask;
+    myRenderFlags[ slot ]   = aRenderFlags;
     myTransforms[ slot ]    = aWorldTransform;
     UpdateBoundsForSlot( slot );
 
@@ -111,6 +115,10 @@ uint32_t Gfx_SceneSoA::GetMaterialId( uint32_t aSlot ) const {
 
 uint32_t Gfx_SceneSoA::GetLayerMask( uint32_t aSlot ) const {
     return myLayerMasks.at( aSlot );
+}
+
+Gfx_RenderFlags Gfx_SceneSoA::GetRenderFlags( uint32_t aSlot ) const {
+    return static_cast< Gfx_RenderFlags >( myRenderFlags.at( aSlot ) );
 }
 
 uint32_t Gfx_SceneSoA::GetGeneration( uint32_t aSlot ) const {

@@ -12,6 +12,9 @@ layout(set = 0, binding = 1) uniform EnvironmentData {
 
 // Set 1 — material batch (bound once per batch in RecordScenePass).
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
+layout(set = 1, binding = 1) uniform MaterialData {
+    float alpha;
+} material;
 
 layout(location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;
@@ -41,5 +44,5 @@ void main()
     const float spec = specularStrength * pow(max(dot(N, H), 0.0), shininess);
     const vec3 specular = envData.sunlightColor.rgb * spec;
 
-    outColor = vec4(ambient + diffuse + specular, 1.0);
+    outColor = vec4(ambient + diffuse + specular, clamp(material.alpha, 0.0, 1.0));
 }

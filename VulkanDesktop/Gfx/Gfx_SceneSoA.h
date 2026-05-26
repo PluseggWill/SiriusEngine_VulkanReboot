@@ -17,11 +17,17 @@ struct Gfx_Bounds {
     glm::vec3 myMax{ 0.0f };
 };
 
+enum Gfx_RenderFlags : uint32_t {
+    Gfx_RenderOpaque      = 0,
+    Gfx_RenderTransparent = 1,
+};
+
 class Gfx_SceneSoA {
 public:
     void Clear();
 
-    Gfx_StableEntityId AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask = 0xFFFFFFFFu );
+    Gfx_StableEntityId AllocEntity( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask = 0xFFFFFFFFu,
+                                    Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque );
     bool               FreeEntity( Gfx_StableEntityId aId );
     bool               IsAlive( Gfx_StableEntityId aId ) const;
 
@@ -36,6 +42,7 @@ public:
     uint32_t         GetMeshId( uint32_t aSlot ) const;
     uint32_t         GetMaterialId( uint32_t aSlot ) const;
     uint32_t         GetLayerMask( uint32_t aSlot ) const;
+    Gfx_RenderFlags  GetRenderFlags( uint32_t aSlot ) const;
     uint32_t         GetGeneration( uint32_t aSlot ) const;
 
     void SetTransform( uint32_t aSlot, const glm::mat4& aWorldTransform );
@@ -49,6 +56,7 @@ private:
     std::vector< uint32_t >   myMeshIds;
     std::vector< uint32_t >   myMaterialIds;
     std::vector< uint32_t >   myLayerMasks;
+    std::vector< uint32_t >   myRenderFlags;
     std::vector< uint32_t >   myGenerations;
     std::vector< uint32_t >   myActiveSlots;
     std::vector< uint32_t >   myFreeSlots;

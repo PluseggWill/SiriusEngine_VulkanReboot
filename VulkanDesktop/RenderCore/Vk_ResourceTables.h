@@ -18,8 +18,8 @@ public:
     void Clear();
 
     // Loads unique paths once; registers GPU teardown on aDeletionQueue. Pipeline/layout applied to all materials v0.
-    void LoadFromManifest( const Gfx_ResourceManifest& aManifest, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aTextureMipLevels, VkPipeline aPipeline,
-                           VkPipelineLayout aLayout );
+    void LoadFromManifest( const Gfx_ResourceManifest& aManifest, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aTextureMipLevels,
+                           VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
     const Gfx_Mesh&     GetMesh( uint32_t aMeshId ) const;
     const Gfx_Material& GetMaterial( uint32_t aMaterialId ) const;
@@ -33,7 +33,7 @@ public:
 private:
     Gfx_Mesh*     LoadMesh( const std::string& aPath, uint32_t aMeshId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue );
     Gfx_Texture*  LoadTexture( const std::string& aPath, uint32_t aTextureId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aMipLevels );
-    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout );
+    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha );
 
     std::vector< Gfx_Mesh >     myMeshes;
     std::vector< Gfx_Material > myMaterials;

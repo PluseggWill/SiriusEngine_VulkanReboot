@@ -24,4 +24,12 @@ void Gfx_BuildDemoResourceManifest( Gfx_ResourceManifest& aOut ) {
     material1.myTextureId             = 1;
     material1.myPipelinePermutationId = 0;
     aOut.myMaterials.push_back( material1 );
+
+    Gfx_MaterialManifestEntry material2{};
+    material2.myId                    = 2;
+    material2.myTextureId             = 0;
+    material2.myPipelinePermutationId = 0;
+    material2.myAlpha                 = 0.35f;
+    material2.myIsTransparent         = true;
+    aOut.myMaterials.push_back( material2 );
 }

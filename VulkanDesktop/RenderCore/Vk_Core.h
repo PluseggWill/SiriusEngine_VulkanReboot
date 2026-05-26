@@ -117,8 +117,9 @@ private:
     bool FillInstanceSlab( uint32_t aCurrentFrame );
     size_t InstanceSlabStride() const;
     void ApplyDemoTransformAnimation();
-    // Live Vulkan scene path until cull/sort/batch record consumes myExtractResult (S1 submission).
+    // Live Vulkan scene path: Gfx_FrameExtract → cull/sort/batch → RecordScenePass.
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    void RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
@@ -160,10 +161,12 @@ public:
     Vk_ResourceTables                            myResourceTables;
     std::vector< Gfx_RenderObject >              myRenderObjects;
     Gfx_SceneSoA                                 mySceneSoA;
-    Gfx_ExtractResult                            myExtractResult;
+    Gfx_FrameExtract                             myFrameExtract;
     std::vector< Gfx_BatchRun >                  myOpaqueBatchRuns;
+    std::vector< Gfx_BatchRun >                  myTransparentBatchRuns;
     bool                                         myExtractLoggedOnce        = false;
     bool                                         myBatchLoggedOnce          = false;
+    bool                                         myTransLoggedOnce          = false;
     bool                                         myInstanceSlabOverflowLogged = false;
     bool                                         myMaterialBindLoggedOnce     = false;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
@@ -192,6 +195,8 @@ private:
     VkPipelineLayout      myPipelineLayout;
     VkRenderPass          myRenderPass;
     VkPipeline            myBasicPipeline;
+    VkPipeline            myTransparentPipeline;
+    std::vector< Vk_AllocatedBuffer >            myMaterialParamBuffers;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;
     Gfx_Texture               myDepthTexture;

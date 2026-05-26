@@ -19,9 +19,11 @@ struct Gfx_TextureManifestEntry {
 };
 
 struct Gfx_MaterialManifestEntry {
-    uint32_t myId                   = 0;
-    uint32_t myTextureId            = 0;
+    uint32_t myId                    = 0;
+    uint32_t myTextureId             = 0;
     uint32_t myPipelinePermutationId = 0;
+    float    myAlpha                 = 1.0f;
+    bool     myIsTransparent         = false;
 };
 
 struct Gfx_ResourceManifest {

@@ -191,6 +191,7 @@ flowchart TB
 | Instance slab | **Done** — overflow fail-closed — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) | — |
 | Set 0 / Set 1 | **Done** — Set 0 camera + env; Set 1 albedo per material, bound once per batch (2026-05-26) | bindless v0 decision |
 | Draw submission | **Done** — batch runs; set 0 once per pass; set 1 per batch; set 2 per draw | — |
+| Transparency | **Done** — opaque + transparent lists; `myTransparentPipeline` (blend, depth write off) — [`transparency_Plan.md`](transparency_Plan.md) | — |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
@@ -205,12 +206,9 @@ flowchart TB
 - [ ] Distance (or screen-size) → `lodLevel` in cull; hysteresis doc to avoid flicker.
 - [ ] Sort/batch uses **resolved** `meshId` (not logical mesh handle).
 
-### Transparency — *deps: Extract, opaque sort; unblocks S7 FG pass*
+### Transparency
 
-- [ ] Render flags on entity/material: opaque vs transparent.
-- [ ] Extract → **opaque** + **transparent** `DrawInstance` lists (still no Vulkan).
-- [ ] Transparent sort: back-to-front eye-space Z; documented tie-break (`EngineArchitecture.md` §8).
-- [ ] Record: opaque pass then transparent pass (blend state); ≥1 test object in scene.
+*(cleared 2026-05-26 — see Archived; unblocks S7 FG transparent pass.)*
 
 ### Bindless v0 — *deps: Set 1 verification; unblocks S5/S6 materials*
 
@@ -515,6 +513,7 @@ flowchart LR
 - [x] **[S1]** Instance slab overflow fail-closed — 2026-05-26; [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - [x] **[S1]** Demo transform/cull sync (SoA updated before extract; slab uses same matrix) — 2026-05-26; [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md).
 - [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
+- [x] **[S1]** Transparency: dual extract/sort lists, eye-space Z sort, opaque then transparent record, demo overlay monkey — 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
 
 ---
 

@@ -25,10 +25,17 @@ struct Gfx_ExtractResult {
     std::vector< Gfx_DrawInstance > myDrawInstances;
 };
 
+struct Gfx_FrameExtract {
+    Gfx_ExtractResult myOpaque;
+    Gfx_ExtractResult myTransparent;
+};
+
 // Opaque sort key: (pipelinePerm 16 | material 16 | mesh 16 | depthBucket 16). Farther draws get larger depthBucket.
 uint64_t Gfx_PackOpaqueSortKey( uint32_t aPipelinePermutationId, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket );
 
 uint16_t Gfx_ComputeDepthBucket( float aEyeSpaceZ );
 
-// Reads SoA columns; writes visible indices + draw instances. Does not call Vulkan.
-void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, Gfx_ExtractResult& aOut );
+// Reads SoA columns; splits opaque vs transparent lists. Does not call Vulkan.
+void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, Gfx_FrameExtract& aOut );
+
+float Gfx_ComputeEyeSpaceZ( const glm::mat4& aView, const glm::vec3& aWorldPosition );

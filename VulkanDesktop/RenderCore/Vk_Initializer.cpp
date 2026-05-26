@@ -147,13 +147,13 @@ VkPipelineMultisampleStateCreateInfo VkInit::Pipeline_MultisampleCreateInfo( VkS
 
 // VkPipelineDepthStencilStateCreateInfo — depth test/write (pDepthStencilState).
 // Used when: CreateGfxPipeline with depth attachment in render pass.
-// Example: Pipeline_DepthStencilCreateInfo() — LESS compare, depth write enabled.
-VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo() {
+// Example: Pipeline_DepthStencilCreateInfo() — LESS compare; transparent pass uses depthWriteEnable=VK_FALSE.
+VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo( VkBool32 aDepthWriteEnable ) {
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
 
     depthStencilInfo.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencilInfo.depthTestEnable       = VK_TRUE;
-    depthStencilInfo.depthWriteEnable      = VK_TRUE;
+    depthStencilInfo.depthWriteEnable      = aDepthWriteEnable;
     depthStencilInfo.depthCompareOp        = VK_COMPARE_OP_LESS;
     depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
     depthStencilInfo.minDepthBounds        = 0.0f;
@@ -198,6 +198,15 @@ VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachment( VkBoo
     colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     return colorBlendAttachment;
+}
+
+VkPipelineColorBlendAttachmentState VkInit::Pipeline_ColorBlendAttachmentAlpha() {
+    VkPipelineColorBlendAttachmentState attachment = Pipeline_ColorBlendAttachment( VK_TRUE );
+    attachment.srcColorBlendFactor                 = VK_BLEND_FACTOR_SRC_ALPHA;
+    attachment.dstColorBlendFactor                 = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    attachment.srcAlphaBlendFactor                 = VK_BLEND_FACTOR_ONE;
+    attachment.dstAlphaBlendFactor                 = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    return attachment;
 }
 
 // VkPipelineColorBlendStateCreateInfo — full blend state (pColorBlendState); pAttachments must outlive create.

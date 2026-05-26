@@ -30,3 +30,6 @@ void Gfx_CullDrawInstancesInPlace( const Gfx_SceneSoA& aScene, const Gfx_CullVie
 
 // Sort opaque draws by mySortKey; reorders myVisibleEntityIndices[i] with myDrawInstances[i].
 void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult );
+
+// Back-to-front by eye-space Z (ascending); tie-break materialId then entityIndex.
+void Gfx_SortTransparentDrawInstances( Gfx_ExtractResult& aResult, const Gfx_SceneSoA& aScene, const glm::mat4& aView );

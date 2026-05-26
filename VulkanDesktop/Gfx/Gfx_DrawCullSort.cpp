@@ -109,3 +109,47 @@ void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult ) {
     aResult.myDrawInstances         = std::move( sortedDraws );
     aResult.myVisibleEntityIndices = std::move( sortedVisible );
 }
+
+void Gfx_SortTransparentDrawInstances( Gfx_ExtractResult& aResult, const Gfx_SceneSoA& aScene, const glm::mat4& aView ) {
+    const size_t count = aResult.myDrawInstances.size();
+    if ( count <= 1 ) {
+        return;
+    }
+
+    std::vector< size_t > order( count );
+    std::iota( order.begin(), order.end(), size_t{ 0 } );
+
+    auto eyeZForDraw = [ &aScene, &aView ]( const Gfx_DrawInstance& aDraw ) {
+        const glm::mat4& transform   = aScene.GetTransform( aDraw.myEntityIndex );
+        const glm::vec3  worldOrigin = glm::vec3( transform[ 3 ] );
+        return Gfx_ComputeEyeSpaceZ( aView, worldOrigin );
+    };
+
+    std::sort( order.begin(), order.end(), [ &aResult, &eyeZForDraw ]( size_t aLeft, size_t aRight ) {
+        const Gfx_DrawInstance& leftDraw  = aResult.myDrawInstances[ aLeft ];
+        const Gfx_DrawInstance& rightDraw = aResult.myDrawInstances[ aRight ];
+
+        const float eyeZLeft  = eyeZForDraw( leftDraw );
+        const float eyeZRight = eyeZForDraw( rightDraw );
+        if ( eyeZLeft != eyeZRight ) {
+            return eyeZLeft < eyeZRight;
+        }
+        if ( leftDraw.myMaterialId != rightDraw.myMaterialId ) {
+            return leftDraw.myMaterialId < rightDraw.myMaterialId;
+        }
+        return leftDraw.myEntityIndex < rightDraw.myEntityIndex;
+    } );
+
+    std::vector< Gfx_DrawInstance > sortedDraws;
+    std::vector< uint32_t >         sortedVisible;
+    sortedDraws.reserve( count );
+    sortedVisible.reserve( count );
+
+    for ( const size_t sourceIndex : order ) {
+        sortedDraws.push_back( aResult.myDrawInstances[ sourceIndex ] );
+        sortedVisible.push_back( aResult.myVisibleEntityIndices[ sourceIndex ] );
+    }
+
+    aResult.myDrawInstances          = std::move( sortedDraws );
+    aResult.myVisibleEntityIndices = std::move( sortedVisible );
+}

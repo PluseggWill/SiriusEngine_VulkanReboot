@@ -28,11 +28,12 @@ VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCou
 void                              Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
 VkPipelineDynamicStateCreateInfo  Pipeline_DynamicStateCreateInfo();
 
-VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo();
+VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo( VkBool32 aDepthWriteEnable = VK_TRUE );
 
 VkPipelineLayoutCreateInfo Pipeline_LayoutCreateInfo();
 
 VkPipelineColorBlendAttachmentState Pipeline_ColorBlendAttachment( VkBool32 aBlendEnable );
+VkPipelineColorBlendAttachmentState Pipeline_ColorBlendAttachmentAlpha();
 
 VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( VkPipelineColorBlendAttachmentState anAttachment );
 

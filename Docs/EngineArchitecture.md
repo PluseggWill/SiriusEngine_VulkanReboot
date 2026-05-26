@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** demo transforms (incl. optional Z spin) written to **SoA before extract** → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** (copies SoA matrix) → `RecordScenePass` (batch runs). **Set 0** once per pass (camera + env); **Set 1** once per material batch (albedo); **Set 2** per draw (`dynamicOffset`). Instance slab **fail-closed** on overflow.
+**Render path (today):** demo transforms → extract (**opaque** + **transparent** lists) → cull → opaque sort + transparent back-to-front (eye-space Z) → batch → `FillInstanceSlab` → `RecordScenePass` (opaque batches then transparent; blend pipeline, depth write off). **Set 0** once per pass; **Set 1** per material batch (texture + alpha); **Set 2** per draw.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -273,10 +273,11 @@ Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph pass
 
 ### 5.8 Transparency
 
-- **Flags** on entity or material: opaque vs transparent.
-- **Extract** produces two lists; transparent sort is **back-to-front** with documented tie-break (same entity, material stability).
-- **Record**: opaque pass first (depth write); transparent pass with blending (depth test on, typically depth write off).
-- **Frame graph**: transparent pass is a separate FG node that **reads** depth from opaque pass (S7).
+- **Flags:** `Gfx_RenderFlags` on SoA entity (`Gfx_RenderOpaque` / `Gfx_RenderTransparent`); material manifest `myIsTransparent` + `myAlpha` selects pipeline and shader alpha.
+- **Extract:** `Gfx_FrameExtract` — separate opaque and transparent `Gfx_ExtractResult` lists (no Vulkan in Gfx).
+- **Transparent sort:** back-to-front by ascending **eye-space Z** (`Gfx_ComputeEyeSpaceZ`); tie-break: lower `materialId`, then lower `entityIndex`.
+- **Record (demo):** same render pass — opaque batches (`myBasicPipeline`, depth write on) then transparent (`myTransparentPipeline`, alpha blend, depth write off).
+- **Frame graph (S7):** transparent pass becomes a separate FG node that **reads** depth from opaque pass.
 
 ### 5.9 Multi-view and frame graph
 
@@ -449,4 +450,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 descriptor policy Set 0/1/2 on demo path; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 transparency + descriptor policy; 2026-05-26).*

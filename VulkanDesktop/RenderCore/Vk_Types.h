@@ -50,6 +50,12 @@ public:
 struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
+    float            myAlpha = 1.0f;
+};
+
+// std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag.
+struct GpuMaterialParams {
+    alignas( 4 ) float myAlpha = 1.0f;
 };
 
 class Gfx_Vertex {

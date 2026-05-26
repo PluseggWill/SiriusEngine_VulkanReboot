@@ -160,7 +160,7 @@ void Vk_Core::InitVulkan() {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildDemoResourceManifest( manifest );
         myTextureImageMipLevels = 1;
-        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myPipelineLayout );
+        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myTransparentPipeline, myPipelineLayout );
     }
 
     CreateTextureSampler();
@@ -512,12 +512,18 @@ void Vk_Core::CreateGfxPipeline() {
 
     myBasicPipeline = pipelineBuilder.BuildPipeline( myDevice, myRenderPass, &pipelineDiag );
 
+    pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
+    pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
+    Vk_GraphicsPipelineBuildInfo transparentDiag = pipelineDiag;
+    transparentDiag.myLabel                      = "basic-lit-transparent";
+    myTransparentPipeline                        = pipelineBuilder.BuildPipeline( myDevice, myRenderPass, &transparentDiag );
+
     vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( myDevice, fragShaderModule, nullptr );
 
-    // Deletion Queue
     mySwapChainDeletionQueue.pushFunction( [ = ]() {
         vkDestroyPipeline( myDevice, myBasicPipeline, nullptr );
+        vkDestroyPipeline( myDevice, myTransparentPipeline, nullptr );
         vkDestroyPipelineLayout( myDevice, myPipelineLayout, nullptr );
     } );
 }
@@ -784,23 +790,35 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         Gfx_CullViewParams viewParams{};
         viewParams.myView = myCamera.myView;
         viewParams.myProj = myCamera.myProj;
-        Gfx_ExtractDrawInstances( mySceneSoA, viewParams, myExtractResult );
+        Gfx_ExtractDrawInstances( mySceneSoA, viewParams, myFrameExtract );
 
-        const size_t drawCountBeforeCull = myExtractResult.myDrawInstances.size();
-        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myExtractResult );
-        Gfx_SortOpaqueDrawInstances( myExtractResult );
-        Gfx_BuildOpaqueDrawBatches( myExtractResult.myDrawInstances, myOpaqueBatchRuns );
+        const size_t drawCountBeforeCull =
+            myFrameExtract.myOpaque.myDrawInstances.size() + myFrameExtract.myTransparent.myDrawInstances.size();
+        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myOpaque );
+        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myTransparent );
+        Gfx_SortOpaqueDrawInstances( myFrameExtract.myOpaque );
+        Gfx_SortTransparentDrawInstances( myFrameExtract.myTransparent, mySceneSoA, myCamera.myView );
+        Gfx_BuildOpaqueDrawBatches( myFrameExtract.myOpaque.myDrawInstances, myOpaqueBatchRuns );
+        Gfx_BuildOpaqueDrawBatches( myFrameExtract.myTransparent.myDrawInstances, myTransparentBatchRuns );
 
         if ( !myBatchLoggedOnce ) {
             UtilLogger::Info( "BATCH",
-                              "runs=" + std::to_string( myOpaqueBatchRuns.size() ) + " draws=" +
-                                  std::to_string( myExtractResult.myDrawInstances.size() ) );
+                              "opaque runs=" + std::to_string( myOpaqueBatchRuns.size() ) + " draws=" +
+                                  std::to_string( myFrameExtract.myOpaque.myDrawInstances.size() ) );
             myBatchLoggedOnce = true;
+        }
+
+        if ( !myTransLoggedOnce ) {
+            UtilLogger::Info( "TRANSP",
+                              "runs=" + std::to_string( myTransparentBatchRuns.size() ) + " draws=" +
+                                  std::to_string( myFrameExtract.myTransparent.myDrawInstances.size() ) );
+            myTransLoggedOnce = true;
         }
 
         if ( !myMaterialBindLoggedOnce ) {
             UtilLogger::Info( "DESCRIPTOR",
-                              "Set 1 material binds this frame will be <= batch runs (" + std::to_string( myOpaqueBatchRuns.size() ) + ")" );
+                              "Set 1 material binds this frame will be <= batch runs (" +
+                                  std::to_string( myOpaqueBatchRuns.size() + myTransparentBatchRuns.size() ) + ")" );
             myMaterialBindLoggedOnce = true;
         }
 
@@ -809,8 +827,8 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
                               "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " draws=" +
                                   std::to_string( drawCountBeforeCull ) );
             UtilLogger::Info( "CULL",
-                              "in=" + std::to_string( drawCountBeforeCull ) + " out=" +
-                                  std::to_string( myExtractResult.myDrawInstances.size() ) + " (frustum+layer)" );
+                              "opaque=" + std::to_string( myFrameExtract.myOpaque.myDrawInstances.size() ) + " transparent=" +
+                                  std::to_string( myFrameExtract.myTransparent.myDrawInstances.size() ) + " (frustum+layer)" );
             myExtractLoggedOnce = true;
         }
 
@@ -953,14 +971,16 @@ void Vk_Core::CreateDescriptorSetLayout() {
         throw std::runtime_error( "failed to create frame descriptor set layout!" );
     }
 
-    // Set 1 — material (albedo texture per materialId).
-    VkDescriptorSetLayoutBinding materialTextureBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialTextureBinding );
+    // Set 1 — material (albedo + alpha per materialId).
+    std::array< VkDescriptorSetLayoutBinding, 2 > materialBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialTextureBinding ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialAlphaBinding ),
+    };
 
     VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
     materialLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    materialLayoutInfo.bindingCount = 1;
-    materialLayoutInfo.pBindings    = &materialTextureBinding;
+    materialLayoutInfo.bindingCount = static_cast< uint32_t >( materialBindings.size() );
+    materialLayoutInfo.pBindings    = materialBindings.data();
 
     if ( vkCreateDescriptorSetLayout( myDevice, &materialLayoutInfo, nullptr, &myMaterialSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create material descriptor set layout!" );
@@ -989,7 +1009,7 @@ void Vk_Core::CreateDescriptorSetLayout() {
 void Vk_Core::CreateDescriptorPool() {
     std::array< VkDescriptorPoolSize, 4 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[ 0 ].descriptorCount = 10;
+    poolSizes[ 0 ].descriptorCount = 32;
     poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
     poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1070,6 +1090,8 @@ void Vk_Core::CreateMaterialDescriptorSets() {
     const size_t materialCount = myResourceTables.GetMaterialCount();
     myMaterialDescriptorSets.clear();
     myMaterialDescriptorSets.resize( materialCount, VK_NULL_HANDLE );
+    myMaterialParamBuffers.clear();
+    myMaterialParamBuffers.resize( materialCount );
 
     std::vector< VkDescriptorSetLayout > layouts( materialCount, myMaterialSetLayout );
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -1083,17 +1105,40 @@ void Vk_Core::CreateMaterialDescriptorSets() {
     }
 
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t     textureId = myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Texture& texture   = myResourceTables.GetTexture( textureId );
+        const uint32_t      textureId = myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Texture&  texture   = myResourceTables.GetTexture( textureId );
+        const Gfx_Material& material  = myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+
+        Vk_AllocatedBuffer& paramBuffer = myMaterialParamBuffers[ materialId ];
+        CreateBuffer( sizeof( GpuMaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
+
+        GpuMaterialParams params{};
+        params.myAlpha = material.myAlpha;
+        void* mapped   = nullptr;
+        vmaMapMemory( myAllocator, paramBuffer.myAllocation, &mapped );
+        memcpy( mapped, &params, sizeof( params ) );
+        vmaUnmapMemory( myAllocator, paramBuffer.myAllocation );
+
+        myDeletionQueue.pushFunction( [ &paramBuffer, this ]() {
+            vmaDestroyBuffer( myAllocator, paramBuffer.myBuffer, paramBuffer.myAllocation );
+        } );
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.imageView   = texture.ImageView();
         imageInfo.sampler     = myTextureSampler;
 
-        VkWriteDescriptorSet write = VkInit::DescriptorSetWriteCreateInfo( myMaterialDescriptorSets[ materialId ],
-                                                                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, eVk_MaterialTextureBinding, 1 );
-        vkUpdateDescriptorSets( myDevice, 1, &write, 0, nullptr );
+        VkDescriptorBufferInfo paramInfo{};
+        paramInfo.buffer = paramBuffer.myBuffer;
+        paramInfo.offset = 0;
+        paramInfo.range  = sizeof( GpuMaterialParams );
+
+        std::array< VkWriteDescriptorSet, 2 > writes{};
+        writes[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo,
+                                                            eVk_MaterialTextureBinding, 1 );
+        writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &paramInfo,
+                                                            eVk_MaterialAlphaBinding, 1 );
+        vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
     UtilLogger::Info( "DESCRIPTOR", "Material sets allocated: " + std::to_string( materialCount ) );
@@ -1201,17 +1246,19 @@ void Vk_Core::InitDemoSceneEntities() {
     mySceneSoA.Clear();
     myDemoBaseTransforms.clear();
 
-    auto addDemoEntity = [ this ]( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform ) {
-        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aMeshId, aMaterialId, aBaseTransform );
+    auto addDemoEntity = [ this ]( uint32_t aMeshId, uint32_t aMaterialId, const glm::mat4& aBaseTransform,
+                                   Gfx_RenderFlags aRenderFlags = Gfx_RenderOpaque ) {
+        const Gfx_StableEntityId id = mySceneSoA.AllocEntity( aMeshId, aMaterialId, aBaseTransform, 0xFFFFFFFFu, aRenderFlags );
         if ( id.myIndex >= myDemoBaseTransforms.size() ) {
             myDemoBaseTransforms.resize( id.myIndex + 1 );
         }
         myDemoBaseTransforms[ id.myIndex ] = aBaseTransform;
     };
 
-    // Demo layout: mesh 0 left, mesh 1 right (world units; mesh bounds ~1–2 units).
+    // Demo layout: viking left, monkey right; transparent monkey in front (material 2, alpha 0.35).
     addDemoEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
     addDemoEntity( 1, 1, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( 1, 2, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 1.5f ) ), Gfx_RenderTransparent );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
@@ -1450,6 +1497,44 @@ void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 
+void Vk_Core::RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns ) {
+    const VkDescriptorSet objectDescriptor = myFrameDatas[ myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout  layout         = myPipelineLayout;
+
+    for ( const Gfx_BatchRun& batch : aBatchRuns ) {
+        const Gfx_DrawInstance& firstDraw = aExtract.myDrawInstances[ batch.myFirstDrawIndex ];
+        const Gfx_Material&     material  = myResourceTables.GetMaterial( firstDraw.myMaterialId );
+
+        myFrameStats.myPipelineBinds++;
+        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
+        SetGraphicsDynamicState( aCommandBuffer );
+
+        const uint32_t materialId = firstDraw.myMaterialId;
+        if ( materialId < myMaterialDescriptorSets.size() ) {
+            const VkDescriptorSet materialDescriptor = myMaterialDescriptorSets[ materialId ];
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetMaterial, 1, &materialDescriptor, 0,
+                                     nullptr );
+            myFrameStats.myMaterialSetBinds++;
+        }
+
+        for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
+            const Gfx_DrawInstance& draw = aExtract.myDrawInstances[ batch.myFirstDrawIndex + drawIndex ];
+            const Gfx_Mesh&         mesh = myResourceTables.GetMesh( draw.myMeshId );
+
+            VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
+            VkDeviceSize offsets[]       = { 0 };
+            vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
+            vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+
+            const uint32_t dynamicOffset = draw.myInstanceDataOffset;
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1,
+                                     &objectDescriptor, 1, &dynamicOffset );
+            myFrameStats.myDrawCalls++;
+            vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
+        }
+    }
+}
+
 void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1467,46 +1552,12 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    // Consumes cull+sorted draws via myOpaqueBatchRuns (§5.1). Set 0 once per pass; pipeline once per batch.
     const VkDescriptorSet frameDescriptor = myFrameDatas[ myCurrentFrame ].myGlobalDescriptor;
-    const VkDescriptorSet objectDescriptor = myFrameDatas[ myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout = myPipelineLayout;
-
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0,
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0,
                              nullptr );
 
-    for ( const Gfx_BatchRun& batch : myOpaqueBatchRuns ) {
-        const Gfx_DrawInstance& firstDraw = myExtractResult.myDrawInstances[ batch.myFirstDrawIndex ];
-        const Gfx_Material&     material  = myResourceTables.GetMaterial( firstDraw.myMaterialId );
-
-        myFrameStats.myPipelineBinds++;
-        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
-        SetGraphicsDynamicState( aCommandBuffer );
-
-        const uint32_t materialId = firstDraw.myMaterialId;
-        if ( materialId < myMaterialDescriptorSets.size() ) {
-            const VkDescriptorSet materialDescriptor = myMaterialDescriptorSets[ materialId ];
-            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetMaterial, 1, &materialDescriptor, 0,
-                                     nullptr );
-            myFrameStats.myMaterialSetBinds++;
-        }
-
-        for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
-            const Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ batch.myFirstDrawIndex + drawIndex ];
-            const Gfx_Mesh&         mesh = myResourceTables.GetMesh( draw.myMeshId );
-
-            VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
-            VkDeviceSize offsets[]       = { 0 };
-            vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
-            vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
-
-            const uint32_t dynamicOffset = draw.myInstanceDataOffset;
-            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1,
-                                     &objectDescriptor, 1, &dynamicOffset );
-            myFrameStats.myDrawCalls++;
-            vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
-        }
-    }
+    RecordDrawBatches( aCommandBuffer, myFrameExtract.myOpaque, myOpaqueBatchRuns );
+    RecordDrawBatches( aCommandBuffer, myFrameExtract.myTransparent, myTransparentBatchRuns );
 
     vkCmdEndRenderPass( aCommandBuffer );
 }
@@ -1613,7 +1664,8 @@ bool Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
         return false;
     }
 
-    const size_t drawCount = myExtractResult.myDrawInstances.size();
+    const size_t drawCount =
+        myFrameExtract.myOpaque.myDrawInstances.size() + myFrameExtract.myTransparent.myDrawInstances.size();
     if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
         UtilLogger::Error( "RESOURCE",
                            "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
@@ -1623,24 +1675,25 @@ bool Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
 
     char* const  slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
     const size_t stride   = InstanceSlabStride();
+    size_t       writeIndex = 0;
 
-    for ( size_t i = 0; i < drawCount; ++i ) {
-        Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ i ];
-        draw.myInstanceDataOffset = static_cast< uint32_t >( i * stride );
+    auto writeDrawList = [ & ]( Gfx_ExtractResult& aList ) {
+        for ( Gfx_DrawInstance& draw : aList.myDrawInstances ) {
+            draw.myInstanceDataOffset = static_cast< uint32_t >( writeIndex * stride );
+            ++writeIndex;
 
-        GpuObjectData objectData{};
-        objectData.model = mySceneSoA.GetTransform( draw.myEntityIndex );
-        memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
-    }
+            GpuObjectData objectData{};
+            objectData.model = mySceneSoA.GetTransform( draw.myEntityIndex );
+            memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
+        }
+    };
+
+    writeDrawList( myFrameExtract.myOpaque );
+    writeDrawList( myFrameExtract.myTransparent );
 
     static bool loggedOnce = false;
     if ( !loggedOnce ) {
         UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( drawCount ) + " instance(s)" );
-        if ( drawCount >= 2 ) {
-            const uint32_t offset0 = myExtractResult.myDrawInstances[ 0 ].myInstanceDataOffset;
-            const uint32_t offset1 = myExtractResult.myDrawInstances[ 1 ].myInstanceDataOffset;
-            UtilLogger::Info( "DESCRIPTOR", "Set 2 dynamicOffsets (sample): " + std::to_string( offset0 ) + ", " + std::to_string( offset1 ) );
-        }
         loggedOnce = true;
     }
 
