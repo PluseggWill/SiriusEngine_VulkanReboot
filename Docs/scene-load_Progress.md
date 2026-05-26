@@ -21,3 +21,16 @@
   - Build: `MSBuild VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64` — exit 0
   - Smoke: `--help` shows `--scene`; default run logs `[CONFIG] scene=…`, `[SCENE] Parsed scene v1 … entities=9`, `[SCENE] Collected 16 unique asset path(s)`; app init + one frame OK
   - Log: `Logs/engine_runtime_log.txt`
+
+## 2026-05-26 — Phase B: manifest-driven startup verify
+
+- **Plan ref:** Phase B (B1–B4)
+- **Files:** `Util/Util_AssetManifest.{h,cpp}`, `Util/Util_DemoAssets.h`, `VulkanDesktop/VulkanDesktop.cpp`, removed `Util_StartupChecks.{h,cpp}`, vcxproj/filters, docs
+- **What changed:**
+  - `Util_VerifyManifest` — same `[STARTUP] OK/ERROR` semantics, driven by scene manifest paths.
+  - `VulkanDesktop.cpp`: `LoadSceneDesc` → `CollectDependencies` → `VerifyManifest` → `Run()`.
+  - Removed `UtilDemoAssets::kRequiredFiles` and `Util_StartupChecks` module.
+- **Verification:**
+  - Build Debug|x64 — exit 0
+  - Smoke-run: `[STARTUP] Verifying scene asset manifest (16 path(s))`, all OK, app init OK
+  - Grep: no `kRequiredFiles` / `VerifyRequiredAssets` under `VulkanDesktop/`

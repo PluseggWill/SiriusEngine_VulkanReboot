@@ -1,11 +1,14 @@
 #include "Util_AssetManifest.h"
 
+#include "Util_Loader.h"
 #include "Util_Logger.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace {
 
@@ -85,4 +88,28 @@ std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aSc
         paths.push_back( entry.myLogicalPath );
     }
     return paths;
+}
+
+void Util_VerifyManifest( const Util_AssetManifest& aManifest ) {
+    UtilLogger::Info( "STARTUP", "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s))." );
+
+    std::vector< std::string > missing;
+    for ( const Util_AssetManifestEntry& entry : aManifest.myEntries ) {
+        const std::string&          logical  = entry.myLogicalPath;
+        const std::string           resolved = UtilLoader::ResolvePath( logical );
+        const std::filesystem::path path     = resolved;
+        if ( !std::filesystem::exists( path ) || !std::filesystem::is_regular_file( path ) ) {
+            missing.push_back( logical + " (resolved: " + resolved + ")" );
+            UtilLogger::Error( "STARTUP", "Missing required file: " + logical + " (resolved: " + resolved + ")" );
+        }
+        else {
+            UtilLogger::Info( "STARTUP", "OK " + logical + " -> " + resolved );
+        }
+    }
+
+    if ( !missing.empty() ) {
+        throw std::runtime_error( "Missing " + std::to_string( missing.size() ) + " required asset(s). First: " + missing.front() );
+    }
+
+    UtilLogger::Info( "STARTUP", "All scene manifest assets present." );
 }

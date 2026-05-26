@@ -106,7 +106,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 **Implemented (S1 v0):**
 
-- **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure. **Phase A (2026-05-26):** `Data/Scenes/demo.json` parsed to `Gfx_SceneDesc` via `Gfx_LoadSceneDesc`; `Util_CollectDependencies` builds path closure (startup still uses `UtilDemoAssets` until Phase B).
+- **Manifest → tables:** `Gfx_ResourceManifest` (CPU paths) → `Vk_ResourceTables` (dense mesh/material/texture vectors, `materialId → textureId`). Demo manifest mirrors `UtilDemoAssets` until `scene-load` Phase C JSON drives the same closure. **Phase B (2026-05-26):** boot-time verify is `Util_VerifyManifest` over scene JSON closure (replaces `UtilStartupChecks` / `kRequiredFiles`).
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).

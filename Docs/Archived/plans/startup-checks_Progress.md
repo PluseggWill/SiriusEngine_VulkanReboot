@@ -20,3 +20,10 @@
 - **Files:** `VulkanDesktop.cpp`, `Util_DemoAssets.h`, `README.md`
 - **What changed:** Wrap asset config + startup checks in the same `try` as `Run()` so missing assets log `[APP]` and return `EXIT_FAILURE` instead of terminating uncaught. Document startup checks in README; note `Util_DemoAssets` is temporary (scene-load).
 - **Verification:** Rebuild Debug|x64 exit 0; smoke-run OK.
+
+## 2026-05-26 — Superseded by scene-load Phase B
+
+- **Plan ref:** `Docs/scene-load_Plan.md` Phase B; archived note in `startup-checks_Plan.md` Non-goals
+- **Files:** Removed `Util_StartupChecks.{h,cpp}`; startup verify is `Util_VerifyManifest(Util_CollectDependencies(scene))` in `VulkanDesktop.cpp`
+- **What changed:** Hard-coded `UtilDemoAssets::kRequiredFiles` retired; manifest from `Data/Scenes/*.json` is the boot-time asset closure.
+- **Verification:** N/A (tracked in `Docs/scene-load_Progress.md`)

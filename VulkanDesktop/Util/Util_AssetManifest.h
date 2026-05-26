@@ -7,7 +7,7 @@
 #include <vector>
 
 // Asset path closure derived from Gfx_SceneDesc (CPU-only, no Vulkan).
-// Phase B adds Util_VerifyManifest; Phase C maps paths into Gfx_ResourceManifest / Vk_ResourceTables.
+// Util_VerifyManifest runs before Vulkan init; Phase C maps paths into resource tables.
 
 enum class Util_AssetKind : uint8_t {
     ShaderVert = 0,
@@ -30,3 +30,6 @@ Util_AssetManifest Util_CollectDependencies( const Gfx_SceneDesc& aScene );
 
 // Convenience: sorted unique repo-relative paths (same order as Util_CollectDependencies entries).
 std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aScene );
+
+// Fail-fast file existence check before Vulkan init (strict; logs [STARTUP]).
+void Util_VerifyManifest( const Util_AssetManifest& aManifest );

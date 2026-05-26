@@ -34,9 +34,6 @@
     <ClCompile Include="Util\Util_AssetManifest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Util\Util_StartupChecks.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Util\Util_ValidationConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -151,9 +148,6 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_DemoAssets.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\Util_StartupChecks.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_ValidationConfig.h">

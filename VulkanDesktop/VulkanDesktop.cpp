@@ -6,7 +6,6 @@
 #include "Util/Util_AssetConfig.h"
 #include "Util/Util_AssetManifest.h"
 #include "Util/Util_Logger.h"
-#include "Util/Util_StartupChecks.h"
 #include "Util/Util_ValidationConfig.h"
 #include <cstdlib>
 #include <iostream>
@@ -39,13 +38,9 @@ int main( int argc, char** argv ) {
         app->SetEnableValidationLayers( UtilValidationConfig::ResolveEnabled( buildDefaultValidation ),
                                         UtilValidationConfig::GetRequestedLayerNames() );
 
-        // scene-load Phase A: parse scene + build path closure. Phase B switches startup verify to Util_VerifyManifest.
         const Gfx_SceneDesc      sceneDesc     = Gfx_LoadSceneDesc( UtilAssetConfig::GetSceneLogicalPath() );
         const Util_AssetManifest sceneManifest = Util_CollectDependencies( sceneDesc );
-        UtilLogger::Info( "APP", "Scene manifest paths=" + std::to_string( sceneManifest.myEntries.size() ) +
-                                      " (startup verify still uses UtilDemoAssets until Phase B)" );
-
-        UtilStartupChecks::VerifyRequiredAssets();
+        Util_VerifyManifest( sceneManifest );
         UtilLogger::Info( "APP", "Core configuration prepared." );
 
         UtilLogger::Info( "APP", "Entering engine run loop." );

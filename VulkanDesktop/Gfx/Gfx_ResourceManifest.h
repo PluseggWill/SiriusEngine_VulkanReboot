@@ -6,7 +6,6 @@
 
 // CPU-only asset manifest for resource table load (no Vulkan).
 // v0: Gfx_BuildDemoResourceManifest mirrors UtilDemoAssets until scene-load Phase C JSON drives this.
-// Keep paths in sync with Util_DemoAssets.h and UtilStartupChecks until manifest replaces kRequiredFiles.
 
 struct Gfx_MeshManifestEntry {
     uint32_t    myId   = 0;

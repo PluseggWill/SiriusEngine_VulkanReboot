@@ -1,11 +1,10 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <string_view>
 
-// Repo-relative paths for the current demo scene (Vk_Core). Temporary until scene-load (Docs/scene-load_Plan.md).
-// Keep in sync with Gfx_BuildDemoResourceManifest and UtilStartupChecks::VerifyRequiredAssets.
+// Repo-relative paths and stable ids for the demo scene (Vk_Core / Gfx_Lod until scene-load Phase C).
+// Asset paths live in Data/Scenes/demo.json; startup verify uses Util_VerifyManifest on that closure.
 
 namespace UtilDemoAssets {
 inline constexpr std::string_view kVertSpv = "VulkanDesktop/Shader_Generated/TriangleVert.spv";
@@ -54,22 +53,4 @@ inline constexpr uint32_t kMatGrass        = 4;
 inline constexpr uint32_t kMatMetal        = 5;
 inline constexpr uint32_t kMatWood         = 6;
 
-inline constexpr std::array< std::string_view, 16 > kRequiredFiles = {
-    kVertSpv,
-    kFragSpv,
-    kDemoTexture,
-    kAltTexture,
-    kTexRock,
-    kTexGrass,
-    kTexMetal,
-    kTexWood,
-    kHouseModel,
-    kMonkeyModel,
-    kKenneyTreeDetailed,
-    kKenneyTreeSimple,
-    kKenneyRockLarge,
-    kKenneyCampfire,
-    kKenneyTent,
-    kKenneyStump,
-};
 }  // namespace UtilDemoAssets

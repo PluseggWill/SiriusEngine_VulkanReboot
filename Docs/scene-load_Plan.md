@@ -1,7 +1,7 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** In progress — Phase B next (Phase A done 2026-05-26)  
+**Status:** In progress — Phase C next (Phase B done 2026-05-26)  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md)
 
 ## Problem
@@ -111,10 +111,10 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 ### Phase B — Manifest-driven startup (replaces hard-coded checks)
 
-- [ ] **B1** — `VerifyManifest(manifest)` (same semantics as current `[STARTUP] OK/ERROR`).
-- [ ] **B2** — `VulkanDesktop`: `LoadSceneDesc` → `VerifyManifest` → `Run()` / Vulkan.
-- [ ] **B3** — Remove `Util_DemoAssets::kRequiredFiles`; keep demo paths only inside JSON until `Vk_Core` migrated.
-- [ ] **B4** — Document in `startup-checks_Plan.md` archived note: superseded by manifest path.
+- [x] **B1** — `VerifyManifest(manifest)` (same semantics as current `[STARTUP] OK/ERROR`).
+- [x] **B2** — `VulkanDesktop`: `LoadSceneDesc` → `VerifyManifest` → `Run()` / Vulkan.
+- [x] **B3** — Remove `Util_DemoAssets::kRequiredFiles`; keep demo paths only inside JSON until `Vk_Core` migrated.
+- [x] **B4** — Document in `startup-checks_Plan.md` archived note: superseded by manifest path.
 
 ### Phase C — Lifecycle + resource load (S2 + S1)
 
