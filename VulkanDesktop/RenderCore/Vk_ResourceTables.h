@@ -30,6 +30,8 @@ public:
     size_t GetMaterialCount() const { return myMaterials.size(); }
     size_t GetTextureCount() const { return myTextures.size(); }
 
+    uint16_t GetMaterialTableGeneration() const { return myMaterialTableGeneration; }
+
 private:
     Gfx_Mesh*     LoadMesh( const std::string& aPath, uint32_t aMeshId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue );
     Gfx_Texture*  LoadTexture( const std::string& aPath, uint32_t aTextureId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aMipLevels );
@@ -39,4 +41,5 @@ private:
     std::vector< Gfx_Material > myMaterials;
     std::vector< Gfx_Texture >  myTextures;
     std::vector< uint32_t >     myMaterialTextureIds;
+    uint16_t                    myMaterialTableGeneration = 0;
 };

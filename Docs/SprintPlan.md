@@ -189,7 +189,7 @@ flowchart TB
 | Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | — |
 | Record ↔ transforms | **Done** — SoA updated before extract (`demo-transform-sync`); slab copies SoA matrix; Set 2 per draw | — |
 | Instance slab | **Done** — overflow fail-closed — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) | — |
-| Set 0 / Set 1 | **Done** — Set 0 camera + env; Set 1 albedo per material, bound once per batch (2026-05-26) | bindless v0 decision |
+| Set 0 / Set 1 | **Done** — batch path + bindless path (indexing probe, material SSBO table, `materialIndex` in Set 2) — [`bindless-v0_Plan.md`](bindless-v0_Plan.md) | S7 preset toggle |
 | Draw submission | **Done** — batch runs; set 0 once per pass; set 1 per batch; set 2 per draw | — |
 | Transparency | **Done** — opaque + transparent lists; `myTransparentPipeline` (blend, depth write off) — [`transparency_Plan.md`](transparency_Plan.md) | — |
 | LOD v0 (CPU) | **Done** — logical mesh + `Gfx_LodTable`; distance + hysteresis → resolved `meshId` — [`lod-v0_Plan.md`](lod-v0_Plan.md) | GPU LOD parity (S3) |
@@ -208,19 +208,16 @@ flowchart TB
 
 *(cleared 2026-05-26 — see Archived; unblocks S7 FG transparent pass.)*
 
-### Bindless v0 — *deps: Set 1 verification; unblocks S5/S6 materials*
+### Bindless v0
 
-- [ ] **Bindless vs batch+push decision** — document in `EngineArchitecture.md` (indexing vs SSBO table vs hybrid).
-- [ ] Extension probe: `VK_EXT_descriptor_indexing` (or SSBO-only path); log + fallback preset hook.
-- [ ] GPU **material/texture table** + shader `materialIndex` (must not contradict §5.3 hybrid policy).
-- [ ] Draw sort key includes table generation / compatibility group if needed for batching.
+*(cleared 2026-05-26 — see Archived; unblocks S5/S6 materials.)*
 
 ### Milestone M1 acceptance
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
-- [ ] At least one **transparent** object draws correctly over opaque (order + blend).
 
 *(LOD v0 acceptance met 2026-05-26 — see Archived.)*
+*(M1 transparent-over-opaque acceptance met 2026-05-26 — visual sign-off; see Archived.)*
 
 ---
 
@@ -514,6 +511,8 @@ flowchart LR
 - [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
 - [x] **[S1]** Transparency: dual extract/sort lists, eye-space Z sort, opaque then transparent record, demo overlay monkey — 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
 - [x] **[S1]** LOD v0 (CPU): logical mesh + `Gfx_LodTable`, distance LOD + hysteresis, resolved meshId in draw/batch, demo tree chain — 2026-05-26; [`lod-v0_Plan.md`](lod-v0_Plan.md), `Data/LOD.md`.
+- [x] **[S1]** Bindless v0: hybrid batch/bindless paths, indexing probe, material SSBO table + `materialIndex`, sort-key table generation — 2026-05-26; [`bindless-v0_Plan.md`](bindless-v0_Plan.md).
+- [x] **[M1]** Transparent object over opaque (order + blend): demo overlay monkey; opaque behind visible — visual sign-off 2026-05-26; [`transparency_Plan.md`](transparency_Plan.md).
 
 ---
 

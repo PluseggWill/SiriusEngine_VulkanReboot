@@ -10,6 +10,7 @@
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
+#include "Vk_Bindless.h"
 #include "Vk_PipelineDiagnostics.h"
 
 #include <imgui.h>
@@ -42,8 +43,9 @@
 #endif
 
 // Demo logical paths (repo-relative; see Util_DemoAssets.h).
-std::string vertShaderPath  = std::string( UtilDemoAssets::kVertSpv );
-std::string fragShaderPath  = std::string( UtilDemoAssets::kFragSpv );
+std::string vertShaderPath         = std::string( UtilDemoAssets::kVertSpv );
+std::string fragShaderPath         = std::string( UtilDemoAssets::kFragSpv );
+std::string bindlessFragShaderPath = "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv";
 Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
 
@@ -134,8 +136,11 @@ void Vk_Core::InitVulkan() {
     CreateInstance();
     CreateSurface();
     PickPhysicalDevice();
+    myBindlessCaps = Vk_ProbeBindlessCapabilities( myPhysicalDevice, myDeviceExtensions );
     InitVk_QueueFamilyIndices();
     CreateLogicalDevice();
+    myMaterialPath = Vk_SelectRenderMaterialPath( myBindlessCaps );
+    UtilLogger::Info( "BINDLESS", std::string( "materialPath=" ) + Vk_RenderMaterialPathName( myMaterialPath ) );
     CreateCommandPool();
     InitAllocator();
 
@@ -155,19 +160,35 @@ void Vk_Core::InitVulkan() {
     CreateInstanceSlabs();
     CreateUniformBuffers();
     CreateDescriptorPool();
+    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        CreateBindlessMaterialSetLayout();
+        CreateBindlessPipelineLayout();
+    }
     CreateGfxPipeline();
+    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        CreateBindlessGfxPipelines();
+    }
 
     // Part 3: Resource tables from demo manifest (scene-load Phase C will replace manifest source).
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildDemoResourceManifest( manifest );
         myTextureImageMipLevels = 1;
-        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myTransparentPipeline, myPipelineLayout );
+        const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
+        const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
+        const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
+        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
     CreateTextureSampler();
     CreateDescriptorSets();
-    CreateMaterialDescriptorSets();
+    if ( myMaterialPath == Vk_RenderMaterialPath::Batch ) {
+        CreateMaterialDescriptorSets();
+    }
+    else {
+        CreateBindlessDescriptorResources();
+    }
+    Gfx_SetMaterialTableGenerationForExtract( myResourceTables.GetMaterialTableGeneration() );
     CreateCamera();
     InitDefaultEnvironmentData();
     InitImGui();
@@ -298,19 +319,30 @@ void Vk_Core::CreateLogicalDevice() {
         queueCreateInfos.push_back( queueCreateInfo );
     }
 
-    // Step #2: Specifying used device features, leave it to be VK_FALSE for now
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.sampleRateShading = VK_TRUE;
     deviceFeatures.fillModeNonSolid  = VK_TRUE;
 
-    // Step #3: Creating the logical device (possible to create multiple if needed)
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
+    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    if ( myBindlessCaps.myDescriptorIndexingExtension ) {
+        indexingFeatures.runtimeDescriptorArray                 = VK_TRUE;
+        indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    }
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.features = deviceFeatures;
+    features2.pNext    = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &indexingFeatures ) : nullptr;
+
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pNext = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &features2 ) : nullptr;
 
-    createInfo.pQueueCreateInfos       = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount    = static_cast< uint32_t >( queueCreateInfos.size() );
-    createInfo.pEnabledFeatures        = &deviceFeatures;
+    createInfo.pQueueCreateInfos    = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount = static_cast< uint32_t >( queueCreateInfos.size() );
+    createInfo.pEnabledFeatures     = myBindlessCaps.myDescriptorIndexingExtension ? nullptr : &deviceFeatures;
     createInfo.enabledExtensionCount   = static_cast< uint32_t >( myDeviceExtensions.size() );
     createInfo.ppEnabledExtensionNames = myDeviceExtensions.data();
 
@@ -835,10 +867,22 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         }
 
         if ( !myMaterialBindLoggedOnce ) {
-            UtilLogger::Info( "DESCRIPTOR",
-                              "Set 1 material binds this frame will be <= batch runs (" +
-                                  std::to_string( myOpaqueBatchRuns.size() + myTransparentBatchRuns.size() ) + ")" );
+            if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+                UtilLogger::Info( "DESCRIPTOR", "Set 1 bindless material set (once per pass); per-draw materialIndex in Set 2 slab." );
+            }
+            else {
+                UtilLogger::Info( "DESCRIPTOR",
+                                  "Set 1 material binds this frame will be <= batch runs (" +
+                                      std::to_string( myOpaqueBatchRuns.size() + myTransparentBatchRuns.size() ) + ")" );
+            }
             myMaterialBindLoggedOnce = true;
+        }
+
+        if ( !myBindlessLoggedOnce && myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+            UtilLogger::Info( "BINDLESS",
+                              "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() ) +
+                                  " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
+            myBindlessLoggedOnce = true;
         }
 
         if ( !myExtractLoggedOnce ) {
@@ -958,6 +1002,9 @@ void Vk_Core::RecreateSwapChain() {
     CreateSwapChain();
     CreateRenderPass();
     CreateGfxPipeline();
+    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        CreateBindlessGfxPipelines();
+    }
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
@@ -1025,16 +1072,184 @@ void Vk_Core::CreateDescriptorSetLayout() {
     } );
 }
 
+void Vk_Core::CreateBindlessMaterialSetLayout() {
+    VkDescriptorSetLayoutBinding textureArrayBinding{};
+    textureArrayBinding.binding         = eVk_BindlessTextureArrayBinding;
+    textureArrayBinding.descriptorType    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    textureArrayBinding.descriptorCount = VkDescriptorPolicy::kMaxBindlessTextures;
+    textureArrayBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding tableBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_BindlessMaterialTableBinding );
+
+    std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { textureArrayBinding, tableBinding };
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
+    bindingFlagsInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    VkDescriptorBindingFlags       flags[ 2 ] = { VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 0 };
+    bindingFlagsInfo.bindingCount  = static_cast< uint32_t >( bindings.size() );
+    bindingFlagsInfo.pBindingFlags = flags;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
+    layoutInfo.pBindings    = bindings.data();
+    layoutInfo.pNext        = &bindingFlagsInfo;
+
+    if ( vkCreateDescriptorSetLayout( myDevice, &layoutInfo, nullptr, &myBindlessMaterialSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create bindless material descriptor set layout!" );
+    }
+
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyDescriptorSetLayout( myDevice, myBindlessMaterialSetLayout, nullptr ); } );
+}
+
+void Vk_Core::CreateBindlessPipelineLayout() {
+    const std::array< VkDescriptorSetLayout, 3 > setLayouts = { myGlobalSetLayout, myBindlessMaterialSetLayout, myObjectSetLayout };
+
+    VkPipelineLayoutCreateInfo layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    layoutInfo.setLayoutCount             = static_cast< uint32_t >( setLayouts.size() );
+    layoutInfo.pSetLayouts                = setLayouts.data();
+
+    if ( vkCreatePipelineLayout( myDevice, &layoutInfo, nullptr, &myBindlessPipelineLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create bindless pipeline layout!" );
+    }
+
+    myDeletionQueue.pushFunction( [ = ]() { vkDestroyPipelineLayout( myDevice, myBindlessPipelineLayout, nullptr ); } );
+}
+
+void Vk_Core::CreateBindlessGfxPipelines() {
+    UtilLogger::Info( "PIPELINE", "Creating bindless graphics pipelines." );
+
+    VkShaderModule vertShaderModule = CreateShaderModule( vertShaderPath );
+    VkShaderModule fragShaderModule = CreateShaderModule( bindlessFragShaderPath );
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
+    auto                               bindingDescription   = Gfx_Vertex::getBindingDescription();
+    auto                               attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    vertexInputInfo.vertexBindingDescriptionCount   = 1;
+    vertexInputInfo.pVertexBindingDescriptions      = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast< uint32_t >( attributeDescription.size() );
+    vertexInputInfo.pVertexAttributeDescriptions    = attributeDescription.data();
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+    VkViewport                             viewport      = VkInit::ViewportCreateInfo( mySwapChainExtent );
+    VkRect2D                               scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = mySwapChainExtent;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer = VkInit::Pipeline_RasterizationCreateInfo( FILL_MODE_LINE ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL );
+    VkPipelineMultisampleStateCreateInfo   multisampling = VkInit::Pipeline_MultisampleCreateInfo( myMSAASamples );
+    VkPipelineDepthStencilStateCreateInfo  depthStencilInfo = VkInit::Pipeline_DepthStencilCreateInfo();
+
+    VkPipelineShaderStageCreateInfo vertStage = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main" );
+    VkPipelineShaderStageCreateInfo fragStage = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main" );
+
+    Vk_PipelineBuilder pipelineBuilder;
+    pipelineBuilder.myShaderStages.push_back( vertStage );
+    pipelineBuilder.myShaderStages.push_back( fragStage );
+    pipelineBuilder.myVertexInputInfo      = vertexInputInfo;
+    pipelineBuilder.myInputAssembly        = inputAssembly;
+    pipelineBuilder.myViewport             = viewport;
+    pipelineBuilder.myScissor              = scissor;
+    pipelineBuilder.myRasterizer           = rasterizer;
+    pipelineBuilder.myMultisampling        = multisampling;
+    pipelineBuilder.myDepthStencil         = depthStencilInfo;
+    pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
+    pipelineBuilder.SetDefaultDynamicStates();
+    pipelineBuilder.myPipelineLayout       = myBindlessPipelineLayout;
+
+    Vk_GraphicsPipelineBuildInfo diag{};
+    diag.myLabel          = "basic-lit-bindless";
+    diag.myVertShaderPath = vertShaderPath.c_str();
+    diag.myFragShaderPath = bindlessFragShaderPath.c_str();
+    diag.myColorFormat    = mySwapChainImageFormat;
+    diag.myDepthFormat    = FindDepthFormat();
+
+    myBasicPipelineBindless = pipelineBuilder.BuildPipeline( myDevice, myRenderPass, &diag );
+
+    pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
+    pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
+    diag.myLabel                           = "basic-lit-bindless-transparent";
+    myTransparentPipelineBindless          = pipelineBuilder.BuildPipeline( myDevice, myRenderPass, &diag );
+
+    vkDestroyShaderModule( myDevice, vertShaderModule, nullptr );
+    vkDestroyShaderModule( myDevice, fragShaderModule, nullptr );
+
+    mySwapChainDeletionQueue.pushFunction( [ = ]() {
+        vkDestroyPipeline( myDevice, myBasicPipelineBindless, nullptr );
+        vkDestroyPipeline( myDevice, myTransparentPipelineBindless, nullptr );
+    } );
+}
+
+void Vk_Core::CreateBindlessDescriptorResources() {
+    const size_t textureCount  = myResourceTables.GetTextureCount();
+    const size_t materialCount = myResourceTables.GetMaterialCount();
+
+    std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
+    for ( size_t textureId = 0; textureId < textureCount && textureId < VkDescriptorPolicy::kMaxBindlessTextures; ++textureId ) {
+        const Gfx_Texture& texture = myResourceTables.GetTexture( static_cast< uint32_t >( textureId ) );
+        imageInfos[ textureId ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos[ textureId ].imageView   = texture.ImageView();
+        imageInfos[ textureId ].sampler     = myTextureSampler;
+    }
+
+    std::vector< GpuMaterialTableEntry > tableEntries( materialCount );
+    for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
+        const uint32_t textureId = myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Material& material = myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        tableEntries[ materialId ].myTextureIndex = textureId;
+        tableEntries[ materialId ].myAlpha        = material.myAlpha;
+    }
+
+    const VkDeviceSize tableSize = sizeof( GpuMaterialTableEntry ) * materialCount;
+    CreateBuffer( tableSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myMaterialTableBuffer, true );
+    void* mapped = nullptr;
+    vmaMapMemory( myAllocator, myMaterialTableBuffer.myAllocation, &mapped );
+    memcpy( mapped, tableEntries.data(), static_cast< size_t >( tableSize ) );
+    vmaUnmapMemory( myAllocator, myMaterialTableBuffer.myAllocation );
+
+    myDeletionQueue.pushFunction( [ this ]() {
+        vmaDestroyBuffer( myAllocator, myMaterialTableBuffer.myBuffer, myMaterialTableBuffer.myAllocation );
+    } );
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool     = myDescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts        = &myBindlessMaterialSetLayout;
+    if ( vkAllocateDescriptorSets( myDevice, &allocInfo, &myBindlessDescriptorSet ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to allocate bindless descriptor set!" );
+    }
+
+    VkDescriptorBufferInfo tableBufferInfo{};
+    tableBufferInfo.buffer = myMaterialTableBuffer.myBuffer;
+    tableBufferInfo.offset = 0;
+    tableBufferInfo.range  = tableSize;
+
+    std::array< VkWriteDescriptorSet, 2 > writes{};
+    writes[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfos.data(),
+                                                        eVk_BindlessTextureArrayBinding, static_cast< uint32_t >( VkDescriptorPolicy::kMaxBindlessTextures ) );
+    writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &tableBufferInfo,
+                                                        eVk_BindlessMaterialTableBinding, 1 );
+    vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+
+    UtilLogger::Info( "BINDLESS",
+                      "bindless set ready: textures=" + std::to_string( textureCount ) + " materials=" + std::to_string( materialCount ) +
+                          " tableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() ) );
+}
+
 void Vk_Core::CreateDescriptorPool() {
-    std::array< VkDescriptorPoolSize, 4 > poolSizes{};
+    std::array< VkDescriptorPoolSize, 5 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 32;
     poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
     poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[ 2 ].descriptorCount = 16;  // material sets + headroom
+    poolSizes[ 2 ].descriptorCount = myMaterialPath == Vk_RenderMaterialPath::Bindless ? VkDescriptorPolicy::kMaxBindlessTextures + 4 : 16;
     poolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 3 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    poolSizes[ 4 ].type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[ 4 ].descriptorCount = 4;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1590,10 +1805,47 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0,
                              nullptr );
 
-    RecordDrawBatches( aCommandBuffer, myFrameExtract.myOpaque, myOpaqueBatchRuns );
-    RecordDrawBatches( aCommandBuffer, myFrameExtract.myTransparent, myTransparentBatchRuns );
+    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
+                                 &myBindlessDescriptorSet, 0, nullptr );
+        myFrameStats.myMaterialSetBinds++;
+        RecordDrawBatchesBindless( aCommandBuffer, myFrameExtract.myOpaque, myBasicPipelineBindless );
+        RecordDrawBatchesBindless( aCommandBuffer, myFrameExtract.myTransparent, myTransparentPipelineBindless );
+    }
+    else {
+        RecordDrawBatches( aCommandBuffer, myFrameExtract.myOpaque, myOpaqueBatchRuns );
+        RecordDrawBatches( aCommandBuffer, myFrameExtract.myTransparent, myTransparentBatchRuns );
+    }
 
     vkCmdEndRenderPass( aCommandBuffer );
+}
+
+void Vk_Core::RecordDrawBatchesBindless( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline ) {
+    const VkDescriptorSet objectDescriptor = myFrameDatas[ myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout  layout         = myBindlessPipelineLayout;
+
+    if ( aExtract.myDrawInstances.empty() ) {
+        return;
+    }
+
+    myFrameStats.myPipelineBinds++;
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aPipeline );
+    SetGraphicsDynamicState( aCommandBuffer );
+
+    for ( const Gfx_DrawInstance& draw : aExtract.myDrawInstances ) {
+        const Gfx_Mesh& mesh = myResourceTables.GetMesh( draw.myMeshId );
+
+        VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
+        VkDeviceSize offsets[]       = { 0 };
+        vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
+        vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+
+        const uint32_t dynamicOffset = draw.myInstanceDataOffset;
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1, &objectDescriptor, 1,
+                                 &dynamicOffset );
+        myFrameStats.myDrawCalls++;
+        vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
+    }
 }
 
 void Vk_Core::RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
@@ -1717,7 +1969,8 @@ bool Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
             ++writeIndex;
 
             GpuObjectData objectData{};
-            objectData.model = mySceneSoA.GetTransform( draw.myEntityIndex );
+            objectData.model         = mySceneSoA.GetTransform( draw.myEntityIndex );
+            objectData.materialIndex = draw.myMaterialId;
             memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
         }
     };

@@ -58,6 +58,12 @@ struct GpuMaterialParams {
     alignas( 4 ) float myAlpha = 1.0f;
 };
 
+// std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag.
+struct GpuMaterialTableEntry {
+    uint32_t myTextureIndex = 0;
+    float    myAlpha        = 1.0f;
+};
+
 class Gfx_Vertex {
 public:
     glm::vec3 pos;

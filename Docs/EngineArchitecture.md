@@ -112,7 +112,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** Bindless v0 decision / production material tables.
+**Still open (S1):** M1 acceptance (multi-mesh batch scaling + frame-time logging sign-off). **Transparent-over-opaque** met 2026-05-26 (visual sign-off; [`transparency_Plan.md`](transparency_Plan.md)).
 
 **LOD v0 (2026-05-26):** SoA stores **logical** mesh id + optional `lodBias`; `Gfx_LodTable` maps logical → physical mesh chain; after cull, `Gfx_ApplyLodToFrameExtract` writes **resolved** `myMeshId` on draws and refreshes opaque sort keys (15% distance hysteresis). Sample chain: `Data/LOD.md`, [`lod-v0_Plan.md`](lod-v0_Plan.md).
 
@@ -210,7 +210,7 @@ After extract:
 | **Traditional** + batching + push/dynamic | Portable, easier validation/debug | More CPU sorting; more binds if batches are poor |
 | **Bindless** (descriptor indexing / descriptor buffers) | Natural “material index → table lookup” in shader | Extension matrix, harder debug, stricter layout discipline |
 
-**Bindless v0 (S1 decision, locked before S5):** choose descriptor indexing, large SSBO tables, or hybrid. Shaders use **`materialIndex`** into GPU material/texture tables. **Fallback preset** (S6): when indexing unavailable, use Set 1 batch binds. Bindless does not remove tiered layout for frame (set 0) and instance (set 2 / push) data.
+**Bindless v0 (S1, locked 2026-05-26):** **Hybrid** — when `VK_EXT_descriptor_indexing` + required features are present, **Set 1** is one bindless set (`sampler2D[]` + material SSBO table); **`materialIndex`** in **Set 2** `GpuObjectData` selects the row; fragment uses `nonuniformEXT` texture fetch (`TriangleFrag_Lit_Bindless.frag`). **Fallback:** `Vk_RenderMaterialPath::Batch` — per-material descriptor sets + batch bind (unchanged). Override: env `FORCE_MATERIAL_BATCH=1`. Opaque sort key packs **`materialTableGeneration`** in `pipelinePermutationId` (v0 bumps on manifest load). Sets 0/2 unchanged. See [`bindless-v0_Plan.md`](bindless-v0_Plan.md).
 
 ### 5.4 Phase graph (CPU side)
 

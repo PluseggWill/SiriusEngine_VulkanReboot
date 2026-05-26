@@ -16,6 +16,7 @@
 | [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) / [`instance-slab-overflow_Progress.md`](instance-slab-overflow_Progress.md) | S1 slab overflow fail-closed (done) |
 | [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md) / [`demo-transform-sync_Progress.md`](demo-transform-sync_Progress.md) | S1 SoA/cull vs instance matrix (done) |
 | [`lod-v0_Plan.md`](lod-v0_Plan.md) / [`lod-v0_Progress.md`](lod-v0_Progress.md) | S1 CPU distance LOD + hysteresis (done) |
+| [`bindless-v0_Plan.md`](bindless-v0_Plan.md) / [`bindless-v0_Progress.md`](bindless-v0_Progress.md) | S1 hybrid bindless materials (done) |
 | [`draw-extract_Plan.md`](draw-extract_Plan.md), [`scene-soa_Plan.md`](scene-soa_Plan.md), [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), [`resource-tables_Plan.md`](resource-tables_Plan.md) | S1 completed tasks — `_Progress.md` pairs at `Docs/` root |
 
 ## Guides (not vibe task logs)

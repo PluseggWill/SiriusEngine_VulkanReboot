@@ -22,6 +22,12 @@ enum eVk_MaterialBinding : uint32_t {
     eVk_MaterialAlphaBinding   = 1,  // FRAGMENT | GpuMaterialParams (alpha)
 };
 
+// Set 1 (Bindless) - TriangleFrag_Lit_Bindless.frag; one set per pass.
+enum eVk_BindlessMaterialBinding : uint32_t {
+    eVk_BindlessTextureArrayBinding = 0,  // FRAGMENT | sampler2D[]
+    eVk_BindlessMaterialTableBinding = 1,  // FRAGMENT | SSBO GpuMaterialTableEntry[]
+};
+
 // Set 2 (Object) - TriangleVertex.vert binding 0; UNIFORM_BUFFER_DYNAMIC + dynamicOffset per draw.
 enum eVk_ObjectBinding : uint32_t {
     eVk_ObjectModelBinding = 0,  // VERTEX | GpuObjectData

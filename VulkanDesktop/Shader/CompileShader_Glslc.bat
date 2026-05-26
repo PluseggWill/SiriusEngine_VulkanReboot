@@ -34,5 +34,12 @@ if errorlevel 1 (
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix.spv"
+
+"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit_Bindless.frag" -o "%GEN_DIR%TrianglePix_Bindless.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit_Bindless.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix_Bindless.spv"
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 exit /b 0

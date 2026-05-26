@@ -192,6 +192,7 @@
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
     <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
+    <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceTables.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
@@ -227,6 +228,7 @@
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
+    <ClInclude Include="RenderCore\Vk_Bindless.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_ResourceTables.h" />
     <ClInclude Include="RenderCore\Vk_Enum.h" />

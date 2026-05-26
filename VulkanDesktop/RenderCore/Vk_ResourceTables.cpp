@@ -12,6 +12,7 @@ void Vk_ResourceTables::Clear() {
     myMaterials.clear();
     myTextures.clear();
     myMaterialTextureIds.clear();
+    myMaterialTableGeneration = 0;
 }
 
 void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue, uint32_t& aTextureMipLevels,
@@ -38,9 +39,12 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
         CreateMaterialEntry( entry.myId, entry.myTextureId, pipeline, aLayout, entry.myAlpha );
     }
 
+    ++myMaterialTableGeneration;
+
     UtilLogger::Info( "RESOURCE-TABLE",
                       "meshes=" + std::to_string( myMeshes.size() ) + " materials=" + std::to_string( myMaterials.size() ) +
-                          " textures=" + std::to_string( myTextures.size() ) );
+                          " textures=" + std::to_string( myTextures.size() ) + " materialTableGeneration=" +
+                          std::to_string( myMaterialTableGeneration ) );
 }
 
 Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshId, Vk_Core& aCore, Vk_DeletionQueue& aDeletionQueue ) {

@@ -14,6 +14,7 @@
 #include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_Lod.h"
+#include "Vk_Bindless.h"
 #include "Vk_ResourceTables.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
@@ -88,6 +89,10 @@ private:
     void CreateSwapChain();
     void CreateRenderPass();
     void CreateDescriptorSetLayout();
+    void CreateBindlessMaterialSetLayout();
+    void CreateBindlessPipelineLayout();
+    void CreateBindlessGfxPipelines();
+    void CreateBindlessDescriptorResources();
     void CreateGfxPipeline();
     void CreateDepthResources();
     void CreateColorResources();
@@ -121,6 +126,7 @@ private:
     // Live Vulkan scene path: Gfx_FrameExtract → cull/sort/batch → RecordScenePass.
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     void RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns );
+    void RecordDrawBatchesBindless( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
@@ -173,6 +179,9 @@ public:
     bool                                         myInstanceSlabOverflowLogged = false;
     bool                                         myMaterialBindLoggedOnce     = false;
     bool                                         myLodLoggedOnce              = false;
+    bool                                         myBindlessLoggedOnce         = false;
+    Vk_BindlessCapabilities                      myBindlessCaps{};
+    Vk_RenderMaterialPath                        myMaterialPath               = Vk_RenderMaterialPath::Batch;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
     std::vector< VkDescriptorSet >               myMaterialDescriptorSets;
 #pragma endregion
@@ -194,12 +203,18 @@ private:
     VkExtent2D            mySwapChainExtent;
     VkDescriptorSetLayout myGlobalSetLayout;
     VkDescriptorSetLayout myMaterialSetLayout;
+    VkDescriptorSetLayout myBindlessMaterialSetLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout myObjectSetLayout;
     VkDescriptorPool      myDescriptorPool;
     VkPipelineLayout      myPipelineLayout;
+    VkPipelineLayout      myBindlessPipelineLayout = VK_NULL_HANDLE;
     VkRenderPass          myRenderPass;
     VkPipeline            myBasicPipeline;
     VkPipeline            myTransparentPipeline;
+    VkPipeline            myBasicPipelineBindless       = VK_NULL_HANDLE;
+    VkPipeline            myTransparentPipelineBindless = VK_NULL_HANDLE;
+    VkDescriptorSet       myBindlessDescriptorSet       = VK_NULL_HANDLE;
+    Vk_AllocatedBuffer    myMaterialTableBuffer;
     std::vector< Vk_AllocatedBuffer >            myMaterialParamBuffers;
     VkCommandPool         myGraphicsCommandPool;
     VkCommandPool         myTransferCommandPool;

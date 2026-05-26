@@ -26,4 +26,7 @@ inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
 // Max draws written into the per-frame instance ring UBO (FillInstanceSlab); no per-draw heap alloc.
 inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 
+// Bindless Set 1 texture array capacity (S1 bindless v0).
+inline constexpr uint32_t kMaxBindlessTextures = 64;
+
 }  // namespace VkDescriptorPolicy
