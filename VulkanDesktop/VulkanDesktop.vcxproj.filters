@@ -91,6 +91,9 @@
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_DrawBatch.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -178,6 +181,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DrawBatch.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawExtract.h">

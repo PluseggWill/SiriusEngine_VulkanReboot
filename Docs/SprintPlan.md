@@ -189,13 +189,12 @@ flowchart TB
 | Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | Set 1 material batch |
 | Record ↔ transforms | **Done** — `FillInstanceSlab` + Set 2 bind per draw | — |
 | Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — bind per material batch |
-| Draw submission | Cull + opaque sort done; no batch yet; `vkCmdBindDescriptorSets` per draw | **Batch** task below |
+| Draw submission | **Done** — `Gfx_BuildOpaqueDrawBatches`; record loops batch runs; set 0 once per pass | Set 1 material batch (verify task) |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
 ### Submission
 
-- [ ] Batch runs; `RecordScenePass` scans batch runs only (minimal `vkCmdBind*` per batch).
 - [ ] **Verify descriptor policy (Set 0/1 + push):** `mat4` model via **push constant** (done 2026-05-26); remaining — Set 1 texture/material per batch, bind Set 0 once per batch, optional Set 2 slab vs push; validation layers clean on multi-mesh path — see § S1 implementation notes.
 
 ### LOD v0 (CPU) — *deps: SoA, resource tables, cull; unblocks S3 GPU LOD*
@@ -511,6 +510,7 @@ flowchart LR
 - [x] **[S1]** CPU frustum cull + opaque sort by `mySortKey` — 2026-05-26; [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), `Gfx_DrawCullSort.*`.
 - [x] **[S1]** Per-frame instance slab (ring UBO, `FillInstanceSlab`, record via `myInstanceDataOffset`) — 2026-05-26; [`instance-slab_Plan.md`](instance-slab_Plan.md).
 - [x] **[S1]** Verify descriptor policy (Set 2): `UNIFORM_BUFFER_DYNAMIC` on instance slab, distinct `dynamicOffset` per draw — 2026-05-26; [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md).
+- [x] **[S1]** Batch runs: `Gfx_BuildOpaqueDrawBatches`, `RecordScenePass` scans batch runs; set 0 once per pass — 2026-05-26; [`draw-batch_Plan.md`](draw-batch_Plan.md).
 
 ---
 

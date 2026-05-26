@@ -11,6 +11,7 @@
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
+#include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawExtract.h"
 #include "Vk_ResourceTables.h"
 
@@ -158,7 +159,9 @@ public:
     std::vector< Gfx_RenderObject >              myRenderObjects;
     Gfx_SceneSoA                                 mySceneSoA;
     Gfx_ExtractResult                            myExtractResult;
+    std::vector< Gfx_BatchRun >                  myOpaqueBatchRuns;
     bool                                         myExtractLoggedOnce = false;
+    bool                                         myBatchLoggedOnce   = false;
 #pragma endregion
 
 private:

@@ -10,6 +10,7 @@
 | [`descriptor-strategy_Plan.md`](descriptor-strategy_Plan.md) / [`descriptor-strategy_Progress.md`](descriptor-strategy_Progress.md) | Locked Set 0/1/2 + push policy (referenced by S1 descriptor tasks) |
 | [`instance-slab_Plan.md`](instance-slab_Plan.md) / [`instance-slab_Progress.md`](instance-slab_Progress.md) | S1 instance ring UBO (done; plan stays here for the sprint) |
 | [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md) / [`descriptor-set2-verify_Progress.md`](descriptor-set2-verify_Progress.md) | S1 Set 2 UNIFORM_BUFFER_DYNAMIC verification |
+| [`draw-batch_Plan.md`](draw-batch_Plan.md) / [`draw-batch_Progress.md`](draw-batch_Progress.md) | S1 opaque batch runs + record |
 | [`draw-extract_Plan.md`](draw-extract_Plan.md), [`scene-soa_Plan.md`](scene-soa_Plan.md), [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), [`resource-tables_Plan.md`](resource-tables_Plan.md) | S1 completed tasks — `_Progress.md` pairs at `Docs/` root |
 
 ## Guides (not vibe task logs)

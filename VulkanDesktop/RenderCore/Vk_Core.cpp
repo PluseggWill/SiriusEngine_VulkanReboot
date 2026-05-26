@@ -16,6 +16,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
+#include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawCullSort.h"
 
 #include <algorithm>
@@ -784,6 +785,14 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         const size_t drawCountBeforeCull = myExtractResult.myDrawInstances.size();
         Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myExtractResult );
         Gfx_SortOpaqueDrawInstances( myExtractResult );
+        Gfx_BuildOpaqueDrawBatches( myExtractResult.myDrawInstances, myOpaqueBatchRuns );
+
+        if ( !myBatchLoggedOnce ) {
+            UtilLogger::Info( "BATCH",
+                              "runs=" + std::to_string( myOpaqueBatchRuns.size() ) + " draws=" +
+                                  std::to_string( myExtractResult.myDrawInstances.size() ) );
+            myBatchLoggedOnce = true;
+        }
 
         if ( !myExtractLoggedOnce ) {
             UtilLogger::Info( "EXTRACT",
@@ -1400,33 +1409,38 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    // Consumes cull+sorted myExtractResult (§5.1). TODO(draw-stream): batch by material; bind Set 0/1 once per batch.
-    bool pipelineBound = false;
-    for ( const Gfx_DrawInstance& draw : myExtractResult.myDrawInstances ) {
-        const Gfx_Material& material = myResourceTables.GetMaterial( draw.myMaterialId );
-        const Gfx_Mesh&     mesh     = myResourceTables.GetMesh( draw.myMeshId );
+    // Consumes cull+sorted draws via myOpaqueBatchRuns (§5.1). Set 0 once per pass; pipeline once per batch.
+    const VkDescriptorSet frameDescriptor = myFrameDatas[ myCurrentFrame ].myGlobalDescriptor;
+    const VkDescriptorSet objectDescriptor = myFrameDatas[ myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout = myPipelineLayout;
 
-        if ( !pipelineBound || material.myPipeline != myBasicPipeline ) {
-            myFrameStats.myPipelineBinds++;
-            vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
-            SetGraphicsDynamicState( aCommandBuffer );
-            pipelineBound = true;
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0,
+                             nullptr );
+
+    for ( const Gfx_BatchRun& batch : myOpaqueBatchRuns ) {
+        const Gfx_DrawInstance& firstDraw = myExtractResult.myDrawInstances[ batch.myFirstDrawIndex ];
+        const Gfx_Material&     material  = myResourceTables.GetMaterial( firstDraw.myMaterialId );
+
+        myFrameStats.myPipelineBinds++;
+        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
+        SetGraphicsDynamicState( aCommandBuffer );
+
+        // TODO(descriptor-strategy): bind Set 1 per materialId (texture from table).
+        for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
+            const Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ batch.myFirstDrawIndex + drawIndex ];
+            const Gfx_Mesh&         mesh = myResourceTables.GetMesh( draw.myMeshId );
+
+            VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
+            VkDeviceSize offsets[]       = { 0 };
+            vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
+            vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
+
+            const uint32_t dynamicOffset = draw.myInstanceDataOffset;
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1,
+                                     &objectDescriptor, 1, &dynamicOffset );
+            myFrameStats.myDrawCalls++;
+            vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
         }
-
-        VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
-        VkDeviceSize offsets[]       = { 0 };
-        vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
-        vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
-
-        const uint32_t dynamicOffset = draw.myInstanceDataOffset;
-
-        // TODO(descriptor-strategy): bind Set 0 once per batch; Set 1 per materialId (texture from table).
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
-                                 &myFrameDatas[ myCurrentFrame ].myGlobalDescriptor, 0, nullptr );
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipelineLayout, VkDescriptorPolicy::kSetObject, 1,
-                                 &myFrameDatas[ myCurrentFrame ].myObjectDescriptor, 1, &dynamicOffset );
-        myFrameStats.myDrawCalls++;
-        vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( mesh.myIndices.size() ), 1, 0, 0, 0 );
     }
 
     vkCmdEndRenderPass( aCommandBuffer );

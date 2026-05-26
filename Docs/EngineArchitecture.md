@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** → **`FillInstanceSlab`** → `RecordScenePass` via `Vk_ResourceTables` (demo manifest v0). Per-draw `mat4` **model** via **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into the instance slab; Set 0 = `view` / `proj` + env + demo texture (material 0). Pipeline layout: sets 0 / 1 (placeholder) / 2. **Batch** and Set 1 per material not done yet.
+**Render path (today):** `Gfx_SceneSoA` → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** → `RecordScenePass` (iterates batch runs). Per-draw `model` via Set 2 dynamic UBO; **set 0 bound once per pass**; pipeline once per batch; set 2 per draw. Set 1 material batch not done yet.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -111,7 +111,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Per-draw transform (demo):** `mat4 model` in **Set 2** dynamic UBO slice (`GpuObjectData`); `FillInstanceSlab` writes the instance slab and sets `DrawInstance.myInstanceDataOffset`; `RecordScenePass` binds set 2 with `vkCmdBindDescriptorSets(..., dynamicOffset)` per draw (no SoA, no model push constant on demo pipeline). Demo spin composed in `ComputeDemoModelMatrix` during fill (temporary).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** Set 1 material batch binds; sort + batch before record; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
+**Still open (S1):** Set 1 material batch binds; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
 
 ### 4.3 Extract step (render-facing boundary)
 
@@ -446,4 +446,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 Set 2 dynamic UBO, instance slab; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 draw batching, Set 2 dynamic UBO; 2026-05-26).*
