@@ -1,7 +1,7 @@
 # Plan: descriptor-set1-verify
 
 **Sprint:** S1 — CPU draw stream (submission)  
-**Status:** Open  
+**Status:** Done (2026-05-26)  
 **SprintPlan:** Verify descriptor policy (Set 0/1 + Set 2) — Set 1 remaining.
 
 ## Problem
@@ -35,12 +35,12 @@ Set 2 dynamic instance slab is proven (`descriptor-set2-verify`). Set 0 still bi
 
 ## Steps
 
-- [ ] P1 — Set 1 descriptor layout + pipeline layout (non-empty set 1)
-- [ ] P2 — Allocate/update per-material descriptor sets from resource tables
-- [ ] P3 — Shader + SPIR-V; remove Set 0 texture from hot path (or keep env-only on Set 0)
-- [ ] P4 — RecordScenePass: `vkCmdBindDescriptorSets` Set 1 at batch start
-- [ ] P5 — Demo manifest two materials; smoke + validation
-- [ ] P6 — Archive sprint line; update S1 implementation notes + M1 acceptance
+- [x] P1 — Set 1 descriptor layout + pipeline layout (non-empty set 1)
+- [x] P2 — Allocate/update per-material descriptor sets from resource tables
+- [x] P3 — Shader + SPIR-V; Set 0 camera + env only
+- [x] P4 — RecordScenePass: `vkCmdBindDescriptorSets` Set 1 at batch start
+- [x] P5 — Demo manifest two materials (`viking_room` + `RedMoon.jpg`); smoke OK
+- [x] P6 — Archive sprint line; update S1 implementation notes + M1 acceptance
 
 ## Build / smoke-run
 

@@ -329,8 +329,8 @@ VkImageViewCreateInfo VkInit::ImageViewCreateInfo( VkFormat aFormat, VkImage anI
 // --- Descriptors ---
 
 // VkWriteDescriptorSet — vkUpdateDescriptorSets for combined image sampler.
-// Used when: binding albedo texture to Set 0 binding eVk_TextureBinding per frame.
-// Example: DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, eVk_TextureBinding, 1 ).
+// Used when: binding albedo texture to Set 1 binding eVk_MaterialTextureBinding per material.
+// Example: DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, eVk_MaterialTextureBinding, 1 ).
 VkWriteDescriptorSet VkInit::DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding,
                                                            uint32_t aCount ) {
     VkWriteDescriptorSet descriptorWrite{};

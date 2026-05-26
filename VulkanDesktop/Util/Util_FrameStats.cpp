@@ -4,8 +4,9 @@
 #include <cmath>
 
 void Util_FrameStats::ResetPerFrameCounters() {
-    myDrawCalls     = 0;
-    myPipelineBinds = 0;
+    myDrawCalls        = 0;
+    myPipelineBinds    = 0;
+    myMaterialSetBinds = 0;
 }
 
 void Util_FrameStats::PushFrameTime( float aFrameMs ) {

@@ -96,6 +96,7 @@ private:
     void CreateTextureSampler();
     void CreateDescriptorPool();
     void CreateDescriptorSets();
+    void CreateMaterialDescriptorSets();
 
     // Part 4: Prepare for draw frames
     void CreateFrameData();
@@ -164,7 +165,9 @@ public:
     bool                                         myExtractLoggedOnce        = false;
     bool                                         myBatchLoggedOnce          = false;
     bool                                         myInstanceSlabOverflowLogged = false;
+    bool                                         myMaterialBindLoggedOnce     = false;
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
+    std::vector< VkDescriptorSet >               myMaterialDescriptorSets;
 #pragma endregion
 
 private:
@@ -183,7 +186,7 @@ private:
     VkFormat              mySwapChainImageFormat;
     VkExtent2D            mySwapChainExtent;
     VkDescriptorSetLayout myGlobalSetLayout;
-    VkDescriptorSetLayout myMaterialSetLayout;  // placeholder (no bindings) until Set 1 batching
+    VkDescriptorSetLayout myMaterialSetLayout;
     VkDescriptorSetLayout myObjectSetLayout;
     VkDescriptorPool      myDescriptorPool;
     VkPipelineLayout      myPipelineLayout;

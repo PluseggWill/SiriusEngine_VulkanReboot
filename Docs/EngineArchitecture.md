@@ -77,7 +77,7 @@ Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_I
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** demo transforms (incl. optional Z spin) written to **SoA before extract** → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** (copies SoA matrix) → `RecordScenePass` (batch runs). Per-draw `model` via Set 2 dynamic UBO; **set 0 bound once per pass**; pipeline once per batch; set 2 per draw. Instance slab **fail-closed** on overflow. Set 1 material batch not done yet ([`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md)).
+**Render path (today):** demo transforms (incl. optional Z spin) written to **SoA before extract** → extract → **frustum cull + opaque sort** → **`Gfx_BuildOpaqueDrawBatches`** → **`FillInstanceSlab`** (copies SoA matrix) → `RecordScenePass` (batch runs). **Set 0** once per pass (camera + env); **Set 1** once per material batch (albedo); **Set 2** per draw (`dynamicOffset`). Instance slab **fail-closed** on overflow.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -112,7 +112,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/instance-slab_Plan.md`.
 
-**Still open (S1):** Set 1 material batch binds; descriptor writes per material (today Set 0 texture is fixed to material 0 at init).
+**Still open (S1):** Bindless v0 decision / production material tables; transparency; LOD v0.
 
 ### 4.3 Extract step (render-facing boundary)
 
@@ -183,8 +183,8 @@ After extract:
 
 | Set | Role | Typical bindings | Descriptor type | Bind frequency |
 |-----|------|------------------|-----------------|----------------|
-| **0 — Frame** | Camera **view/proj** (no model in UBO), environment, demo texture until Set 1 | `eVk_CameraBinding`, `eVk_EnvBinding`, `eVk_TextureBinding`, … | `UNIFORM_BUFFER` | Once per **in-flight frame** (separate descriptor set per slot; memcpy UBO, no `vkUpdateDescriptorSets` on hot path) |
-| **1 — Material** | Material params, textures (until bindless) | TBD in S1 | `UNIFORM_BUFFER`, `COMBINED_IMAGE_SAMPLER` | Once per **material batch** |
+| **0 — Frame** | Camera **view/proj**, environment | `eVk_CameraBinding`, `eVk_EnvBinding` | `UNIFORM_BUFFER` | Once per **in-flight frame** |
+| **1 — Material** | Albedo texture (demo: per `materialId` descriptor set) | `eVk_MaterialTextureBinding` | `COMBINED_IMAGE_SAMPLER` | Once per **material batch** |
 | **2 — Object** | Per-instance / per-draw data | Instance struct in slab | `UNIFORM_BUFFER_DYNAMIC` (+ optional push) | Set bound per batch; **`dynamicOffset`** per draw |
 
 **`UNIFORM_BUFFER` vs `UNIFORM_BUFFER_DYNAMIC`**
@@ -199,7 +199,7 @@ After extract:
 
 **Implemented on desktop (2026-05-26):** `TriangleVertex.vert` — Set 0 `GpuCameraData` (`view`, `proj`); Set 2 `GpuObjectData` (`model`) via **`UNIFORM_BUFFER_DYNAMIC`** and per-draw `dynamicOffset` into the instance slab. Do not patch `model` through the camera UBO between draws. Push constants remain valid per policy for other pipelines; demo forward path uses Set 2 only.
 
-**VulkanDesktop today (demo):** binds **set 0** (frame) and **set 2** (object) per draw; set 1 layout is an empty placeholder until material batching. Environment uses frame-indexed **static** offsets in `vkUpdateDescriptorSets` at init — **not** `UNIFORM_BUFFER_DYNAMIC`. Code contract: `Vk_DescriptorPolicy.h`, `Vk_Enum.h`.
+**VulkanDesktop today (demo):** binds **set 0** once per pass; **set 1** once per batch (`myMaterialDescriptorSets`); **set 2** per draw with `dynamicOffset`. Environment uses frame-indexed **static** offsets in Set 0 at init. Code contract: `Vk_DescriptorPolicy.h`, `Vk_Enum.h`.
 
 **Bindless vs traditional (S1 fork)**
 
@@ -449,4 +449,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S1 Set 2 verified, batching, slab overflow, demo transform sync; descriptor Set 1 open; 2026-05-26).*
+*Last aligned with `Docs/SprintPlan.md` (S1 descriptor policy Set 0/1/2 on demo path; 2026-05-26).*

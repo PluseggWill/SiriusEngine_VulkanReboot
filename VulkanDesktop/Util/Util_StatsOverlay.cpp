@@ -20,6 +20,7 @@ void UtilStatsOverlay::Build( const Util_FrameStats& aStats ) {
     ImGui::Separator();
     ImGui::Text( "Draw calls: %u", aStats.myDrawCalls );
     ImGui::Text( "Pipeline binds: %u", aStats.myPipelineBinds );
+    ImGui::Text( "Material set binds: %u", aStats.myMaterialSetBinds );
 
     ImGui::End();
 }

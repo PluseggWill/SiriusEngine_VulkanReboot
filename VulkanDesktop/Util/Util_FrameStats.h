@@ -10,8 +10,9 @@ struct Util_FrameStats {
     float    myAvgFps         = 0.f;
     float    myFps1PercentLow = 0.f;
     float    myFrameMs        = 0.f;
-    uint32_t myDrawCalls      = 0;
-    uint32_t myPipelineBinds  = 0;
+    uint32_t myDrawCalls       = 0;
+    uint32_t myPipelineBinds   = 0;
+    uint32_t myMaterialSetBinds = 0;
 
     std::array< float, FRAME_HISTORY_COUNT > myFrameHistory{};
     int myFrameHistoryIndex  = 0;

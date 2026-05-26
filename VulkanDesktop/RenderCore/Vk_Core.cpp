@@ -148,7 +148,6 @@ void Vk_Core::InitVulkan() {
     CreateDepthResources();
     CreateFrameBuffers();
 
-    CreateTextureSampler();
     InitDemoSceneEntities();
     CreateFrameData();
     CreateInstanceSlabs();
@@ -160,11 +159,13 @@ void Vk_Core::InitVulkan() {
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildDemoResourceManifest( manifest );
+        myTextureImageMipLevels = 1;
         myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, myBasicPipeline, myPipelineLayout );
     }
 
-    // After resource tables: Set 0 texture binding uses material→texture lookup.
+    CreateTextureSampler();
     CreateDescriptorSets();
+    CreateMaterialDescriptorSets();
     CreateCamera();
     InitDefaultEnvironmentData();
     InitImGui();
@@ -468,7 +469,7 @@ void Vk_Core::CreateGfxPipeline() {
     // Step #10: Color blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
 
-    // Step #12: Pipeline layout — sets 0 (frame), 1 (material placeholder), 2 (object dynamic UBO).
+    // Pipeline layout — sets 0 (frame), 1 (material texture), 2 (object dynamic UBO).
     const std::array< VkDescriptorSetLayout, 3 > setLayouts = { myGlobalSetLayout, myMaterialSetLayout, myObjectSetLayout };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = VkInit::Pipeline_LayoutCreateInfo();
@@ -477,7 +478,7 @@ void Vk_Core::CreateGfxPipeline() {
     pipelineLayoutCreateInfo.pushConstantRangeCount     = 0;
     pipelineLayoutCreateInfo.pPushConstantRanges        = nullptr;
 
-    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=3 (frame, material placeholder, object dynamic)." );
+    UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=3 (frame, material, object dynamic)." );
     UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( myDevice, &pipelineLayoutCreateInfo, nullptr, &myPipelineLayout ), "vkCreatePipelineLayout" );
 
     // Step #13: Combine
@@ -797,6 +798,12 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
             myBatchLoggedOnce = true;
         }
 
+        if ( !myMaterialBindLoggedOnce ) {
+            UtilLogger::Info( "DESCRIPTOR",
+                              "Set 1 material binds this frame will be <= batch runs (" + std::to_string( myOpaqueBatchRuns.size() ) + ")" );
+            myMaterialBindLoggedOnce = true;
+        }
+
         if ( !myExtractLoggedOnce ) {
             UtilLogger::Info( "EXTRACT",
                               "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " draws=" +
@@ -928,17 +935,14 @@ void Vk_Core::RecreateSwapChain() {
 }
 
 void Vk_Core::CreateDescriptorSetLayout() {
-    // Set 0 — frame (camera, env, texture).
+    // Set 0 — frame (camera + env only; albedo on Set 1).
     VkDescriptorSetLayoutBinding uboLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
 
     VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_TextureBinding );
-
-    std::array< VkDescriptorSetLayoutBinding, 3 > frameBindings = { uboLayoutBinding, gpuEnvDataLayoutBinding, samplerLayoutBinding };
+    std::array< VkDescriptorSetLayoutBinding, eVk_FrameBindingCount > frameBindings = { uboLayoutBinding, gpuEnvDataLayoutBinding };
 
     VkDescriptorSetLayoutCreateInfo frameLayoutInfo{};
     frameLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -949,14 +953,17 @@ void Vk_Core::CreateDescriptorSetLayout() {
         throw std::runtime_error( "failed to create frame descriptor set layout!" );
     }
 
-    // Set 1 — material placeholder (no bindings until batching task).
+    // Set 1 — material (albedo texture per materialId).
+    VkDescriptorSetLayoutBinding materialTextureBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialTextureBinding );
+
     VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
     materialLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    materialLayoutInfo.bindingCount = 0;
-    materialLayoutInfo.pBindings    = nullptr;
+    materialLayoutInfo.bindingCount = 1;
+    materialLayoutInfo.pBindings    = &materialTextureBinding;
 
     if ( vkCreateDescriptorSetLayout( myDevice, &materialLayoutInfo, nullptr, &myMaterialSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create material placeholder descriptor set layout!" );
+        throw std::runtime_error( "failed to create material descriptor set layout!" );
     }
 
     // Set 2 — object instance slab (dynamic UBO).
@@ -983,18 +990,18 @@ void Vk_Core::CreateDescriptorPool() {
     std::array< VkDescriptorPoolSize, 4 > poolSizes{};
     poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 0 ].descriptorCount = 10;
-    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[ 1 ].descriptorCount = 10;
+    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
     poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[ 2 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
-    poolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    poolSizes[ 2 ].descriptorCount = 16;  // material sets + headroom
+    poolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[ 3 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * 2;
+    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * 2 + 16;
 
     if ( vkCreateDescriptorPool( myDevice, &poolInfo, nullptr, &myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor pool!" );
@@ -1017,8 +1024,7 @@ void Vk_Core::CreateDescriptorSets() {
             throw std::runtime_error( "failed to allocate descriptor sets!" );
         }
 
-        // Descriptor Writes
-        std::array< VkWriteDescriptorSet, 3 > descriptorWrites{};
+        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
 
         VkDescriptorBufferInfo camBufferInfo{};
         camBufferInfo.buffer = myFrameDatas[ i ].myCameraBuffer.myBuffer;
@@ -1030,20 +1036,10 @@ void Vk_Core::CreateDescriptorSets() {
         envBufferInfo.offset = PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
         envBufferInfo.range  = sizeof( GpuEnvironmentData );
 
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        // TODO(descriptor-strategy): per-frame Set 0 texture from each material batch (Set 1), not hard-coded 0.
-        const uint32_t     textureId = myResourceTables.GetTextureIdForMaterial( 0 );
-        const Gfx_Texture& texture   = myResourceTables.GetTexture( textureId );
-        imageInfo.imageView          = texture.ImageView();
-        imageInfo.sampler     = myTextureSampler;
-
         descriptorWrites[ 0 ] =
             VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
         descriptorWrites[ 1 ] =
             VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
-        descriptorWrites[ 2 ] = VkInit::DescriptorSetWriteCreateInfo( myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo,
-                                                                    eVk_TextureBinding, 1 );
 
         vkUpdateDescriptorSets( myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
 
@@ -1068,6 +1064,39 @@ void Vk_Core::CreateDescriptorSets() {
                                                                                  eVk_ObjectModelBinding, 1 );
         vkUpdateDescriptorSets( myDevice, 1, &objectWrite, 0, nullptr );
     }
+}
+
+void Vk_Core::CreateMaterialDescriptorSets() {
+    const size_t materialCount = myResourceTables.GetMaterialCount();
+    myMaterialDescriptorSets.clear();
+    myMaterialDescriptorSets.resize( materialCount, VK_NULL_HANDLE );
+
+    std::vector< VkDescriptorSetLayout > layouts( materialCount, myMaterialSetLayout );
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool     = myDescriptorPool;
+    allocInfo.descriptorSetCount = static_cast< uint32_t >( materialCount );
+    allocInfo.pSetLayouts        = layouts.data();
+
+    if ( vkAllocateDescriptorSets( myDevice, &allocInfo, myMaterialDescriptorSets.data() ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to allocate material descriptor sets!" );
+    }
+
+    for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
+        const uint32_t     textureId = myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Texture& texture   = myResourceTables.GetTexture( textureId );
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView   = texture.ImageView();
+        imageInfo.sampler     = myTextureSampler;
+
+        VkWriteDescriptorSet write = VkInit::DescriptorSetWriteCreateInfo( myMaterialDescriptorSets[ materialId ],
+                                                                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo, eVk_MaterialTextureBinding, 1 );
+        vkUpdateDescriptorSets( myDevice, 1, &write, 0, nullptr );
+    }
+
+    UtilLogger::Info( "DESCRIPTOR", "Material sets allocated: " + std::to_string( materialCount ) );
 }
 
 void Vk_Core::CreateTextureSampler() {
@@ -1182,7 +1211,7 @@ void Vk_Core::InitDemoSceneEntities() {
 
     // Demo layout: mesh 0 left, mesh 1 right (world units; mesh bounds ~1–2 units).
     addDemoEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ) ) );
-    addDemoEntity( 1, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
+    addDemoEntity( 1, 1, glm::translate( glm::mat4( 1.0f ), glm::vec3( 4.0f, 0.0f, 0.0f ) ) );
 
     UtilLogger::Info( "SCENE", "Demo scene SoA active entities: " + std::to_string( mySceneSoA.GetActiveCount() ) );
 }
@@ -1454,7 +1483,14 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
         vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
         SetGraphicsDynamicState( aCommandBuffer );
 
-        // TODO(descriptor-strategy): bind Set 1 per materialId (texture from table).
+        const uint32_t materialId = firstDraw.myMaterialId;
+        if ( materialId < myMaterialDescriptorSets.size() ) {
+            const VkDescriptorSet materialDescriptor = myMaterialDescriptorSets[ materialId ];
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetMaterial, 1, &materialDescriptor, 0,
+                                     nullptr );
+            myFrameStats.myMaterialSetBinds++;
+        }
+
         for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
             const Gfx_DrawInstance& draw = myExtractResult.myDrawInstances[ batch.myFirstDrawIndex + drawIndex ];
             const Gfx_Mesh&         mesh = myResourceTables.GetMesh( draw.myMeshId );

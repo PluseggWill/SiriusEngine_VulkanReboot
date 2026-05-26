@@ -186,17 +186,17 @@ flowchart TB
 | Topic | State | Next / owner task |
 |-------|--------|-------------------|
 | Resource tables | Done — `Gfx_ResourceManifest`, `Vk_ResourceTables`, `RecordScenePass` resolves mesh/material ids | `scene-load` Phase C replaces demo manifest |
-| Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | Set 1 material batch — [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md) |
+| Per-draw `model` | **Set 2** `UNIFORM_BUFFER_DYNAMIC` + `dynamicOffset` into instance slab (2026-05-26) | — |
 | Record ↔ transforms | **Done** — SoA updated before extract (`demo-transform-sync`); slab copies SoA matrix; Set 2 per draw | — |
-| Instance slab | **Done** — overflow fail-closed (no partial write; skip scene record) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) | — |
-| Set 0 texture | Demo: `GetTextureIdForMaterial(0)` at init only | **Verify Set 1** — [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md) |
-| Draw submission | **Done** — `Gfx_BuildOpaqueDrawBatches`; record loops batch runs; set 0 once per pass | Set 1 material batch (verify task) |
+| Instance slab | **Done** — overflow fail-closed — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) | — |
+| Set 0 / Set 1 | **Done** — Set 0 camera + env; Set 1 albedo per material, bound once per batch (2026-05-26) | bindless v0 decision |
+| Draw submission | **Done** — batch runs; set 0 once per pass; set 1 per batch; set 2 per draw | — |
 
 **Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use push constants or dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
 
 ### Submission
 
-- [ ] **Verify descriptor policy (Set 0/1 + Set 2):** Set 2 `UNIFORM_BUFFER_DYNAMIC` + distinct `dynamicOffset` per draw (**done** 2026-05-26; [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md)). **Remaining** — Set 1 texture/material per batch; Set 0 camera + env only; demo ≥2 materials — [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md). Validation layers clean on multi-mesh / multi-material path.
+*(descriptor policy verification queue cleared 2026-05-26 — see Archived.)*
 
 ### LOD v0 (CPU) — *deps: SoA, resource tables, cull; unblocks S3 GPU LOD*
 
@@ -222,7 +222,6 @@ flowchart TB
 ### Milestone M1 acceptance
 
 - [ ] Multi-mesh scene; draw calls scale with batches not naive per-object binds; frame time logged.
-- [ ] **Descriptor policy signed off:** Set 0 per-frame UBO (`view`/`proj` + env; texture moves to Set 1) + Set 1 material batch **or** bindless table v0 + Set 2 dynamic slab (live 2026-05-26) on fixed test scene — see [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
 - [ ] At least one **transparent** object draws correctly over opaque (order + blend).
 - [ ] **LOD v0:** camera distance change swaps LOD on a test mesh (logged `meshId`).
 
@@ -515,6 +514,7 @@ flowchart LR
 - [x] **[S1]** Batch runs: `Gfx_BuildOpaqueDrawBatches`, `RecordScenePass` scans batch runs; set 0 once per pass — 2026-05-26; [`draw-batch_Plan.md`](draw-batch_Plan.md).
 - [x] **[S1]** Instance slab overflow fail-closed — 2026-05-26; [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - [x] **[S1]** Demo transform/cull sync (SoA updated before extract; slab uses same matrix) — 2026-05-26; [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md).
+- [x] **[S1]** Verify descriptor policy (Set 0/1 + Set 2): Set 1 per-material texture, batch bind; demo viking + RedMoon materials — 2026-05-26; [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md).
 
 ---
 

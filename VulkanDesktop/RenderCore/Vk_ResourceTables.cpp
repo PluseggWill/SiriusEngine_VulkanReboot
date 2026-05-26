@@ -1,5 +1,7 @@
 #include "Vk_ResourceTables.h"
 
+#include <algorithm>
+
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Core.h"
@@ -22,7 +24,9 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
     myMaterialTextureIds.reserve( aManifest.myMaterials.size() );
 
     for ( const Gfx_TextureManifestEntry& entry : aManifest.myTextures ) {
-        LoadTexture( entry.myPath, entry.myId, aCore, aDeletionQueue, aTextureMipLevels );
+        uint32_t textureMipLevels = 1;
+        LoadTexture( entry.myPath, entry.myId, aCore, aDeletionQueue, textureMipLevels );
+        aTextureMipLevels = std::max( aTextureMipLevels, textureMipLevels );
     }
 
     for ( const Gfx_MeshManifestEntry& entry : aManifest.myMeshes ) {

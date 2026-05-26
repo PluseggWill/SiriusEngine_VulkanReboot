@@ -11,7 +11,7 @@
 | [`instance-slab_Plan.md`](instance-slab_Plan.md) / [`instance-slab_Progress.md`](instance-slab_Progress.md) | S1 instance ring UBO (done; plan stays here for the sprint) |
 | [`descriptor-set2-verify_Plan.md`](descriptor-set2-verify_Plan.md) / [`descriptor-set2-verify_Progress.md`](descriptor-set2-verify_Progress.md) | S1 Set 2 UNIFORM_BUFFER_DYNAMIC verification |
 | [`draw-batch_Plan.md`](draw-batch_Plan.md) / [`draw-batch_Progress.md`](draw-batch_Progress.md) | S1 opaque batch runs + record (done) |
-| [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md) | S1 open — Set 1 material/texture per batch |
+| [`descriptor-set1-verify_Plan.md`](descriptor-set1-verify_Plan.md) / [`descriptor-set1-verify_Progress.md`](descriptor-set1-verify_Progress.md) | S1 Set 1 material/texture per batch (done) |
 | [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md) / [`instance-slab-overflow_Progress.md`](instance-slab-overflow_Progress.md) | S1 slab overflow fail-closed (done) |
 | [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md) / [`demo-transform-sync_Progress.md`](demo-transform-sync_Progress.md) | S1 SoA/cull vs instance matrix (done) |
 | [`draw-extract_Plan.md`](draw-extract_Plan.md), [`scene-soa_Plan.md`](scene-soa_Plan.md), [`draw-cull-sort_Plan.md`](draw-cull-sort_Plan.md), [`resource-tables_Plan.md`](resource-tables_Plan.md) | S1 completed tasks — `_Progress.md` pairs at `Docs/` root |

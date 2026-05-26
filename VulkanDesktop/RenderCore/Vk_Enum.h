@@ -9,12 +9,16 @@ enum eDescriptorSet : uint32_t {
     eVk_SetObject   = VkDescriptorPolicy::kSetObject,
 };
 
-// Set 0 (Frame) - must match TriangleFrag_Lit.frag layout(binding = N).
+// Set 0 (Frame) - TriangleVertex.vert set 0; TriangleFrag_Lit.frag env only (no albedo).
 enum eDescriptorBinding {
-    eVk_CameraBinding  = 0,  // VERTEX | GpuCameraData (view, proj)
-    eVk_EnvBinding     = 1,  // FRAGMENT | GpuEnvironmentData (see myFogDistance packing)
-    eVk_TextureBinding = 2,  // FRAGMENT | combined image sampler (albedo)
-    eVk_BindingCount   = 3,
+    eVk_CameraBinding = 0,  // VERTEX | GpuCameraData (view, proj)
+    eVk_EnvBinding    = 1,  // FRAGMENT | GpuEnvironmentData (see myFogDistance packing)
+    eVk_FrameBindingCount = 2,
+};
+
+// Set 1 (Material) - TriangleFrag_Lit.frag set 1; bound once per material batch.
+enum eVk_MaterialBinding : uint32_t {
+    eVk_MaterialTextureBinding = 0,  // FRAGMENT | combined image sampler (albedo)
 };
 
 // Set 2 (Object) - TriangleVertex.vert binding 0; UNIFORM_BUFFER_DYNAMIC + dynamicOffset per draw.

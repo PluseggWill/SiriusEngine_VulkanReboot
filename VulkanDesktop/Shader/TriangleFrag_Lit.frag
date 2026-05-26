@@ -1,6 +1,7 @@
 #version 450
 
-layout(binding = 1) uniform EnvironmentData {
+// Set 0 — frame (matches TriangleVertex.vert set 0 for camera; env here for fragment).
+layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
     vec4 fogDistances;
     vec4 ambientColor;
@@ -9,7 +10,8 @@ layout(binding = 1) uniform EnvironmentData {
     vec4 viewWorldPos;
 } envData;
 
-layout(binding = 2) uniform sampler2D texSampler;
+// Set 1 — material batch (bound once per batch in RecordScenePass).
+layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 layout(location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;

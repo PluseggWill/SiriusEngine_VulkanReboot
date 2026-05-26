@@ -11,10 +11,17 @@ void Gfx_BuildDemoResourceManifest( Gfx_ResourceManifest& aOut ) {
     aOut.myMeshes.push_back( { 1, std::string( UtilDemoAssets::kMonkeyModel ) } );
 
     aOut.myTextures.push_back( { 0, std::string( UtilDemoAssets::kDemoTexture ) } );
+    aOut.myTextures.push_back( { 1, std::string( UtilDemoAssets::kAltTexture ) } );
 
-    Gfx_MaterialManifestEntry material{};
-    material.myId                   = 0;
-    material.myTextureId            = 0;
-    material.myPipelinePermutationId = 0;
-    aOut.myMaterials.push_back( material );
+    Gfx_MaterialManifestEntry material0{};
+    material0.myId                    = 0;
+    material0.myTextureId             = 0;
+    material0.myPipelinePermutationId = 0;
+    aOut.myMaterials.push_back( material0 );
+
+    Gfx_MaterialManifestEntry material1{};
+    material1.myId                    = 1;
+    material1.myTextureId             = 1;
+    material1.myPipelinePermutationId = 0;
+    aOut.myMaterials.push_back( material1 );
 }
