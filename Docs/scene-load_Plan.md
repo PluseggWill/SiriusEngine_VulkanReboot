@@ -1,7 +1,7 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** Planned (design doc; implementation not started)  
+**Status:** In progress — Phase B next (Phase A done 2026-05-26)  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md)
 
 ## Problem
@@ -62,7 +62,8 @@ Keep `Util_DemoAssets` only until the first scene file drives the same demo; the
 
 | Item | Decision |
 |------|----------|
-| Scene format (v1) | **JSON** under `Data/Scenes/` (minimal parser or small dep; match `engine.json` style if hand-rolled) |
+| Scene format (v1) | **JSON** under `Data/Scenes/` with `"version": 1`; parse via vendored **nlohmann/json** (`lib/nlohmann/json.hpp`) |
+| Canonical vs runtime | Disk **AoS** `Gfx_SceneDesc` (string ids + paths); hydrate to `Gfx_SceneSoA` + table ids in Phase C only |
 | Path strings | Repo-relative (`Data/…`, `VulkanDesktop/Shader_Generated/…`); resolve via `UtilLoader::ResolvePath` |
 | Manifest | `CollectDependencies(SceneDesc)` returns `std::vector<std::string>` or small `AssetManifest` struct (paths + optional kind enum) |
 | Startup policy | **Strict** at boot for manifest (missing file → throw, log `[STARTUP]`); runtime optional assets → warn + placeholder (parallel slice; config later) |
@@ -103,10 +104,10 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 ### Phase A — Scene description (no GPU behavior change)
 
-- [ ] **A1** — Add `Data/Scenes/demo.json` mirroring current `Util_DemoAssets` set.
-- [ ] **A2** — `LoadSceneDesc(path)` → in-memory `SceneDesc` (paths + entity refs only).
-- [ ] **A3** — `CollectDependencies(SceneDesc)` → `AssetManifest`.
-- [ ] **A4** — Wire `--scene`; default `Data/Scenes/demo.json`.
+- [x] **A1** — Add `Data/Scenes/demo.json` mirroring current `Util_DemoAssets` set.
+- [x] **A2** — `LoadSceneDesc(path)` → in-memory `SceneDesc` (paths + entity refs only).
+- [x] **A3** — `CollectDependencies(SceneDesc)` → `AssetManifest`.
+- [x] **A4** — Wire `--scene`; default `Data/Scenes/demo.json`.
 
 ### Phase B — Manifest-driven startup (replaces hard-coded checks)
 
@@ -133,7 +134,8 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 | Area | Paths |
 |------|--------|
 | Data | `Data/Scenes/demo.json`, optional `smoke.json` |
-| Util / Gfx | `Util_SceneLoader.{h,cpp}` or `Gfx_SceneDesc.{h,cpp}`, `Util_AssetManifest.{h,cpp}` |
+| Util / Gfx | `Gfx_SceneDesc.h`, `Gfx_SceneLoader.{h,cpp}`, `Util_AssetManifest.{h,cpp}` |
+| Third-party | `lib/nlohmann/json.hpp` (v3.11.3, header-only) |
 | App | `VulkanDesktop.cpp`, future `Application.{h,cpp}` |
 | RenderCore | `Vk_Core.cpp` (peel init hacks), resource table headers |
 | Docs | `Docs/scene-load_Progress.md`, `Docs/SprintPlan.md`, `README.md` (run with `--scene`) |

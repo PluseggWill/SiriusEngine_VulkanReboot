@@ -31,6 +31,9 @@
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_AssetManifest.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_StartupChecks.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -103,6 +106,9 @@
     <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_SceneLoader.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -139,6 +145,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Util\Util_AssetConfig.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_AssetManifest.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_DemoAssets.h">
@@ -199,6 +208,12 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_ResourceManifest.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SceneDesc.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SceneLoader.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_SceneSoA.h">

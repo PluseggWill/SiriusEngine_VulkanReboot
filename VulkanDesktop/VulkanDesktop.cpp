@@ -1,8 +1,10 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW\glfw3.h>
 
+#include "Gfx/Gfx_SceneLoader.h"
 #include "RenderCore/Vk_Core.h"
 #include "Util/Util_AssetConfig.h"
+#include "Util/Util_AssetManifest.h"
 #include "Util/Util_Logger.h"
 #include "Util/Util_StartupChecks.h"
 #include "Util/Util_ValidationConfig.h"
@@ -36,6 +38,13 @@ int main( int argc, char** argv ) {
 #endif
         app->SetEnableValidationLayers( UtilValidationConfig::ResolveEnabled( buildDefaultValidation ),
                                         UtilValidationConfig::GetRequestedLayerNames() );
+
+        // scene-load Phase A: parse scene + build path closure. Phase B switches startup verify to Util_VerifyManifest.
+        const Gfx_SceneDesc      sceneDesc     = Gfx_LoadSceneDesc( UtilAssetConfig::GetSceneLogicalPath() );
+        const Util_AssetManifest sceneManifest = Util_CollectDependencies( sceneDesc );
+        UtilLogger::Info( "APP", "Scene manifest paths=" + std::to_string( sceneManifest.myEntries.size() ) +
+                                      " (startup verify still uses UtilDemoAssets until Phase B)" );
+
         UtilStartupChecks::VerifyRequiredAssets();
         UtilLogger::Info( "APP", "Core configuration prepared." );
 

@@ -1,6 +1,8 @@
 #include "Util_AssetConfig.h"
 #include "Util_Logger.h"
 
+#include "../Gfx/Gfx_SceneDesc.h"
+
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
@@ -13,6 +15,7 @@ namespace {
 
 std::filesystem::path gAssetRoot;
 std::string         gConfigPathUsed;
+std::string         gSceneLogicalPath = kGfxDefaultSceneLogicalPath;
 bool                gInitialized = false;
 
 std::filesystem::path FindRepoRoot() {
@@ -112,6 +115,7 @@ void UtilAssetConfig::PrintUsage( const char* aProgramName ) {
     std::cerr << "Usage: " << name << " [options]\n"
               << "  --asset-root <dir>   Repository / content root (contains Data/, VulkanDesktop/)\n"
               << "  --config <file>      JSON config (assetRoot, enableValidationLayers)\n"
+              << "  --scene <path>       Scene JSON (repo-relative; default Data/Scenes/demo.json)\n"
               << "  --validation         Enable Vulkan validation layers\n"
               << "  --no-validation      Disable Vulkan validation layers\n"
               << "  --help               Show this message\n";
@@ -143,6 +147,13 @@ void UtilAssetConfig::Initialize( int aArgc, char** aArgv ) {
                 throw std::runtime_error( "Missing value for --config" );
             }
             cliConfigPath = aArgv[ ++i ];
+            continue;
+        }
+        if ( arg == "--scene" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --scene" );
+            }
+            gSceneLogicalPath = aArgv[ ++i ];
             continue;
         }
         if ( arg == "--validation" || arg == "--enable-validation" || arg == "--no-validation" || arg == "--disable-validation" ) {
@@ -181,6 +192,14 @@ void UtilAssetConfig::Initialize( int aArgc, char** aArgv ) {
     UtilLogger::Info( "CONFIG", "cwd=" + std::filesystem::current_path().string() );
     UtilLogger::Info( "CONFIG", "config=" + gConfigPathUsed );
     UtilLogger::Info( "CONFIG", "assetRoot=" + std::filesystem::weakly_canonical( gAssetRoot ).string() );
+    UtilLogger::Info( "CONFIG", "scene=" + gSceneLogicalPath );
+}
+
+std::string UtilAssetConfig::GetSceneLogicalPath() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gSceneLogicalPath;
 }
 
 std::filesystem::path UtilAssetConfig::GetAssetRoot() {
