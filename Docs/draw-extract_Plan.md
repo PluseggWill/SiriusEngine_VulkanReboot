@@ -43,7 +43,7 @@ Implement the S1 **Extract** boundary from `EngineArchitecture.md` §4.3 / §5.1
 
 ## Implementation plan
 
-- [x] 1. Add `Gfx_DrawExtract.h` — `Gfx_StableEntityId`, `Gfx_SceneEntity`, `Gfx_DrawInstance`, `Gfx_ExtractResult`, `Gfx_ExtractViewParams`, `Gfx_PackOpaqueSortKey`, `Gfx_ExtractDrawInstances`.
+- [x] 1. Add `Gfx_DrawExtract.h` — `Gfx_DrawInstance`, `Gfx_ExtractResult`, `Gfx_PackOpaqueSortKey`, `Gfx_ExtractDrawInstances` (view params: later unified as **`Gfx_CullViewParams`** in draw-cull-sort).
 - [x] 2. Add `Gfx_DrawExtract.cpp` — extract loop, eye-space depth bucket, emit draw instances.
 - [x] 3. Update `Vk_Core` — demo entities after mesh init; call extract before `RecordScenePass`; periodic `[EXTRACT]` log.
 - [x] 4. Remove dead `DrawObjects` stub; document `RecordScenePass` as live Vulkan path until batch record.

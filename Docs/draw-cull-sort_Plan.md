@@ -15,9 +15,10 @@ No Vulkan in Gfx module. `RecordScenePass` consumes sorted `myExtractResult`.
 
 | Topic | Choice |
 |-------|--------|
+| View params | Single **`Gfx_CullViewParams`** (view, proj, layer mask) shared by extract + cull |
 | Frustum | Six planes from `proj * view`, AABB positive-vertex test |
-| Cull API | `Gfx_CullDrawInstancesInPlace(scene, params, extractResult)` |
-| Sort API | `Gfx_SortOpaqueDrawInstances(draws)` — `std::sort` on `mySortKey` |
+| Cull API | `Gfx_CullDrawInstancesInPlace(scene, params, extractResult)` — parallel arrays stay paired |
+| Sort API | `Gfx_SortOpaqueDrawInstances(extractResult)` — permute **`myDrawInstances`** and **`myVisibleEntityIndices`** together by `mySortKey` |
 | Frame order | Extract → Cull → Sort → Record |
 
 ## Files
@@ -29,3 +30,9 @@ No Vulkan in Gfx module. `RecordScenePass` consumes sorted `myExtractResult`.
 ## Verification
 
 MSBuild Debug|x64; smoke-run; log `[CULL]` once; both demo meshes visible with default camera.
+
+## Hygiene (2026-05-26 follow-up)
+
+- Removed duplicate **`Gfx_ExtractViewParams`**; extract uses **`Gfx_CullViewParams`** from `Gfx_DrawCullSort.h`.
+- Sort reorders **`Gfx_ExtractResult`** parallel arrays in lockstep (fixes index/draw mismatch after sort).
+- Dropped unused `<cmath>` in `Gfx_DrawCullSort.cpp`.

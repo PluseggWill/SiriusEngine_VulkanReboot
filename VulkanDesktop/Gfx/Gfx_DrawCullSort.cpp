@@ -1,7 +1,10 @@
 #include "Gfx_DrawCullSort.h"
 
+#include "Gfx_DrawExtract.h"
+#include "Gfx_SceneSoA.h"
+
 #include <algorithm>
-#include <cmath>
+#include <numeric>
 
 namespace {
 void NormalizePlane( glm::vec4& aPlane ) {
@@ -70,7 +73,7 @@ void Gfx_CullDrawInstancesInPlace( const Gfx_SceneSoA& aScene, const Gfx_CullVie
         }
 
         if ( writeIndex != readIndex ) {
-            aInOut.myDrawInstances[ writeIndex ]         = draw;
+            aInOut.myDrawInstances[ writeIndex ]          = draw;
             aInOut.myVisibleEntityIndices[ writeIndex ] = aInOut.myVisibleEntityIndices[ readIndex ];
         }
         ++writeIndex;
@@ -80,7 +83,29 @@ void Gfx_CullDrawInstancesInPlace( const Gfx_SceneSoA& aScene, const Gfx_CullVie
     aInOut.myVisibleEntityIndices.resize( writeIndex );
 }
 
-void Gfx_SortOpaqueDrawInstances( std::vector< Gfx_DrawInstance >& aDrawInstances ) {
-    std::sort( aDrawInstances.begin(), aDrawInstances.end(),
-               []( const Gfx_DrawInstance& aLeft, const Gfx_DrawInstance& aRight ) { return aLeft.mySortKey < aRight.mySortKey; } );
+void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult ) {
+    const size_t count = aResult.myDrawInstances.size();
+    if ( count <= 1 ) {
+        return;
+    }
+
+    std::vector< size_t > order( count );
+    std::iota( order.begin(), order.end(), size_t{ 0 } );
+
+    std::sort( order.begin(), order.end(), [ &aResult ]( size_t aLeft, size_t aRight ) {
+        return aResult.myDrawInstances[ aLeft ].mySortKey < aResult.myDrawInstances[ aRight ].mySortKey;
+    } );
+
+    std::vector< Gfx_DrawInstance > sortedDraws;
+    std::vector< uint32_t >         sortedVisible;
+    sortedDraws.reserve( count );
+    sortedVisible.reserve( count );
+
+    for ( const size_t sourceIndex : order ) {
+        sortedDraws.push_back( aResult.myDrawInstances[ sourceIndex ] );
+        sortedVisible.push_back( aResult.myVisibleEntityIndices[ sourceIndex ] );
+    }
+
+    aResult.myDrawInstances         = std::move( sortedDraws );
+    aResult.myVisibleEntityIndices = std::move( sortedVisible );
 }

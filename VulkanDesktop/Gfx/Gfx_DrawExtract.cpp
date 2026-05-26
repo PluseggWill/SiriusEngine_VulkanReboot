@@ -22,7 +22,7 @@ uint16_t Gfx_ComputeDepthBucket( float aEyeSpaceZ ) {
     return static_cast< uint16_t >( std::clamp( bucket, 0, static_cast< int >( std::numeric_limits< uint16_t >::max() ) ) );
 }
 
-void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_ExtractViewParams& aView, Gfx_ExtractResult& aOut ) {
+void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, Gfx_ExtractResult& aOut ) {
     aOut.myVisibleEntityIndices.clear();
     aOut.myDrawInstances.clear();
 

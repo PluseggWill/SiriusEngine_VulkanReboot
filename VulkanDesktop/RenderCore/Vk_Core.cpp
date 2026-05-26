@@ -753,17 +753,14 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     UpdateUniformBuffer( myCurrentFrame );
 
     {
-        Gfx_ExtractViewParams extractView{};
-        extractView.myView = myCamera.myView;
-        extractView.myProj = myCamera.myProj;
-        Gfx_ExtractDrawInstances( mySceneSoA, extractView, myExtractResult );
+        Gfx_CullViewParams viewParams{};
+        viewParams.myView = myCamera.myView;
+        viewParams.myProj = myCamera.myProj;
+        Gfx_ExtractDrawInstances( mySceneSoA, viewParams, myExtractResult );
 
-        Gfx_CullViewParams cullView{};
-        cullView.myView = extractView.myView;
-        cullView.myProj = extractView.myProj;
         const size_t drawCountBeforeCull = myExtractResult.myDrawInstances.size();
-        Gfx_CullDrawInstancesInPlace( mySceneSoA, cullView, myExtractResult );
-        Gfx_SortOpaqueDrawInstances( myExtractResult.myDrawInstances );
+        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myExtractResult );
+        Gfx_SortOpaqueDrawInstances( myExtractResult );
 
         if ( !myExtractLoggedOnce ) {
             UtilLogger::Info( "EXTRACT",

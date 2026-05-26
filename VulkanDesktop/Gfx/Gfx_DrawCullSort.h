@@ -5,11 +5,12 @@
 
 #include <glm/glm.hpp>
 
-#include "Gfx_DrawExtract.h"
 #include "Gfx_SceneSoA.h"
 
-// CPU cull + opaque sort (S1 submission). No Vulkan.
+struct Gfx_ExtractResult;
+class Gfx_SceneSoA;
 
+// Shared view params for extract + cull (S1 draw prep). No Vulkan.
 struct Gfx_CullViewParams {
     glm::mat4 myView{ 1.0f };
     glm::mat4 myProj{ 1.0f };
@@ -24,8 +25,8 @@ Gfx_FrustumPlanes Gfx_BuildFrustumFromViewProj( const glm::mat4& aViewProj );
 
 bool Gfx_IsBoundsVisible( const Gfx_Bounds& aBounds, const Gfx_FrustumPlanes& aFrustum );
 
-// Compact inOut: drop draws outside frustum or failing layer mask (uses draw.myEntityIndex → SoA bounds/layer).
+// Compact inOut: drop draws outside frustum or failing layer mask (parallel arrays stay paired).
 void Gfx_CullDrawInstancesInPlace( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, Gfx_ExtractResult& aInOut );
 
-// Sort ascending by Gfx_DrawInstance::mySortKey (opaque state order).
-void Gfx_SortOpaqueDrawInstances( std::vector< Gfx_DrawInstance >& aDrawInstances );
+// Sort opaque draws by mySortKey; reorders myVisibleEntityIndices[i] with myDrawInstances[i].
+void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult );
