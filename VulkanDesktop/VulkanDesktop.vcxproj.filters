@@ -106,7 +106,13 @@
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="Gfx\Gfx_Lod.cpp">
@@ -134,6 +140,12 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Core.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ResourceContext.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_ResourceTables.cpp">
@@ -219,7 +231,13 @@
     <ClInclude Include="Gfx\Gfx_DrawBatch.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DemoSceneSim.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawExtract.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_FrameDrawStream.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_Lod.h">
@@ -253,6 +271,12 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Core.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ResourceContext.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ResourceTables.h">

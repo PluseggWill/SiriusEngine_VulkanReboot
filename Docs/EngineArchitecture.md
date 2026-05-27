@@ -71,14 +71,18 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **Central config (2026-05-27):** `Util_EngineConfig` loads window size, vsync, `assetRoot`, default `scene`, `logLevel`, `enableValidationLayers`, and `features` (`demoRotate`, `runtimeMipmap`). CLI overrides win. `Vk_Core::ChooseSwapPresentMode` respects `vsync`; demo rotate and runtime mipmaps read feature flags.
 
-**Input (2026-05-27):** `Application` owns `InputSystem` (persistent `Util_InputState`, per-frame `Util_InputSnapshot`). Loop: `Vk_Core::BeginPlatformFrame` (poll, Δt, ImGui `NewFrame`) → `InputSystem::Sample` → `Vk_Core::ApplyCameraInput` → `Render`. GLFW sampling stays in `UtilInput::Sample`; RenderCore has no GLFW. Future gameplay reads the same snapshot. See `Docs/input-abstraction_Plan.md`.
+**Input (2026-05-27):** `Application` owns `InputSystem` (persistent `Util_InputState`, per-frame `Util_InputSnapshot`). Loop: `Vk_Core::BeginPlatformFrame` (poll, Δt, ImGui `NewFrame`) → `InputSystem::Sample` → `Vk_Core::ApplyCameraInput` → `Gfx_TickDemoSceneTransforms` → `Render`. GLFW sampling stays in `UtilInput::Sample`; RenderCore has no GLFW. Future gameplay reads the same snapshot. See `Docs/input-abstraction_Plan.md`.
 
 1. **`InputSystem::Sample`** — ImGui capture gate → `UtilInput::Sample` → device-neutral snapshot.
 2. **`Vk_Camera::ApplyInput`** — view/projection/eye for UBOs and lighting (no GLFW in `Vk_Camera`).
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** demo transforms → extract (**opaque** + **transparent** lists) → cull → **LOD** (`Gfx_ApplyLodToFrameExtract`: logical mesh → resolved physical `meshId`, 15% hysteresis) → opaque sort + transparent back-to-front (eye-space Z) → batch → `FillInstanceSlab` → `RecordScenePass` (opaque batches then transparent; blend pipeline, depth write off). **Set 0** once per pass; **Set 1** per material batch (texture + alpha); **Set 2** per draw. Demo tree LOD chain: `Data/LOD.md`.
+**Render path (today):** `Gfx_TickDemoSceneTransforms` → `Vk_Core::DrawFrame`: acquire → `UpdateUniformBuffer` → `Vk_FrameDrawPrep::Build` (`Gfx_BuildFrameDrawStream` + instance slab) → `RecordScenePass` → ImGui → submit/present. **Set 0** / **Set 1** / **Set 2** as before; LOD in extract path. [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md).
+
+**RHI peel (2026-05-27, M1–M3 done):** `Vk_ResourceContext` for table load; Gfx CPU draw list; `Vk_Core` hot path is acquire/record/present.
+
+**RHI peel phase 2 (planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, `Vk_ForwardScenePass`, scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
 
 **Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
 
@@ -431,15 +435,15 @@ Aligned with `SprintPlan.md` backlog / parking lot: full editor, networking, cro
 
 ## 9. Relation to the current codebase (VulkanDesktop)
 
-Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, resources, and draw loop in one place. This document describes **target boundaries**, not a claim that the repo fully implements them yet.
+Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and Vulkan device lifecycle, but the per-frame path is split: **Gfx** draw-stream prep, **Application** demo sim tick, **`Vk_FrameDrawPrep`** instance slab, **`Vk_Core`** acquire/record/present.
 
 **Incremental alignment** (suggested direction):
 
 1. Introduce a **plain-data** scene or object list that `Vk_Core` **reads** each frame (even if small). **Done (v0):** `Gfx_SceneSoA` column store + stable `(index, generation)` slots in `Vk_Core`.
 2. Add an **extract** function that fills a `std::vector<DrawInstance>` (or equivalent) before any `vkCmd*` for scene objects. **Done (v0):** `Gfx_ExtractDrawInstances` → `myExtractResult`; Vulkan record still uses `RecordScenePass` until cull/sort/batch.
 3. Move sort/batch assumptions into that path; shrink direct coupling from gameplay-ish state to Vulkan structs.
-4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record.
-5. Add **simulation** module stub (S8) writing transforms only, before physics library integration.
+4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record. **Done (S2, 2026-05-27):** [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) — `Gfx_BuildFrameDrawStream`, `Vk_FrameDrawPrep`, `DrawFrame` record/submit surface.
+5. Add **simulation** module stub (S8) writing transforms only, before physics library integration. **Partial:** demo Z-spin in `Gfx_DemoSceneSim` (Application tick); full sim module deferred to S8.
 
 ---
 
@@ -453,4 +457,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 input-abstraction; 2026-05-27).*
+*Last aligned with `Docs/SprintPlan.md` (S2 vk-core-decomposition phase 2 backlog; 2026-05-27).*

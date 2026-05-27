@@ -187,8 +187,10 @@
     <ClCompile Include="App\Application.cpp" />
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
+    <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
+    <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />
     <ClCompile Include="Gfx\Gfx_Lod.cpp" />
     <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
@@ -198,6 +200,8 @@
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
     <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
+    <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp" />
+    <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceTables.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
@@ -226,8 +230,10 @@
     <ClInclude Include="Util\Util_StatsOverlay.h" />
     <ClInclude Include="Util\Util_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />
+    <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
     <ClInclude Include="Gfx\Gfx_DrawBatch.h" />
     <ClInclude Include="Gfx\Gfx_DrawExtract.h" />
+    <ClInclude Include="Gfx\Gfx_FrameDrawStream.h" />
     <ClInclude Include="Gfx\Gfx_Lod.h" />
     <ClInclude Include="Gfx\Gfx_ResourceManifest.h" />
     <ClInclude Include="Gfx\Gfx_SceneApply.h" />
@@ -240,6 +246,8 @@
     <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
     <ClInclude Include="RenderCore\Vk_Bindless.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
+    <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h" />
+    <ClInclude Include="RenderCore\Vk_ResourceContext.h" />
     <ClInclude Include="RenderCore\Vk_ResourceTables.h" />
     <ClInclude Include="RenderCore\Vk_Enum.h" />
     <ClInclude Include="RenderCore\Vk_FrameData.h" />

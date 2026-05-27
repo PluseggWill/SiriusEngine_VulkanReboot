@@ -1,3 +1,5 @@
+// Module: Vk_Core — Vulkan device/swapchain, frame orchestration (acquire → prep → record → present).
+// Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_LightingPanel.h"
@@ -16,9 +18,6 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
-#include "../Gfx/Gfx_DrawBatch.h"
-#include "../Gfx/Gfx_DrawCullSort.h"
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -84,6 +83,7 @@ void Vk_Core::Shutdown() {
     Clear();
 }
 
+// TODO(vk-core-peel): Vk_PlatformFrame — GLFW window, framebuffer callback, ImGui layer init; Application may own platform tick.
 void Vk_Core::InitWindow() {
     UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
     glfwInit();
@@ -126,6 +126,7 @@ void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
+// TODO(vk-core-peel): Vk_RenderDevice — peel CreateInstance through CreateFrameBuffers (device + swapchain host); Vk_Core keeps thin facade.
 void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     CreateInstance();
@@ -158,6 +159,7 @@ void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 
+// TODO(vk-core-peel): split — (A) Gfx/Application scene host: SoA/LOD/manifest CPU; (B) Vk_DescriptorSystem + Vk_ResourceTables GPU load; (C) pipelines stay until Vk_GfxPipeline module.
 void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
     myLoadedScene    = std::move( aScene );
@@ -188,7 +190,8 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
         const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
         const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
         const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
-        myResourceTables.LoadFromManifest( manifest, *this, myDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
+        SyncResourceContext();
+        myResourceTables.LoadFromManifest( manifest, myResourceContext, myDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
     CreateTextureSampler();
@@ -220,10 +223,8 @@ void Vk_Core::UnloadScene() {
     mySceneSoA.Clear();
     myLodTable  = Gfx_LodTable{};
     myLodState.Clear();
-    myFrameExtract.myOpaque.myDrawInstances.clear();
-    myFrameExtract.myTransparent.myDrawInstances.clear();
-    myOpaqueBatchRuns.clear();
-    myTransparentBatchRuns.clear();
+    myDrawPrep.ClearFrameOutputs();
+    myDrawPrep.ResetLogState();
     myDemoBaseTransforms.clear();
     myMaterialDescriptorSets.clear();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
@@ -232,12 +233,7 @@ void Vk_Core::UnloadScene() {
     mySceneIdTables   = Gfx_SceneIdTables{};
     myHasLoadedScene  = false;
 
-    myExtractLoggedOnce          = false;
-    myBatchLoggedOnce            = false;
-    myTransLoggedOnce            = false;
-    myInstanceSlabOverflowLogged = false;
-    myMaterialBindLoggedOnce     = false;
-    myLodLoggedOnce              = false;
+    myMaterialBindLoggedOnce = false;
     myBindlessLoggedOnce         = false;
     myM1PerfLoggedOnce           = false;
 }
@@ -422,17 +418,23 @@ void Vk_Core::CreateSurface() {
     UtilLogger::Info( "VULKAN", "Window surface created." );
 }
 
+void Vk_Core::SyncResourceContext() {
+    myResourceContext.Bind( myDevice, myAllocator );
+}
+
 void Vk_Core::InitAllocator() {
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice = myPhysicalDevice;
     allocatorInfo.device         = myDevice;
     allocatorInfo.instance       = myInstance;
     vmaCreateAllocator( &allocatorInfo, &myAllocator );
+    SyncResourceContext();
 
     // Deletion Queue
     myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myAllocator ); } );
 }
 
+// TODO(vk-core-peel): Vk_SwapchainHost — owns swapchain images/views/framebuffers and RecreateSwapChain; DrawFrame acquire/present delegates here.
 void Vk_Core::CreateSwapChain() {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
     Vk_SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( myPhysicalDevice );
@@ -507,6 +509,7 @@ void Vk_Core::CreateSwapChain() {
     } );
 }
 
+// TODO(vk-core-peel): Vk_GfxPipelineCache — lit + transparent + bindless pipelines/layouts; tie to shader permutation registry (S2).
 void Vk_Core::CreateGfxPipeline() {
     UtilLogger::Info( "PIPELINE", "Creating graphics pipeline." );
     // Step #1 & 2: Load & Create shader module
@@ -852,120 +855,66 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
 }  // namespace
 
 void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
+    // --- Sync: wait for this frame slot, acquire swapchain image ---
     const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
     vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
     const float gpuFenceWaitMs = ElapsedMs( fenceWaitStart, std::chrono::high_resolution_clock::now() );
 
     uint32_t imageIndex;
-    // Once the image is available for the next frame, myPresentSemaphore will be signaled and ready to be acquired
     VkResult result = vkAcquireNextImageKHR( myDevice, mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &imageIndex );
 
     if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
-        // Swap chain incompatible, recreate the swap chain
         UtilLogger::Warn( "SWAPCHAIN", "Acquire image returned OUT_OF_DATE. Recreating swapchain." );
         RecreateSwapChain();
         return;
     }
-    else if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
+    if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
         UtilLogger::Error( "FRAME", "vkAcquireNextImageKHR failed." );
         throw std::runtime_error( "failed to acquire swap chain image!" );
     }
 
+    // --- CPU: frame UBOs + draw stream (Gfx) + instance slab (Vk_FrameDrawPrep) ---
     myFrameStats.ResetPerFrameCounters();
     UpdateUniformBuffer( myCurrentFrame );
 
-    bool slabOk = true;
-    {
-        ApplyDemoTransformAnimation();
+    Vk_FrameDrawPrepBuildParams prepParams{};
+    prepParams.myScene                 = &mySceneSoA;
+    prepParams.myCamera                = &myCamera;
+    prepParams.myLodTable              = &myLodTable;
+    prepParams.myLodState              = &myLodState;
+    prepParams.myLodDebugLogicalMeshId = myLodDebugLogicalMeshId;
+    prepParams.myCurrentFrame          = myCurrentFrame;
+    prepParams.myFrameDatas            = &myFrameDatas;
+    prepParams.myInstanceSlabStride    = InstanceSlabStride();
 
-        Gfx_CullViewParams viewParams{};
-        viewParams.myView = myCamera.myView;
-        viewParams.myProj = myCamera.myProj;
-        Gfx_ExtractDrawInstances( mySceneSoA, viewParams, myFrameExtract );
+    const bool slabOk = myDrawPrep.Build( prepParams );
 
-        const size_t drawCountBeforeCull =
-            myFrameExtract.myOpaque.myDrawInstances.size() + myFrameExtract.myTransparent.myDrawInstances.size();
-        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myOpaque );
-        Gfx_CullDrawInstancesInPlace( mySceneSoA, viewParams, myFrameExtract.myTransparent );
-        Gfx_ApplyLodToFrameExtract( mySceneSoA, myCamera.myEye, myLodTable, myLodState, myFrameExtract );
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
+                                       static_cast< uint32_t >( myDrawPrep.myExtract.myOpaque.myDrawInstances.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myExtract.myTransparent.myDrawInstances.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myOpaqueBatchRuns.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myTransparentBatchRuns.size() ) );
 
-        if ( !myLodLoggedOnce ) {
-            for ( const Gfx_DrawInstance& draw : myFrameExtract.myOpaque.myDrawInstances ) {
-                if ( myLodDebugLogicalMeshId == UINT32_MAX ||
-                     mySceneSoA.GetLogicalMeshId( draw.myEntityIndex ) != myLodDebugLogicalMeshId ) {
-                    continue;
-                }
-                const glm::vec3 center = ( mySceneSoA.GetBounds( draw.myEntityIndex ).myMin + mySceneSoA.GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
-                const float     dist   = glm::length( center - myCamera.myEye );
-                UtilLogger::Info( "LOD",
-                                  "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" +
-                                      std::to_string( myLodDebugLogicalMeshId ) + " resolvedMeshId=" + std::to_string( draw.myMeshId ) +
-                                      " dist=" + std::to_string( dist ) );
-            }
-            myLodLoggedOnce = true;
+    if ( !myMaterialBindLoggedOnce ) {
+        if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+            UtilLogger::Info( "DESCRIPTOR", "Set 1 bindless material set (once per pass); per-draw materialIndex in Set 2 slab." );
         }
-
-        Gfx_SortOpaqueDrawInstances( myFrameExtract.myOpaque );
-        Gfx_SortTransparentDrawInstances( myFrameExtract.myTransparent, mySceneSoA, myCamera.myView );
-        Gfx_BuildOpaqueDrawBatches( myFrameExtract.myOpaque.myDrawInstances, myOpaqueBatchRuns );
-        Gfx_BuildOpaqueDrawBatches( myFrameExtract.myTransparent.myDrawInstances, myTransparentBatchRuns );
-
-        myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
-                                           static_cast< uint32_t >( myFrameExtract.myOpaque.myDrawInstances.size() ),
-                                           static_cast< uint32_t >( myFrameExtract.myTransparent.myDrawInstances.size() ),
-                                           static_cast< uint32_t >( myOpaqueBatchRuns.size() ),
-                                           static_cast< uint32_t >( myTransparentBatchRuns.size() ) );
-
-        if ( !myBatchLoggedOnce ) {
-            UtilLogger::Info( "BATCH",
-                              "opaque runs=" + std::to_string( myOpaqueBatchRuns.size() ) + " draws=" +
-                                  std::to_string( myFrameExtract.myOpaque.myDrawInstances.size() ) );
-            myBatchLoggedOnce = true;
+        else {
+            UtilLogger::Info( "DESCRIPTOR",
+                              "Set 1 material binds this frame will be <= batch runs (" +
+                                  std::to_string( myDrawPrep.myOpaqueBatchRuns.size() + myDrawPrep.myTransparentBatchRuns.size() ) + ")" );
         }
-
-        if ( !myTransLoggedOnce ) {
-            UtilLogger::Info( "TRANSP",
-                              "runs=" + std::to_string( myTransparentBatchRuns.size() ) + " draws=" +
-                                  std::to_string( myFrameExtract.myTransparent.myDrawInstances.size() ) );
-            myTransLoggedOnce = true;
-        }
-
-        if ( !myMaterialBindLoggedOnce ) {
-            if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-                UtilLogger::Info( "DESCRIPTOR", "Set 1 bindless material set (once per pass); per-draw materialIndex in Set 2 slab." );
-            }
-            else {
-                UtilLogger::Info( "DESCRIPTOR",
-                                  "Set 1 material binds this frame will be <= batch runs (" +
-                                      std::to_string( myOpaqueBatchRuns.size() + myTransparentBatchRuns.size() ) + ")" );
-            }
-            myMaterialBindLoggedOnce = true;
-        }
-
-        if ( !myBindlessLoggedOnce && myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-            UtilLogger::Info( "BINDLESS",
-                              "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() ) +
-                                  " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
-            myBindlessLoggedOnce = true;
-        }
-
-        if ( !myExtractLoggedOnce ) {
-            UtilLogger::Info( "EXTRACT",
-                              "entities=" + std::to_string( mySceneSoA.GetActiveCount() ) + " draws=" +
-                                  std::to_string( drawCountBeforeCull ) );
-            UtilLogger::Info( "CULL",
-                              "opaque=" + std::to_string( myFrameExtract.myOpaque.myDrawInstances.size() ) + " transparent=" +
-                                  std::to_string( myFrameExtract.myTransparent.myDrawInstances.size() ) + " (frustum+layer)" );
-            myExtractLoggedOnce = true;
-        }
-
-        slabOk = FillInstanceSlab( myCurrentFrame );
-        if ( !slabOk && !myInstanceSlabOverflowLogged ) {
-            UtilLogger::Warn( "RESOURCE", "Skipping RecordScenePass: instance slab overflow (see FillInstanceSlab error)." );
-            myInstanceSlabOverflowLogged = true;
-        }
+        myMaterialBindLoggedOnce = true;
     }
 
+    if ( !myBindlessLoggedOnce && myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        UtilLogger::Info( "BINDLESS",
+                          "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() ) +
+                              " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
+        myBindlessLoggedOnce = true;
+    }
+
+    // --- GPU record: scene pass + ImGui overlay ---
     vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
     vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
 
@@ -978,7 +927,6 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         RecordScenePass( aFrameData.myCommandBuffer, imageIndex );
     }
 
-    // ImGui widgets must be built after NewFrame and before ImGui::Render (WithinFrameScope).
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
     UtilStatsOverlay::Build( myFrameStats );
@@ -990,6 +938,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         throw std::runtime_error( "failed to record command buffer!" );
     }
 
+    // --- Submit + present ---
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -1575,18 +1524,6 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     myQueueFamilyIndices.ApplyTransferFallback();
 }
 
-void Vk_Core::ApplyDemoTransformAnimation() {
-    for ( const uint32_t slot : mySceneSoA.GetActiveSlots() ) {
-        if ( slot >= myDemoBaseTransforms.size() ) {
-            continue;
-        }
-        const glm::mat4& base = myDemoBaseTransforms[ slot ];
-        const glm::mat4   world =
-            UtilEngineConfig::GetFeatures().myDemoRotate ? ComputeDemoModelMatrix( base ) : base;
-        mySceneSoA.SetTransform( slot, world );
-    }
-}
-
 #pragma region Helpers - device, queues, shaders
 
 void Vk_Core::CheckExtensionSupport() const {
@@ -1858,6 +1795,7 @@ void Vk_Core::RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_Extra
     }
 }
 
+// TODO(vk-core-peel): Vk_ForwardScenePass — opaque/transparent record, bindless branch; inputs: myDrawPrep + myResourceTables + pipeline handles.
 void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1883,12 +1821,12 @@ void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageI
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
                                  &myBindlessDescriptorSet, 0, nullptr );
         myFrameStats.myMaterialSetBinds++;
-        RecordDrawBatchesBindless( aCommandBuffer, myFrameExtract.myOpaque, myBasicPipelineBindless );
-        RecordDrawBatchesBindless( aCommandBuffer, myFrameExtract.myTransparent, myTransparentPipelineBindless );
+        RecordDrawBatchesBindless( aCommandBuffer, myDrawPrep.myExtract.myOpaque, myBasicPipelineBindless );
+        RecordDrawBatchesBindless( aCommandBuffer, myDrawPrep.myExtract.myTransparent, myTransparentPipelineBindless );
     }
     else {
-        RecordDrawBatches( aCommandBuffer, myFrameExtract.myOpaque, myOpaqueBatchRuns );
-        RecordDrawBatches( aCommandBuffer, myFrameExtract.myTransparent, myTransparentBatchRuns );
+        RecordDrawBatches( aCommandBuffer, myDrawPrep.myExtract.myOpaque, myDrawPrep.myOpaqueBatchRuns );
+        RecordDrawBatches( aCommandBuffer, myDrawPrep.myExtract.myTransparent, myDrawPrep.myTransparentBatchRuns );
     }
 
     vkCmdEndRenderPass( aCommandBuffer );
@@ -2003,66 +1941,11 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
 }
 
-// Demo-only: optional Z spin on base transform. Applied to SoA in ApplyDemoTransformAnimation before extract.
-glm::mat4 Vk_Core::ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) const {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    const auto  currentTime = std::chrono::high_resolution_clock::now();
-    const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
-
-    const glm::mat4 spin = glm::rotate( glm::mat4( 1.0f ),
-                                        UtilEngineConfig::GetFeatures().myDemoRotate ? time * glm::radians( 90.0f ) : 0.0f,
-                                        glm::vec3( 0.0f, 0.0f, 1.0f ) );
-    return aWorldTransform * spin;
-}
-
 size_t Vk_Core::InstanceSlabStride() const {
     return PadUniformBufferSize( sizeof( GpuObjectData ) );
 }
 
-bool Vk_Core::FillInstanceSlab( uint32_t aCurrentFrame ) {
-    Vk_FrameData& frame = myFrameDatas[ aCurrentFrame ];
-    if ( frame.myInstanceSlabMapped == nullptr ) {
-        UtilLogger::Error( "RESOURCE", "Instance slab not mapped for frame " + std::to_string( aCurrentFrame ) );
-        return false;
-    }
-
-    const size_t drawCount =
-        myFrameExtract.myOpaque.myDrawInstances.size() + myFrameExtract.myTransparent.myDrawInstances.size();
-    if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
-        UtilLogger::Error( "RESOURCE",
-                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
-                               std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
-        return false;
-    }
-
-    char* const  slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
-    const size_t stride   = InstanceSlabStride();
-    size_t       writeIndex = 0;
-
-    auto writeDrawList = [ & ]( Gfx_ExtractResult& aList ) {
-        for ( Gfx_DrawInstance& draw : aList.myDrawInstances ) {
-            draw.myInstanceDataOffset = static_cast< uint32_t >( writeIndex * stride );
-            ++writeIndex;
-
-            GpuObjectData objectData{};
-            objectData.model         = mySceneSoA.GetTransform( draw.myEntityIndex );
-            objectData.materialIndex = draw.myMaterialId;
-            memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
-        }
-    };
-
-    writeDrawList( myFrameExtract.myOpaque );
-    writeDrawList( myFrameExtract.myTransparent );
-
-    static bool loggedOnce = false;
-    if ( !loggedOnce ) {
-        UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( drawCount ) + " instance(s)" );
-        loggedOnce = true;
-    }
-
-    return true;
-}
-
+// TODO(vk-core-peel): Vk_FrameUniformUploader — camera + env UBO slices per in-flight frame; DrawFrame calls uploader not Vk_Core directly.
 void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     GpuCameraData cam{};
     cam.view = myCamera.myView;
@@ -2229,14 +2112,7 @@ void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWid
 }
 
 VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
-    VkImageViewCreateInfo viewInfo = VkInit::ImageViewCreateInfo( aFormat, anImage, anAspect, aMipLevel );
-
-    VkImageView imageView;
-    if ( vkCreateImageView( myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create image view!" );
-    }
-
-    return imageView;
+    return myResourceContext.CreateImageView( anImage, aFormat, anAspect, aMipLevel );
 }
 
 VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const {
@@ -2354,6 +2230,7 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
+// TODO(vk-core-peel): Vk_PlatformFrame — poll/Δt/ImGui NewFrame; align with InitWindow peel.
 void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
     glfwPollEvents();
 

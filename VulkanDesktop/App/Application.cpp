@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../Util/Util_AssetManifest.h"
@@ -83,6 +84,7 @@ void Application::RunMainLoop() {
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
+        Gfx_TickDemoSceneTransforms( core.GetSceneSoA(), core.GetDemoBaseTransforms() );
         core.Render();
     }
     UtilLogger::Info( "APP", "Main loop ended." );
