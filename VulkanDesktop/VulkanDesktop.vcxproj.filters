@@ -16,6 +16,9 @@
     <Filter Include="RenderCore">
       <UniqueIdentifier>{65056a28-ab47-48d7-b2fa-fcea5e4bc4fe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-4789-a012-3456789abcde}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Gfx">
       <UniqueIdentifier>{3e16dee1-3f55-41d2-b772-50023f054904}</UniqueIdentifier>
     </Filter>
@@ -28,6 +31,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp" />
+    <ClCompile Include="App\Application.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -173,6 +179,9 @@
     </ClInclude>
     <ClInclude Include="Util\Util_VulkanResult.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="App\Application.h">
+      <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_CameraPanel.h">
       <Filter>Util</Filter>

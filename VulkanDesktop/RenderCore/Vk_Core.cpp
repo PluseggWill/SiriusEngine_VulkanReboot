@@ -62,13 +62,25 @@ void Vk_Core::Reset() {
     Clear();
 }
 
-void Vk_Core::Run() {
-    UtilLogger::Info( "CORE", "Run started." );
-    InitWindow();
-    InitVulkan();
-    MainLoop();
+bool Vk_Core::ShouldClose() const {
+    return myWindow != nullptr && glfwWindowShouldClose( myWindow );
+}
+
+void Vk_Core::Update( float& aOutDeltaSeconds ) {
+    BeginFrame( aOutDeltaSeconds );
+}
+
+void Vk_Core::Render() {
+    DrawFrame( myFrameDatas[ myCurrentFrame ] );
+    myFrameNumber++;
+    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Vk_Core::Shutdown() {
+    if ( myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( myDevice );
+    }
     Clear();
-    UtilLogger::Info( "CORE", "Run finished." );
 }
 
 void Vk_Core::InitWindow() {
@@ -84,22 +96,6 @@ void Vk_Core::InitWindow() {
     glfwSetFramebufferSizeCallback( myWindow, FramebufferResizeCallback );
 }
 
-void Vk_Core::MainLoop() {
-    UtilLogger::Info( "LOOP", "Main loop started." );
-    while ( !glfwWindowShouldClose( myWindow ) ) {
-        float frameSeconds = 0.0f;
-        BeginFrame( frameSeconds );
-
-        // myCurrentFrame indexes in-flight slot (fences, cmd buffer, camera UBO, descriptor set).
-        DrawFrame( myFrameDatas[ myCurrentFrame ] );
-        myFrameNumber++;
-        myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
-    }
-
-    // Make sure the GPU has stopped doing things.
-    vkDeviceWaitIdle( myDevice );
-    UtilLogger::Info( "LOOP", "Main loop ended." );
-}
 
 void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
@@ -129,9 +125,8 @@ void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
-void Vk_Core::InitVulkan() {
-    UtilLogger::Info( "VULKAN", "Initializing Vulkan pipeline." );
-    // Part 1: Base
+void Vk_Core::InitRenderDevice() {
+    UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     CreateInstance();
     CreateSurface();
     PickPhysicalDevice();
@@ -143,7 +138,6 @@ void Vk_Core::InitVulkan() {
     CreateCommandPool();
     InitAllocator();
 
-    // Part 2: Swap Chain
     CreateSwapChain();
     CreateRenderPass();
     CreateDescriptorSetLayout();
@@ -151,22 +145,6 @@ void Vk_Core::InitVulkan() {
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
-
-    if ( !myHasLoadedScene ) {
-        throw std::runtime_error( "Vk_Core::InitVulkan: no scene loaded (call SetLoadedScene before Run)" );
-    }
-
-    const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
-    vertShaderPath                        = litShader.myVertPath;
-    fragShaderPath                        = litShader.myFragPath;
-
-    Gfx_PopulateSceneSoAFromSceneDesc( myLoadedScene, mySceneIdTables, mySceneSoA, myDemoBaseTransforms );
-    Gfx_BuildLodTableFromSceneDesc( myLoadedScene, mySceneIdTables, myLodTable );
-    myLodState.Clear();
-    {
-        const auto treeIt = mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
-        myLodDebugLogicalMeshId = treeIt != mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
-    }
 
     CreateFrameData();
     CreateInstanceSlabs();
@@ -176,12 +154,32 @@ void Vk_Core::InitVulkan() {
         CreateBindlessMaterialSetLayout();
         CreateBindlessPipelineLayout();
     }
+    UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
+}
+
+void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
+    UtilLogger::Info( "SCENE", "LoadSceneResources." );
+    myLoadedScene    = std::move( aScene );
+    myHasLoadedScene = true;
+    mySceneIdTables  = Gfx_BuildSceneIdTables( myLoadedScene );
+
+    const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
+    vertShaderPath                      = litShader.myVertPath;
+    fragShaderPath                      = litShader.myFragPath;
+
+    Gfx_PopulateSceneSoAFromSceneDesc( myLoadedScene, mySceneIdTables, mySceneSoA, myDemoBaseTransforms );
+    Gfx_BuildLodTableFromSceneDesc( myLoadedScene, mySceneIdTables, myLodTable );
+    myLodState.Clear();
+    {
+        const auto treeIt = mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
+        myLodDebugLogicalMeshId = treeIt != mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
+    }
+
     CreateGfxPipeline();
     if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessGfxPipelines();
     }
 
-    // Part 3: Resource tables from scene manifest.
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildResourceManifestFromSceneDesc( myLoadedScene, mySceneIdTables, manifest );
@@ -204,7 +202,43 @@ void Vk_Core::InitVulkan() {
     CreateCamera();
     InitDefaultEnvironmentData();
     InitImGui();
-    UtilLogger::Info( "VULKAN", "Vulkan initialization completed." );
+    UtilLogger::Info( "SCENE", "LoadSceneResources completed." );
+}
+
+void Vk_Core::UnloadScene() {
+    if ( !myHasLoadedScene ) {
+        UtilLogger::Info( "SCENE", "UnloadScene: no scene loaded (skipped)." );
+        return;
+    }
+
+    UtilLogger::Info( "SCENE", "UnloadScene: releasing CPU scene state (GPU teardown in Shutdown)." );
+    if ( myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( myDevice );
+    }
+
+    mySceneSoA.Clear();
+    myLodTable  = Gfx_LodTable{};
+    myLodState.Clear();
+    myFrameExtract.myOpaque.myDrawInstances.clear();
+    myFrameExtract.myTransparent.myDrawInstances.clear();
+    myOpaqueBatchRuns.clear();
+    myTransparentBatchRuns.clear();
+    myDemoBaseTransforms.clear();
+    myMaterialDescriptorSets.clear();
+    Gfx_SetMaterialTableGenerationForExtract( 0 );
+
+    myLoadedScene     = Gfx_SceneDesc{};
+    mySceneIdTables   = Gfx_SceneIdTables{};
+    myHasLoadedScene  = false;
+
+    myExtractLoggedOnce          = false;
+    myBatchLoggedOnce            = false;
+    myTransLoggedOnce            = false;
+    myInstanceSlabOverflowLogged = false;
+    myMaterialBindLoggedOnce     = false;
+    myLodLoggedOnce              = false;
+    myBindlessLoggedOnce         = false;
+    myM1PerfLoggedOnce           = false;
 }
 
 void Vk_Core::InitImGui() {
@@ -1563,11 +1597,6 @@ void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensi
     myDeviceExtensions = someDeviceExtensions;
 }
 
-void Vk_Core::SetLoadedScene( Gfx_SceneDesc aScene ) {
-    myLoadedScene     = std::move( aScene );
-    myHasLoadedScene  = true;
-    mySceneIdTables   = Gfx_BuildSceneIdTables( myLoadedScene );
-}
 
 bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     // Basic Properties

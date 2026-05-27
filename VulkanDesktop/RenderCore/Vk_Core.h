@@ -43,14 +43,21 @@ public:
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
-    void Run();
     void Reset();
+
+    // Application lifecycle (orchestrated by App/Application).
+    void InitWindow();
+    void InitRenderDevice();
+    void LoadSceneResources( Gfx_SceneDesc aScene );
+    void UnloadScene();
+    void Shutdown();
+    void Update( float& aOutDeltaSeconds );
+    void Render();
+    bool ShouldClose() const;
+
     // TODO: maybe merge all the set function when initializing?
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
-
-    // Parsed scene from disk (set before Run(); required for InitVulkan resource + SoA setup).
-    void SetLoadedScene( Gfx_SceneDesc aScene );
 
     // Resource helpers (used by Gfx/Util loaders; prefer injecting context long-term).
     // isExclusive: true = single queue family; false = graphics+transfer concurrent when families differ.
@@ -74,10 +81,7 @@ private:
     Vk_Core();
     ~Vk_Core();
 
-    void InitWindow();
-    void MainLoop();
     void Clear();
-    void InitVulkan();
 
     // Init Functions:
     // Part 1: Base

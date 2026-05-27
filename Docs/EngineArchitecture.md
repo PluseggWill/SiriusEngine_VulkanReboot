@@ -67,9 +67,11 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 ### 3.1 VulkanDesktop today (incremental)
 
-The desktop app is not fully layered yet, but the **debug camera path** follows the intended direction:
+**Application lifecycle (2026-05-27):** `VulkanDesktop::main` → `Application::Run`: `InitApp` (config/validation) → `LoadSceneDesc` + `Util_VerifyManifest` → `Vk_Core::InitWindow` → **`InitRenderDevice`** (instance/device/swapchain/frame buffers; no scene) → **`LoadSceneResources`** (SoA, LOD, scene pipelines, `LoadFromManifest`) → loop **`Update`** / **`Render`** → **`UnloadScene`** (CPU scene state) → **`Shutdown`**. See `Docs/application-lifecycle_Plan.md`.
 
-1. **`Vk_Core::BeginFrame`** — `glfwPollEvents` → frame Δt → ImGui `NewFrame` → `UtilInput::Sample` → `Vk_Camera::ApplyInput`.
+The **debug camera path** still runs inside `Vk_Core::Update` (`BeginFrame`):
+
+1. **`Vk_Core::Update`** — `glfwPollEvents` → frame Δt → ImGui `NewFrame` → `UtilInput::Sample` → `Vk_Camera::ApplyInput`.
 2. **`Util_InputSnapshot`** — device-neutral movement flags and mouse deltas (no GLFW in `Vk_Camera`).
 3. **`Vk_Camera`** — consumes snapshot + `Util_CameraSettings`; writes `myView` / `myProj` / `myEye` for UBOs and lighting.
 
@@ -106,7 +108,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 **Implemented (S1 v0):**
 
-- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest`. Boot verify: `Util_VerifyManifest` on scene closure before `vkCreateInstance`. SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). `Vk_Core::SetLoadedScene` before `Run()`.
+- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` before `vkCreateInstance`. SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` (`Docs/application-lifecycle_Plan.md`).
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
@@ -452,4 +454,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 scene-load Phase C; 2026-05-27).*
+*Last aligned with `Docs/SprintPlan.md` (S2 application-lifecycle; 2026-05-27).*

@@ -1,7 +1,7 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** Paused after Phase C (2026-05-27). **Do not start Phase D yet** — complete S2 **Application lifecycle** first (see [Handoff](#handoff--2026-05-27-pause)).  
+**Status:** Paused after Phase C (2026-05-27). **Phase D unblocked** — S2 Application lifecycle done (`Docs/application-lifecycle_Plan.md`); start D1 when ready (see [Handoff](#handoff--2026-05-27-pause)).  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`SceneJSON.md`](SceneJSON.md), [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md), [`SprintPlan.md`](SprintPlan.md) § S2
 
 ## Problem
@@ -159,7 +159,7 @@ Runtime path (Phase C): `Gfx_LoadSceneDesc` → `SetLoadedScene` → `Gfx_BuildR
 
 | Gap | Detail |
 |-----|--------|
-| **S2 Application lifecycle** | SprintPlan item still `[ ]`. No `Application` class; `Vk_Core::InitVulkan` still owns SoA populate + `LoadFromManifest`. |
+| **S2 Application lifecycle** | **Done** — `App/Application`; `InitRenderDevice` + `LoadSceneResources`; see `application-lifecycle_Plan.md`. |
 | **Phase D** | No `UnloadScene`, no scene reload, no `smoke.json`, boot verify always **strict** (no warn mode). |
 | **Scheduler** | No `Update` / `Render` split in app layer. |
 | **Scene graph** | Flat world matrices only; no parent/child in JSON. |
@@ -172,16 +172,14 @@ VulkanDesktop::main
   UtilAssetConfig::Initialize     // --asset-root, --scene, --config
   Gfx_LoadSceneDesc(path)
   Util_VerifyManifest(CollectDependencies(scene))
-  Vk_Core::SetLoadedScene(scene)
-  Vk_Core::Run()
-    InitWindow()
-    InitVulkan()
-      Gfx_PopulateSceneSoAFromSceneDesc
-      Gfx_BuildLodTableFromSceneDesc
-      CreateGfxPipeline()         // vert/frag from scene shaders["lit"]
-      Gfx_BuildResourceManifestFromSceneDesc → LoadFromManifest
-    MainLoop() …
-    Clear()                       // full teardown; no mid-run UnloadScene
+  Application::Run()
+    InitApp / LoadSceneDesc / VerifyManifest
+    Vk_Core::InitWindow()
+    Vk_Core::InitRenderDevice()
+    Vk_Core::LoadSceneResources(scene)   // SoA, LOD, pipelines, manifest
+    loop Update() / Render()
+    Vk_Core::UnloadScene()               // CPU scene state (partial)
+    Vk_Core::Shutdown()                  // was Clear()
 ```
 
 ### Dependency graph (what blocks what)
@@ -232,9 +230,9 @@ flowchart TB
 
 ### Recommended next task (team decision 2026-05-27)
 
-1. **S2 Application lifecycle** — new `application-lifecycle_Plan.md` or expand SprintPlan checklist; peel `LoadSceneResources` from `InitVulkan`; define `UnloadScene` API (can stub until D1).
-2. **Thin scheduler** — same PR or immediately after.
-3. **Then** scene-load Phase D (D1 → D3, D2 with config).
+1. ~~**S2 Application lifecycle**~~ — done (`application-lifecycle_Plan.md`).
+2. ~~**Thin scheduler**~~ — done (`Update` / `Render`).
+3. **Next:** scene-load Phase D (D1 → D3, D2 with config).
 
 ### Doc index for scene JSON
 
