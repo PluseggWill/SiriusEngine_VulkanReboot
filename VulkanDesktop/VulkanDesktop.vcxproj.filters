@@ -37,6 +37,9 @@
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_EngineConfig.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetManifest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -151,6 +154,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Util\Util_AssetConfig.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_EngineConfig.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_AssetManifest.h">

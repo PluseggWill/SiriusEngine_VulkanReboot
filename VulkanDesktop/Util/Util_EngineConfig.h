@@ -1,0 +1,46 @@
+#pragma once
+
+#include "Util_Logger.h"
+
+#include <cstdint>
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <vector>
+
+// Central engine config: Config/engine.json + CLI overrides (CLI wins).
+namespace UtilEngineConfig {
+
+struct FeatureFlags {
+    bool myDemoRotate     = true;
+    bool myRuntimeMipmap = false;
+};
+
+// Parse argv for --help / unknown flags only (no logger). Returns true if process should exit (help printed).
+bool TryEarlyExitFromCli( int aArgc, char** aArgv );
+
+// Load config file + CLI; must run once before UtilLogger::Init in Application::InitApp.
+void Initialize( int aArgc, char** aArgv );
+
+bool IsInitialized();
+
+std::filesystem::path GetAssetRoot();
+std::string         GetConfigPathUsed();
+std::string         GetSceneLogicalPath();
+std::string         GetLogFilePath();  // Empty => default Logs/engine_runtime_log.txt under repo.
+
+uint32_t GetWindowWidth();
+uint32_t GetWindowHeight();
+bool     GetVsync();
+
+UtilLogger::LogLevel GetMinLogLevel();
+const FeatureFlags&  GetFeatures();
+
+bool ResolveValidationEnabled( bool aBuildDefault );
+bool IsValidationEnabled();
+const std::vector< const char* >& GetValidationLayerNames();
+
+void LogResolvedSummary();
+void PrintUsage( const char* aProgramName );
+
+}  // namespace UtilEngineConfig

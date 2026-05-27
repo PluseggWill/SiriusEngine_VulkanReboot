@@ -35,7 +35,7 @@ Expected top-level entries:
 - `VulkanDesktop.sln` — open this in Visual Studio
 - `VulkanDesktop/` — engine source, shaders, `.vcxproj`
 - `Data/` — demo meshes/textures
-- `Config/engine.json` — default config (`assetRoot`, validation flags)
+- `Config/engine.json` — central runtime config (window, vsync, asset root, scene, log level, validation, feature flags)
 - `lib/` — third-party and Vulkan SDK payload
 - `Logs/` — created at runtime (`engine_runtime_log.txt`, `shader_compile_log.txt`)
 
@@ -76,12 +76,17 @@ Set-Location x64\Debug
 
 | Flag | Purpose |
 |------|---------|
+| `--config <file>` | JSON config path (default `Config/engine.json` under repo root) |
 | `--asset-root <dir>` | Override content root (must contain `Data/`, `VulkanDesktop/`) |
-| `--config <file>` | JSON config path |
+| `--scene <path>` | Scene JSON (repo-relative) |
+| `--width` / `--height` | Window size override |
+| `--vsync` / `--no-vsync` | Swapchain present mode preference |
+| `--log-level <level>` | `debug` \| `info` \| `warn` \| `error` |
 | `--validation` / `--no-validation` | Force validation layers on/off |
-| `--help` | Usage (exits before startup asset checks) |
+| `--demo-rotate` / `--no-demo-rotate` | Demo entity Z spin |
+| `--help` | Usage (exits before logger init) |
 
-Default config: `Config/engine.json`.
+`Config/engine.json` example keys: `assetRoot`, `scene`, `window`, `vsync`, `logLevel`, `enableValidationLayers`, `features.demoRotate`, `features.runtimeMipmap`. CLI overrides config file values.
 
 ## 4. Logs and success signals
 
@@ -102,8 +107,9 @@ call VulkanDesktop\Scripts\RotateEngineLogs.bat
 After a normal startup (not `--help`), expect lines similar to:
 
 ```text
+[INFO] [CONFIG] window=1600x1200 vsync=on
 [INFO] [CONFIG] assetRoot=<canonical repo path>
-[INFO] [STARTUP] All required demo assets present.
+[INFO] [STARTUP] Verifying scene asset manifest
 [INFO] [VULKAN] Vulkan instance created.
 ```
 

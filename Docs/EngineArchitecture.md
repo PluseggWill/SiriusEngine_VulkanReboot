@@ -67,7 +67,9 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 ### 3.1 VulkanDesktop today (incremental)
 
-**Application lifecycle (2026-05-27):** `VulkanDesktop::main` → `Application::Run`: `InitApp` (config/validation) → `LoadSceneDesc` + `Util_VerifyManifest` → `Vk_Core::InitWindow` → **`InitRenderDevice`** (instance/device/swapchain/frame buffers; no scene) → **`LoadSceneResources`** (SoA, LOD, scene pipelines, `LoadFromManifest`) → loop **`Update`** / **`Render`** → **`UnloadScene`** (CPU scene state) → **`Shutdown`**. See `Docs/application-lifecycle_Plan.md`.
+**Application lifecycle (2026-05-27):** `VulkanDesktop::main` → `Application::Run`: **`UtilEngineConfig::Initialize`** (CLI + `Config/engine.json`) → `UtilLogger::Init` → `LoadSceneDesc` + `Util_VerifyManifest` → `Vk_Core::InitWindow` → **`InitRenderDevice`** → **`LoadSceneResources`** → loop **`Update`** / **`Render`** → **`UnloadScene`** → **`Shutdown`**. See `Docs/application-lifecycle_Plan.md`, `Docs/central-config_Plan.md`.
+
+**Central config (2026-05-27):** `Util_EngineConfig` loads window size, vsync, `assetRoot`, default `scene`, `logLevel`, `enableValidationLayers`, and `features` (`demoRotate`, `runtimeMipmap`). CLI overrides win. `Vk_Core::ChooseSwapPresentMode` respects `vsync`; demo rotate and runtime mipmaps read feature flags.
 
 The **debug camera path** still runs inside `Vk_Core::Update` (`BeginFrame`):
 
@@ -454,4 +456,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 application-lifecycle; 2026-05-27).*
+*Last aligned with `Docs/SprintPlan.md` (S2 central-config; 2026-05-27).*

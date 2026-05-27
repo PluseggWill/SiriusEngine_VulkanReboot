@@ -19,9 +19,7 @@
 #include "Vk_ResourceTables.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
-constexpr bool USE_RUNTIME_MIPMAP   = false;
-constexpr bool USE_MANUAL_VERTICES  = false;  // if true, skip OBJ load path (legacy)
-constexpr bool ENABLE_ROTATE        = true;   // demo: Z spin applied to SoA before extract (see ApplyDemoTransformAnimation)
+constexpr bool USE_MANUAL_VERTICES = false;  // if true, skip OBJ load path (legacy)
 constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
@@ -43,6 +41,7 @@ public:
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
+    void SetVsync( bool aVsync );
     void Reset();
 
     // Application lifecycle (orchestrated by App/Application).
@@ -163,6 +162,7 @@ private:
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
+    bool         myVsync       = true;
     uint32_t     myFrameNumber = 0;
     Util_FrameStats   myFrameStats;
     VmaAllocator myAllocator;

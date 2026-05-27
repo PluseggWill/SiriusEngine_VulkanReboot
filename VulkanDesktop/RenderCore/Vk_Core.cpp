@@ -5,6 +5,7 @@
 #include "../Util/Util_StatsOverlay.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Util/Util_Loader.h"
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_ValidationLayers.h"
@@ -56,6 +57,10 @@ Vk_Core& Vk_Core::GetInstance() {
 void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
     myWidth  = aWidth;
     myHeight = aHeight;
+}
+
+void Vk_Core::SetVsync( bool aVsync ) {
+    myVsync = aVsync;
 }
 
 void Vk_Core::Reset() {
@@ -1564,7 +1569,8 @@ void Vk_Core::ApplyDemoTransformAnimation() {
             continue;
         }
         const glm::mat4& base = myDemoBaseTransforms[ slot ];
-        const glm::mat4   world = ENABLE_ROTATE ? ComputeDemoModelMatrix( base ) : base;
+        const glm::mat4   world =
+            UtilEngineConfig::GetFeatures().myDemoRotate ? ComputeDemoModelMatrix( base ) : base;
         mySceneSoA.SetTransform( slot, world );
     }
 }
@@ -1728,11 +1734,20 @@ VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfac
 }
 
 VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const {
-    // Only the VK_PRESENT_MODE_FIFO_KHR mode is guaranteed to be available
-    // On mobile devices, where energy usage is more important, use VK_PRESENT_MODE_FIFO_KHR
-    for ( const auto& availablePresentMode : someAvailablePresentModes ) {
-        if ( availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR )
-            return availablePresentMode;
+    auto hasMode = [&]( VkPresentModeKHR aMode ) {
+        return std::find( someAvailablePresentModes.begin(), someAvailablePresentModes.end(), aMode ) !=
+               someAvailablePresentModes.end();
+    };
+
+    if ( myVsync ) {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    if ( hasMode( VK_PRESENT_MODE_MAILBOX_KHR ) ) {
+        return VK_PRESENT_MODE_MAILBOX_KHR;
+    }
+    if ( hasMode( VK_PRESENT_MODE_IMMEDIATE_KHR ) ) {
+        return VK_PRESENT_MODE_IMMEDIATE_KHR;
     }
 
     return VK_PRESENT_MODE_FIFO_KHR;
@@ -1982,7 +1997,9 @@ glm::mat4 Vk_Core::ComputeDemoModelMatrix( const glm::mat4& aWorldTransform ) co
     const auto  currentTime = std::chrono::high_resolution_clock::now();
     const float time        = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
 
-    const glm::mat4 spin = glm::rotate( glm::mat4( 1.0f ), ENABLE_ROTATE ? time * glm::radians( 90.0f ) : 0.0f, glm::vec3( 0.0f, 0.0f, 1.0f ) );
+    const glm::mat4 spin = glm::rotate( glm::mat4( 1.0f ),
+                                        UtilEngineConfig::GetFeatures().myDemoRotate ? time * glm::radians( 90.0f ) : 0.0f,
+                                        glm::vec3( 0.0f, 0.0f, 1.0f ) );
     return aWorldTransform * spin;
 }
 

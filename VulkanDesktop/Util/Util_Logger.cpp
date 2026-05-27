@@ -11,9 +11,10 @@
 #include <cstdlib>
 
 namespace {
-std::mutex        gLogMutex;
-std::ofstream     gLogFile;
-bool              gIsInitialized = false;
+std::mutex           gLogMutex;
+std::ofstream        gLogFile;
+bool                 gIsInitialized = false;
+UtilLogger::LogLevel gMinLogLevel     = UtilLogger::LogLevel::Info;
 const char* const kDefaultRuntimeLogFileName = "engine_runtime_log.txt";
 
 std::filesystem::path FindRepoRoot() {
@@ -116,6 +117,16 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
     std::cerr << initLine << std::endl;
 }
 
+void UtilLogger::SetMinLogLevel( LogLevel aMinLevel ) {
+    std::lock_guard< std::mutex > lock( gLogMutex );
+    gMinLogLevel = aMinLevel;
+}
+
+UtilLogger::LogLevel UtilLogger::GetMinLogLevel() {
+    std::lock_guard< std::mutex > lock( gLogMutex );
+    return gMinLogLevel;
+}
+
 void UtilLogger::Shutdown() {
     std::lock_guard< std::mutex > lock( gLogMutex );
     if ( !gIsInitialized ) {
@@ -134,7 +145,14 @@ void UtilLogger::Log( LogLevel aLevel, const std::string& aCategory, const std::
         return;
     }
 
-    gLogFile << "[" << NowTimestamp() << "] [" << ToString( aLevel ) << "] [" << aCategory << "] " << aMessage << std::endl;
+    if ( static_cast< int >( aLevel ) < static_cast< int >( gMinLogLevel ) ) {
+        return;
+    }
+
+    const std::string line =
+        "[" + NowTimestamp() + "] [" + ToString( aLevel ) + "] [" + aCategory + "] " + aMessage;
+    gLogFile << line << std::endl;
+    std::cerr << line << std::endl;
 }
 
 void UtilLogger::Info( const std::string& aCategory, const std::string& aMessage ) {

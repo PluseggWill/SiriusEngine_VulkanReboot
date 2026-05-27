@@ -2,18 +2,15 @@
 
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../RenderCore/Vk_Core.h"
-#include "../Util/Util_AssetConfig.h"
 #include "../Util/Util_AssetManifest.h"
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
-#include "../Util/Util_ValidationConfig.h"
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 
-void Application::Configure( uint32_t aWidth, uint32_t aHeight, const std::vector< const char* >& someDeviceExtensions ) {
-    myWidth             = aWidth;
-    myHeight            = aHeight;
-    myDeviceExtensions  = someDeviceExtensions;
+void Application::Configure( const std::vector< const char* >& someDeviceExtensions ) {
+    myDeviceExtensions = someDeviceExtensions;
 }
 
 int Application::Run( int argc, char** argv ) {
@@ -46,14 +43,15 @@ int Application::Run( int argc, char** argv ) {
 }
 
 void Application::InitApp( int argc, char** argv ) {
+    UtilEngineConfig::Initialize( argc, argv );
+    UtilLogger::Init( UtilEngineConfig::GetLogFilePath() );
+    UtilLogger::SetMinLogLevel( UtilEngineConfig::GetMinLogLevel() );
+
     UtilLogger::Info( "APP", "InitApp." );
 
-    UtilValidationConfig::ParseCli( argc, argv );
-    UtilAssetConfig::Initialize( argc, argv );
-    UtilValidationConfig::LoadFromConfigFile( UtilAssetConfig::GetConfigPathUsed() );
-
     Vk_Core& core = Vk_Core::GetInstance();
-    core.SetSize( myWidth, myHeight );
+    core.SetSize( UtilEngineConfig::GetWindowWidth(), UtilEngineConfig::GetWindowHeight() );
+    core.SetVsync( UtilEngineConfig::GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
 
 #ifdef NDEBUG
@@ -61,13 +59,15 @@ void Application::InitApp( int argc, char** argv ) {
 #else
     const bool buildDefaultValidation = true;
 #endif
-    core.SetEnableValidationLayers( UtilValidationConfig::ResolveEnabled( buildDefaultValidation ),
-                                    UtilValidationConfig::GetRequestedLayerNames() );
+    const bool validationEnabled =
+        UtilEngineConfig::ResolveValidationEnabled( buildDefaultValidation );
+    core.SetEnableValidationLayers( validationEnabled, UtilEngineConfig::GetValidationLayerNames() );
+    UtilEngineConfig::LogResolvedSummary();
 }
 
 void Application::LoadAndVerifyScene() {
     UtilLogger::Info( "APP", "LoadSceneDesc." );
-    mySceneDesc = Gfx_LoadSceneDesc( UtilAssetConfig::GetSceneLogicalPath() );
+    mySceneDesc = Gfx_LoadSceneDesc( UtilEngineConfig::GetSceneLogicalPath() );
     UtilLogger::Info( "APP", "VerifyManifest." );
     Util_VerifyManifest( Util_CollectDependencies( mySceneDesc ) );
 }

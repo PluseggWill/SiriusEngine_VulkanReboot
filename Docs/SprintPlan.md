@@ -222,14 +222,12 @@ flowchart TB
 
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 
-- [ ] Central **config** (window, vsync, asset root, log level, feature flags).
 - [ ] Move `UtilInput::Sample` out of `Vk_Core`; input abstraction for gameplay + camera.
 - [ ] **`Vk_Core` decomposition (incremental)**: resource tables, draw-list build, record/submit only.
 - [ ] Remove temp init hacks (`CreateMaterial`, `InitScene`, env buffer) or finish wiring.
 - [ ] **Image queue sharing** when transfer ≠ graphics family.
 - [ ] Wire or remove dynamic pipeline state in `Vk_PipelineBuilder`.
 - [ ] Reduce `GetInstance()` in `Util_Loader` / `Gfx_Mesh::BuildBuffers` (slim `Vk_ResourceContext`).
-- [ ] Move `ENABLE_ROTATE`, shader paths, mip toggles into config.
 
 ### Scene (minimal for M1+)
 
@@ -481,6 +479,7 @@ flowchart LR
 ### Engine / hygiene
 
 - [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/Archived/plans/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
+- [x] **[S2]** Central config: `Util_EngineConfig` + `Config/engine.json` (window, vsync, asset root, scene, log level, validation, demoRotate/runtimeMipmap); thin `Util_AssetConfig` / `Util_ValidationConfig` delegates — 2026-05-27; `Docs/central-config_Plan.md`.
 - [x] **[S2]** Application lifecycle: `App/Application` orchestrates InitApp → scene verify → `InitRenderDevice` / `LoadSceneResources` / `Update`+`Render` / `UnloadScene` / `Shutdown`; peeled scene load out of `InitVulkan` — 2026-05-27; `Docs/application-lifecycle_Plan.md`.
 - [x] **[S2]** Thin scheduler: `Vk_Core::Update` vs `Render` driven by `Application` main loop — 2026-05-27; with application-lifecycle.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `scene-load_Plan.md` Handoff.

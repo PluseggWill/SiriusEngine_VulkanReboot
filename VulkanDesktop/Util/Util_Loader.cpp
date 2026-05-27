@@ -1,5 +1,6 @@
 #include "Util_Loader.h"
 #include "Util_AssetConfig.h"
+#include "Util_EngineConfig.h"
 #include "Util_Logger.h"
 #include "../RenderCore/Vk_Core.h"
 
@@ -65,7 +66,9 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextur
     const VkDeviceSize imageSize = static_cast< VkDeviceSize >( texWidth ) * static_cast< VkDeviceSize >( texHeight ) * 4;
     const VmaAllocator allocator = Vk_Core::GetInstance().myAllocator;
 
-    aTextureMipLevel = USE_RUNTIME_MIPMAP ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
+    const bool useRuntimeMipmap = UtilEngineConfig::GetFeatures().myRuntimeMipmap;
+    aTextureMipLevel =
+        useRuntimeMipmap ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     Vk_AllocatedBuffer stagingBuffer;
 
@@ -90,7 +93,7 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, Gfx_Texture& aTextur
     Vk_Core::GetInstance().CopyBufferToImage( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
 
     // Final layout: SHADER_READ_ONLY (GenerateMipmaps leaves mips ready when enabled).
-    if ( USE_RUNTIME_MIPMAP ) {
+    if ( useRuntimeMipmap ) {
         Vk_Core::GetInstance().GenerateMipmaps( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, aTextureMipLevel );
     }
     else {

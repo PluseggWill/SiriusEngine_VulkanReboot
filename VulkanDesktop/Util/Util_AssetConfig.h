@@ -3,8 +3,8 @@
 #include <filesystem>
 #include <string>
 
-// Asset root: single base for repo-relative paths (Data/, VulkanDesktop/Shader_Generated/, …).
-// Initialize from Config/engine.json + CLI before UtilLoader::ResolvePath is used.
+// Asset root accessors (delegate to Util_EngineConfig / Config/engine.json).
+// Prefer UtilEngineConfig::Initialize from Application::InitApp.
 namespace UtilAssetConfig {
 void Initialize( int aArgc, char** aArgv );
 

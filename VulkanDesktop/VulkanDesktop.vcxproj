@@ -204,6 +204,7 @@
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
     <ClCompile Include="Util\Util_AssetConfig.cpp" />
+    <ClCompile Include="Util\Util_EngineConfig.cpp" />
     <ClCompile Include="Util\Util_AssetManifest.cpp" />
     <ClCompile Include="Util\Util_ValidationConfig.cpp" />
     <ClCompile Include="Util\Util_DebugMessenger.cpp" />
@@ -247,6 +248,7 @@
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
     <ClInclude Include="Util\Util_AssetConfig.h" />
+    <ClInclude Include="Util\Util_EngineConfig.h" />
     <ClInclude Include="Util\Util_AssetManifest.h" />
     <ClInclude Include="Util\Util_DemoAssets.h" />
     <ClInclude Include="Util\Util_ValidationConfig.h" />

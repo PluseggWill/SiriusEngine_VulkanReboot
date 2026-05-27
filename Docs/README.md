@@ -6,6 +6,7 @@
 |------|---------|
 | [`SprintPlan.md`](SprintPlan.md) | Executable roadmap (S0–S8), open `[ ]` tasks, **Archived** history |
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Architecture intent, invariants, render/data-plane policy |
+| [`central-config_Plan.md`](central-config_Plan.md) / [`central-config_Progress.md`](central-config_Progress.md) | S2 `Util_EngineConfig` + `Config/engine.json` — **done** 2026-05-27 |
 | [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md) / [`application-lifecycle_Progress.md`](application-lifecycle_Progress.md) | S2 Application lifecycle + Update/Render scheduler — **done** 2026-05-27 |
 | [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–C done; **Phase D unblocked** — see plan Handoff |
 | [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | **Scene JSON v1 authoring** (EN / 中文) |
