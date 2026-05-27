@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "InputSystem.h"
 #include <vector>
 
 // Application lifecycle: config → scene verify → render device → load resources → loop → unload.
@@ -18,4 +19,5 @@ private:
 
     std::vector< const char* > myDeviceExtensions;
     Gfx_SceneDesc              mySceneDesc;
+    InputSystem                myInput;
 };

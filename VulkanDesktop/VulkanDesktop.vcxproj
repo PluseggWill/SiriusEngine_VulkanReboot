@@ -185,6 +185,7 @@
     <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="App\Application.cpp" />
+    <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
@@ -217,6 +218,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App\Application.h" />
+    <ClInclude Include="App\InputSystem.h" />
     <ClInclude Include="Util\Util_CameraPanel.h" />
     <ClInclude Include="Util\Util_Input.h" />
     <ClInclude Include="Util\Util_InputSnapshot.h" />

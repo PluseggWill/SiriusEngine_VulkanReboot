@@ -18,6 +18,27 @@ void Util_FrameStats::SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t a
     myTransparentBatchRuns    = aTransparentBatchRuns;
 }
 
+void Util_FrameStats::RecordInputLatency( float aInputToPresentMs, float aGpuFenceWaitMs, bool aVsyncFifo, float aFrameMs ) {
+    myInputToPresentMs      = aInputToPresentMs;
+    myGpuFenceWaitMs        = aGpuFenceWaitMs;
+    myEstimatedDisplayLagMs = aVsyncFifo ? aFrameMs : 0.f;
+    myEstimatedTotalLagMs   = aInputToPresentMs + myEstimatedDisplayLagMs;
+
+    if ( mySmoothedTotalLagMs <= 0.f ) {
+        mySmoothedTotalLagMs = myEstimatedTotalLagMs;
+    }
+    else {
+        constexpr float kAlpha = 0.15f;
+        mySmoothedTotalLagMs = mySmoothedTotalLagMs * ( 1.f - kAlpha ) + myEstimatedTotalLagMs * kAlpha;
+    }
+
+    if ( myHistorySampleCount > 0 ) {
+        const int lagIndex =
+            ( myFrameHistoryIndex - 1 + FRAME_HISTORY_COUNT ) % FRAME_HISTORY_COUNT;
+        myInputLagHistory[ static_cast< size_t >( lagIndex ) ] = myEstimatedTotalLagMs;
+    }
+}
+
 void Util_FrameStats::PushFrameTime( float aFrameMs ) {
     myFrameMs = aFrameMs;
     if ( aFrameMs > 0.f )

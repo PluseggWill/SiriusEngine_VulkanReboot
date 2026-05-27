@@ -29,6 +29,7 @@ struct Gfx_Material;
 class Gfx_Vertex;
 class Gfx_Mesh;
 class Gfx_RenderObject;
+struct GLFWwindow;
 
 // Vulkan backend singleton: window, device, swapchain, frame loop, GPU resource helpers.
 class Vk_ResourceTables;
@@ -50,9 +51,12 @@ public:
     void LoadSceneResources( Gfx_SceneDesc aScene );
     void UnloadScene();
     void Shutdown();
-    void Update( float& aOutDeltaSeconds );
+    void BeginPlatformFrame( float& aOutDeltaSeconds );
+    void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
+    void SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
     void Render();
     bool ShouldClose() const;
+    GLFWwindow* GetWindow() const { return myWindow; }
 
     // TODO: maybe merge all the set function when initializing?
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
@@ -119,8 +123,6 @@ private:
     void CreateUniformBuffers();
     void InitImGui();
     void ShutdownImGui();
-    // Order: poll events -> dt -> ImGui NewFrame -> input sample -> camera. Call once before DrawFrame.
-    void BeginFrame( float& aOutDeltaSeconds );
 
     // Draw frame:
     void DrawFrame( const Vk_FrameData aFrameData );
@@ -170,7 +172,6 @@ public:
 #pragma region View Data Functions
     Vk_Camera            myCamera;
     Util_CameraSettings  myCameraSettings;
-    Util_InputState      myInputState;
     GpuEnvironmentData   myEnvironmentData;
     Vk_AllocatedBuffer    myEnvDataBuffer;
 
@@ -256,4 +257,6 @@ private:
     Util_ImGuiLayer                                              myImGuiLayer;
     std::chrono::high_resolution_clock::time_point             myLastFrameTime;
     bool                                                       myHasLastFrameTime = false;
+    std::chrono::high_resolution_clock::time_point             myFrameInputSampleTime;
+    bool                                                       myHasFrameInputSampleTime = false;
 };

@@ -34,6 +34,9 @@
     <ClCompile Include="App\Application.cpp">
       <Filter>App</Filter>
     </ClCompile>
+    <ClCompile Include="App\InputSystem.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -187,6 +190,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="App\Application.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\InputSystem.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_CameraPanel.h">

@@ -1,6 +1,5 @@
 #include "Vk_Core.h"
 #include "../Util/Util_CameraPanel.h"
-#include "../Util/Util_Input.h"
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_StatsOverlay.h"
 #include "../Gfx/Gfx_SceneApply.h"
@@ -71,9 +70,6 @@ bool Vk_Core::ShouldClose() const {
     return myWindow != nullptr && glfwWindowShouldClose( myWindow );
 }
 
-void Vk_Core::Update( float& aOutDeltaSeconds ) {
-    BeginFrame( aOutDeltaSeconds );
-}
 
 void Vk_Core::Render() {
     DrawFrame( myFrameDatas[ myCurrentFrame ] );
@@ -847,8 +843,18 @@ void Vk_Core::CreateCommandPool() {
     }
 }
 
+namespace {
+
+float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chrono::high_resolution_clock::time_point aEnd ) {
+    return std::chrono::duration< float, std::milli >( aEnd - aStart ).count();
+}
+
+}  // namespace
+
 void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
+    const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
     vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
+    const float gpuFenceWaitMs = ElapsedMs( fenceWaitStart, std::chrono::high_resolution_clock::now() );
 
     uint32_t imageIndex;
     // Once the image is available for the next frame, myPresentSemaphore will be signaled and ready to be acquired
@@ -1024,6 +1030,12 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     else if ( result != VK_SUCCESS ) {
         UtilLogger::Error( "FRAME", "vkQueuePresentKHR failed." );
         throw std::runtime_error( "failed to present swap chain image!" );
+    }
+
+    if ( myHasFrameInputSampleTime ) {
+        const float inputToPresentMs = ElapsedMs( myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
+        myFrameStats.RecordInputLatency( inputToPresentMs, gpuFenceWaitMs, myVsync, myFrameStats.myFrameMs );
+        myHasFrameInputSampleTime = false;
     }
 
     // MainLoop increments myFrameNumber after DrawFrame; log once the 60th frame completes (counter still 59 here).
@@ -2342,11 +2354,11 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void Vk_Core::BeginFrame( float& aOutDeltaSeconds ) {
+void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
     glfwPollEvents();
 
-    const auto frameStart   = std::chrono::high_resolution_clock::now();
-    aOutDeltaSeconds        = 0.0f;
+    const auto frameStart = std::chrono::high_resolution_clock::now();
+    aOutDeltaSeconds      = 0.0f;
     if ( myHasLastFrameTime ) {
         aOutDeltaSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
         myFrameStats.PushFrameTime( aOutDeltaSeconds * 1000.f );
@@ -2354,20 +2366,17 @@ void Vk_Core::BeginFrame( float& aOutDeltaSeconds ) {
     myLastFrameTime    = frameStart;
     myHasLastFrameTime = true;
 
-    // ImGui must see this frame's input before we sample movement / mouse look for the camera.
+    // ImGui must see this frame's GLFW state before Application samples movement / mouse look.
     myImGuiLayer.NewFrame();
+}
 
-    Util_InputSnapshot snapshot{};
-    bool               allowKeyboard = true;
-    bool               allowMouse    = true;
-    if ( ImGui::GetCurrentContext() != nullptr ) {
-        const ImGuiIO& io = ImGui::GetIO();
-        allowKeyboard     = !io.WantCaptureKeyboard;
-        allowMouse        = !io.WantCaptureMouse;
-    }
+void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput ) {
+    myCamera.ApplyInput( aDeltaSeconds, aInput, myCameraSettings );
+}
 
-    UtilInput::Sample( myWindow, myInputState, snapshot, allowKeyboard, allowMouse );
-    myCamera.ApplyInput( aOutDeltaSeconds, snapshot, myCameraSettings );
+void Vk_Core::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {
+    myFrameInputSampleTime    = aSampleTime;
+    myHasFrameInputSampleTime = true;
 }
 
 size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {

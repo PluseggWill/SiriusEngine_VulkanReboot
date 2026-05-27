@@ -74,10 +74,15 @@ void Application::LoadAndVerifyScene() {
 
 void Application::RunMainLoop() {
     Vk_Core& core = Vk_Core::GetInstance();
-    UtilLogger::Info( "APP", "Entering main loop (Update/Render)." );
+    UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
     while ( !core.ShouldClose() ) {
         float frameSeconds = 0.0f;
-        core.Update( frameSeconds );
+        core.BeginPlatformFrame( frameSeconds );
+        myInput.Sample( core.GetWindow() );
+        core.ApplyCameraInput( frameSeconds, myInput.GetSnapshot() );
+        if ( myInput.HasLastSampleTime() ) {
+            core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
+        }
         core.Render();
     }
     UtilLogger::Info( "APP", "Main loop ended." );

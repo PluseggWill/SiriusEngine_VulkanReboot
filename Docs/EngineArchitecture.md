@@ -71,13 +71,10 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **Central config (2026-05-27):** `Util_EngineConfig` loads window size, vsync, `assetRoot`, default `scene`, `logLevel`, `enableValidationLayers`, and `features` (`demoRotate`, `runtimeMipmap`). CLI overrides win. `Vk_Core::ChooseSwapPresentMode` respects `vsync`; demo rotate and runtime mipmaps read feature flags.
 
-The **debug camera path** still runs inside `Vk_Core::Update` (`BeginFrame`):
+**Input (2026-05-27):** `Application` owns `InputSystem` (persistent `Util_InputState`, per-frame `Util_InputSnapshot`). Loop: `Vk_Core::BeginPlatformFrame` (poll, Δt, ImGui `NewFrame`) → `InputSystem::Sample` → `Vk_Core::ApplyCameraInput` → `Render`. GLFW sampling stays in `UtilInput::Sample`; RenderCore has no GLFW. Future gameplay reads the same snapshot. See `Docs/input-abstraction_Plan.md`.
 
-1. **`Vk_Core::Update`** — `glfwPollEvents` → frame Δt → ImGui `NewFrame` → `UtilInput::Sample` → `Vk_Camera::ApplyInput`.
-2. **`Util_InputSnapshot`** — device-neutral movement flags and mouse deltas (no GLFW in `Vk_Camera`).
-3. **`Vk_Camera`** — consumes snapshot + `Util_CameraSettings`; writes `myView` / `myProj` / `myEye` for UBOs and lighting.
-
-Next step toward the map above: move `UtilInput::Sample` (and persistent `Util_InputState`) out of `Vk_Core` into an application or simulation/input module; keep `ApplyInput` as the render-facing consumer.
+1. **`InputSystem::Sample`** — ImGui capture gate → `UtilInput::Sample` → device-neutral snapshot.
+2. **`Vk_Camera::ApplyInput`** — view/projection/eye for UBOs and lighting (no GLFW in `Vk_Camera`).
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
@@ -456,4 +453,4 @@ Today, **`VulkanDesktop`** centers on **`Vk_Core`**: windowing, Vulkan init, res
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 central-config; 2026-05-27).*
+*Last aligned with `Docs/SprintPlan.md` (S2 input-abstraction; 2026-05-27).*

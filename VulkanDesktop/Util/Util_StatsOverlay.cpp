@@ -18,6 +18,16 @@ void UtilStatsOverlay::Build( const Util_FrameStats& aStats ) {
     ImGui::Text( "Frame: %.2f ms", aStats.myFrameMs );
     ImGui::PlotLines( "Frame ms", aStats.myFrameHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 33.f, ImVec2( 0.f, 80.f ) );
     ImGui::Separator();
+    ImGui::Text( "Input latency (est.)" );
+    ImGui::Text( "  sample -> present: %.2f ms", aStats.myInputToPresentMs );
+    ImGui::Text( "  GPU fence wait:     %.2f ms", aStats.myGpuFenceWaitMs );
+    ImGui::Text( "  display (vsync):    %.2f ms", aStats.myEstimatedDisplayLagMs );
+    ImGui::Text( "  total (est.):       %.2f ms", aStats.myEstimatedTotalLagMs );
+    ImGui::PlotLines( "Input lag est. ms", aStats.myInputLagHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 50.f,
+                      ImVec2( 0.f, 48.f ) );
+    ImGui::TextDisabled( "Total = sample->present + ~1 frame if vsync FIFO." );
+    ImGui::TextDisabled( "Try --no-vsync to compare present mode." );
+    ImGui::Separator();
     const uint32_t visibleDraws = aStats.myVisibleOpaqueDraws + aStats.myVisibleTransparentDraws;
     const uint32_t batchRuns    = aStats.myOpaqueBatchRuns + aStats.myTransparentBatchRuns;
     ImGui::Text( "Entities: %u  visible draws: %u", aStats.myActiveEntities, visibleDraws );
