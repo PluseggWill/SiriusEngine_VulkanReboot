@@ -32,6 +32,7 @@ Summarized from the roadmap; these are **acceptance criteria** for “engine, no
 | **Evidence** | Benchmark scenes + a short runbook so numbers are reproducible on a fresh machine within a stated variance band. |
 | **Data-oriented data plane** | Hot paths use **SoA / columnar** storage, **stable indices**, **sequential scans**, and **explicit buffers** for GPU upload — not deep OO graphs as the primary per-frame execution model. |
 | **Mesh-shader GPU-driven renderer** | Long-term raster path: **GPU** cull/compact → **mesh shader** (optional Task later) → fragment; **VS + indexed indirect** fallback when extensions missing. CPU SoA + extract remain **source of truth** until GPU path is parity-tested. |
+| **Hybrid lighting evolution** | Stage 1 full forward baseline → Stage 2 full PBR with **opaque deferred/clustered + transparent forward** → Stage 3 **optional DDGI**. Epic docs: `forward-rendering-epic_Plan.md`, `hybrid-deferred-epic_Plan.md`, `ddgi-lighting-epic_Plan.md`. |
 
 ---
 
@@ -82,9 +83,9 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **RHI peel (2026-05-27, M1–M3 done):** `Vk_ResourceContext` for table load; Gfx CPU draw list; `Vk_Core` hot path is acquire/record/present.
 
-**RHI peel phase 2 (planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, `Vk_ForwardScenePass`, scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
+**RHI peel phase 2 (planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, scene pass modules (`Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` or equivalent), scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
 
-**Render path (target):** See **§5.5–§5.9** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** passes for shadows/post.
+**Render path (target):** See **§5.5–§5.10** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** pass chain `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post` (Stage 2+) and `ForwardLit` baseline retained for parity.
 
 **Shader tooling (target):** SPIR-V reflection → permutation registry → `VkPipelineCache` + disk cache (**§5.7**). Executable tasks: S2 shader systems, S7 presets.
 
@@ -260,7 +261,7 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | **M1** | S1 | CPU draw stream; LOD v0; transparency; bindless v0 or batch path signed off |
 | **M2** | S3 | GPU frustum cull + indirect; LOD GPU parity subset |
 | **M3** | S4 | Meshlet assets + debug viz |
-| **M4** | S5 | Mesh shader forward lit vs VS parity |
+| **M4** | S5 | Mesh shader geometry/pass-contract parity vs VS (forward baseline + hybrid-compatible path) |
 | **M5** | S6 | GPU mesh tasks + preset fallbacks |
 | **M6** | S7 | Frame graph + multi-view + presets/permutations + benchmarks |
 
@@ -299,10 +300,56 @@ Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph pass
 Dependency: stable **sort/batch** from S1; **permutations** from S2; optional **multi-view** from S2 before shadow/post FG in S7.
 
 ```text
-[Shadow pass] ─writes→ shadow map ─reads→ [Opaque forward] ─writes→ color+depth
-                                                      ─reads→ [Transparent pass]
-                                                      ─reads→ [Tonemap / post …]
+[Shadow pass] ─writes→ shadow map
+       └─reads→ [GBufferOpaque] ─writes→ gbuffer+depth
+                     └─reads→ [ClusterBuild]
+                              └─reads→ [DeferredLighting] ─writes→ hdrColor
+                                           └─reads→ [ForwardTransparent]
+                                                    └─reads→ [Post]
 ```
+
+### 5.10 Lighting evolution plan (forward → hybrid deferred → DDGI)
+
+Lighting roadmap is staged to reduce risk while keeping GPU-driven geometry work intact.
+
+**Naming (canonical):**
+
+- **Stage:** `Stage 1 (Forward Baseline)`, `Stage 2 (Hybrid Deferred + PBR)`, `Stage 3 (Optional DDGI)`
+- **Preset:** `ForwardLit`, `HybridDeferred`
+- **Pass chain (Stage 2+):** `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post`
+
+| Stage | Baseline | Opaque path | Transparent path | GI scope |
+|------|----------|-------------|------------------|----------|
+| **Stage 1** | Full forward baseline | Forward lit | Forward lit (sorted) | None (direct + environment baseline only) |
+| **Stage 2** | Hybrid renderer | `GBufferOpaque + DeferredLighting` (clustered, full PBR) | `ForwardTransparent` over deferred depth/color | IBL/environment in hybrid lighting pass |
+| **Stage 3** | Optional GI enhancement | Hybrid deferred + DDGI contribution | Forward policy unchanged (documented interaction rules) | **DDGI optional** (preset-gated) |
+
+**Compatibility rule:** mesh-shader / GPU-driven milestones (`S3`–`S6`) stay focused on geometry submission and visibility. Lighting architecture evolves through pass topology and shading contracts, not by coupling gameplay/simulation logic to renderer internals.
+
+**Parity rule:** keep `ForwardLit` as a baseline preset for A/B validation while Stage 2 lands, then preserve non-DDGI hybrid behavior when Stage 3 is enabled.
+
+#### 5.10.1 Lighting dependency graph
+
+```mermaid
+flowchart LR
+  SPR_M1[S1 M1 draw-stream baseline] --> STG_1[Stage 1 Forward Epic]
+  SPR_S2[S2 shader systems + lifecycle peel] --> STG_1
+
+  STG_1 --> STG_2[Stage 2 Hybrid Deferred Epic]
+  SPR_S3_FG0[S3 FG v0 for opaque path] --> STG_2
+  SPR_S7_FG[S7 frame graph + preset infra] --> STG_2
+
+  STG_2 --> STG_3[Stage 3 DDGI Epic]
+  SPR_S7_BENCH[S7 benchmark/capture infra] --> STG_3
+```
+
+#### 5.10.2 Stage dependency contracts
+
+| Stage | Depends on | Unblocks | Main policy |
+|------|------------|----------|-------------|
+| **Stage 1 — Forward baseline** | S1 draw stream and transparent policy, S2 shader/permutation scaffolding | Stage 2 migration with stable parity baseline | Keep forward opaque/transparent explicit and measurable |
+| **Stage 2 — Hybrid Deferred + PBR** | Stage 1 handoff, S3 FG v0 + frame-graph pass topology, permutation path | Stage 3 DDGI optional integration | `GBufferOpaque + DeferredLighting` for opaque, `ForwardTransparent` for transparent, full PBR |
+| **Stage 3 — DDGI optional** | Stage 2 gate accepted, S7 preset/benchmark tooling | Optional GI quality tiers and rollout presets | DDGI must be preset-gated and non-mandatory |
 
 ---
 
@@ -312,73 +359,94 @@ Dependency: stable **sort/batch** from S1; **permutations** from S2; optional **
 
 ```mermaid
 flowchart LR
-  subgraph soa [SoA world state]
-    T[Transforms]
-    B[Bounds]
-    M[Mesh / material indices]
+  subgraph GRP_SOA [SoA world state]
+    TASK_TRANSFORMS[Transforms]
+    TASK_BOUNDS[Bounds]
+    TASK_MATERIALS[Mesh / material indices]
   end
-  subgraph extract [Extract]
-    V[Visible list]
-    D[DrawInstance array]
+  subgraph GRP_EXTRACT [Extract]
+    TASK_VISIBLE[Visible list]
+    TASK_DRAWINSTANCE[DrawInstance array]
   end
-  subgraph prep [Render prep]
-    S[Sort by key]
-    R[Batch runs]
+  subgraph GRP_PREP [Render prep]
+    TASK_SORTKEY[Sort by key]
+    TASK_BATCHRUNS[Batch runs]
   end
-  subgraph vk [Vulkan today / S1]
-    CB[Cmd buffer record]
-    VS[VS + FS draw]
+  subgraph GRP_VK [Vulkan today / S1]
+    TASK_CMDBUF[Cmd buffer record]
+    TASK_VSFS[VS + FS draw]
   end
-  soa --> extract
-  extract --> prep
-  prep --> vk
+  TASK_TRANSFORMS --> TASK_VISIBLE
+  TASK_BOUNDS --> TASK_VISIBLE
+  TASK_MATERIALS --> TASK_DRAWINSTANCE
+  TASK_VISIBLE --> TASK_SORTKEY
+  TASK_DRAWINSTANCE --> TASK_BATCHRUNS
+  TASK_SORTKEY --> TASK_CMDBUF
+  TASK_BATCHRUNS --> TASK_VSFS
 ```
 
 ### 6.2 End state (GPU-driven mesh shader)
 
 ```mermaid
 flowchart LR
-  soa[SoA + Extract columns]
-  gpu[GPU cull + compact meshlets]
-  mt[vkCmdDrawMeshTasksIndirect]
-  ms[Mesh shader]
-  fs[Fragment]
-  soa --> gpu
-  gpu --> mt
-  mt --> ms
-  ms --> fs
+  TASK_SOA_EXTRACT[SoA + Extract columns]
+  TASK_GPU_CULL[GPU cull + compact meshlets]
+  TASK_MESHTASK[vkCmdDrawMeshTasksIndirect]
+  TASK_MESH_SHADER[Mesh shader]
+  TASK_FRAGMENT[Fragment]
+  TASK_SOA_EXTRACT --> TASK_GPU_CULL
+  TASK_GPU_CULL --> TASK_MESHTASK
+  TASK_MESHTASK --> TASK_MESH_SHADER
+  TASK_MESH_SHADER --> TASK_FRAGMENT
 ```
 
 ### 6.3 Opaque + transparent extract
 
 ```mermaid
 flowchart LR
-  E[Extract]
-  O[Opaque DrawInstances]
-  T[Transparent DrawInstances]
-  SO[Sort opaque by batch key]
-  ST[Sort transparent back-to-front]
-  E --> O
-  E --> T
-  O --> SO
-  T --> ST
+  TASK_EXTRACT[Extract]
+  TASK_OPAQUE[Opaque DrawInstances]
+  TASK_TRANSPARENT[Transparent DrawInstances]
+  TASK_SORT_OPAQUE[Sort opaque by batch key]
+  TASK_SORT_TRANSPARENT[Sort transparent back-to-front]
+  TASK_EXTRACT --> TASK_OPAQUE
+  TASK_EXTRACT --> TASK_TRANSPARENT
+  TASK_OPAQUE --> TASK_SORT_OPAQUE
+  TASK_TRANSPARENT --> TASK_SORT_TRANSPARENT
 ```
 
 ### 6.4 Simulation → extract (S8)
 
 ```mermaid
 flowchart LR
-  IN[Input]
-  PH[Physics]
-  AN[Animation]
-  AI[AI]
-  SOA[SoA columns]
-  EX[Extract]
-  IN --> PH
-  PH --> SOA
-  AN --> SOA
-  AI --> SOA
-  SOA --> EX
+  TASK_INPUT[Input]
+  TASK_PHYSICS[Physics]
+  TASK_ANIMATION[Animation]
+  TASK_AI[AI]
+  TASK_SOA[SoA columns]
+  TASK_EXTRACT[Extract]
+  TASK_INPUT --> TASK_PHYSICS
+  TASK_PHYSICS --> TASK_SOA
+  TASK_ANIMATION --> TASK_SOA
+  TASK_AI --> TASK_SOA
+  TASK_SOA --> TASK_EXTRACT
+```
+
+### 6.5 Lighting evolution dependencies
+
+```mermaid
+flowchart TB
+  STG_FORWARD[Stage 1 Forward baseline]
+  STG_HYBRID[Stage 2 Hybrid Deferred + PBR]
+  STG_DDGI[Stage 3 Optional DDGI]
+  TASK_FG[Frame graph pass topology]
+  TASK_PERM[Shader permutations]
+  TASK_PRESET[Presets + benchmark harness]
+
+  STG_FORWARD --> STG_HYBRID --> STG_DDGI
+  TASK_FG --> STG_HYBRID
+  TASK_PERM --> STG_HYBRID
+  TASK_PRESET --> STG_DDGI
 ```
 
 ---
@@ -394,7 +462,7 @@ Features (MSAA, shadows, IBL, tonemap, etc.) should map to:
 
 Architecturally: **feature code** should not scatter “if (feature)” inside per-object virtual calls; it should change **which FG passes/pipelines exist** and **which columns** extract reads — still fed by the same draw-stream machinery.
 
-**M6 acceptance (summary):** frame graph drives forward + at least one extra pass; multi-view or multi-target documented; preset permutation switches pass validation cleanly (`SprintPlan.md` S7).
+**M6 acceptance (summary):** frame graph drives hybrid-capable path (opaque deferred/clustered + transparent forward) + at least one extra pass; multi-view or multi-target documented; `ForwardLit`/`HybridDeferred` preset permutation switches pass validation cleanly (`SprintPlan.md` S7).
 
 ---
 
@@ -457,4 +525,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 vk-core-decomposition phase 2 backlog; 2026-05-27).*
+*Last aligned with `Docs/SprintPlan.md` (lighting dependencies + epic stage contracts; 2026-05-28).*

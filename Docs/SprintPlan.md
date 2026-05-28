@@ -1,6 +1,6 @@
 # Sprint Plan — SiriusEngine / VulkanDesktop
 
-Executable roadmap for a **small but real engine foundation** and a **mesh-shader, GPU-driven** render path. Architecture intent and tradeoffs: [`EngineArchitecture.md`](EngineArchitecture.md). Doc index: [`README.md`](README.md). Task logs: `Docs/{TaskName}_Plan.md` / `_Progress.md` at repo `Docs/` root (**current sprint** — not moved to `Archived/plans/` on task close).
+Executable roadmap for a **small but real engine foundation**, a **mesh-shader GPU-driven** geometry path, and a staged lighting evolution (**Forward → Hybrid Deferred/Clustered + PBR → optional DDGI**). Architecture intent and tradeoffs: [`EngineArchitecture.md`](EngineArchitecture.md). Doc index: [`README.md`](README.md). Task logs: `Docs/{TaskName}_Plan.md` / `_Progress.md` at repo `Docs/` root (**current sprint** — not moved to `Archived/plans/` on task close).
 
 **Hygiene:** Active sprints list only open `[ ]` tasks. When done, **move the line to [Archived](#archived)** (keep sprint tag + completion note). Do not leave `[x]` in active sections.
 
@@ -13,6 +13,7 @@ Executable roadmap for a **small but real engine foundation** and a **mesh-shade
 | **Engine** | Deterministic startup; stable shader/asset pipeline; clear module boundaries; config + data on disk. |
 | **Data plane** | SoA columns, stable handles, render **extract** → flat draw/meshlet buffers (no hot-path scene-graph walks). |
 | **Render target** | **GPU-driven** visibility/draw generation + **mesh shader** raster (Task optional); VS+indirect **fallback** when unsupported. |
+| **Lighting path** | Stage 1 full Forward baseline → Stage 2 full PBR with **opaque deferred/clustered + transparent forward** → Stage 3 **optional DDGI** on hybrid path. |
 | **Product slice** | One playable scene + simple loop + fail-soft logging (no silent black screen). |
 | **Rendering lab** | Presets, CPU/GPU timing, optional captures; features toggle without breaking sort keys. |
 | **Evidence** | Benchmark scene + runbook; reproducible numbers on a fresh machine. |
@@ -35,16 +36,22 @@ Executable roadmap for a **small but real engine foundation** and a **mesh-shade
 
 ```mermaid
 flowchart LR
-  S0[S0 Foundation] --> S1[S1 Draw stream]
-  S1 --> S2[S2 Layering]
-  S1 --> S3[S3 GPU indirect]
-  S1 --> S4[S4 Meshlets]
-  S4 --> S5[S5 Mesh shader]
-  S3 --> S6[S6 GPU mesh tasks]
-  S5 --> S6
-  S6 --> S7[S7 Render lab]
-  S1 --> S8[S8 Simulation]
-  S2 --> S8
+  SPR_S0[S0 Foundation] --> SPR_S1[S1 Draw stream]
+  SPR_S1 --> SPR_S2[S2 Layering]
+  SPR_S1 --> SPR_S3[S3 GPU indirect]
+  SPR_S1 --> SPR_S4[S4 Meshlets]
+  SPR_S4 --> SPR_S5[S5 Mesh shader]
+  SPR_S3 --> SPR_S6[S6 GPU mesh tasks]
+  SPR_S5 --> SPR_S6
+  SPR_S6 --> SPR_S7[S7 Render lab]
+  SPR_S1 --> SPR_S8[S8 Simulation]
+  SPR_S2 --> SPR_S8
+
+  STG_1[Stage 1 Forward Epic] --> STG_2[Stage 2 Hybrid Deferred Epic]
+  STG_2 --> STG_3[Stage 3 DDGI Epic]
+  SPR_S2 --> STG_1
+  SPR_S3 --> STG_2
+  SPR_S7 --> STG_3
 ```
 
 **Parallel tracks** (see [dependency graph](#task-dependency-graph)):
@@ -53,6 +60,21 @@ flowchart LR
 - After **S2 scheduler**: [S8 — Simulation](#s8--simulation-physics--animation--ai) (Physics → Animation → AI).
 - **Shader stack** (reflection → permutation → cache): [S1](#s1--cpu-draw-stream-milestone-m1) late / [S2](#s2--engine-layering--hygiene) — blocks heavy S7 feature permutations.
 - **Frame graph + multi-view**: [S7](#s7--rendering-lab--hardening-milestone-m6) — after M1 sort/batch; shadow pass benefits from FG.
+- **Lighting evolution epics** (cross-sprint): [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) → [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) → [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md).
+
+### Rendering evolution epics (cross-sprint)
+
+**Naming (canonical):**
+
+- **Stage:** `Stage 1 (Forward Baseline)`, `Stage 2 (Hybrid Deferred + PBR)`, `Stage 3 (Optional DDGI)`
+- **Preset:** `ForwardLit`, `HybridDeferred`
+- **Pass chain (Stage 2+):** `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post`
+
+| Stage | Epic doc | Intent | Depends on | Primary sprint windows |
+|------|----------|--------|------------|------------------------|
+| **1** | [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Complete forward baseline (opaque + transparent), prepare migration contracts | S1 M1 done, S2 shader/permutation groundwork | S2–S3 |
+| **2** | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | Full PBR with `GBufferOpaque + DeferredLighting` (clustered) for opaque + `ForwardTransparent` | Stage 1 handoff, S2/S7 frame graph and permutation path | S3–S7 |
+| **3** | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | Optional DDGI on top of hybrid renderer | Stage 2 accepted hybrid renderer, S7 benchmark/preset infra | S7+ |
 
 ---
 
@@ -62,86 +84,97 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph foundation [S0 done]
-    S0[S0 toolchain descriptors]
+  subgraph GRP_FOUNDATION [S0 done]
+    TASK_S0[S0 toolchain descriptors]
   end
 
-  subgraph s1 [S1 M1]
-    SoA[SoA + Extract + resource tables]
-    Sort[Sort + batch + Record]
-    LOD0[LOD v0 CPU]
-    Trans[Transparency dual lists]
-    BindDec[Bindless decision + tables v0]
-    SoA --> Sort
-    SoA --> LOD0
-    SoA --> Trans
-    Sort --> Trans
-    BindDec --> Sort
+  subgraph GRP_S1 [S1 M1]
+    TASK_SOA[SoA + Extract + resource tables]
+    TASK_SORT[Sort + batch + Record]
+    TASK_LOD0[LOD v0 CPU]
+    TASK_TRANS[Transparency dual lists]
+    TASK_BINDDEC[Bindless decision + tables v0]
+    TASK_SOA --> TASK_SORT
+    TASK_SOA --> TASK_LOD0
+    TASK_SOA --> TASK_TRANS
+    TASK_SORT --> TASK_TRANS
+    TASK_BINDDEC --> TASK_SORT
   end
 
-  subgraph shader [Shader stack S1 late / S2]
-    Reflect[Shader reflection SPIRV]
-    Perm[Permutation registry]
-    Cache[Pipeline + disk cache]
-    Reflect --> Perm
-    Perm --> Cache
+  subgraph GRP_SHADER [Shader stack S1 late / S2]
+    TASK_REFLECT[Shader reflection SPIRV]
+    TASK_PERM[Permutation registry]
+    TASK_CACHE[Pipeline + disk cache]
+    TASK_REFLECT --> TASK_PERM
+    TASK_PERM --> TASK_CACHE
   end
 
-  subgraph s2 [S2]
-    Life[lifecycle + scheduler]
-    Scene[scene-load C]
-    MultiCam[Multi-view RenderView]
-    Life --> MultiCam
-    SoA --> MultiCam
+  subgraph GRP_S2 [S2]
+    TASK_LIFE[lifecycle + scheduler]
+    TASK_SCENE[scene-load C]
+    TASK_MULTICAM[Multi-view RenderView]
+    TASK_LIFE --> TASK_MULTICAM
+    TASK_SOA --> TASK_MULTICAM
   end
 
-  subgraph render_adv [S3–S7]
-    GPUcull[S3 GPU cull indirect]
-    Meshlet[S4 meshlets]
-    MeshSh[S5 mesh shader]
-    GPUMesh[S6 GPU mesh tasks]
-    FG[Frame graph v1]
-    LODgpu[LOD GPU parity]
-    SoA --> GPUcull
-    LOD0 --> LODgpu
-    GPUcull --> LODgpu
-    Sort --> FG
-    Perm --> FG
-    MultiCam --> FG
-    GPUcull --> Meshlet
-    Meshlet --> MeshSh
-    BindDec --> MeshSh
-    MeshSh --> GPUMesh
-    GPUMesh --> FG
+  subgraph GRP_RENDER_ADV [S3–S7]
+    TASK_GPUCULL[S3 GPU cull indirect]
+    TASK_MESHLET[S4 meshlets]
+    TASK_MESHSH[S5 mesh shader]
+    TASK_GPUMESH[S6 GPU mesh tasks]
+    TASK_FG[Frame graph v1]
+    TASK_LODGPU[LOD GPU parity]
+    TASK_SOA --> TASK_GPUCULL
+    TASK_LOD0 --> TASK_LODGPU
+    TASK_GPUCULL --> TASK_LODGPU
+    TASK_SORT --> TASK_FG
+    TASK_PERM --> TASK_FG
+    TASK_MULTICAM --> TASK_FG
+    TASK_GPUCULL --> TASK_MESHLET
+    TASK_MESHLET --> TASK_MESHSH
+    TASK_BINDDEC --> TASK_MESHSH
+    TASK_MESHSH --> TASK_GPUMESH
+    TASK_GPUMESH --> TASK_FG
   end
 
-  subgraph s7 [S7 lab]
-    Preset[Presets + benchmarks]
-    FG --> Preset
-    Perm --> Preset
-    Cache --> Preset
+  subgraph GRP_S7 [S7 lab]
+    TASK_PRESET[Presets + benchmarks]
+    TASK_FG --> TASK_PRESET
+    TASK_PERM --> TASK_PRESET
+    TASK_CACHE --> TASK_PRESET
   end
 
-  subgraph s8 [S8 parallel S2+]
-    Phys[Physics]
-    Anim[Animation]
-    AI[AI v0]
-    Life --> Phys
-    Phys --> Anim
-    Anim --> AI
+  subgraph GRP_LIGHTING [Lighting epics]
+    STG_1E[Stage 1 Forward]
+    STG_2E[Stage 2 Hybrid Deferred]
+    STG_3E[Stage 3 DDGI]
+    STG_1E --> STG_2E --> STG_3E
   end
 
-  subgraph mt [Backlog threading]
-    Jobs[Job system + SoA sync]
-    SoA --> Jobs
-    LOD0 --> Jobs
-    Jobs --> GPUcull
+  subgraph GRP_S8 [S8 parallel S2+]
+    TASK_PHYS[Physics]
+    TASK_ANIM[Animation]
+    TASK_AI[AI v0]
+    TASK_LIFE --> TASK_PHYS
+    TASK_PHYS --> TASK_ANIM
+    TASK_ANIM --> TASK_AI
   end
 
-  S0 --> SoA
-  Sort --> Reflect
-  Scene --> MultiCam
-  Trans --> FG
+  subgraph GRP_MT [Backlog threading]
+    TASK_JOBS[Job system + SoA sync]
+    TASK_SOA --> TASK_JOBS
+    TASK_LOD0 --> TASK_JOBS
+    TASK_JOBS --> TASK_GPUCULL
+  end
+
+  TASK_S0 --> TASK_SOA
+  TASK_SORT --> TASK_REFLECT
+  TASK_SCENE --> TASK_MULTICAM
+  TASK_TRANS --> TASK_FG
+  TASK_SORT --> STG_1E
+  TASK_PERM --> STG_1E
+  TASK_FG --> STG_2E
+  TASK_PRESET --> STG_3E
 ```
 
 | Epic | Depends on | Unblocks | Primary home |
@@ -156,6 +189,9 @@ flowchart TB
 | **Multi-camera** | M1 extract, S2 lifecycle | FG per-view, debug minimap | S2, S7 |
 | **Frame graph** | M1 record path, ≥2 passes worth | Shadows, post, multi-view RT | S7 (spike after M2 optional) |
 | **GPU cull / mesh** | M1 buffers | GPU LOD, M5 | S3–S6 |
+| **Lighting Stage 1 (Forward)** | M1 draw stream, S2 shader systems | Hybrid deferred migration with parity baseline | S2–S3 |
+| **Lighting Stage 2 (Hybrid Deferred + PBR)** | Stage 1 handoff, Frame graph + permutation path | Optional DDGI, hybrid production lighting path | S3–S7 |
+| **Lighting Stage 3 (DDGI optional)** | Stage 2 accepted, S7 presets/bench infra | Optional GI enhancement presets | S7+ |
 | **Multi-threading** | M1 SoA columns, S2 scheduler | Parallel cull/LOD/anim | Backlog → promote after M2 |
 | **Physics → Animation → AI** | S2 scheduler, SoA writes | Vertical slice enemies, moving props | S8 |
 
@@ -166,6 +202,7 @@ flowchart TB
 ## S0 — Foundation & tooling
 
 *Blocks all experiments. Maps to old §1 P0/P1.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S0 validation section)](./SprintOutcomeValidation.md)
 
 ### Must complete
 
@@ -180,6 +217,7 @@ flowchart TB
 ## S1 — CPU draw stream (milestone M1)
 
 *Traditional VS/FS; architecture matches end-state data flow. Old §2 SoA extract + §4 draw stream. **Retrospective (中文):** [`Archived/S1-回顾总结.md`](Archived/S1-回顾总结.md).*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S1 validation section)](./SprintOutcomeValidation.md)
 
 ### S1 — implementation notes *(living; trim rows when follow-up tasks close)*
 
@@ -221,6 +259,7 @@ flowchart TB
 ## S2 — Engine layering & hygiene
 
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
 - [ ] Remove temp init hacks (`CreateMaterial`, `InitScene`, env buffer) or finish wiring.
 - [ ] **Image queue sharing** when transfer ≠ graphics family.
@@ -237,7 +276,7 @@ flowchart TB
 | 3 | [ ] **Vk_SwapchainHost** — swapchain, render pass, depth/color, framebuffers, `RecreateSwapChain`; acquire/present in `DrawFrame` | `Vk_SwapchainHost` | Part 2 + swapchain recreation |
 | 4 | [ ] **Vk_DescriptorSystem** — Set 0/1/2 layouts, pool, material sets, bindless table/descriptor | `Vk_DescriptorSystem` | `CreateDescriptor*` / `CreateMaterialDescriptorSets` / bindless resources |
 | 5 | [ ] **Vk_GfxPipelineCache** — lit + transparent + bindless pipelines/layouts (scene shader paths) | `Vk_GfxPipelineCache` | `CreateGfxPipeline` / bindless pipeline create |
-| 6 | [ ] **Vk_ForwardScenePass** — `RecordScenePass`, `RecordDrawBatches*`, `RecordImGuiPass` | `Vk_ForwardScenePass` | Scene command recording |
+| 6 | [ ] **Vk_ScenePasses** — split scene recording into `Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` (+ `RecordImGuiPass`) | `Vk_ScenePasses` (or equivalent split modules) | Scene command recording and hybrid path pass ownership |
 | 7 | [ ] **Vk_FrameUniformUploader** — per-frame camera + env UBO upload | `Vk_FrameUniformUploader` | `UpdateUniformBuffer` |
 | 8 | [ ] **Scene host peel** — `Gfx_SceneSoA`, LOD, manifest→SoA CPU path; `Application` or `Gfx_WorldStore` owns; `Vk_Core` reads refs | App / Gfx | `LoadSceneResources` CPU + `GetSceneSoA` accessors |
 | 9 | [ ] **Vk_PlatformFrame** — GLFW window, `BeginPlatformFrame`, ImGui init/shutdown | `Vk_PlatformFrame` | `InitWindow` / platform tick |
@@ -258,6 +297,7 @@ flowchart TB
 - [ ] **Shader reflection:** offline SPIRV-Reflect (or equivalent) → JSON bindings (`set`/`binding`/types); validate against `Vk_DescriptorPolicy.h` — plan `shader-reflection_Plan.md`.
 - [ ] **Permutation registry:** feature key bits (`SHADOWS`, `IBL`, `ALPHA_CLIP`, …) + offline glslc variants → `Shader_Generated/`; sort key carries `pipelinePermutationId`.
 - [ ] **Pipeline cache:** `VkPipelineCache` + disk `Cache/pipeline_*.bin` (versioned); invalidate on shader timestamp / driver change.
+- [ ] Stage 1 gate: finish forward baseline contracts from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (material/permutation/preset parity handoff).
 
 ### Multi-view — *deps: M1 Extract, lifecycle; unblocks S7 FG*
 
@@ -271,6 +311,7 @@ flowchart TB
 ## S3 — GPU-driven indirect (milestone M2)
 
 *Prove GPU visibility before mesh shaders. Old §4 “GPU culling / indirect”.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S3 validation section)](./SprintOutcomeValidation.md)
 
 - [ ] Per-instance AABB + draw template in SSBO (sync with SoA).
 - [ ] Compute: frustum cull → visible indices + `VkDrawIndexedIndirectCommand` buffer.
@@ -278,6 +319,7 @@ flowchart TB
 - [ ] Optional GPU compaction pass for dense visible list.
 - [ ] **Parity test**: GPU path vs CPU cull on fixed camera (golden or statistical) per `EngineArchitecture.md` §5.5.
 - [ ] **LOD GPU:** cull/indirect uses same LOD table as S1; subset parity vs CPU on fixed camera — *deps: S1 LOD v0*.
+- [ ] **FG v0 for Stage 2 start:** minimal frame-graph path for `GBufferOpaque -> ClusterBuild -> DeferredLighting` on opaque path (no full S7 infra yet) — *deps: M1 draw stream + S2 permutation scaffold*.
 
 ### M2 acceptance
 
@@ -288,6 +330,7 @@ flowchart TB
 ## S4 — Meshlet geometry (milestone M3)
 
 *Data prerequisite for mesh shaders.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S4 validation section)](./SprintOutcomeValidation.md)
 
 - [ ] Choose meshlet builder (e.g. meshoptimizer) + documented cluster params.
 - [ ] Asset format: meshlet table + vertex/index views + per-meshlet bounds (import or offline step).
@@ -304,6 +347,7 @@ flowchart TB
 ## S5 — Mesh shader pipeline (milestone M4)
 
 *Raster path switch. Vulkan 1.2 + `VK_EXT_mesh_shader`; **no Task shader** in v1.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S5 validation section)](./SprintOutcomeValidation.md)
 
 - [ ] Device capability probe: mesh shader features; log + graceful disable.
 - [ ] Enable extensions; mesh + fragment pipeline layout aligned with **bindless / material tables** (S1) — *deps: bindless v0 or documented fallback*.
@@ -313,13 +357,14 @@ flowchart TB
 
 ### M4 acceptance
 
-- [ ] Single-object mesh-shader forward lit matches VS path within agreed tolerance.
+- [ ] Single-object mesh-shader path matches VS path for geometry/pass-contract parity (forward baseline and hybrid G-buffer path within agreed tolerance).
 
 ---
 
 ## S6 — GPU-driven mesh tasks (milestone M5)
 
 *End-state core: GPU cull **meshlets** + `vkCmdDrawMeshTasksIndirectEXT`.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S6 validation section)](./SprintOutcomeValidation.md)
 
 - [ ] Compute: meshlet frustum cull (+ optional backface cone later).
 - [ ] Compact visible meshlet list → indirect mesh-task buffer.
@@ -336,11 +381,17 @@ flowchart TB
 ## S7 — Rendering lab & hardening (milestone M6)
 
 *Old §4 experiments + §5 measurement + §6 docs — on top of S6 path. Frame graph + multi-view land here after M1/M2 draw path is stable.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S7 validation section)](./SprintOutcomeValidation.md)
+
+### Stage gates
+
+- [ ] **Stage 2 gate (Hybrid Deferred + PBR):** land milestone from [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (`GBufferOpaque + DeferredLighting` clustered for opaque, `ForwardTransparent`, full PBR, `ForwardLit`/`HybridDeferred` parity preset validation).
+- [ ] **Stage 3 gate (Optional DDGI):** enter DDGI rollout only after Stage 2 gate passes; demonstrate DDGI preset on/off parity baseline, fallback stability, and benchmark deltas documented per [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md).
 
 ### Frame graph — *deps: M1 Record, S2 multi-view optional, S2 permutation; unblocks shadow/post passes*
 
 - [ ] `framegraph_Plan.md`: pass/resource nodes, transient RT pool, import/export rules.
-- [ ] `FrameGraphBuilder`: topological sort + barrier emission; migrate **ForwardLit** to `addPass`.
+- [ ] `FrameGraphBuilder`: topological sort + barrier emission; land hybrid-capable pass chain (`GBufferOpaque`, `DeferredLighting`, `ForwardTransparent`, `Post`) while keeping `ForwardLit` baseline preset.
 - [ ] **Transparent pass** as FG node (reads depth) — *deps: S1 transparency*.
 - [ ] Preset toggles FG topology (enable/disable shadow, post) without breaking sort keys.
 
@@ -371,19 +422,20 @@ flowchart TB
 
 ### M6 acceptance
 
-- [ ] Frame graph drives forward + at least one extra pass (e.g. shadow or tonemap) on benchmark scene.
-- [ ] Two **RenderView**s or FG multi-target documented in runbook; presets switch permutations without validation errors.
+- [ ] Frame graph drives hybrid-capable path (opaque deferred/clustered + transparent forward) plus at least one extra pass (e.g. shadow or tonemap) on benchmark scene.
+- [ ] Two **RenderView**s or FG multi-target documented in runbook; `ForwardLit`/`HybridDeferred` presets switch permutations without validation errors.
 
 ---
 
 ## S8 — Simulation (Physics → Animation → AI)
 
 *Parallel after **S2 scheduler** + M1 SoA. Does not block S3–S6. Writes simulation columns only; Extract reads results.*
+**Validation plan:** [`SprintOutcomeValidation.md` (see S8 validation section)](./SprintOutcomeValidation.md)
 
 ```mermaid
 flowchart LR
-  PH[Physics] --> AN[Animation]
-  AN --> AI[AI v0]
+  TASK_PHYS[Physics] --> TASK_ANIM[Animation]
+  TASK_ANIM --> TASK_AI[AI v0]
 ```
 
 ### Physics — *deps: S2 scheduler, SoA transform/bounds; unblocks gameplay + anim*
@@ -454,7 +506,7 @@ flowchart LR
 - [ ] `LNK4098` linker warning; safe `size_t`→`uint32_t` casts.
 - [ ] **Task shader** for mesh amplification (post-M5).
 - [ ] GPU occlusion / hierarchical Z (post-M5).
-- [ ] Deferred vs forward decision (only if G-buffer committed).
+- [ ] DDGI production tuning and quality tiers after Stage 3 acceptance (`ddgi-lighting-epic_Plan.md`).
 - [ ] **Multi-threading v1:** thread model doc + frame SoA double-buffer — *deps: M1 SoA, S2 scheduler*.
 - [ ] **Multi-threading v2:** job system parallel cull/LOD/transform — *deps: MT v1, S1 LOD*; unblocks faster M2 record prep.
 - [ ] **Multi-threading v3 (optional):** render thread + command stream — *deps: S7 frame graph stable*.

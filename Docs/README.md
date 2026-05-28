@@ -11,6 +11,10 @@
 | [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md) / [`application-lifecycle_Progress.md`](application-lifecycle_Progress.md) | S2 Application lifecycle + Update/Render scheduler — **done** 2026-05-27 |
 | [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–C done; **Phase D unblocked** — see plan Handoff |
 | [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) / [`vk-core-decomposition_Progress.md`](vk-core-decomposition_Progress.md) | S2 `Vk_Core` RHI peel (context, draw prep, record/submit) — **done** 2026-05-27 |
+| [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Sprint close-out validation runbook (S0–S8 acceptance checks) |
+| [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 lighting epic: complete forward baseline before deferred migration |
+| [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | Stage 2 lighting epic: full PBR with opaque deferred/clustered + transparent forward |
+| [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | Stage 3 lighting epic: optional DDGI layer on top of hybrid renderer |
 | [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | **Scene JSON v1 authoring** (EN / 中文) |
 
 ## Guides (not vibe task logs)
