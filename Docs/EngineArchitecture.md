@@ -85,7 +85,17 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **RHI peel phase 2 (2026-05-28, step #1 done):** `Vk_ResourceContext v2` now owns load-time buffer/image/upload helper operations consumed by `Util_Loader` and `Gfx_Mesh::BuildBuffers` through explicit context injection.
 
-**RHI peel phase 2 (next planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, scene pass modules (`Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` or equivalent), scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
+**RHI peel phase 2 (2026-05-28, step #2 done):** `Vk_RenderDevice` now owns part-1 bootstrap orchestration (`InitRenderDevice` slice: instance/device/queues/VMA/command pools) via `Vk_RenderDevice::Init`.
+
+**RHI peel phase 2 (2026-05-28, step #3 done):** `Vk_SwapchainHost` now owns part-2 swapchain-host init orchestration (swapchain/render pass/depth-color/framebuffers) via `Vk_SwapchainHost::Init`.
+
+**RHI peel phase 2 (2026-05-28, step #4 done):** `Vk_DescriptorSystem` now owns descriptor/layout/pool/material-set orchestration delegated from `Vk_Core` init/load-scene paths.
+
+**RHI peel phase 2 (2026-05-28, step #5 done):** `Vk_GfxPipelineCache` now owns scene pipeline orchestration delegated from load-scene and swapchain-recreate paths.
+
+**RHI peel phase 2 (2026-05-28, steps #6-#9 done):** `Vk_ScenePasses`, `Vk_FrameUniformUploader`, `Vk_SceneHost`, and `Vk_PlatformFrame` now own their orchestration slices via delegation from `Vk_Core`.
+
+**RHI peel phase 2 status:** queue closed in `SprintPlan.md` (all listed module slices completed); remaining work continues in follow-up architecture tasks.
 
 **Phase 2 doc tracking:** phase 2 task design/progress is consolidated in `Docs/vk-core-decomposition_Plan.md` and `Docs/vk-core-decomposition_Progress.md` (SprintPlan keeps checklist-level status only).
 
@@ -529,4 +539,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 phase-2 doc consolidation convention + checklist alignment; 2026-05-28).*
+*Last aligned with `Docs/SprintPlan.md` (S2 phase-2 queue closeout and archived completion records; 2026-05-28).*

@@ -271,18 +271,7 @@ flowchart TB
 
 *Doc convention:* all phase 2 task design/progress records are consolidated in `Docs/vk-core-decomposition_Plan.md` and `Docs/vk-core-decomposition_Progress.md` (no separate per-task plan/progress files for phase 2 slices).
 
-| Order | Task | Target module | Peels from `Vk_Core` |
-|------:|------|---------------|----------------------|
-| 1 | [ ] **Vk_RenderDevice** — instance, physical device, logical device, queues, VMA, command pools | `Vk_RenderDevice` | `InitRenderDevice` Part 1 (through `InitAllocator`) |
-| 2 | [ ] **Vk_SwapchainHost** — swapchain, render pass, depth/color, framebuffers, `RecreateSwapChain`; acquire/present in `DrawFrame` | `Vk_SwapchainHost` | Part 2 + swapchain recreation |
-| 3 | [ ] **Vk_DescriptorSystem** — Set 0/1/2 layouts, pool, material sets, bindless table/descriptor | `Vk_DescriptorSystem` | `CreateDescriptor*` / `CreateMaterialDescriptorSets` / bindless resources |
-| 4 | [ ] **Vk_GfxPipelineCache** — lit + transparent + bindless pipelines/layouts (scene shader paths) | `Vk_GfxPipelineCache` | `CreateGfxPipeline` / bindless pipeline create |
-| 5 | [ ] **Vk_ScenePasses** — split scene recording into `Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` (+ `RecordImGuiPass`) | `Vk_ScenePasses` (or equivalent split modules) | Scene command recording and hybrid path pass ownership |
-| 6 | [ ] **Vk_FrameUniformUploader** — per-frame camera + env UBO upload | `Vk_FrameUniformUploader` | `UpdateUniformBuffer` |
-| 7 | [ ] **Scene host peel** — `Gfx_SceneSoA`, LOD, manifest→SoA CPU path; `Application` or `Gfx_WorldStore` owns; `Vk_Core` reads refs | App / Gfx | `LoadSceneResources` CPU + `GetSceneSoA` accessors |
-| 8 | [ ] **Vk_PlatformFrame** — GLFW window, `BeginPlatformFrame`, ImGui init/shutdown | `Vk_PlatformFrame` | `InitWindow` / platform tick |
-
-*Suggested next vibe task:* **#1 Vk_RenderDevice**. Then **#2 Vk_SwapchainHost**, then descriptor/pipeline/scene-pass splits.
+*(phase-2 queue cleared 2026-05-28 — all module slices tracked in `Docs/vk-core-decomposition_Plan.md` / `Docs/vk-core-decomposition_Progress.md`; see Archived.)*
 
 ### Scene (minimal for M1+)
 
@@ -552,6 +541,14 @@ flowchart LR
 - [x] **[S2]** Application lifecycle: `App/Application` orchestrates InitApp → scene verify → `InitRenderDevice` / `LoadSceneResources` / `Update`+`Render` / `UnloadScene` / `Shutdown`; peeled scene load out of `InitVulkan` — 2026-05-27; `Docs/application-lifecycle_Plan.md`.
 - [x] **[S2]** `Vk_Core` decomposition (incremental): `Vk_ResourceContext` + tables load (M1), `Gfx_FrameDrawStream` / `Vk_FrameDrawPrep` + `Gfx_DemoSceneSim` (M2), `DrawFrame` acquire/prep/record/present (M3) — 2026-05-27; `Docs/vk-core-decomposition_Plan.md`.
 - [x] **[S2]** `Vk_ResourceContext v2`: resource load/upload helpers moved to explicit context injection (`Util_Loader`, `Gfx_Mesh::BuildBuffers`) and no singleton access in this chain — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_RenderDevice`: phase-2 part-1 init orchestration peeled to `Vk_RenderDevice::Init` (instance/device/queues/VMA/command pools) with `Vk_Core::InitRenderDevice` delegation — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_SwapchainHost`: phase-2 part-2 swapchain-host init orchestration peeled to `Vk_SwapchainHost::Init` (swapchain/render pass/depth-color/framebuffers) with `Vk_Core::InitRenderDevice` delegation — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_DescriptorSystem`: descriptor/layout/pool/material-set orchestration peeled to `Vk_DescriptorSystem` and delegated from `Vk_Core` init/load-scene paths — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_GfxPipelineCache`: scene pipeline orchestration peeled to `Vk_GfxPipelineCache::InitScenePipelines` and delegated from load-scene + swapchain-recreate paths — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_ScenePasses`: frame pass record orchestration peeled to `Vk_ScenePasses::RecordFramePasses` with `DrawFrame` delegation — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_FrameUniformUploader`: per-frame UBO upload orchestration peeled to `Vk_FrameUniformUploader::Update` with `DrawFrame` delegation — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** Scene host peel: scene CPU-state setup (id tables/SoA/LOD/debug logical mesh) peeled to `Vk_SceneHost::LoadCpuState` from `LoadSceneResources` — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `Vk_PlatformFrame`: GLFW window init + per-frame poll/delta/ImGui orchestration peeled to `Vk_PlatformFrame` from `InitWindow`/`BeginPlatformFrame` — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
 - [x] **[S2]** Thin scheduler: `Vk_Core::Update` vs `Render` driven by `Application` main loop — 2026-05-27; with application-lifecycle.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `scene-load_Plan.md` Handoff.
 - [x] **[S2]** Scene-load Phase C: scene-driven SoA/LOD/manifest + `Vk_ResourceTables::LoadFromManifest`; `SetLoadedScene` before `Run()` — 2026-05-27; `Docs/scene-load_Plan.md` Phase C.

@@ -13,6 +13,14 @@
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_Bindless.h"
 #include "Vk_PipelineDiagnostics.h"
+#include "Vk_DescriptorSystem.h"
+#include "Vk_FrameUniformUploader.h"
+#include "Vk_GfxPipelineCache.h"
+#include "Vk_PlatformFrame.h"
+#include "Vk_RenderDevice.h"
+#include "Vk_SceneHost.h"
+#include "Vk_ScenePasses.h"
+#include "Vk_SwapchainHost.h"
 
 #include <imgui.h>
 #include "Vk_Initializer.h"
@@ -85,16 +93,7 @@ void Vk_Core::Shutdown() {
 
 // TODO(vk-core-peel): Vk_PlatformFrame — GLFW window, framebuffer callback, ImGui layer init; Application may own platform tick.
 void Vk_Core::InitWindow() {
-    UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
-    glfwInit();
-
-    glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
-    glfwWindowHint( GLFW_RESIZABLE, GLFW_TRUE );
-
-    myWindow = glfwCreateWindow( myWidth, myHeight, "Vulkan Window", nullptr, nullptr );
-    UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( myWidth ) + "x" + std::to_string( myHeight ) );
-    glfwSetWindowUserPointer( myWindow, this );
-    glfwSetFramebufferSizeCallback( myWindow, FramebufferResizeCallback );
+    Vk_PlatformFrame::InitWindow( *this );
 }
 
 
@@ -129,33 +128,15 @@ void Vk_Core::Clear() {
 // TODO(vk-core-peel): Vk_RenderDevice — peel CreateInstance through CreateFrameBuffers (device + swapchain host); Vk_Core keeps thin facade.
 void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
-    CreateInstance();
-    CreateSurface();
-    PickPhysicalDevice();
-    myBindlessCaps = Vk_ProbeBindlessCapabilities( myPhysicalDevice, myDeviceExtensions );
-    InitVk_QueueFamilyIndices();
-    CreateLogicalDevice();
-    myMaterialPath = Vk_SelectRenderMaterialPath( myBindlessCaps );
-    UtilLogger::Info( "BINDLESS", std::string( "materialPath=" ) + Vk_RenderMaterialPathName( myMaterialPath ) );
-    CreateCommandPool();
-    InitAllocator();
+    Vk_RenderDevice::Init( *this );
 
-    CreateSwapChain();
-    CreateRenderPass();
-    CreateDescriptorSetLayout();
-
-    CreateColorResources();
-    CreateDepthResources();
-    CreateFrameBuffers();
+    Vk_SwapchainHost::Init( *this );
 
     CreateFrameData();
     CreateInstanceSlabs();
     CreateUniformBuffers();
     CreateDescriptorPool();
-    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        CreateBindlessMaterialSetLayout();
-        CreateBindlessPipelineLayout();
-    }
+    Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 
@@ -164,24 +145,13 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
     myLoadedScene    = std::move( aScene );
     myHasLoadedScene = true;
-    mySceneIdTables  = Gfx_BuildSceneIdTables( myLoadedScene );
 
     const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
     vertShaderPath                      = litShader.myVertPath;
     fragShaderPath                      = litShader.myFragPath;
+    Vk_SceneHost::LoadCpuState( *this );
 
-    Gfx_PopulateSceneSoAFromSceneDesc( myLoadedScene, mySceneIdTables, mySceneSoA, myDemoBaseTransforms );
-    Gfx_BuildLodTableFromSceneDesc( myLoadedScene, mySceneIdTables, myLodTable );
-    myLodState.Clear();
-    {
-        const auto treeIt = mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
-        myLodDebugLogicalMeshId = treeIt != mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
-    }
-
-    CreateGfxPipeline();
-    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        CreateBindlessGfxPipelines();
-    }
+    Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     {
         Gfx_ResourceManifest manifest{};
@@ -194,14 +164,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
         myResourceTables.LoadFromManifest( manifest, myResourceContext, myDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
-    CreateTextureSampler();
-    CreateDescriptorSets();
-    if ( myMaterialPath == Vk_RenderMaterialPath::Batch ) {
-        CreateMaterialDescriptorSets();
-    }
-    else {
-        CreateBindlessDescriptorResources();
-    }
+    Vk_DescriptorSystem::InitSceneDescriptors( *this );
     Gfx_SetMaterialTableGenerationForExtract( myResourceTables.GetMaterialTableGeneration() );
     CreateCamera();
     InitDefaultEnvironmentData();
@@ -876,7 +839,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 
     // --- CPU: frame UBOs + draw stream (Gfx) + instance slab (Vk_FrameDrawPrep) ---
     myFrameStats.ResetPerFrameCounters();
-    UpdateUniformBuffer( myCurrentFrame );
+    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
     Vk_FrameDrawPrepBuildParams prepParams{};
     prepParams.myScene                 = &mySceneSoA;
@@ -925,15 +888,15 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     }
 
     if ( slabOk ) {
-        RecordScenePass( aFrameData.myCommandBuffer, imageIndex );
+        Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex );
     }
 
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
     UtilStatsOverlay::Build( myFrameStats );
     ImGui::Render();
+    Vk_ScenePasses::RecordImGui( *this, aFrameData.myCommandBuffer, imageIndex );
 
-    RecordImGuiPass( aFrameData.myCommandBuffer, imageIndex );
 
     if ( vkEndCommandBuffer( aFrameData.myCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
@@ -1041,10 +1004,7 @@ void Vk_Core::RecreateSwapChain() {
 
     CreateSwapChain();
     CreateRenderPass();
-    CreateGfxPipeline();
-    if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        CreateBindlessGfxPipelines();
-    }
+    Vk_GfxPipelineCache::InitScenePipelines( *this );
     CreateColorResources();
     CreateDepthResources();
     CreateFrameBuffers();
@@ -2233,19 +2193,7 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
 
 // TODO(vk-core-peel): Vk_PlatformFrame — poll/Δt/ImGui NewFrame; align with InitWindow peel.
 void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
-    glfwPollEvents();
-
-    const auto frameStart = std::chrono::high_resolution_clock::now();
-    aOutDeltaSeconds      = 0.0f;
-    if ( myHasLastFrameTime ) {
-        aOutDeltaSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
-        myFrameStats.PushFrameTime( aOutDeltaSeconds * 1000.f );
-    }
-    myLastFrameTime    = frameStart;
-    myHasLastFrameTime = true;
-
-    // ImGui must see this frame's GLFW state before Application samples movement / mouse look.
-    myImGuiLayer.NewFrame();
+    Vk_PlatformFrame::BeginFrame( *this, aOutDeltaSeconds );
 }
 
 void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput ) {

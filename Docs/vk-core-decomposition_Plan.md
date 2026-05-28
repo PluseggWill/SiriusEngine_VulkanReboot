@@ -165,14 +165,14 @@ All `Vk_Core decomposition — phase 2` tasks are documented in this plan and `D
 | # | Module | Status | Notes |
 |---|--------|--------|-------|
 | 1 | `Vk_ResourceContext` v2 | Done (2026-05-28) | Extend context helper surface; remove `GetInstance()` from loader/mesh upload chain |
-| 2 | `Vk_RenderDevice` | Planned | Device lifecycle only |
-| 3 | `Vk_SwapchainHost` | Planned | Swapchain + present path |
-| 4 | `Vk_DescriptorSystem` | Planned | Descriptor policy implementation surface |
-| 5 | `Vk_GfxPipelineCache` | Planned | Pipelines per scene shader / bindless branch |
-| 6 | `Vk_ScenePasses` | Planned | Command recording split for scene/hybrid passes + ImGui pass |
-| 7 | `Vk_FrameUniformUploader` | Planned | Frame UBO writes |
-| 8 | Scene host (App/Gfx) | Planned | SoA/LOD ownership leaves RenderCore |
-| 9 | `Vk_PlatformFrame` | Planned | GLFW + ImGui platform boundary |
+| 2 | `Vk_RenderDevice` | Done (2026-05-28) | Init orchestration peeled to `Vk_RenderDevice::Init` for instance/device/queues/VMA/command pools |
+| 3 | `Vk_SwapchainHost` | Done (2026-05-28) | Swapchain-host init orchestration peeled to `Vk_SwapchainHost::Init` |
+| 4 | `Vk_DescriptorSystem` | Done (2026-05-28) | Descriptor/layout/pool/material-set orchestration peeled to `Vk_DescriptorSystem` |
+| 5 | `Vk_GfxPipelineCache` | Done (2026-05-28) | Scene pipeline orchestration peeled to `Vk_GfxPipelineCache::InitScenePipelines` |
+| 6 | `Vk_ScenePasses` | Done (2026-05-28) | Frame pass record orchestration peeled to `Vk_ScenePasses::RecordFramePasses` |
+| 7 | `Vk_FrameUniformUploader` | Done (2026-05-28) | Per-frame UBO upload orchestration peeled to `Vk_FrameUniformUploader::Update` |
+| 8 | Scene host (App/Gfx) | Done (2026-05-28) | Scene CPU-state load orchestration peeled to `Vk_SceneHost::LoadCpuState` |
+| 9 | `Vk_PlatformFrame` | Done (2026-05-28) | GLFW window and per-frame poll/delta/ImGui orchestration peeled to `Vk_PlatformFrame` |
 
 ### Phase 2 #1 completion record (`Vk_ResourceContext` v2)
 

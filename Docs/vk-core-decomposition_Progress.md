@@ -46,3 +46,52 @@
 - **Files:** `RenderCore/Vk_ResourceContext.{h,cpp}`, `RenderCore/Vk_Core.cpp`, `RenderCore/Vk_ResourceTables.cpp`, `RenderCore/Vk_Types.{h,cpp}`, `Util/Util_Loader.{h,cpp}`, `Docs/SprintPlan.md`, `Docs/EngineArchitecture.md`
 - **What changed:** Expanded `Vk_ResourceContext` to own load-time helper operations (`CreateBuffer`/`CreateImage`/copy/transition/mipmap); `SyncResourceContext` now binds full handles (device, allocator, queues, pools, queue-family ids, physical device). Loader and mesh upload chains now consume explicit context, removing `Vk_Core::GetInstance()` usage in this path. Phase 2 tracking docs consolidated under `vk-core-decomposition_{Plan,Progress}.md`.
 - **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; runtime log shows `LoadSceneResources completed`, `RESOURCE-TABLE meshes=8 materials=7 textures=6`, `EXTRACT entities=9 draws=9`, and no new `[ERROR]` in init path.
+
+---
+
+## 2026-05-28 — Phase 2 #2: Vk_RenderDevice
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #2 (`Vk_RenderDevice`)
+- **Files:** `RenderCore/Vk_RenderDevice.{h,cpp}`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `VulkanDesktop.vcxproj.filters`
+- **What changed:** Added `Vk_RenderDevice` module and moved part-1 device bootstrap orchestration from `Vk_Core::InitRenderDevice` into `Vk_RenderDevice::Init` (instance/surface/physical device/queue families/logical device/command pools/allocator + bindless path selection). `Vk_Core` now delegates this slice to the new module.
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; runtime log shows `LoadSceneResources completed`, `EXTRACT entities=9 draws=9`, and no new `[ERROR]` during init path.
+
+---
+
+## 2026-05-28 — Phase 2 #3: Vk_SwapchainHost
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #3 (`Vk_SwapchainHost`)
+- **Files:** `RenderCore/Vk_SwapchainHost.{h,cpp}`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `VulkanDesktop.vcxproj.filters`
+- **What changed:** Added `Vk_SwapchainHost` module and moved swapchain-host init orchestration from `Vk_Core::InitRenderDevice` into `Vk_SwapchainHost::Init` (`CreateSwapChain`, `CreateRenderPass`, descriptor-set layout creation, color/depth resources, framebuffers).
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; no new `[ERROR]` in startup path.
+
+---
+
+## 2026-05-28 — Phase 2 #4: Vk_DescriptorSystem
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #4 (`Vk_DescriptorSystem`)
+- **Files:** `RenderCore/Vk_DescriptorSystem.{h,cpp}`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `VulkanDesktop.vcxproj.filters`
+- **What changed:** Added `Vk_DescriptorSystem` module and delegated descriptor orchestration from `Vk_Core`: device-time layouts (`CreateDescriptorSetLayout`, bindless set/pipeline layout) and scene-time descriptors (sampler, pool, set allocation, material/bindless resources).
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; no new `[ERROR]` in startup path.
+
+---
+
+## 2026-05-28 — Phase 2 #5: Vk_GfxPipelineCache
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #5 (`Vk_GfxPipelineCache`)
+- **Files:** `RenderCore/Vk_GfxPipelineCache.{h,cpp}`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `VulkanDesktop.vcxproj.filters`
+- **What changed:** Added `Vk_GfxPipelineCache` module and delegated scene pipeline orchestration (`CreateGfxPipeline`, optional bindless pipeline creation) from `Vk_Core` scene load and swapchain-recreate paths.
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; no new `[ERROR]` in startup path.
+
+---
+
+## 2026-05-28 — Phase 2 #6/#7/#8/#9: ScenePasses + FrameUniformUploader + SceneHost + PlatformFrame
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #6/#7/#8/#9
+- **Files:** `RenderCore/Vk_ScenePasses.{h,cpp}`, `RenderCore/Vk_FrameUniformUploader.{h,cpp}`, `RenderCore/Vk_SceneHost.{h,cpp}`, `RenderCore/Vk_PlatformFrame.{h,cpp}`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `VulkanDesktop.vcxproj.filters`
+- **What changed:** 
+  - `Vk_ScenePasses`: `DrawFrame` now delegates scene+imgui pass record orchestration to `RecordFramePasses`.
+  - `Vk_FrameUniformUploader`: `DrawFrame` now delegates per-frame UBO uploads to `Update`.
+  - `Vk_SceneHost`: `LoadSceneResources` now delegates scene CPU-state setup (id tables, SoA, LOD, debug logical mesh id) to `LoadCpuState`.
+  - `Vk_PlatformFrame`: `InitWindow` and `BeginPlatformFrame` now delegate GLFW/frame tick orchestration to module methods.
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; no new `[ERROR]` in startup path.

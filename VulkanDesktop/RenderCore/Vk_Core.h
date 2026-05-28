@@ -45,6 +45,14 @@ struct GLFWwindow;
 //   6) Scene host — SoA/LOD/LoadSceneResources CPU path out of RenderCore
 //   7) Vk_PlatformFrame — GLFW window + BeginPlatformFrame + ImGui init
 class Vk_Core {
+    friend class Vk_RenderDevice;
+    friend class Vk_SwapchainHost;
+    friend class Vk_DescriptorSystem;
+    friend class Vk_GfxPipelineCache;
+    friend class Vk_ScenePasses;
+    friend class Vk_FrameUniformUploader;
+    friend class Vk_SceneHost;
+    friend class Vk_PlatformFrame;
 public:
     static Vk_Core& GetInstance();
     Vk_Core( const Vk_Core& ) = delete;
