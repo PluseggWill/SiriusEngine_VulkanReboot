@@ -95,3 +95,15 @@
   - `Vk_SceneHost`: `LoadSceneResources` now delegates scene CPU-state setup (id tables, SoA, LOD, debug logical mesh id) to `LoadCpuState`.
   - `Vk_PlatformFrame`: `InitWindow` and `BeginPlatformFrame` now delegate GLFW/frame tick orchestration to module methods.
 - **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; no new `[ERROR]` in startup path.
+
+---
+
+## 2026-05-28 — Phase 2 continuation: body migration + DrawFrame swapchain host tightening
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 continuation record (2026-05-28)
+- **Files:** `RenderCore/Vk_Core.cpp`, `RenderCore/Vk_SwapchainHost.{h,cpp}`, `RenderCore/Vk_DescriptorSystem.{h,cpp}`, `RenderCore/Vk_GfxPipelineCache.{h,cpp}`, `RenderCore/Vk_ScenePasses.{h,cpp}`, `RenderCore/Vk_FrameUniformUploader.cpp`
+- **What changed:**
+  - Migrated remaining implementation bodies from `Vk_Core.cpp` into module owners (`Vk_SwapchainHost`, `Vk_DescriptorSystem`, `Vk_GfxPipelineCache`, `Vk_ScenePasses`, `Vk_FrameUniformUploader`), leaving `Vk_Core` wrappers as thin delegation points.
+  - Moved `DrawFrame` swapchain acquire/present flow to `Vk_SwapchainHost::AcquireNextImage` and `Vk_SwapchainHost::SubmitAndPresent`, including out-of-date/suboptimal handling.
+  - Added one-time smoke diagnostics in `Vk_SwapchainHost` to confirm delegated runtime path (`Acquire path delegated...`, `Present path delegated...`).
+- **Verification:** MSBuild Debug|x64 exit 0; smoke-run reached main loop and first perf snapshot; runtime log contains both delegation diagnostics and no new render-path `[ERROR]`.

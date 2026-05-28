@@ -169,7 +169,7 @@ All `Vk_Core decomposition — phase 2` tasks are documented in this plan and `D
 | 3 | `Vk_SwapchainHost` | Done (2026-05-28) | Swapchain-host init orchestration peeled to `Vk_SwapchainHost::Init` |
 | 4 | `Vk_DescriptorSystem` | Done (2026-05-28) | Descriptor/layout/pool/material-set orchestration peeled to `Vk_DescriptorSystem` |
 | 5 | `Vk_GfxPipelineCache` | Done (2026-05-28) | Scene pipeline orchestration peeled to `Vk_GfxPipelineCache::InitScenePipelines` |
-| 6 | `Vk_ScenePasses` | Done (2026-05-28) | Frame pass record orchestration peeled to `Vk_ScenePasses::RecordFramePasses` |
+| 6 | `Vk_ScenePasses` | Done (2026-05-28) | Frame pass record orchestration peeled to `Vk_ScenePasses::RecordScene` + `RecordImGui` |
 | 7 | `Vk_FrameUniformUploader` | Done (2026-05-28) | Per-frame UBO upload orchestration peeled to `Vk_FrameUniformUploader::Update` |
 | 8 | Scene host (App/Gfx) | Done (2026-05-28) | Scene CPU-state load orchestration peeled to `Vk_SceneHost::LoadCpuState` |
 | 9 | `Vk_PlatformFrame` | Done (2026-05-28) | GLFW window and per-frame poll/delta/ImGui orchestration peeled to `Vk_PlatformFrame` |
@@ -198,3 +198,18 @@ Date: 2026-05-28
 - Scope remained limited to context + resource-load chain; no descriptor/pipeline policy changes.
 
 **End state:** `Vk_Core` (or `Vk_RenderBackend`) orchestrates subsystems; no scene semantics, no GLFW, minimal public API.
+
+### Phase 2 continuation record (2026-05-28)
+
+**Scope completed**
+- Moved remaining phase-2 module **function bodies** (not only delegation calls) from `Vk_Core.cpp` into `Vk_SwapchainHost`, `Vk_DescriptorSystem`, `Vk_GfxPipelineCache`, `Vk_ScenePasses`, and `Vk_FrameUniformUploader`.
+- Further narrowed `DrawFrame` by moving swapchain acquire/present handling into `Vk_SwapchainHost::AcquireNextImage` and `Vk_SwapchainHost::SubmitAndPresent`.
+
+**Debug evidence added**
+- One-time smoke diagnostics added in `Vk_SwapchainHost`:
+  - `Acquire path delegated to Vk_SwapchainHost.`
+  - `Present path delegated to Vk_SwapchainHost.`
+
+**Verification (passed)**
+- Build: `Debug|x64` MSBuild exit code 0 after body migration and logging updates.
+- Smoke-run: launched `x64\Debug\VulkanDesktop.exe`, reached main loop, observed new acquire/present delegation logs and normal frame/perf logs, no new `[ERROR]` on render path.
