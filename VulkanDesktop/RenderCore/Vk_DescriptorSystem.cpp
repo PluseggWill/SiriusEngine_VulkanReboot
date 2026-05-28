@@ -30,6 +30,7 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
 }
 
 void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
+    // CONTRACT: These bindings must match shader layout(binding=N) and Vk_Enum.h constants.
     VkDescriptorSetLayoutBinding uboLayoutBinding =
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
     VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
@@ -199,8 +200,12 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
     poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * 2 + 16;
-    if ( vkCreateDescriptorPool( aCore.myDevice, &poolInfo, nullptr, &aCore.myDescriptorPool ) != VK_SUCCESS ) throw std::runtime_error( "failed to create descriptor pool!" );
-    VkDevice device = aCore.myDevice; VkDescriptorPool pool = aCore.myDescriptorPool;
+    if ( vkCreateDescriptorPool( aCore.myDevice, &poolInfo, nullptr, &aCore.myDescriptorPool ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create descriptor pool!" );
+    }
+
+    const VkDevice         device = aCore.myDevice;
+    const VkDescriptorPool pool   = aCore.myDescriptorPool;
     aCore.myDeletionQueue.pushFunction( [device, pool]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
 }
 
@@ -222,8 +227,12 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
     samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.maxLod                  = static_cast< float >( aCore.myTextureImageMipLevels );
-    if ( vkCreateSampler( aCore.myDevice, &samplerInfo, nullptr, &aCore.myTextureSampler ) != VK_SUCCESS ) throw std::runtime_error( "failed to create texture sampler!" );
-    VkDevice device = aCore.myDevice; VkSampler sampler = aCore.myTextureSampler;
+    if ( vkCreateSampler( aCore.myDevice, &samplerInfo, nullptr, &aCore.myTextureSampler ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create texture sampler!" );
+    }
+
+    const VkDevice  device  = aCore.myDevice;
+    const VkSampler sampler = aCore.myTextureSampler;
     aCore.myDeletionQueue.pushFunction( [device, sampler]() { vkDestroySampler( device, sampler, nullptr ); } );
 }
 
@@ -291,8 +300,8 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
     }
 
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t textureId      = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Texture& texture    = aCore.myResourceTables.GetTexture( textureId );
+        const uint32_t      textureId = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Texture&  texture   = aCore.myResourceTables.GetTexture( textureId );
         const Gfx_Material& material  = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
         Vk_AllocatedBuffer& paramBuffer = aCore.myMaterialParamBuffers[ materialId ];
         aCore.CreateBuffer( sizeof( GpuMaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
@@ -304,8 +313,8 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
         memcpy( mapped, &params, sizeof( params ) );
         vmaUnmapMemory( aCore.myAllocator, paramBuffer.myAllocation );
 
-        const VmaAllocator allocator = aCore.myAllocator;
-        const VkBuffer buffer = paramBuffer.myBuffer;
+        const VmaAllocator allocator  = aCore.myAllocator;
+        const VkBuffer     buffer     = paramBuffer.myBuffer;
         const VmaAllocation allocation = paramBuffer.myAllocation;
         aCore.myDeletionQueue.pushFunction( [allocator, buffer, allocation]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
 

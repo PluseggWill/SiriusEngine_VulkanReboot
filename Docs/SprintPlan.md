@@ -273,6 +273,12 @@ flowchart TB
 
 *(phase-2 queue cleared 2026-05-28 — all module slices tracked in `Docs/vk-core-decomposition_Plan.md` / `Docs/vk-core-decomposition_Progress.md`; see Archived.)*
 
+### Gfx -> Vk boundary hardening (decoupling follow-up)
+
+*Goal: enforce direction `Gfx prepares packets -> Vk consumes backend-ready contracts`, and remove direct `Gfx_*` semantic ownership from `Vk_*` modules.*
+
+- [ ] **`gfx-vk-decoupling`**: define render packet contract + backend interface; migrate `Vk_*` to consume packet only; remove direct `Gfx_*` dependency from `RenderCore` implementation path — plan: [`gfx-vk-decoupling_Plan.md`](gfx-vk-decoupling_Plan.md).
+
 ### Scene (minimal for M1+)
 
 *Design and phased rollout: [`scene-load_Plan.md`](scene-load_Plan.md). Replaces hard-coded `Util_DemoAssets` / `UtilStartupChecks` list with scene-derived `AssetManifest`.*

@@ -12,7 +12,6 @@
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
 #include "Vk_FrameDrawPrep.h"
-#include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "Vk_Bindless.h"
@@ -159,8 +158,6 @@ private:
     // TODO(vk-core-peel): RecordScenePass + RecordDrawBatches* → Vk_ForwardScenePass; DrawFrame only submits prepared prep.
     // Live Vulkan scene path: Vk_FrameDrawPrep → RecordScenePass.
     void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    void RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns );
-    void RecordDrawBatchesBindless( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline );
     void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;

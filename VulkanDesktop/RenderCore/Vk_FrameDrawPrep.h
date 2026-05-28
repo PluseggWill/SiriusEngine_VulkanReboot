@@ -4,10 +4,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "../Gfx/Gfx_DrawBatch.h"
-#include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_Lod.h"
+#include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "Vk_Camera.h"
 #include "Vk_FrameData.h"
@@ -27,10 +26,8 @@ struct Vk_FrameDrawPrepBuildParams {
 
 class Vk_FrameDrawPrep {
 public:
-    Gfx_FrameExtract            myExtract;
-    std::vector< Gfx_BatchRun > myOpaqueBatchRuns;
-    std::vector< Gfx_BatchRun > myTransparentBatchRuns;
     size_t                      myDrawCountBeforeCull = 0;
+    Gfx_FrameRenderPacket       myFramePacket;
 
     Gfx_FrameDrawStreamLogState myStreamLogs;
 
@@ -41,7 +38,7 @@ public:
     bool Build( const Vk_FrameDrawPrepBuildParams& aParams );
 
 private:
-    bool FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams );
+    bool FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
 
     bool mySlabFillLoggedOnce          = false;
     bool myInstanceSlabOverflowLogged  = false;

@@ -107,3 +107,28 @@
   - Moved `DrawFrame` swapchain acquire/present flow to `Vk_SwapchainHost::AcquireNextImage` and `Vk_SwapchainHost::SubmitAndPresent`, including out-of-date/suboptimal handling.
   - Added one-time smoke diagnostics in `Vk_SwapchainHost` to confirm delegated runtime path (`Acquire path delegated...`, `Present path delegated...`).
 - **Verification:** MSBuild Debug|x64 exit 0; smoke-run reached main loop and first perf snapshot; runtime log contains both delegation diagnostics and no new render-path `[ERROR]`.
+
+---
+
+## 2026-05-28 — Phase 2 readability pass: module cleanup + comments
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 continuation quality follow-up (readability/maintainability)
+- **Files:** `RenderCore/Vk_SwapchainHost.cpp`, `RenderCore/Vk_DescriptorSystem.cpp`, `RenderCore/Vk_ScenePasses.cpp`, `RenderCore/Vk_FrameUniformUploader.cpp`
+- **What changed:**
+  - Restructured dense one-line logic in `Vk_SwapchainHost::CreateSwapChain` into explicit staged assignments (capabilities -> create info -> image views -> deferred cleanup), reducing cognitive load for swapchain lifecycle changes.
+  - Standardized several descriptor-path declarations and error branches in `Vk_DescriptorSystem` to make ownership/capture boundaries clearer for deletion-queue maintenance.
+  - Added high-signal contract comments in descriptor layout setup and per-draw dynamic-offset binding sites to document shader/descriptor coupling and instance-slab usage.
+  - Added env-UBO slab slicing note in `Vk_FrameUniformUploader::Update` to clarify per-frame offset behavior.
+- **Verification:** MSBuild `Debug|x64` exit 0; 4s smoke-run on `x64\Debug\VulkanDesktop.exe` exited cleanly; runtime log includes delegated acquire/present lines plus normal extract/batch/instance-slab signals and no new `[ERROR]`.
+
+---
+
+## 2026-05-28 — Phase 2 readability pass: Vk_Core comment hygiene
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 continuation quality follow-up (`Vk_Core` maintainability)
+- **Files:** `RenderCore/Vk_Core.cpp`
+- **What changed:**
+  - Replaced legacy tutorial-style/step-number comments with module-oriented intent comments (render orchestration, ownership boundaries, queue/present contracts).
+  - Removed stale or low-signal TODO/comment noise and clarified teardown/initialization/descriptors/swapchain notes to match current decomposition state.
+  - Added key contract comments in `Render`/`DrawFrame` around frame-slot rotation and `Vk_FrameDrawPrep` output consumption boundary.
+- **Verification:** Lints clean on `Vk_Core.cpp`; build/smoke-run not re-executed in this comment-only batch.

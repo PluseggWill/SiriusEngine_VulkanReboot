@@ -1,10 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
-#include "../Gfx/Gfx_DrawExtract.h"
-#include "../Gfx/Gfx_DrawBatch.h"
+#include "../Gfx/Gfx_RenderPacket.h"
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
@@ -17,6 +15,6 @@ class Vk_ScenePasses {
 public:
     static void RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     static void RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    static void RecordDrawBatches( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns );
-    static void RecordDrawBatchesBindless( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline );
+    static void RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass );
+    static void RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline );
 };

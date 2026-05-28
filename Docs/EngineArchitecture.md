@@ -97,6 +97,8 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **RHI peel phase 2 status:** queue closed in `SprintPlan.md` (all listed module slices completed); remaining work continues in follow-up architecture tasks.
 
+**S2 follow-up (planned):** `gfx-vk-decoupling` hardens the layer boundary so `Gfx` produces backend-agnostic frame/pass packets and `Vk_*` only consumes those packets for record/submit. Target end-state: no `Gfx_*` semantic ownership inside `RenderCore` execution modules.
+
 **Phase 2 doc tracking:** phase 2 task design/progress is consolidated in `Docs/vk-core-decomposition_Plan.md` and `Docs/vk-core-decomposition_Progress.md` (SprintPlan keeps checklist-level status only).
 
 **Render path (target):** See **§5.5–§5.10** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** pass chain `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post` (Stage 2+) and `ForwardLit` baseline retained for parity.
@@ -524,6 +526,7 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 1. Introduce a **plain-data** scene or object list that `Vk_Core` **reads** each frame (even if small). **Done (v0):** `Gfx_SceneSoA` column store + stable `(index, generation)` slots in `Vk_Core`.
 2. Add an **extract** function that fills a `std::vector<DrawInstance>` (or equivalent) before any `vkCmd*` for scene objects. **Done (v0):** `Gfx_ExtractDrawInstances` → `myExtractResult`; Vulkan record still uses `RecordScenePass` until cull/sort/batch.
 3. Move sort/batch assumptions into that path; shrink direct coupling from gameplay-ish state to Vulkan structs.
+   **Next (S2 planned):** replace direct `Gfx_*` consumption in `RenderCore` with an explicit packet contract (`FrameRenderPacket` / pass packets) and backend interface boundary.
 4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record. **Done (S2, 2026-05-27):** [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) — `Gfx_BuildFrameDrawStream`, `Vk_FrameDrawPrep`, `DrawFrame` record/submit surface.
 5. Add **simulation** module stub (S8) writing transforms only, before physics library integration. **Partial:** demo Z-spin in `Gfx_DemoSceneSim` (Application tick); full sim module deferred to S8.
 
@@ -539,4 +542,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 phase-2 queue closeout and archived completion records; 2026-05-28).*
+*Last aligned with `Docs/SprintPlan.md` (S2 adds `gfx-vk-decoupling` boundary-hardening task and plan link; 2026-05-28).*

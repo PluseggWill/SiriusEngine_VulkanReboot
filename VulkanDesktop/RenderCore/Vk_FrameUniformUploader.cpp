@@ -23,6 +23,7 @@ void Vk_FrameUniformUploader::Update( const Vk_Core& aCore, uint32_t aCurrentFra
     }
     env.myViewWorldPos = glm::vec4( aCore.myCamera.myEye, 1.0f );
 
+    // Env UBO is one big slab; each in-flight frame writes to its aligned slice.
     char* mapGpuEnvData = nullptr;
     vmaMapMemory( aCore.myAllocator, aCore.myEnvDataBuffer.myAllocation, ( void** )&mapGpuEnvData );
     mapGpuEnvData += aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * aCurrentFrame;

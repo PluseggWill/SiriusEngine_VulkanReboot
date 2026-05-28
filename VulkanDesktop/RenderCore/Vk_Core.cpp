@@ -79,6 +79,7 @@ bool Vk_Core::ShouldClose() const {
 
 
 void Vk_Core::Render() {
+    // Uses myCurrentFrame slot (frame-in-flight ring); increment/rotate after submission.
     DrawFrame( myFrameDatas[ myCurrentFrame ] );
     myFrameNumber++;
     myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
@@ -91,7 +92,7 @@ void Vk_Core::Shutdown() {
     Clear();
 }
 
-// TODO(vk-core-peel): Vk_PlatformFrame — GLFW window, framebuffer callback, ImGui layer init; Application may own platform tick.
+// Delegates platform/window bootstrap to Vk_PlatformFrame to keep Core focused on render orchestration.
 void Vk_Core::InitWindow() {
     Vk_PlatformFrame::InitWindow( *this );
 }
@@ -99,8 +100,7 @@ void Vk_Core::InitWindow() {
 
 void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
-    // All other Vulkan resources should be cleaned up
-    // before the instance is destroyed.
+    // Destruction order matters: child GPU objects -> device -> surface/debug -> instance -> window.
 
     ShutdownImGui();
 
@@ -125,7 +125,7 @@ void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
-// TODO(vk-core-peel): Vk_RenderDevice — peel CreateInstance through CreateFrameBuffers (device + swapchain host); Vk_Core keeps thin facade.
+// Render device bootstrap entry point (instance/device/queues/swapchain host orchestration).
 void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     Vk_RenderDevice::Init( *this );
@@ -140,7 +140,7 @@ void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 
-// TODO(vk-core-peel): split — (A) Gfx/Application scene host: SoA/LOD/manifest CPU; (B) Vk_DescriptorSystem + Vk_ResourceTables GPU load; (C) pipelines stay until Vk_GfxPipeline module.
+// Scene-load orchestration: scene description -> CPU scene state -> pipelines -> GPU resource tables -> descriptors.
 void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
     myLoadedScene    = std::move( aScene );
@@ -280,7 +280,6 @@ void Vk_Core::CreateInstance() {
 }
 
 void Vk_Core::PickPhysicalDevice() {
-    // The selected GPU will be stored in a VkPhysicalDevice handle
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices( myInstance, &deviceCount, nullptr );
 
@@ -308,8 +307,7 @@ void Vk_Core::PickPhysicalDevice() {
 }
 
 void Vk_Core::CreateLogicalDevice() {
-    // Step #1: Specifying the queues to be created
-
+    // Build one queue create-info per unique family (graphics/present/transfer may collapse to fewer families).
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
     std::set< uint32_t >                   uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(),
                                                  myQueueFamilyIndices.myTransferFamily.value() };
@@ -352,7 +350,6 @@ void Vk_Core::CreateLogicalDevice() {
     createInfo.enabledExtensionCount   = static_cast< uint32_t >( myDeviceExtensions.size() );
     createInfo.ppEnabledExtensionNames = myDeviceExtensions.data();
 
-    // Step #4: Enable the validation layers
     if ( myEnableValidationLayers ) {
         createInfo.enabledLayerCount   = static_cast< uint32_t >( myValidationLayers.size() );
         createInfo.ppEnabledLayerNames = myValidationLayers.data();
@@ -360,14 +357,13 @@ void Vk_Core::CreateLogicalDevice() {
     else
         createInfo.enabledLayerCount = 0;
 
-    // Step #5: Create the logical device
     if ( vkCreateDevice( myPhysicalDevice, &createInfo, nullptr, &myDevice ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "vkCreateDevice failed." );
         throw std::runtime_error( "failed to create logical device!" );
     }
     UtilLogger::Info( "VULKAN", "Logical device created." );
 
-    // Step #6?: Retrieve queue handles
+    // Resolve queue handles after logical-device creation.
     vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
     vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myPresentFamily.value(), 0, &myPresentQueue );
     vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myTransferFamily.value(), 0, &myTransferQueue );
@@ -394,16 +390,16 @@ void Vk_Core::InitAllocator() {
     vmaCreateAllocator( &allocatorInfo, &myAllocator );
     SyncResourceContext();
 
-    // Deletion Queue
+    // Lifetime bound to core deletion queue (survives swapchain recreate).
     myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myAllocator ); } );
 }
 
-// TODO(vk-core-peel): Vk_SwapchainHost — owns swapchain images/views/framebuffers and RecreateSwapChain; DrawFrame acquire/present delegates here.
+// Swapchain lifecycle is owned by Vk_SwapchainHost.
 void Vk_Core::CreateSwapChain() {
     Vk_SwapchainHost::CreateSwapChain( *this );
 }
 
-// TODO(vk-core-peel): Vk_GfxPipelineCache — lit + transparent + bindless pipelines/layouts; tie to shader permutation registry (S2).
+// Scene pipeline creation/refresh is delegated to Vk_GfxPipelineCache.
 void Vk_Core::CreateGfxPipeline() {
     Vk_GfxPipelineCache::CreateGfxPipeline( *this );
 }
@@ -420,19 +416,19 @@ void Vk_Core::CreateFrameData() {
     myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        // Step #1: Create Command Buffers
+        // Per-frame command buffer.
         const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
         if ( vkAllocateCommandBuffers( myDevice, &allocInfo, &myFrameDatas[ i ].myCommandBuffer ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to allocate command buffers!" );
         }
 
-        // Step #2: Create Camera Buffers
+        // Per-frame camera UBO.
         VkDeviceSize bufferSize = sizeof( GpuCameraData );
 
         CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
 
-        // Step #3: Create SyncObjects
+        // Per-frame sync primitives (fence starts signaled for first frame).
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -446,7 +442,7 @@ void Vk_Core::CreateFrameData() {
             throw std::runtime_error( "failed to create semaphores/fence!" );
         }
 
-        // Deletion Queue
+        // Core-owned lifetime cleanup.
         myDeletionQueue.pushFunction( [ = ]() {
             vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myCameraBuffer.myBuffer, myFrameDatas[ i ].myCameraBuffer.myAllocation );
             vkDestroySemaphore( myDevice, myFrameDatas[ i ].myPresentSemaphore, nullptr );
@@ -487,15 +483,14 @@ void Vk_Core::CreateUniformBuffers() {
 }
 
 void Vk_Core::CreateCommandPool() {
-
-    // Graphic queue command pool
+    // Graphics command pool: frame command buffers + graphics-side one-shot commands.
     VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myGraphicsCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create graphic command pool!" );
     }
 
-    // Tranfer queue command pool
+    // Transfer command pool: staging copy path when transfer queue differs.
     poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
     if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myTransferCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create transfer command pool!" );
@@ -521,7 +516,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         return;
     }
 
-    // --- CPU: frame UBOs + draw stream (Gfx) + instance slab (Vk_FrameDrawPrep) ---
+    // --- CPU prep: per-frame UBO upload + draw extraction/batching + instance slab write ---
     myFrameStats.ResetPerFrameCounters();
     Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
@@ -535,13 +530,14 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     prepParams.myFrameDatas            = &myFrameDatas;
     prepParams.myInstanceSlabStride    = InstanceSlabStride();
 
+    // CONTRACT: record path consumes packet output from Vk_FrameDrawPrep only.
     const bool slabOk = myDrawPrep.Build( prepParams );
 
     myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
-                                       static_cast< uint32_t >( myDrawPrep.myExtract.myOpaque.myDrawInstances.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myExtract.myTransparent.myDrawInstances.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myOpaqueBatchRuns.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myTransparentBatchRuns.size() ) );
+                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() ),
+                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) );
 
     if ( !myMaterialBindLoggedOnce ) {
         if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
@@ -550,7 +546,9 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         else {
             UtilLogger::Info( "DESCRIPTOR",
                               "Set 1 material binds this frame will be <= batch runs (" +
-                                  std::to_string( myDrawPrep.myOpaqueBatchRuns.size() + myDrawPrep.myTransparentBatchRuns.size() ) + ")" );
+                                  std::to_string( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() +
+                                                  myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) +
+                                  ")" );
         }
         myMaterialBindLoggedOnce = true;
     }
@@ -571,6 +569,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
+    // Skip scene record if instance slab write failed (avoid binding stale per-draw offsets).
     if ( slabOk ) {
         Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex );
     }
@@ -595,7 +594,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         myHasFrameInputSampleTime = false;
     }
 
-    // MainLoop increments myFrameNumber after DrawFrame; log once the 60th frame completes (counter still 59 here).
+    // Main loop increments myFrameNumber after DrawFrame; this triggers once when frame #60 completes.
     if ( !myM1PerfLoggedOnce && myFrameNumber >= 59 ) {
         LogM1PerfSnapshot();
         myM1PerfLoggedOnce = true;
@@ -695,9 +694,6 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 
     int i = 0;
     for ( const auto& queueFamily : queueFamilies ) {
-        // Note: It is possible to choose a physical device that supports drawing and presentation
-        // in the same queue for improved performance.
-
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR( myPhysicalDevice, i, mySurface, &presentSupport );
         if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
@@ -749,19 +745,15 @@ void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensi
 
 
 bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
-    // Basic Properties
     vkGetPhysicalDeviceProperties( aPhysicalDevice, &myPhysicalDeviceProperties );
 
-    // Optional Features
     vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myPhysicalDeviceFeatures );
 
-    // Queue Families
     Vk_QueueFamilyIndices indices = FindQueueFamilies( aPhysicalDevice );
 
-    // Extensions
     bool extensionSupported = CheckExtensionSupport( aPhysicalDevice );
 
-    // Verify the swap chain support
+    // Swapchain formats + present modes are required for renderable output.
     bool swapChainAdequate = false;
     if ( extensionSupported ) {
         Vk_SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( aPhysicalDevice );
@@ -771,8 +763,6 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
 #ifdef _DEBUG
     UtilLogger::Debug( "GPU", "minUniformBufferOffsetAlignment=" + std::to_string( myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment ) );
 #endif  // _DEBUG
-
-    // TODO: More check options
 
     return indices.isComplete() && extensionSupported && swapChainAdequate && myPhysicalDeviceFeatures.samplerAnisotropy;
 }
@@ -787,10 +777,7 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
 
     int i = 0;
     for ( const auto& queueFamily : queueFamilies ) {
-        // Note: It is possible to choose a physical device that supports drawing and presentation
-        // in the same queue for improved performance.
-
-        // Check for present queue & graphic queue
+        // Prefer one family that supports both graphics + present.
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR( aPhysicalDevice, i, mySurface, &presentSupport );
         if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
@@ -798,7 +785,7 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
             indices.myGraphicsFamily = i;
         }
 
-        // Check for (explicit) transfer queue
+        // Prefer dedicated transfer-only family for staging.
         if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
             indices.myTransferFamily = i;
         }
@@ -816,10 +803,10 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
 Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
     Vk_SwapChainSupportDetails details;
 
-    // Step #1: Determine the supported capabilities
+    // Surface capabilities (extent/image count transform limits).
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, mySurface, &details.myCapabilities );
 
-    // Step #2??Querying the supported surface formats
+    // Supported color formats/colorspaces for present images.
     uint32_t formatCount;
     vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, nullptr );
 
@@ -828,7 +815,7 @@ Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhy
         vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, details.myFormats.data() );
     }
 
-    // Step #3: Querying the supported present modes
+    // Supported present modes (FIFO/MAILBOX/IMMEDIATE).
     uint32_t presentModeCount;
     vkGetPhysicalDeviceSurfacePresentModesKHR( aPhysicalDevice, mySurface, &presentModeCount, nullptr );
 
@@ -952,17 +939,9 @@ void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 
-void Vk_Core::RecordDrawBatches( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns ) {
-    Vk_ScenePasses::RecordDrawBatches( *this, aCommandBuffer, aExtract, aBatchRuns );
-}
-
-// TODO(vk-core-peel): Vk_ForwardScenePass — opaque/transparent record, bindless branch; inputs: myDrawPrep + myResourceTables + pipeline handles.
+// Scene pass command recording is owned by Vk_ScenePasses.
 void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     Vk_ScenePasses::RecordScene( *this, aCommandBuffer, anImageIndex );
-}
-
-void Vk_Core::RecordDrawBatchesBindless( VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline ) {
-    Vk_ScenePasses::RecordDrawBatchesBindless( *this, aCommandBuffer, aExtract, aPipeline );
 }
 
 void Vk_Core::RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
@@ -1050,7 +1029,7 @@ size_t Vk_Core::InstanceSlabStride() const {
     return PadUniformBufferSize( sizeof( GpuObjectData ) );
 }
 
-// TODO(vk-core-peel): Vk_FrameUniformUploader — camera + env UBO slices per in-flight frame; DrawFrame calls uploader not Vk_Core directly.
+// Per-frame UBO upload is delegated to Vk_FrameUniformUploader.
 void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
     Vk_FrameUniformUploader::Update( *this, aCurrentFrame );
 }
@@ -1077,7 +1056,7 @@ void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling 
     imageInfo.flags       = 0;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    // TODO: Consider the situation when the image can be accessed by two different queues.
+    // Current image allocation path is graphics-owned (exclusive sharing).
 
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;
@@ -1312,7 +1291,7 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-// TODO(vk-core-peel): Vk_PlatformFrame — poll/Δt/ImGui NewFrame; align with InitWindow peel.
+// Platform tick and ImGui NewFrame bootstrap are delegated to Vk_PlatformFrame.
 void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
     Vk_PlatformFrame::BeginFrame( *this, aOutDeltaSeconds );
 }

@@ -119,31 +119,58 @@ void Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFr
 
 void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
-    Vk_SwapChainSupportDetails swapChainSupport = aCore.QuerySwapChainSupport( aCore.myPhysicalDevice );
-    VkSurfaceFormatKHR surfaceFormat = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
-    VkPresentModeKHR presentMode = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
-    VkExtent2D extent = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
+    const Vk_SwapChainSupportDetails swapChainSupport = aCore.QuerySwapChainSupport( aCore.myPhysicalDevice );
+    const VkSurfaceFormatKHR         surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
+    const VkPresentModeKHR           presentMode      = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
+    const VkExtent2D                 extent           = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
     uint32_t imageCount = swapChainSupport.myCapabilities.minImageCount + 1;
-    if ( swapChainSupport.myCapabilities.maxImageCount > 0 && imageCount > swapChainSupport.myCapabilities.maxImageCount ) imageCount = swapChainSupport.myCapabilities.maxImageCount;
+    if ( swapChainSupport.myCapabilities.maxImageCount > 0 && imageCount > swapChainSupport.myCapabilities.maxImageCount ) {
+        imageCount = swapChainSupport.myCapabilities.maxImageCount;
+    }
     VkSwapchainCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = aCore.mySurface; createInfo.minImageCount = imageCount; createInfo.imageFormat = surfaceFormat.format; createInfo.imageColorSpace = surfaceFormat.colorSpace;
-    createInfo.imageExtent = extent; createInfo.imageArrayLayers = 1; createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    createInfo.surface          = aCore.mySurface;
+    createInfo.minImageCount    = imageCount;
+    createInfo.imageFormat      = surfaceFormat.format;
+    createInfo.imageColorSpace  = surfaceFormat.colorSpace;
+    createInfo.imageExtent      = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    // Graphics and present queues can differ on some GPUs.
     const uint32_t queueFamilyIndices[] = { aCore.myQueueFamilyIndices.myGraphicsFamily.value(), aCore.myQueueFamilyIndices.myPresentFamily.value() };
     if ( aCore.myQueueFamilyIndices.myGraphicsFamily != aCore.myQueueFamilyIndices.myPresentFamily ) {
-        createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT; createInfo.queueFamilyIndexCount = 2; createInfo.pQueueFamilyIndices = queueFamilyIndices;
-    } else { createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; }
+        createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
+        createInfo.queueFamilyIndexCount = 2;
+        createInfo.pQueueFamilyIndices   = queueFamilyIndices;
+    }
+    else {
+        createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    }
     createInfo.preTransform = swapChainSupport.myCapabilities.currentTransform;
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; createInfo.presentMode = presentMode; createInfo.clipped = VK_TRUE;
-    if ( vkCreateSwapchainKHR( aCore.myDevice, &createInfo, nullptr, &aCore.mySwapChain ) != VK_SUCCESS ) throw std::runtime_error( "failed to create swap chain!" );
+    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createInfo.presentMode    = presentMode;
+    createInfo.clipped        = VK_TRUE;
+    if ( vkCreateSwapchainKHR( aCore.myDevice, &createInfo, nullptr, &aCore.mySwapChain ) != VK_SUCCESS ) {
+        throw std::runtime_error( "failed to create swap chain!" );
+    }
     vkGetSwapchainImagesKHR( aCore.myDevice, aCore.mySwapChain, &imageCount, nullptr );
     aCore.mySwapChainImages.resize( imageCount );
     vkGetSwapchainImagesKHR( aCore.myDevice, aCore.mySwapChain, &imageCount, aCore.mySwapChainImages.data() );
-    aCore.mySwapChainImageFormat = surfaceFormat.format; aCore.mySwapChainExtent = extent;
+    aCore.mySwapChainImageFormat = surfaceFormat.format;
+    aCore.mySwapChainExtent      = extent;
     aCore.mySwapChainImageViews.resize( imageCount );
-    for ( size_t i = 0; i < imageCount; i++ ) aCore.mySwapChainImageViews[ i ] = aCore.CreateImageView( aCore.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
-    VkDevice device = aCore.myDevice; VkSwapchainKHR swapchain = aCore.mySwapChain; auto imageViews = aCore.mySwapChainImageViews;
-    aCore.mySwapChainDeletionQueue.pushFunction( [device, swapchain, imageViews]() { for (auto iv : imageViews) vkDestroyImageView(device, iv, nullptr); vkDestroySwapchainKHR(device, swapchain, nullptr);} );
+    for ( size_t i = 0; i < imageCount; ++i ) {
+        aCore.mySwapChainImageViews[ i ] = aCore.CreateImageView( aCore.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
+    }
+    const VkDevice       device     = aCore.myDevice;
+    const VkSwapchainKHR swapchain  = aCore.mySwapChain;
+    const auto           imageViews = aCore.mySwapChainImageViews;
+    aCore.mySwapChainDeletionQueue.pushFunction( [device, swapchain, imageViews]() {
+        for ( const VkImageView imageView : imageViews ) {
+            vkDestroyImageView( device, imageView, nullptr );
+        }
+        vkDestroySwapchainKHR( device, swapchain, nullptr );
+    } );
 }
 
 void Vk_SwapchainHost::CreateRenderPass( Vk_Core& aCore ) {

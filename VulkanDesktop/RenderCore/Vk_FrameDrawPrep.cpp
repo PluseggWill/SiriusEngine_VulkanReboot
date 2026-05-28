@@ -1,17 +1,15 @@
 #include "Vk_FrameDrawPrep.h"
 
 #include "../Util/Util_Logger.h"
+#include "Vk_RenderBackend.h"
 #include "Vk_DescriptorPolicy.h"
 
 #include <cstring>
 #include <stdexcept>
 
 void Vk_FrameDrawPrep::ClearFrameOutputs() {
-    myExtract.myOpaque.myDrawInstances.clear();
-    myExtract.myTransparent.myDrawInstances.clear();
-    myOpaqueBatchRuns.clear();
-    myTransparentBatchRuns.clear();
     myDrawCountBeforeCull = 0;
+    myFramePacket         = Gfx_FrameRenderPacket{};
 }
 
 void Vk_FrameDrawPrep::ResetLogState() {
@@ -34,29 +32,31 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
     Gfx_FrameDrawStreamOutput streamOut{};
     Gfx_BuildFrameDrawStream( streamParams, streamOut, myStreamLogs );
 
-    myExtract              = std::move( streamOut.myExtract );
-    myOpaqueBatchRuns      = std::move( streamOut.myOpaqueBatchRuns );
-    myTransparentBatchRuns = std::move( streamOut.myTransparentBatchRuns );
     myDrawCountBeforeCull  = streamOut.myDrawCountBeforeCull;
 
-    const bool slabOk = FillInstanceSlab( aParams );
+    Gfx_BuildFrameRenderPacketFromStream( streamOut, myFramePacket );
+
+    const bool slabOk = FillInstanceSlab( aParams, myFramePacket );
     if ( !slabOk && !myInstanceSlabOverflowLogged ) {
         UtilLogger::Warn( "RESOURCE", "Skipping RecordScenePass: instance slab overflow (see FillInstanceSlab error)." );
         myInstanceSlabOverflowLogged = true;
     }
 
+    if ( !Vk_RenderBackend::ValidateFramePacket( myFramePacket ) ) {
+        UtilLogger::Warn( "RENDER", "Frame render packet validation failed." );
+    }
+
     return slabOk;
 }
 
-bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams ) {
+bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket ) {
     Vk_FrameData& frame = ( *aParams.myFrameDatas )[ aParams.myCurrentFrame ];
     if ( frame.myInstanceSlabMapped == nullptr ) {
         UtilLogger::Error( "RESOURCE", "Instance slab not mapped for frame " + std::to_string( aParams.myCurrentFrame ) );
         return false;
     }
 
-    const size_t drawCount =
-        myExtract.myOpaque.myDrawInstances.size() + myExtract.myTransparent.myDrawInstances.size();
+    const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
     if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
         UtilLogger::Error( "RESOURCE",
                            "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
@@ -68,8 +68,8 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
     const size_t stride   = aParams.myInstanceSlabStride;
     size_t       writeIndex = 0;
 
-    auto writeDrawList = [ & ]( Gfx_ExtractResult& aList ) {
-        for ( Gfx_DrawInstance& draw : aList.myDrawInstances ) {
+    auto writeDrawList = [ & ]( std::vector< Gfx_DrawInstance >& someDraws ) {
+        for ( Gfx_DrawInstance& draw : someDraws ) {
             draw.myInstanceDataOffset = static_cast< uint32_t >( writeIndex * stride );
             ++writeIndex;
 
@@ -80,8 +80,8 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
         }
     };
 
-    writeDrawList( myExtract.myOpaque );
-    writeDrawList( myExtract.myTransparent );
+    writeDrawList( aPacket.myOpaquePass.myDraws );
+    writeDrawList( aPacket.myTransparentPass.myDraws );
 
     if ( !mySlabFillLoggedOnce ) {
         UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( drawCount ) + " instance(s)" );

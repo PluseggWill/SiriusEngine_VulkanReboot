@@ -2,15 +2,17 @@
 
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_RenderBackend.h"
+#include "../Util/Util_Logger.h"
 
 #include <array>
 
-void Vk_ScenePasses::RecordDrawBatches( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, const std::vector< Gfx_BatchRun >& aBatchRuns ) {
+void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass ) {
     const VkDescriptorSet objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
     const VkPipelineLayout layout          = aCore.myPipelineLayout;
 
-    for ( const Gfx_BatchRun& batch : aBatchRuns ) {
-        const Gfx_DrawInstance& firstDraw = aExtract.myDrawInstances[ batch.myFirstDrawIndex ];
+    for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
+        const Gfx_DrawInstance& firstDraw = aPass.myDraws[ batch.myFirstDrawIndex ];
         const Gfx_Material&     material  = aCore.myResourceTables.GetMaterial( firstDraw.myMaterialId );
 
         aCore.myFrameStats.myPipelineBinds++;
@@ -25,7 +27,7 @@ void Vk_ScenePasses::RecordDrawBatches( Vk_Core& aCore, VkCommandBuffer aCommand
         }
 
         for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
-            const Gfx_DrawInstance& draw = aExtract.myDrawInstances[ batch.myFirstDrawIndex + drawIndex ];
+            const Gfx_DrawInstance& draw = aPass.myDraws[ batch.myFirstDrawIndex + drawIndex ];
             const Gfx_Mesh&         mesh = aCore.myResourceTables.GetMesh( draw.myMeshId );
 
             VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
@@ -33,6 +35,7 @@ void Vk_ScenePasses::RecordDrawBatches( Vk_Core& aCore, VkCommandBuffer aCommand
             vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
             vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
+            // One draw = one dynamic offset into the frame-local instance slab (Set 2).
             const uint32_t dynamicOffset = draw.myInstanceDataOffset;
             vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1, &objectDescriptor, 1, &dynamicOffset );
             aCore.myFrameStats.myDrawCalls++;
@@ -41,11 +44,11 @@ void Vk_ScenePasses::RecordDrawBatches( Vk_Core& aCore, VkCommandBuffer aCommand
     }
 }
 
-void Vk_ScenePasses::RecordDrawBatchesBindless( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_ExtractResult& aExtract, VkPipeline aPipeline ) {
+void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline ) {
     const VkDescriptorSet objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
     const VkPipelineLayout layout          = aCore.myBindlessPipelineLayout;
 
-    if ( aExtract.myDrawInstances.empty() ) {
+    if ( aPass.myDraws.empty() ) {
         return;
     }
 
@@ -53,7 +56,7 @@ void Vk_ScenePasses::RecordDrawBatchesBindless( Vk_Core& aCore, VkCommandBuffer 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aPipeline );
     aCore.SetGraphicsDynamicState( aCommandBuffer );
 
-    for ( const Gfx_DrawInstance& draw : aExtract.myDrawInstances ) {
+    for ( const Gfx_DrawInstance& draw : aPass.myDraws ) {
         const Gfx_Mesh& mesh = aCore.myResourceTables.GetMesh( draw.myMeshId );
 
         VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
@@ -61,6 +64,7 @@ void Vk_ScenePasses::RecordDrawBatchesBindless( Vk_Core& aCore, VkCommandBuffer 
         vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
         vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
+        // Bind per-draw transform/material index slice via dynamic UBO offset.
         const uint32_t dynamicOffset = draw.myInstanceDataOffset;
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1, &objectDescriptor, 1, &dynamicOffset );
         aCore.myFrameStats.myDrawCalls++;
@@ -87,16 +91,41 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     const VkDescriptorSet frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0, nullptr );
 
+    static bool sPacketPathLoggedOnce   = false;
+    static bool sPacketSkipLoggedOnce   = false;
+    const bool  usePacketPath         = Vk_RenderBackend::ValidateFramePacket( aCore.myDrawPrep.myFramePacket );
+
     if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
                                  &aCore.myBindlessDescriptorSet, 0, nullptr );
         aCore.myFrameStats.myMaterialSetBinds++;
-        RecordDrawBatchesBindless( aCore, aCommandBuffer, aCore.myDrawPrep.myExtract.myOpaque, aCore.myBasicPipelineBindless );
-        RecordDrawBatchesBindless( aCore, aCommandBuffer, aCore.myDrawPrep.myExtract.myTransparent, aCore.myTransparentPipelineBindless );
+        if ( usePacketPath ) {
+            RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, aCore.myBasicPipelineBindless );
+            RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, aCore.myTransparentPipelineBindless );
+        }
+        else {
+            if ( !sPacketSkipLoggedOnce ) {
+                UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
+                sPacketSkipLoggedOnce = true;
+            }
+        }
     }
     else {
-        RecordDrawBatches( aCore, aCommandBuffer, aCore.myDrawPrep.myExtract.myOpaque, aCore.myDrawPrep.myOpaqueBatchRuns );
-        RecordDrawBatches( aCore, aCommandBuffer, aCore.myDrawPrep.myExtract.myTransparent, aCore.myDrawPrep.myTransparentBatchRuns );
+        if ( usePacketPath ) {
+            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass );
+            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass );
+        }
+        else {
+            if ( !sPacketSkipLoggedOnce ) {
+                UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
+                sPacketSkipLoggedOnce = true;
+            }
+        }
+    }
+
+    if ( usePacketPath && !sPacketPathLoggedOnce ) {
+        UtilLogger::Info( "RENDER", "Scene record switched to packet consume path." );
+        sPacketPathLoggedOnce = true;
     }
 
     vkCmdEndRenderPass( aCommandBuffer );
