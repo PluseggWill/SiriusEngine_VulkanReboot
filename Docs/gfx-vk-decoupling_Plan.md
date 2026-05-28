@@ -1,7 +1,7 @@
 # Plan: gfx-vk-decoupling
 
 **Sprint:** S2 - Engine layering & hygiene  
-**Status:** Ready for closeout validation (2026-05-28)  
+**Status:** Closed (2026-05-28, archived in `SprintPlan.md`)  
 **Related:** [`SprintPlan.md`](SprintPlan.md) (S2 boundary hardening), [`EngineArchitecture.md`](EngineArchitecture.md) §3, §4, §9, [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md)
 
 ## Problem
@@ -110,7 +110,12 @@ Current RenderCore still directly consumes multiple `Gfx_*` types and semantics 
 - [x] RenderCore runtime consume path is packet-only.
 - [x] `RenderCore/` no longer references `Gfx_ExtractResult`.
 - [x] `Debug|x64` build + smoke-run pass on latest decoupling batch.
-- [ ] Optional final cleanup commit: remove now-unused compatibility logs/toggles and lock boundary comments.
+- [x] Optional final cleanup commit: remove now-unused compatibility logs/toggles and lock boundary comments.
+
+## Closeout
+
+- Task archived from active S2 queue into `SprintPlan.md` `## Archived` on 2026-05-28.
+- Architecture wording synchronized in `EngineArchitecture.md` (`§3.1`, `§9`, footer).
 
 ## Build / smoke-run plan
 

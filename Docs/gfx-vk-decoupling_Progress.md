@@ -65,3 +65,12 @@
 - **Files:** `RenderCore/Vk_Core.{h,cpp}`, `RenderCore/Vk_ScenePasses.cpp`, `Docs/gfx-vk-decoupling_Plan.md`, `Docs/gfx-vk-decoupling_Progress.md`
 - **What changed:** Removed obsolete packet-path runtime toggle from `Vk_Core`, tightened DrawFrame contract comment to packet-only wording, and simplified `Vk_ScenePasses` path gate to packet validity only. Updated plan status and phase checklist to `Ready for closeout validation`.
 - **Verification:** MSBuild `Debug|x64` exit 0; 4s smoke-run passed on closeout-prep batch.
+
+---
+
+## 2026-05-28 — Task closeout: archive in SprintPlan + docs sync
+
+- **Plan ref:** `gfx-vk-decoupling_Plan.md` closeout section
+- **Files:** `Docs/SprintPlan.md`, `Docs/EngineArchitecture.md`, `Docs/gfx-vk-decoupling_Plan.md`, `Docs/gfx-vk-decoupling_Progress.md`
+- **What changed:** Moved `gfx-vk-decoupling` out of active S2 queue into `SprintPlan.md` `## Archived`, updated architecture references from planned to done state, and marked plan status as closed.
+- **Verification:** Docs-only sync update (code/runtime verification already completed in prior closeout-prep entry).

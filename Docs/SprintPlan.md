@@ -277,7 +277,7 @@ flowchart TB
 
 *Goal: enforce direction `Gfx prepares packets -> Vk consumes backend-ready contracts`, and remove direct `Gfx_*` semantic ownership from `Vk_*` modules.*
 
-- [ ] **`gfx-vk-decoupling`**: define render packet contract + backend interface; migrate `Vk_*` to consume packet only; remove direct `Gfx_*` dependency from `RenderCore` implementation path — plan: [`gfx-vk-decoupling_Plan.md`](gfx-vk-decoupling_Plan.md).
+*(queue cleared 2026-05-28 — `gfx-vk-decoupling` completed; see Archived and docs plan/progress.)*
 
 ### Scene (minimal for M1+)
 
@@ -555,6 +555,7 @@ flowchart LR
 - [x] **[S2]** `Vk_FrameUniformUploader`: per-frame UBO upload orchestration peeled to `Vk_FrameUniformUploader::Update` with `DrawFrame` delegation — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
 - [x] **[S2]** Scene host peel: scene CPU-state setup (id tables/SoA/LOD/debug logical mesh) peeled to `Vk_SceneHost::LoadCpuState` from `LoadSceneResources` — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
 - [x] **[S2]** `Vk_PlatformFrame`: GLFW window init + per-frame poll/delta/ImGui orchestration peeled to `Vk_PlatformFrame` from `InitWindow`/`BeginPlatformFrame` — 2026-05-28; `Docs/vk-core-decomposition_Plan.md`, `Docs/vk-core-decomposition_Progress.md`.
+- [x] **[S2]** `gfx-vk-decoupling`: render packet contract + `Vk_RenderBackend` boundary landed; `RenderCore` runtime consume path is packet-only and direct `Gfx_ExtractResult` dependency removed from `RenderCore/` — 2026-05-28; `Docs/gfx-vk-decoupling_Plan.md`, `Docs/gfx-vk-decoupling_Progress.md`.
 - [x] **[S2]** Thin scheduler: `Vk_Core::Update` vs `Render` driven by `Application` main loop — 2026-05-27; with application-lifecycle.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `scene-load_Plan.md` Handoff.
 - [x] **[S2]** Scene-load Phase C: scene-driven SoA/LOD/manifest + `Vk_ResourceTables::LoadFromManifest`; `SetLoadedScene` before `Run()` — 2026-05-27; `Docs/scene-load_Plan.md` Phase C.
