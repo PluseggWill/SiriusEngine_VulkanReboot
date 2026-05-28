@@ -58,7 +58,7 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshI
 
     Gfx_Mesh& mesh = myMeshes[ aMeshId ];
     mesh.LoadMesh( resolvedPath );
-    mesh.BuildBuffers();
+    mesh.BuildBuffers( aContext );
 
     const VmaAllocator allocator = aContext.myAllocator;
     aDeletionQueue.pushFunction( [ allocator, aMeshId, this ]() {
@@ -83,7 +83,7 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t 
     }
 
     Gfx_Texture& texture = myTextures[ aTextureId ];
-    if ( UtilLoader::LoadTexture( resolvedPath, texture, aMipLevels ) != true ) {
+    if ( UtilLoader::LoadTexture( resolvedPath, aContext, texture, aMipLevels ) != true ) {
         throw std::runtime_error( "failed to load texture!" );
     }
     texture.ImageView() = aContext.CreateImageView( texture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, aMipLevels );

@@ -37,3 +37,12 @@
 - **Files:** `Vk_Core.{h,cpp}`, `Docs/EngineArchitecture.md`, `Docs/SprintPlan.md`, `Docs/README.md`, `Docs/vk-core-decomposition_Plan.md`
 - **What changed:** `DrawFrame` labeled sync / CPU prep / GPU record / submit-present; RHI module comments on `Vk_Core`. Sprint task archived; architecture §3.1/§9 updated.
 - **Verification:** MSBuild Debug|x64 exit 0; smoke OK; `Vk_Core.cpp` ~2260 lines (was ~2393 pre-peel); grep: no Gfx extract/cull/sort/batch in `Vk_Core.cpp`
+
+---
+
+## 2026-05-28 — Phase 2 #1: Vk_ResourceContext v2
+
+- **Plan ref:** `vk-core-decomposition_Plan.md` -> Phase 2 task ledger #1 (`Vk_ResourceContext` v2)
+- **Files:** `RenderCore/Vk_ResourceContext.{h,cpp}`, `RenderCore/Vk_Core.cpp`, `RenderCore/Vk_ResourceTables.cpp`, `RenderCore/Vk_Types.{h,cpp}`, `Util/Util_Loader.{h,cpp}`, `Docs/SprintPlan.md`, `Docs/EngineArchitecture.md`
+- **What changed:** Expanded `Vk_ResourceContext` to own load-time helper operations (`CreateBuffer`/`CreateImage`/copy/transition/mipmap); `SyncResourceContext` now binds full handles (device, allocator, queues, pools, queue-family ids, physical device). Loader and mesh upload chains now consume explicit context, removing `Vk_Core::GetInstance()` usage in this path. Phase 2 tracking docs consolidated under `vk-core-decomposition_{Plan,Progress}.md`.
+- **Verification:** MSBuild Debug|x64 exit 0; 4s smoke-run OK; runtime log shows `LoadSceneResources completed`, `RESOURCE-TABLE meshes=8 materials=7 textures=6`, `EXTRACT entities=9 draws=9`, and no new `[ERROR]` in init path.

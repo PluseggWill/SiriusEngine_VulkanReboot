@@ -8,6 +8,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+struct Vk_ResourceContext;
+
 struct Vk_AllocatedImage {
 public:
     VkImage       myImage;
@@ -101,9 +103,9 @@ public:
 
 public:
     void LoadMesh( const std::string& aPath );
-    void BuildBuffers();
-    void BuildVertexBuffer();
-    void BuildIndexBuffer();
+    void BuildBuffers( const Vk_ResourceContext& aContext );
+    void BuildVertexBuffer( const Vk_ResourceContext& aContext );
+    void BuildIndexBuffer( const Vk_ResourceContext& aContext );
 };
 
 class Gfx_RenderObject {

@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Vk_Core.h"
+#include "Vk_ResourceContext.h"
 #include "Vk_Types.h"
 
 #ifndef TINYOBJLOADER_IMPLEMENTATION
@@ -132,46 +132,46 @@ void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
     }
 }
 
-void Gfx_Mesh::BuildBuffers() {
-    BuildVertexBuffer();
-    BuildIndexBuffer();
+void Gfx_Mesh::BuildBuffers( const Vk_ResourceContext& aContext ) {
+    BuildVertexBuffer( aContext );
+    BuildIndexBuffer( aContext );
 }
 
-void Gfx_Mesh::BuildVertexBuffer() {
+void Gfx_Mesh::BuildVertexBuffer( const Vk_ResourceContext& aContext ) {
     const VkDeviceSize bufferSize = sizeof( Gfx_Vertex ) * myVertices.size();
 
     Vk_AllocatedBuffer stagingBuffer;
 
     // Staging (CPU) -> device-local vertex buffer via CopyBuffer on transfer queue.
-    Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
+    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
-    vmaMapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation, &data );
+    vmaMapMemory( aContext.myAllocator, stagingBuffer.myAllocation, &data );
     memcpy( data, myVertices.data(), bufferSize );
-    vmaUnmapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation );
+    vmaUnmapMemory( aContext.myAllocator, stagingBuffer.myAllocation );
 
-    Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myVertexBuffer, false );
+    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myVertexBuffer, false );
 
-    Vk_Core::GetInstance().CopyBuffer( stagingBuffer.myBuffer, myVertexBuffer.myBuffer, bufferSize );
+    aContext.CopyBuffer( stagingBuffer.myBuffer, myVertexBuffer.myBuffer, bufferSize );
 
-    vmaDestroyBuffer( Vk_Core::GetInstance().myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    vmaDestroyBuffer( aContext.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 }
 
-void Gfx_Mesh::BuildIndexBuffer() {
+void Gfx_Mesh::BuildIndexBuffer( const Vk_ResourceContext& aContext ) {
     const VkDeviceSize bufferSize = sizeof( uint32_t ) * myIndices.size();
 
     Vk_AllocatedBuffer stagingBuffer;
 
-    Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
+    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
 
     void* data;
-    vmaMapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation, &data );
+    vmaMapMemory( aContext.myAllocator, stagingBuffer.myAllocation, &data );
     memcpy( data, myIndices.data(), bufferSize );
-    vmaUnmapMemory( Vk_Core::GetInstance().myAllocator, stagingBuffer.myAllocation );
+    vmaUnmapMemory( aContext.myAllocator, stagingBuffer.myAllocation );
 
-    Vk_Core::GetInstance().CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myIndexBuffer, false );
+    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myIndexBuffer, false );
 
-    Vk_Core::GetInstance().CopyBuffer( stagingBuffer.myBuffer, myIndexBuffer.myBuffer, bufferSize );
+    aContext.CopyBuffer( stagingBuffer.myBuffer, myIndexBuffer.myBuffer, bufferSize );
 
-    vmaDestroyBuffer( Vk_Core::GetInstance().myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    vmaDestroyBuffer( aContext.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 }

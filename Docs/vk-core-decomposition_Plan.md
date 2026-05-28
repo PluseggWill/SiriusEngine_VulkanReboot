@@ -157,16 +157,44 @@ Get-Content ..\..\Logs\engine_runtime_log.txt -Tail 60
 
 Tracked in `Docs/SprintPlan.md` § **`Vk_Core` decomposition — phase 2**. Code search: `TODO(vk-core-peel)`.
 
-| # | Module | Notes |
-|---|--------|--------|
-| 1 | `Vk_ResourceContext` v2 | Extend M1 context; remove `GetInstance()` from loaders |
-| 2 | `Vk_RenderDevice` | Device lifecycle only |
-| 3 | `Vk_SwapchainHost` | Swapchain + present path |
-| 4 | `Vk_DescriptorSystem` | Descriptor policy implementation surface |
-| 5 | `Vk_GfxPipelineCache` | Pipelines per scene shader / bindless branch |
-| 6 | `Vk_ForwardScenePass` | Command recording for forward + ImGui pass |
-| 7 | `Vk_FrameUniformUploader` | Frame UBO writes |
-| 8 | Scene host (App/Gfx) | SoA/LOD ownership leaves RenderCore |
-| 9 | `Vk_PlatformFrame` | GLFW + ImGui platform boundary |
+### Phase 2 task ledger (consolidated)
+
+All `Vk_Core decomposition — phase 2` tasks are documented in this plan and `Docs/vk-core-decomposition_Progress.md` only.  
+`SprintPlan.md` remains the roadmap checklist; do not create separate `Docs/*_Plan.md` / `Docs/*_Progress.md` files for individual phase 2 slices.
+
+| # | Module | Status | Notes |
+|---|--------|--------|-------|
+| 1 | `Vk_ResourceContext` v2 | Done (2026-05-28) | Extend context helper surface; remove `GetInstance()` from loader/mesh upload chain |
+| 2 | `Vk_RenderDevice` | Planned | Device lifecycle only |
+| 3 | `Vk_SwapchainHost` | Planned | Swapchain + present path |
+| 4 | `Vk_DescriptorSystem` | Planned | Descriptor policy implementation surface |
+| 5 | `Vk_GfxPipelineCache` | Planned | Pipelines per scene shader / bindless branch |
+| 6 | `Vk_ScenePasses` | Planned | Command recording split for scene/hybrid passes + ImGui pass |
+| 7 | `Vk_FrameUniformUploader` | Planned | Frame UBO writes |
+| 8 | Scene host (App/Gfx) | Planned | SoA/LOD ownership leaves RenderCore |
+| 9 | `Vk_PlatformFrame` | Planned | GLFW + ImGui platform boundary |
+
+### Phase 2 #1 completion record (`Vk_ResourceContext` v2)
+
+Date: 2026-05-28
+
+**Problem focus**
+- Resource load/upload paths still used `Vk_Core::GetInstance()` in `Util_Loader` and `Gfx_Mesh`, which blocked clean RHI boundary peeling.
+
+**Implementation steps completed**
+- [x] Baseline gap check: confirmed remaining singleton usage in texture and mesh upload paths.
+- [x] Context v2 surface: extended `Vk_ResourceContext` with load-time helper ops (`CreateBuffer`, `CreateImage`, `TransitionImageLayout`, `CopyBufferToImage`, `CopyBuffer`, `GenerateMipmaps`) and required handles.
+- [x] Core bind update: `Vk_Core::SyncResourceContext` now binds full context (device/allocator/queues/pools/queue-family ids/physical device).
+- [x] Loader/mesh migration: `UtilLoader::LoadTexture` and `Gfx_Mesh::BuildBuffers` switched to explicit `const Vk_ResourceContext&`.
+- [x] Call-site cleanup: `Vk_ResourceTables` passes context through upload chain.
+
+**Verification (passed)**
+- Build: `Debug|x64` MSBuild exit code 0.
+- Smoke-run: `x64\\Debug\\VulkanDesktop.exe` short run (~4s) exited cleanly.
+- Logs: `LoadSceneResources completed`, `RESOURCE-TABLE meshes=8 materials=7 textures=6`, `EXTRACT entities=9 draws=9`, `FillInstanceSlab` wrote 9 instances, no new `[ERROR]` on init path.
+
+**Notes / risks handled**
+- A compile break from missing `Vk_Types.h` include in `Vk_ResourceContext.h` was fixed in-task.
+- Scope remained limited to context + resource-load chain; no descriptor/pipeline policy changes.
 
 **End state:** `Vk_Core` (or `Vk_RenderBackend`) orchestrates subsystems; no scene semantics, no GLFW, minimal public API.

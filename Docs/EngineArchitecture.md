@@ -83,7 +83,11 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **RHI peel (2026-05-27, M1–M3 done):** `Vk_ResourceContext` for table load; Gfx CPU draw list; `Vk_Core` hot path is acquire/record/present.
 
-**RHI peel phase 2 (planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, scene pass modules (`Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` or equivalent), scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
+**RHI peel phase 2 (2026-05-28, step #1 done):** `Vk_ResourceContext v2` now owns load-time buffer/image/upload helper operations consumed by `Util_Loader` and `Gfx_Mesh::BuildBuffers` through explicit context injection.
+
+**RHI peel phase 2 (next planned):** `Vk_RenderDevice`, `Vk_SwapchainHost`, `Vk_DescriptorSystem`, scene pass modules (`Vk_GBufferPass` / `Vk_DeferredLightingPass` / `Vk_ForwardTransparentPass` or equivalent), scene host, platform frame — ordered tasks in `SprintPlan.md` § phase 2; code `TODO(vk-core-peel)`.
+
+**Phase 2 doc tracking:** phase 2 task design/progress is consolidated in `Docs/vk-core-decomposition_Plan.md` and `Docs/vk-core-decomposition_Progress.md` (SprintPlan keeps checklist-level status only).
 
 **Render path (target):** See **§5.5–§5.10** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** pass chain `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post` (Stage 2+) and `ForwardLit` baseline retained for parity.
 
@@ -525,4 +529,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (lighting dependencies + epic stage contracts; 2026-05-28).*
+*Last aligned with `Docs/SprintPlan.md` (S2 phase-2 doc consolidation convention + checklist alignment; 2026-05-28).*

@@ -419,7 +419,8 @@ void Vk_Core::CreateSurface() {
 }
 
 void Vk_Core::SyncResourceContext() {
-    myResourceContext.Bind( myDevice, myAllocator );
+    myResourceContext.Bind( myDevice, myAllocator, myPhysicalDevice, myGraphicsQueue, myTransferQueue, myGraphicsCommandPool, myTransferCommandPool,
+                            myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
 }
 
 void Vk_Core::InitAllocator() {
