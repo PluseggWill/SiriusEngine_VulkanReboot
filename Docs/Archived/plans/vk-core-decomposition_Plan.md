@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Engine layering & hygiene  
 **Status:** Done (2026-05-27)  
-**Related:** [`SprintPlan.md`](SprintPlan.md) (open task: `Vk_Core` decomposition), [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, §9, [`scene-load_Plan.md`](scene-load_Plan.md) (Phase D parallel), [`Archived/plans/resource-tables_Plan.md`](Archived/plans/resource-tables_Plan.md)
+**Related:** [`../../Active-Plan.md`](../../Active-Plan.md) § S2, [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3–4, §9, [`scene-load_Plan.md`](scene-load_Plan.md) (Phase D parallel), [`resource-tables_Plan.md`](resource-tables_Plan.md)
 
 ## Problem
 
@@ -63,9 +63,9 @@ Application
 | `App/Application.cpp` | — | Call demo sim | — |
 | `RenderCore/Vk_Core.h` / `.cpp` | Slim load path | Remove spin/prep from DrawFrame | DrawFrame record-only surface |
 | `VulkanDesktop.vcxproj` / `.filters` | ✓ | ✓ | ✓ |
-| `Docs/vk-core-decomposition_Progress.md` | ✓ | ✓ | ✓ |
+| `vk-core-decomposition_Progress.md` (this folder) | ✓ | ✓ | ✓ |
 | `Docs/EngineArchitecture.md` §3.1, §9 | On M3 close | | ✓ |
-| `Docs/SprintPlan.md` | Archive line on task close | | |
+| `Active-Plan.md` → `Archived-Plan.md` | Move sprint line on task close | | |
 | `Docs/README.md` | Add plan link | | |
 
 **Untouched (unless compile forces include):** shaders, `Vk_DescriptorPolicy.h`, `Gfx_SceneLoader`, `Util_EngineConfig`
@@ -155,12 +155,12 @@ Get-Content ..\..\Logs\engine_runtime_log.txt -Tail 60
 
 ## Phase 2 backlog (next sprint slices)
 
-Tracked in `Docs/SprintPlan.md` § **`Vk_Core` decomposition — phase 2**. Code search: `TODO(vk-core-peel)`.
+Tracked in `Docs/Archived-Plan.md` `[S2]` vk-core lines (queue cleared). Code search: `TODO(vk-core-peel)`.
 
 ### Phase 2 task ledger (consolidated)
 
-All `Vk_Core decomposition — phase 2` tasks are documented in this plan and `Docs/vk-core-decomposition_Progress.md` only.  
-`SprintPlan.md` remains the roadmap checklist; do not create separate `Docs/*_Plan.md` / `Docs/*_Progress.md` files for individual phase 2 slices.
+All `Vk_Core decomposition — phase 2` tasks are documented in this plan and `vk-core-decomposition_Progress.md` only.  
+`Active-Plan.md` / `Archived-Plan.md` hold the roadmap checklist; do not create separate `Docs/*_Plan.md` / `Docs/*_Progress.md` files for individual phase 2 slices.
 
 | # | Module | Status | Notes |
 |---|--------|--------|-------|

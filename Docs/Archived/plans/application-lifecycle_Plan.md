@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Engine layering & hygiene  
 **Status:** Done (2026-05-27)  
-**Related:** [`scene-load_Plan.md`](scene-load_Plan.md) Handoff, [`EngineArchitecture.md`](EngineArchitecture.md) §3, [`SprintPlan.md`](SprintPlan.md) § S2
+**Related:** [`scene-load_Plan.md`](scene-load_Plan.md) Handoff, [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3, [`../../Active-Plan.md`](../../Active-Plan.md) § S2
 
 ## Problem
 
@@ -52,7 +52,7 @@ main → Application::Configure → Application::Run
 |------|--------|
 | New | `VulkanDesktop/App/Application.{h,cpp}` |
 | Change | `VulkanDesktop/VulkanDesktop.cpp`, `RenderCore/Vk_Core.{h,cpp}`, `VulkanDesktop.vcxproj`, `.filters` |
-| Docs | `Docs/application-lifecycle_Progress.md`, `EngineArchitecture.md` §3.1, `SprintPlan.md` |
+| Docs | `application-lifecycle_Progress.md` (this folder), `../../EngineArchitecture.md` §3.1, `../../Active-Plan.md` |
 
 ## Implementation steps
 

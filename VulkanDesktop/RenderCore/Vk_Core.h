@@ -36,7 +36,7 @@ struct GLFWwindow;
 // Owns scene SoA/LOD (until sim peel), Vk_ResourceTables, Vk_FrameDrawPrep output consumed by RecordScenePass.
 // Delegates: Gfx_BuildFrameDrawStream (CPU draw list), Gfx_TickDemoSceneTransforms (Application), Vk_ResourceContext (table load).
 //
-// TODO(vk-core-peel phase-2): see Docs/SprintPlan.md § Vk_Core decomposition — phase 2
+// TODO(vk-core-peel phase-2): see Docs/Archived-Plan.md [S2] vk-core decomposition lines
 //   1) Vk_ResourceContext v2 — buffer/image/upload helpers off public Vk_Core API
 //   2) Vk_RenderDevice — instance/device/queues/VMA/command pools (InitRenderDevice)
 //   3) Vk_SwapchainHost — swapchain, render pass, framebuffers, acquire/present

@@ -2,7 +2,7 @@
 
 **Status:** Planned  
 **Scope:** Stage 2 of lighting evolution  
-**Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`SprintPlan.md`](SprintPlan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
+**Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
 ## Naming conventions
 

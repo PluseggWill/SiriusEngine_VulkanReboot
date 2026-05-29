@@ -2,7 +2,7 @@
 
 **Status:** Planned  
 **Scope:** Stage 3 of lighting evolution (optional feature set)  
-**Related:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`SprintPlan.md`](SprintPlan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
+**Related:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
 ## Naming conventions
 

@@ -2,7 +2,7 @@
 
 **Status:** Planned  
 **Scope:** Stage 1 of lighting evolution  
-**Related:** [`SprintPlan.md`](SprintPlan.md), [`EngineArchitecture.md`](EngineArchitecture.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md)
+**Related:** [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md)
 
 ## Naming conventions
 
@@ -67,7 +67,7 @@ flowchart LR
 
 ### C. Validation and migration gates
 
-**Deps:** A and B complete; benchmark/preset infra from `SprintPlan.md` S7 can be reused for parity captures.
+**Deps:** A and B complete; benchmark/preset infra from `Active-Plan.md` S7 can be reused for parity captures.
 
 - [ ] Capture golden screenshots and perf baseline in one benchmark scene.
 - [ ] Add acceptance checklist for deferred migration handoff.

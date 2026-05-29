@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Engine layering & hygiene  
 **Status:** Done (2026-05-27)  
-**Related:** [`fps-camera`](../Archived/plans/fps-camera_Plan.md), [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md) §3.1
+**Related:** [`fps-camera_Plan.md`](fps-camera_Plan.md), [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md), [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3.1
 
 ## Problem
 

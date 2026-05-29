@@ -17,7 +17,7 @@ Logical id: `"tree"` in `Data/Scenes/demo.json` → `logicalMeshes` (runtime: `G
 2. Add a `logicalMeshes` entry with `lodMeshes` (and optional `lodDistances`).
 3. Reference the logical id from `entities[].logicalMesh`.
 
-Legacy C++ reference (not used at runtime): `Gfx_BuildDemoResourceManifest` + `Gfx_BuildDemoLodTable` — see `Docs/scene-load_Plan.md` → Legacy retained.
+Legacy C++ reference (not used at runtime): `Gfx_BuildDemoResourceManifest` + `Gfx_BuildDemoLodTable` — see `Docs/Archived/plans/scene-load_Plan.md` → Legacy retained.
 
 **Scene JSON:** define chains under `logicalMeshes` in `Data/Scenes/*.json` — see [`Docs/SceneJSON.md`](../Docs/SceneJSON.md).
 

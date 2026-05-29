@@ -1,13 +1,13 @@
 # Sprint Outcome Validation
 
-Validation runbook for sprint close-out. Use with [`SprintPlan.md`](SprintPlan.md).
+Validation runbook for sprint close-out. Use with [`Active-Plan.md`](Active-Plan.md) (open tasks) and [`Archived-Plan.md`](Archived-Plan.md) (completed lines).
 
 ## How to use
 
 1. Finish all planned sprint tasks or explicitly defer remaining work.
 2. Run the sprint-specific validation checklist below.
 3. Record outputs (logs/screenshots/captures) in PR or progress notes.
-4. Only then move completed sprint items to `SprintPlan.md` -> `## Archived`.
+4. Only then move completed sprint lines from **`Active-Plan.md`** → **`Archived-Plan.md`**.
 
 ---
 

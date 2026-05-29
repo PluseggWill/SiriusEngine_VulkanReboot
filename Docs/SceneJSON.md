@@ -5,7 +5,7 @@
 > **解析实现：** `Gfx_LoadSceneDesc`（`VulkanDesktop/Gfx/Gfx_SceneLoader.cpp`）  
 > **运行时灌入：** `Gfx_SceneApply`（manifest / SoA / LOD）  
 > **示例文件：** [`Data/Scenes/demo.json`](../Data/Scenes/demo.json)  
-> **任务与依赖：** [`scene-load_Plan.md`](scene-load_Plan.md) → Handoff
+> **任务与依赖：** [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) → Handoff
 
 ---
 

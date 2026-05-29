@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Engine layering & hygiene  
 **Status:** Done (2026-05-27)  
-**Related:** [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md) §3, [`SprintPlan.md`](SprintPlan.md) § S2
+**Related:** [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md), [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3, [`../../Active-Plan.md`](../../Active-Plan.md) § S2
 
 ## Problem
 
@@ -38,7 +38,7 @@ Runtime settings are split across `VulkanDesktop.cpp` (window size), `Util_Asset
 |------|--------|
 | New | `VulkanDesktop/Util/Util_EngineConfig.{h,cpp}` |
 | Change | `Config/engine.json`, `Application.{h,cpp}`, `VulkanDesktop.cpp`, `Util_Logger.*`, `Util_AssetConfig.*`, `Util_ValidationConfig.*`, `Vk_Core.*`, `Util_Loader.cpp`, vcxproj/filters |
-| Docs | `Docs/central-config_Progress.md`, `bootstrap.md`, `SprintPlan.md`, `EngineArchitecture.md` |
+| Docs | `central-config_Progress.md` (this folder), `../../bootstrap.md`, `../../Active-Plan.md`, `../../EngineArchitecture.md` |
 
 ## Steps
 

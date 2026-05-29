@@ -122,7 +122,7 @@ Set-Location x64\Debug
 | [`bootstrap.md`](bootstrap.md) | 新机构建、运行、日志 |
 | [`SceneJSON.md`](SceneJSON.md) / [`SceneJSON.en.md`](SceneJSON.en.md) | 场景 JSON 编写 |
 | [`validation-layers.md`](validation-layers.md) | Validation 层安装与开关 |
-| [`scene-load_Plan.md`](scene-load_Plan.md) | 场景加载架构与 Phase D unload |
+| [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) | 场景加载架构与 Phase D unload |
 
 ---
 

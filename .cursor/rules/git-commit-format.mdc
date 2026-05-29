@@ -14,7 +14,7 @@ Follow this style for every commit (see recent history on `Docs`). **Still requi
 - Optional **scope prefix** in brackets for multi-module or tooling work:
   - `[VulkanDesktop]` — engine / `VulkanDesktop/` code or shaders
   - `[Cursor]` — `.cursor/rules`, skills, agent workflow
-  - `[Docs]` — plans, progress, `SprintPlan.md`, `EngineArchitecture.md`
+  - `[Docs]` — plans, progress, `Active-Plan.md` / `Archived-Plan.md`, `EngineArchitecture.md`
   - `[Lighting]` / `[Gfx]` — feature-specific when scope is narrow
 - Small focused fixes may omit the prefix (repo uses both styles).
 
@@ -23,7 +23,7 @@ Follow this style for every commit (see recent history on `Docs`). **Still requi
 ```
 Fix OBJ mesh load crash when UV coordinates are missing.
 [VulkanDesktop] Add FPS fly camera with input snapshot and ImGui tuning
-Move roadmap to Docs/SprintPlan.md and sync verification state.
+Move completed line to Docs/Archived-Plan.md and sync Active-Plan / EngineArchitecture.
 ```
 
 ### Avoid
@@ -52,7 +52,7 @@ Add cpp-comments.mdc; link from layout and vibe-coding-entry rules.
 
 ## When closing Docs workflow tasks
 
-- Mention plan/progress or `SprintPlan.md` in the body if the commit completes a tracked item.
-- **Move the completed line to `## Archived`** in `Docs/SprintPlan.md` (tag sprint, e.g. `[S1]`); active sprints must not keep `[x]` items.
+- Mention plan/progress or `Active-Plan.md` / `Archived-Plan.md` in the body if the commit completes a tracked item.
+- **Move the completed line** from `Docs/Active-Plan.md` to `Docs/Archived-Plan.md` (tag sprint, e.g. `[S1]`); Active-Plan must not keep `[x]` items.
 - Prefer one logical change per commit (matches recent maintenance commits).
 - If a session delivers **both** a sprint plan task **and** a separate policy/shader fix (e.g. resource tables + push-constant `model`), use **two commits** when history clarity matters; reference both in `_Progress.md`.

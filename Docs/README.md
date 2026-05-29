@@ -1,36 +1,48 @@
 # Docs — SiriusEngine / VulkanDesktop
 
-## Living documents (edit with active work)
+## Active now
+
+| Field | Value |
+|-------|--------|
+| **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
+| **Recommended next** | `descriptor-layout-verify` — verify `VkPipelineLayout` Set 0/1/2 vs `Vk_DescriptorPolicy.h` |
+| **Plan / Progress** | Create `Docs/descriptor-layout-verify_Plan.md` + `_Progress.md` when starting (only WIP pair at `Docs/` root) |
+| **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
+
+*Update this table when opening or closing a vibe task.*
+
+---
+
+## Roadmap & architecture
 
 | File | Purpose |
 |------|---------|
-| [`SprintPlan.md`](SprintPlan.md) | Executable roadmap (S0–S8), open `[ ]` tasks, **Archived** history |
+| [`Active-Plan.md`](Active-Plan.md) | Open `[ ]` tasks, north star, sprint map, dependency graph, backlog |
+| [`Archived-Plan.md`](Archived-Plan.md) | Completed `[x]` sprint lines |
+| [`SprintPlan.md`](SprintPlan.md) | Index → Active / Archived split |
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Architecture intent, invariants, render/data-plane policy |
-| [`input-abstraction_Plan.md`](input-abstraction_Plan.md) / [`input-abstraction_Progress.md`](input-abstraction_Progress.md) | S2 `InputSystem` + camera input path out of `Vk_Core` — **done** 2026-05-27 |
-| [`central-config_Plan.md`](central-config_Plan.md) / [`central-config_Progress.md`](central-config_Progress.md) | S2 `Util_EngineConfig` + `Config/engine.json` — **done** 2026-05-27 |
-| [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md) / [`application-lifecycle_Progress.md`](application-lifecycle_Progress.md) | S2 Application lifecycle + Update/Render scheduler — **done** 2026-05-27 |
-| [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–D **done** (GPU unload, ImGui scene switch, `CLI.md`) |
-| [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) / [`vk-core-decomposition_Progress.md`](vk-core-decomposition_Progress.md) | S2 `Vk_Core` RHI peel (context, draw prep, record/submit) — **done** 2026-05-27 |
-| [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Sprint close-out validation runbook (S0–S8 acceptance checks) |
-| [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 lighting epic: complete forward baseline before deferred migration |
-| [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | Stage 2 lighting epic: full PBR with opaque deferred/clustered + transparent forward |
-| [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | Stage 3 lighting epic: optional DDGI layer on top of hybrid renderer |
-| [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | **Scene JSON v1 authoring** (EN / 中文) |
+| [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Sprint close-out validation runbook |
 
-## Guides (not vibe task logs)
+## Lighting epics (reference, not WIP)
 
 | File | Purpose |
 |------|---------|
-| [`CLI.md`](CLI.md) | 命令行参数、`engine.json` 字段、示例与优先级 |
-| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent/CI 冒烟测试用 CLI（与 vibe-coding smoke-run 一致） |
-| [`bootstrap.md`](bootstrap.md) | New-machine toolchain, build, run, logs |
-| [`validation-layers.md`](validation-layers.md) | Validation layer install + runtime toggles |
-| [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | Scene JSON v1 schema and authoring (EN / 中文) |
+| [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 — forward baseline |
+| [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | Stage 2 — hybrid deferred + PBR |
+| [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | Stage 3 — optional DDGI |
 
-## Archived
+## Guides
 
-Completed sprint vibe-coding **Plan** / **Progress** pairs, S1 retrospective, and session notes live under [`Archived/`](Archived/README.md).
+| File | Purpose |
+|------|---------|
+| [`CLI.md`](CLI.md) | CLI args, `engine.json`, examples |
+| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent smoke-run commands |
+| [`bootstrap.md`](bootstrap.md) | Toolchain, build, run, logs |
+| [`validation-layers.md`](validation-layers.md) | Validation layers install + toggles |
+| [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | Scene JSON v1 authoring (EN / 中文) |
 
-**Current sprint (S2):** keep `{TaskName}_Plan.md` and `{TaskName}_Progress.md` at **`Docs/` root** until the sprint closes or docs are bulk-archived.
+## Archived task logs
 
-When starting a new task, add both files at `Docs/` root.
+Completed vibe-coding **Plan** / **Progress** pairs: [`Archived/plans/`](Archived/plans/) — see [`Archived/README.md`](Archived/README.md).
+
+**Workflow:** on task close, collapse Progress to **Closeout**, move both files to `Archived/plans/`, move the sprint line from **Active-Plan** → **Archived-Plan**, clear **Active now** above.

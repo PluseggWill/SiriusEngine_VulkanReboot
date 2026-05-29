@@ -69,4 +69,4 @@ Apply when adding or editing comments in `VulkanDesktop/` (C++, GLSL). Prefer **
 
 - Module layout: `vulkan-desktop-layout.mdc`
 - Architecture: `Docs/EngineArchitecture.md`
-- Roadmap: `Docs/SprintPlan.md`
+- Roadmap: `Docs/Active-Plan.md` (open tasks), `Docs/Archived-Plan.md` (completed)

@@ -138,4 +138,4 @@ Not required to compile (vendored SDK), but helps validation-layer troubleshooti
 | Wrong assets loaded | `[CONFIG] assetRoot=` in log; set `--asset-root` to repo root |
 | Validation noise | `--no-validation` or Release build; see `validation-layers.md` |
 
-Roadmap: [`SprintPlan.md`](SprintPlan.md). Architecture: [`EngineArchitecture.md`](EngineArchitecture.md).
+Roadmap: [`Active-Plan.md`](Active-Plan.md) · [`Archived-Plan.md`](Archived-Plan.md). Architecture: [`EngineArchitecture.md`](EngineArchitecture.md).

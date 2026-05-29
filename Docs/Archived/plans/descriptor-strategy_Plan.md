@@ -1,7 +1,7 @@
 # Plan: descriptor-strategy
 
 **Sprint:** S0 — Foundation & tooling  
-**Status:** **Archived** (2026-05-22) — policy locked; runtime proof deferred to S1/S2 tasks in `Docs/SprintPlan.md`
+**Status:** **Archived** (2026-05-22) — policy locked; runtime proof deferred to S1/S2 tasks in `Docs/Active-Plan.md` / `Archived-Plan.md`
 
 ## Problem
 

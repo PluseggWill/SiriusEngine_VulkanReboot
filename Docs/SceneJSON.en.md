@@ -5,7 +5,7 @@
 > **Parser:** `Gfx_LoadSceneDesc` (`VulkanDesktop/Gfx/Gfx_SceneLoader.cpp`)  
 > **Runtime hydration:** `Gfx_SceneApply` (manifest / SoA / LOD)  
 > **Example:** [`Data/Scenes/demo.json`](../Data/Scenes/demo.json)  
-> **Task context:** [`scene-load_Plan.md`](scene-load_Plan.md) → Handoff
+> **Task context:** [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) → Handoff
 
 ---
 

@@ -1,6 +1,6 @@
 # Engine Architecture — Design Notes
 
-This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable **sprint checklists** live in `Docs/SprintPlan.md`; keep this file for **structure, invariants, and tradeoffs**.
+This document captures **architecture intent and reasoning** for the SiriusEngine / VulkanDesktop reboot. Executable **open sprint checklists** live in [`Docs/Active-Plan.md`](Active-Plan.md); completed lines in [`Docs/Archived-Plan.md`](Archived-Plan.md). Keep this file for **structure, invariants, and tradeoffs**.
 
 ---
 
@@ -15,7 +15,7 @@ This document captures **architecture intent and reasoning** for the SiriusEngin
 - How the **rendering path** should be shaped so it consumes flat buffers, not pointer-heavy scene graphs.
 - Known **risks** and **anti-patterns**.
 
-Out of scope here: exact class names in the repo, shader code, or step-by-step build instructions (those belong in code comments, `README.md`, or `SprintPlan.md`).
+Out of scope here: exact class names in the repo, shader code, or step-by-step build instructions (those belong in code comments, `README.md`, or `Active-Plan.md`).
 
 ---
 
@@ -62,24 +62,24 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **Rule of thumb**: `Vk_Core` (or its successor) should sit in the **render backend** box. It should **not** own high-level game rules or physics; it **should** own swap chains, **frame-graph orchestration**, pipelines, and command recording driven by **already prepared** draw streams.
 
-**S8 (simulation)** runs in parallel after application scheduler exists (**S2**): fixed-step physics and animation write SoA; AI writes intent columns. None of these call Vulkan. See **§4.6** and `SprintPlan.md` S8.
+**S8 (simulation)** runs in parallel after application scheduler exists (**S2**): fixed-step physics and animation write SoA; AI writes intent columns. None of these call Vulkan. See **§4.6** and [`Active-Plan.md`](Active-Plan.md) S8.
 
 **Multi-view**: one world SoA, multiple **RenderView** configs (camera, viewport, masks). Extract may run per view or filter a shared visible set. Each view carries its own frame UBO (view/proj). Details: **§5.9**.
 
 ### 3.1 VulkanDesktop today (incremental)
 
-**Application lifecycle (2026-05-27):** `VulkanDesktop::main` → `Application::Run`: **`UtilEngineConfig::Initialize`** (CLI + `Config/engine.json`) → `UtilLogger::Init` → `LoadSceneDesc` + `Util_VerifyManifest` → `Vk_Core::InitWindow` → **`InitRenderDevice`** → **`LoadSceneResources`** → loop **`Update`** / **`Render`** → **`UnloadScene`** → **`Shutdown`**. See `Docs/application-lifecycle_Plan.md`, `Docs/central-config_Plan.md`.
+**Application lifecycle (2026-05-27):** `VulkanDesktop::main` → `Application::Run`: **`UtilEngineConfig::Initialize`** (CLI + `Config/engine.json`) → `UtilLogger::Init` → `LoadSceneDesc` + `Util_VerifyManifest` → `Vk_Core::InitWindow` → **`InitRenderDevice`** → **`LoadSceneResources`** → loop **`Update`** / **`Render`** → **`UnloadScene`** → **`Shutdown`**. See [`Archived/plans/application-lifecycle_Plan.md`](Archived/plans/application-lifecycle_Plan.md), [`Archived/plans/central-config_Plan.md`](Archived/plans/central-config_Plan.md).
 
 **Central config (2026-05-27):** `Util_EngineConfig` loads window size, vsync, `assetRoot`, default `scene`, `logLevel`, `enableValidationLayers`, and `features` (`demoRotate`, `runtimeMipmap`). CLI overrides win. `Vk_Core::ChooseSwapPresentMode` respects `vsync`; demo rotate and runtime mipmaps read feature flags.
 
-**Input (2026-05-27):** `Application` owns `InputSystem` (persistent `Util_InputState`, per-frame `Util_InputSnapshot`). Loop: `Vk_Core::BeginPlatformFrame` (poll, Δt, ImGui `NewFrame`) → `InputSystem::Sample` → `Vk_Core::ApplyCameraInput` → `Gfx_TickDemoSceneTransforms` → `Render`. GLFW sampling stays in `UtilInput::Sample`; RenderCore has no GLFW. Future gameplay reads the same snapshot. See `Docs/input-abstraction_Plan.md`.
+**Input (2026-05-27):** `Application` owns `InputSystem` (persistent `Util_InputState`, per-frame `Util_InputSnapshot`). Loop: `Vk_Core::BeginPlatformFrame` (poll, Δt, ImGui `NewFrame`) → `InputSystem::Sample` → `Vk_Core::ApplyCameraInput` → `Gfx_TickDemoSceneTransforms` → `Render`. GLFW sampling stays in `UtilInput::Sample`; RenderCore has no GLFW. Future gameplay reads the same snapshot. See [`Archived/plans/input-abstraction_Plan.md`](Archived/plans/input-abstraction_Plan.md).
 
 1. **`InputSystem::Sample`** — ImGui capture gate → `UtilInput::Sample` → device-neutral snapshot.
 2. **`Vk_Camera::ApplyInput`** — view/projection/eye for UBOs and lighting (no GLFW in `Vk_Camera`).
 
 **Shaders (today):** **GLSL → glslc** — sources in `Shader/` (`TriangleVertex.vert`, `TriangleFrag_Lit.frag`), SPIR-V in `Shader_Generated/`, raster entry `main` on a **vertex + fragment** pipeline. Pitfalls: `.cursor/rules/shader-build.mdc`, `Docs/Archived/notes-2026-05-22-shader-debug.md`.
 
-**Render path (today):** `Gfx_TickDemoSceneTransforms` → `Vk_Core::DrawFrame`: acquire → `UpdateUniformBuffer` → `Vk_FrameDrawPrep::Build` (`Gfx_BuildFrameDrawStream` + instance slab) → `RecordScenePass` → ImGui → submit/present. **Set 0** / **Set 1** / **Set 2** as before; LOD in extract path. [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md).
+**Render path (today):** `Gfx_TickDemoSceneTransforms` → `Vk_Core::DrawFrame`: acquire → `UpdateUniformBuffer` → `Vk_FrameDrawPrep::Build` (`Gfx_BuildFrameDrawStream` + instance slab) → `RecordScenePass` → ImGui → submit/present. **Set 0** / **Set 1** / **Set 2** as before; LOD in extract path. [`Archived/plans/vk-core-decomposition_Plan.md`](Archived/plans/vk-core-decomposition_Plan.md).
 
 **RHI peel (2026-05-27, M1–M3 done):** `Vk_ResourceContext` for table load; Gfx CPU draw list; `Vk_Core` hot path is acquire/record/present.
 
@@ -95,13 +95,13 @@ Intended **dependency direction** (higher layers may depend on lower; not the re
 
 **RHI peel phase 2 (2026-05-28, steps #6-#9 done):** `Vk_ScenePasses`, `Vk_FrameUniformUploader`, `Vk_SceneHost`, and `Vk_PlatformFrame` now own their orchestration slices via delegation from `Vk_Core`.
 
-**RHI peel phase 2 status:** queue closed in `SprintPlan.md` (all listed module slices completed); remaining work continues in follow-up architecture tasks.
+**RHI peel phase 2 status:** queue closed ([`Archived-Plan.md`](Archived-Plan.md) `[S2]` vk-core lines); remaining work continues in follow-up architecture tasks.
 
 **S2 follow-up (done, 2026-05-28):** `gfx-vk-decoupling` hardened the layer boundary: `Gfx` now produces backend-agnostic frame/pass packets and `Vk_*` consumes packet contracts for record/submit. `RenderCore` runtime path no longer depends on `Gfx_ExtractResult`.
 
-**Phase 2 doc tracking:** phase 2 task design/progress is consolidated in `Docs/vk-core-decomposition_Plan.md` and `Docs/vk-core-decomposition_Progress.md` (SprintPlan keeps checklist-level status only).
+**Phase 2 doc tracking (archived):** [`Archived/plans/vk-core-decomposition_Plan.md`](Archived/plans/vk-core-decomposition_Plan.md) + closeout Progress ([`Archived-Plan.md`](Archived-Plan.md) `[S2]` lines).
 
-**Render path (target):** See **§5.5–§5.10** and `Docs/SprintPlan.md` (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** pass chain `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post` (Stage 2+) and `ForwardLit` baseline retained for parity.
+**Render path (target):** See **§5.5–§5.10** and [`Active-Plan.md`](Active-Plan.md) (S1→S7). Target: cull → sort → batch → record (minimal binds) → GPU indirect → mesh tasks + mesh shader, with **frame graph** pass chain `GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> Post` (Stage 2+) and `ForwardLit` baseline retained for parity.
 
 **Shader tooling (target):** SPIR-V reflection → permutation registry → `VkPipelineCache` + disk cache (**§5.7**). Executable tasks: S2 shader systems, S7 presets.
 
@@ -128,8 +128,8 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 **Implemented (S1 v0):**
 
-- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` (`strict` / `warn` via `engine.json`). SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` (`Docs/application-lifecycle_Plan.md`).
-- **Scene GPU lifetime (2026-05-29):** scene meshes/textures/descriptors/pipelines register on **`mySceneDeletionQueue`**; **`UnloadScene`** flushes GPU resources. Runtime switch: ImGui **Scene** panel → `Application::TryProcessSceneReload` (`Docs/scene-load_Plan.md` Phase D, `Docs/CLI.md`).
+- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` (`strict` / `warn` via `engine.json`). SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` ([`Archived/plans/application-lifecycle_Plan.md`](Archived/plans/application-lifecycle_Plan.md)).
+- **Scene GPU lifetime (2026-05-29):** scene meshes/textures/descriptors/pipelines register on **`mySceneDeletionQueue`**; **`UnloadScene`** flushes GPU resources. Runtime switch: ImGui **Scene** panel → `Application::TryProcessSceneReload` ([`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) Phase D, [`CLI.md`](CLI.md)).
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
@@ -247,11 +247,11 @@ Input → Simulation (physics, animation, AI) → Transform resolve
 
 Each phase declares **inputs/outputs** as buffers. Hidden cross-talk between phases (globals, singletons mutating unknown columns) undermines reasoning and parallelization.
 
-**Threading (backlog):** parallelize cull/LOD/column updates via job system only after frame SoA sync rules exist; render-thread submission is optional and comes after frame graph stabilizes (`SprintPlan.md` backlog MT v1–v3).
+**Threading (backlog):** parallelize cull/LOD/column updates via job system only after frame SoA sync rules exist; render-thread submission is optional and comes after frame graph stabilizes ([`Active-Plan.md`](Active-Plan.md) backlog MT v1–v3).
 
 ### 5.5 GPU-driven path (staged)
 
-**GPU culling / indirect draws** reduce CPU record cost but complicate debugging. **Policy**: keep **CPU SoA + extract** as the **source of truth** until a GPU path is **proven equivalent** (golden frame or statistical comparison on fixed camera paths). Implemented in **`SprintPlan.md` S3** (indexed indirect, VS/FS) before mesh shaders.
+**GPU culling / indirect draws** reduce CPU record cost but complicate debugging. **Policy**: keep **CPU SoA + extract** as the **source of truth** until a GPU path is **proven equivalent** (golden frame or statistical comparison on fixed camera paths). Implemented in **[`Active-Plan.md`](Active-Plan.md) S3** (indexed indirect, VS/FS) before mesh shaders.
 
 ### 5.6 Mesh shader + GPU-driven target (decisions)
 
@@ -271,7 +271,7 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | Fallback | **S3 path**: VS + `DrawIndexedIndirect` | Required when mesh shader unsupported; same instance/meshlet buffers where possible. |
 | Scope | 1k+ instances, single-digit cascades later | No Nanite-scale occlusion/clip in v1. |
 
-**Milestones** (checklists in `SprintPlan.md`):
+**Milestones** (checklists in [`Active-Plan.md`](Active-Plan.md); done lines in [`Archived-Plan.md`](Archived-Plan.md)):
 
 | Milestone | Sprint | Outcome (summary) |
 |-----------|--------|-------------------|
@@ -479,7 +479,7 @@ Features (MSAA, shadows, IBL, tonemap, etc.) should map to:
 
 Architecturally: **feature code** should not scatter “if (feature)” inside per-object virtual calls; it should change **which FG passes/pipelines exist** and **which columns** extract reads — still fed by the same draw-stream machinery.
 
-**M6 acceptance (summary):** frame graph drives hybrid-capable path (opaque deferred/clustered + transparent forward) + at least one extra pass; multi-view or multi-target documented; `ForwardLit`/`HybridDeferred` preset permutation switches pass validation cleanly (`SprintPlan.md` S7).
+**M6 acceptance (summary):** frame graph drives hybrid-capable path (opaque deferred/clustered + transparent forward) + at least one extra pass; multi-view or multi-target documented; `ForwardLit`/`HybridDeferred` preset permutation switches pass validation cleanly ([`Active-Plan.md`](Active-Plan.md) S7).
 
 ---
 
@@ -491,7 +491,7 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 | **Unstable draw order** | Explicit tie-break in sort key; document transparency policy. |
 | **GPU resource lifetime vs SoA edits** | Generations / frame-delayed free lists; version counters on tables. |
 | **Layout mismatch CPU/GPU** | Single header or code-generated struct metadata; assert sizes in debug. |
-| **Monolith `Vk_Core`** | Incrementally peel “world” and “extract” out; **S2** in `SprintPlan.md`. |
+| **Monolith `Vk_Core`** | Incrementally peel “world” and “extract” out; **S2** in [`Active-Plan.md`](Active-Plan.md). |
 | **Premature GPU-driven / mesh shader** | Follow S1→S6 order; presets + parity tests before dropping fallback. |
 | **Descriptor strategy churn** | Lock policy in **S0**; reflected in mesh/fragment table layouts. |
 | **Mesh shader portability** | Always ship **S3 fallback** preset; probe features at startup. |
@@ -501,7 +501,7 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 | **Multi-threaded SoA races** | Frame double-buffer or phase barriers before parallel cull (backlog MT). |
 | **Physics ↔ render coupling** | Physics in S8 module only; bounds/transform written to SoA for Extract. |
 | **Cull vs final matrix** | Extract/cull/sort must see the same transform written to the instance slab; demo spin lives in SoA update, not record-only. |
-| **Opaque depth key quality** | `depthBucket` today uses entity-origin NDC Z; backlog: bounds-center eye-space Z + tighter world AABB for rotation (`SprintPlan.md` backlog). |
+| **Opaque depth key quality** | `depthBucket` today uses entity-origin NDC Z; backlog: bounds-center eye-space Z + tighter world AABB for rotation ([`Active-Plan.md`](Active-Plan.md) backlog). |
 
 ### Anti-patterns (discouraged on the hot path)
 
@@ -514,7 +514,7 @@ Architecturally: **feature code** should not scatter “if (feature)” inside p
 
 ### Explicit non-goals (v1)
 
-Aligned with `SprintPlan.md` backlog / parking lot: full editor, networking, cross-platform RHI, world streaming, navmesh, Task shader (until needed), Nanite-scale occlusion. Audio subsystem deferred.
+Aligned with [`Active-Plan.md`](Active-Plan.md) backlog / parking lot: full editor, networking, cross-platform RHI, world streaming, navmesh, Task shader (until needed), Nanite-scale occlusion. Audio subsystem deferred.
 
 ---
 
@@ -528,19 +528,19 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 2. Add an **extract** function that fills a `std::vector<DrawInstance>` (or equivalent) before any `vkCmd*` for scene objects. **Done (v0):** `Gfx_ExtractDrawInstances` → `myExtractResult`; Vulkan record still uses `RecordScenePass` until cull/sort/batch.
 3. Move sort/batch assumptions into that path; shrink direct coupling from gameplay-ish state to Vulkan structs.
    **Done (S2, 2026-05-28):** replaced direct `Gfx_*` consumption in `RenderCore` runtime path with explicit packet contracts (`FrameRenderPacket` / pass packets) and backend validation boundary (`Vk_RenderBackend`).
-4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record. **Done (S2, 2026-05-27):** [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) — `Gfx_BuildFrameDrawStream`, `Vk_FrameDrawPrep`, `DrawFrame` record/submit surface.
+4. Peel **extract** and **draw-list build** before **frame graph** wrapper around record. **Done (S2, 2026-05-27):** [`Archived/plans/vk-core-decomposition_Plan.md`](Archived/plans/vk-core-decomposition_Plan.md) — `Gfx_BuildFrameDrawStream`, `Vk_FrameDrawPrep`, `DrawFrame` record/submit surface.
 5. Add **simulation** module stub (S8) writing transforms only, before physics library integration. **Partial:** demo Z-spin in `Gfx_DemoSceneSim` (Application tick); full sim module deferred to S8.
 
 ---
 
 ## 10. Document maintenance
 
-- **Pairwise sync:** editing this file or `Docs/SprintPlan.md` requires updating the other in the same change set — see `.cursor/rules/docs-roadmap-arch-sync.mdc`.
+- **Pairwise sync:** editing this file or `Docs/Active-Plan.md` requires updating the other in the same change set — see `.cursor/rules/docs-roadmap-arch-sync.mdc`.
 - When **binding model**, **bindless decision**, or **extract layout** changes, update **§5** and matching sprint tasks / acceptance.
-- When **north star**, **milestones**, or **epic dependencies** change, update **§2** / **§5.6** table and `SprintPlan.md` § Task dependency graph.
+- When **north star**, **milestones**, or **epic dependencies** change, update **§2** / **§5.6** table and `Active-Plan.md` § Task dependency graph.
 - When **frame graph**, **multi-view**, **shader stack**, or **S8** boundaries change, update **§3**, **§5.7–§5.9**, **§6**, and S7/S8 sections in the sprint plan.
 - Bump the footer line below on every aligned edit.
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (scene-load Phase D + CLI/smoke-test docs; 2026-05-29).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` split (roadmap hygiene; 2026-05-29).*

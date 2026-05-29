@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
 **Status:** Closed (2026-05-29). Phases A–D shipped including GPU `UnloadScene`, `assetVerify`, `smoke.json`, ImGui in-process scene reload, and `Docs/CLI.md`.  
-**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`SceneJSON.md`](SceneJSON.md), [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md), [`SprintPlan.md`](SprintPlan.md) § S2
+**Related:** [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3–4, [`../../SceneJSON.md`](../../SceneJSON.md), [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md), [`../../Active-Plan.md`](../../Active-Plan.md) § S2
 
 ## Problem
 
@@ -255,7 +255,7 @@ flowchart TB
 
 ### Recommended next (post closeout)
 
-See `Docs/SprintPlan.md` S2 open items: descriptor layout verify, S2 hygiene (init hacks, queue sharing), shader reflection.
+See `Docs/Active-Plan.md` S2 open items: descriptor layout verify, S2 hygiene (init hacks, queue sharing), shader reflection.
 
 ### Doc index for scene JSON
 
@@ -270,7 +270,7 @@ Authoring: **[`SceneJSON.en.md`](SceneJSON.en.md)** / [`SceneJSON.md`](SceneJSON
 | Third-party | `lib/nlohmann/json.hpp` (v3.11.3, header-only) |
 | App | `VulkanDesktop.cpp`, future `Application.{h,cpp}` |
 | RenderCore | `Vk_Core.cpp` (peel init hacks), resource table headers |
-| Docs | `Docs/scene-load_Progress.md`, `Docs/SprintPlan.md`, `README.md` (run with `--scene`) |
+| Docs | `scene-load_Progress.md` (this folder), `../../Active-Plan.md`, repo `README.md` (run with `--scene`) |
 | Deprecate | `Util_DemoAssets.h` after Phase B/C |
 
 ## Anti-patterns

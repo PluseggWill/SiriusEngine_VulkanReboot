@@ -1,8 +1,8 @@
 # Plan: gfx-vk-decoupling
 
 **Sprint:** S2 - Engine layering & hygiene  
-**Status:** Closed (2026-05-28, archived in `SprintPlan.md`)  
-**Related:** [`SprintPlan.md`](SprintPlan.md) (S2 boundary hardening), [`EngineArchitecture.md`](EngineArchitecture.md) §3, §4, §9, [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md)
+**Status:** Closed (2026-05-28, archived in `Archived-Plan.md`)  
+**Related:** [`../../Archived-Plan.md`](../../Archived-Plan.md) § S2, [`../../EngineArchitecture.md`](../../EngineArchitecture.md) §3, §4, §9, [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md)
 
 ## Problem
 
@@ -36,10 +36,9 @@ Current RenderCore still directly consumes multiple `Gfx_*` types and semantics 
 
 ### Docs
 
-- `Docs/SprintPlan.md`
+- `Active-Plan.md` / `Archived-Plan.md`
 - `Docs/EngineArchitecture.md`
-- `Docs/gfx-vk-decoupling_Plan.md`
-- `Docs/gfx-vk-decoupling_Progress.md`
+- `gfx-vk-decoupling_Plan.md`, `gfx-vk-decoupling_Progress.md` (this folder)
 
 ### New bridge / contract layer
 
@@ -114,7 +113,7 @@ Current RenderCore still directly consumes multiple `Gfx_*` types and semantics 
 
 ## Closeout
 
-- Task archived from active S2 queue into `SprintPlan.md` `## Archived` on 2026-05-28.
+- Task archived from active S2 queue into `Archived-Plan.md` on 2026-05-28.
 - Architecture wording synchronized in `EngineArchitecture.md` (`§3.1`, `§9`, footer).
 
 ## Build / smoke-run plan

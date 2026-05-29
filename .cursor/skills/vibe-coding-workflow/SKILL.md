@@ -12,9 +12,10 @@ description: >-
 
 All paths are relative to the **workspace root**. Artifact directory: `Docs/`.
 
-- Per-task: `Docs/{TaskName}_Plan.md`, `Docs/{TaskName}_Progress.md`
-- Cross-task roadmap: `Docs/SprintPlan.md`
-- Architecture intent: `Docs/EngineArchitecture.md`
+- **Active task only (WIP):** `Docs/{TaskName}_Plan.md`, `Docs/{TaskName}_Progress.md` at `Docs/` root — **at most one** pair at a time; see `Docs/README.md` → **Active now**
+- **Closed tasks:** `Docs/Archived/plans/{TaskName}_Plan.md` + `_Progress.md` (closeout-only progress)
+- Cross-task roadmap: `Docs/Active-Plan.md` (grep/read the relevant sprint section; do not read the full file by default). Completed lines: `Docs/Archived-Plan.md`
+- Architecture intent: `Docs/EngineArchitecture.md` (read only when policy/boundaries change)
 
 ## Phase 1 — Clarify & confirm landing details
 
@@ -64,15 +65,10 @@ Do not contradict the confirmed spec or landing details in the plan; if somethin
 Precondition: `Docs/{TaskName}_Plan.md` exists and is current.
 
 1. Treat the plan as the source of truth; if reality diverges, update the plan in the same edit session or after agreement with the user.
-2. Execute the plan in order. After **each** logical step (or each coherent batch of edits), append to `Docs/{TaskName}_Progress.md`:
-   - Timestamp (ISO 8601 date, local reasoning ok)
-   - Step reference (which plan section / checklist item)
-   - Files changed (paths)
-   - Summary of behavior change
-   - How verified (commands run, manual checks)
+2. Execute the plan in order. After **each** logical step (or each coherent batch of edits), append a **checkpoint** to `Docs/{TaskName}_Progress.md` (see template below). Use **verbose** blocks only for deviations or non-obvious pitfalls.
 3. If the project uses Perforce (P4), check whether current edits touch files that are already checked out. If yes, explicitly remind the user.
 4. Debug until acceptance criteria in the plan are met; log each fix iteration in `_Progress.md` the same way.
-5. Before marking the task done or archiving a `SprintPlan.md` line, complete **Build / smoke-run** (below) unless the plan documents why it does not apply.
+5. Before marking the task done or moving its line to `Archived-Plan.md`, complete **Build / smoke-run** (below) unless the plan documents why it does not apply.
 
 ### Build / smoke-run (mandatory before task close)
 
@@ -157,24 +153,60 @@ Required actions:
    - **Major deviation** (scope/acceptance/risk changes): ask user confirmation first, then update plan and continue.
 4. Do not continue coding with silent deviation.
 
-### `Docs/SprintPlan.md` maintenance
+### `Active-Plan.md` / `Archived-Plan.md` maintenance
 
-- Active sprints (S0–S7, parallel): **only** open `[ ]` tasks.
-- When completed: **move** the line to **`## Archived`** with sprint tag (`[S0]`…`[S7]`, `[parallel]`); preserve completion notes/dates.
-- Do not leave checked `[x]` items in active sprints.
-- **`{TaskName}_Plan.md` / `_Progress.md`:** keep at **`Docs/` root for the current sprint** — do **not** move to `Docs/Archived/plans/` when a task line archives (older sprints may stay under `Archived/plans/`).
+- **`Docs/Active-Plan.md`:** active sprints (S0–S8, parallel) list **only** open `[ ]` tasks.
+- **`Docs/Archived-Plan.md`:** when a sprint line completes, **move** it from Active-Plan to Archived-Plan with sprint tag (`[S0]`…`[S8]`, `[parallel]`) and completion note/date.
+- Do not leave `[x]` items in Active-Plan.
 
-### Progress log entry template
+### Task close (mandatory when build/smoke passes)
 
-Append blocks like:
+1. Mark `Docs/{TaskName}_Plan.md` → **`Status: Closed (YYYY-MM-DD)`**.
+2. **Collapse** `_Progress.md` to a single **`## Closeout`** section (≤ ~30 lines): outcome summary, final verification command + exit code, 2–3 log lines, deviations (if any). Remove intermediate checkpoints.
+3. **Move** both files to **`Docs/Archived/plans/`** (same filenames).
+4. **Move** the matching sprint line from **`Active-Plan.md`** → **`Archived-Plan.md`**.
+5. Update **`Docs/README.md` → Active now** (clear WIP or set the next task).
+6. Update **`Docs/Archived/README.md`** plans index if needed.
+7. Fix cross-links in touched docs (`EngineArchitecture.md` only if policy changed — `docs-roadmap-arch-sync.mdc`).
+
+**WIP limit:** only one `{TaskName}_*` pair at `Docs/` root. Starting a new task requires the previous pair archived.
+
+**Sprint close (optional batch):** when an entire sprint is signed off, refresh `Docs/README.md` living/epic tables only — task plans should already be under `Archived/plans/`.
+
+### Progress log templates
+
+**Checkpoint** (default — append during implementation):
 
 ```markdown
-## YYYY-MM-DD HH:MM — [step id / short title]
+## YYYY-MM-DD — [step id / short title]
 
 - **Plan ref:** …
 - **Files:** `path/a`, `path/b`
-- **What changed:** …
-- **Verification:** build command + exit code; smoke-run steps; log lines checked (or N/A + reason)
+- **What changed:** one short paragraph
+- **Verification:** build exit code; smoke command; 1–2 log lines (or N/A + reason)
+```
+
+**Verbose** (deviations, blocked steps, subtle pitfalls only):
+
+```markdown
+## YYYY-MM-DD — [title] (verbose)
+
+- **Deviation / pitfall:** …
+- **Impact:** …
+- **Resolution:** …
+```
+
+**Comment-only / doc-only batches:** one inline line under the latest checkpoint (`Verification: N/A — comments only`); do **not** add a new `##` section.
+
+**Closeout** (replaces all checkpoints at task close):
+
+```markdown
+## Closeout — YYYY-MM-DD
+
+- **Outcome:** …
+- **Verification:** `.\VulkanDesktop.exe --no-validation --smoke-frames 2` exit 0; log: `…`, `…`
+- **Deviations:** none | …
+- **Plan:** [`{TaskName}_Plan.md`]({TaskName}_Plan.md)
 ```
 
 ## Subagents (Task tool)
@@ -201,9 +233,9 @@ Apply when a task touches **draw stream**, **descriptors**, or **multi-entity de
 | Per-draw data written into a **shared frame UBO** between draws | Push constants or `UNIFORM_BUFFER_DYNAMIC` + offset (§5.3) |
 | Demo meshes overlap | Fix transform path first; then adjust SoA spacing |
 | Plan task done + **descriptor policy fix** in same session | Prefer **two commits** (implementation vs policy/shader); one Progress entry can cover both |
-| Shader/UBO layout or §5.3 policy changes | Update `EngineArchitecture.md` + `SprintPlan.md` S1 notes in the **same** change set (`docs-roadmap-arch-sync.mdc`) |
+| Shader/UBO layout or §5.3 policy changes | Update `EngineArchitecture.md` + `Active-Plan.md` § S1 implementation notes in the **same** change set (`docs-roadmap-arch-sync.mdc`) |
 
-After closing a render/data-plane task, skim `Docs/SprintPlan.md` **§ S1 — implementation notes** and trim or extend the table if debt shifted.
+After closing a render/data-plane task, skim `Docs/Active-Plan.md` **§ S1 — implementation notes** and trim or extend the table if debt shifted.
 
 ## Invocation
 

@@ -17,7 +17,7 @@ Missing SPIR-V, meshes, or textures are only discovered mid-`InitVulkan()` (afte
 ## Non-goals
 
 - Validating file contents (OBJ/PNG decode, SPIR-V magic).
-- Scene-file-driven asset lists — superseded by [`scene-load_Plan.md`](scene-load_Plan.md) Phase B.
+- Scene-file-driven asset lists — superseded by [`scene-load_Plan.md`](scene-load_Plan.md) *(same folder)* Phase B.
 - CI headless smoke (backlog).
 
 ## Design
