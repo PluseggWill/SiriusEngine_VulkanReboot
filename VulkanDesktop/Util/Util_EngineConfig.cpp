@@ -25,6 +25,7 @@ UtilLogger::LogLevel     gMinLogLevel  = UtilLogger::LogLevel::Info;
 UtilEngineConfig::FeatureFlags gFeatures{};
 Util_AssetVerifyPolicy         gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
 int                            gSmokeFrameLimit   = 0;
+double                         gSmokeSeconds      = 0.0;
 std::optional< bool >    gCliValidationOverride;
 std::optional< bool >    gConfigValidation;
 bool                     gValidationResolved = false;
@@ -176,6 +177,7 @@ struct CliOverrides {
     std::optional< bool >                    myDemoRotate;
     std::optional< bool >                    myRuntimeMipmap;
     std::optional< int >                     mySmokeFrames;
+    std::optional< double >                  mySmokeSeconds;
 };
 
 CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
@@ -250,6 +252,16 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             }
             continue;
         }
+        if ( arg == "--smoke-seconds" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --smoke-seconds" );
+            }
+            overrides.mySmokeSeconds = std::stod( aArgv[ ++i ] );
+            if ( *overrides.mySmokeSeconds <= 0.0 ) {
+                throw std::runtime_error( "--smoke-seconds must be > 0" );
+            }
+            continue;
+        }
         if ( arg == "--validation" || arg == "--enable-validation" ) {
             gCliValidationOverride = true;
             continue;
@@ -293,6 +305,9 @@ void ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.mySmokeFrames.has_value() ) {
         gSmokeFrameLimit = *aOverrides.mySmokeFrames;
+    }
+    if ( aOverrides.mySmokeSeconds.has_value() ) {
+        gSmokeSeconds = *aOverrides.mySmokeSeconds;
     }
 }
 
@@ -340,6 +355,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --no-validation / --disable-validation   Disable validation layers\n"
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
+              << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
 }
@@ -458,6 +474,13 @@ int GetSmokeFrameLimit() {
         Initialize( 0, nullptr );
     }
     return gSmokeFrameLimit;
+}
+
+double GetSmokeSeconds() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gSmokeSeconds;
 }
 
 bool ResolveValidationEnabled( bool aBuildDefault ) {

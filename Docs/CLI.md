@@ -15,8 +15,8 @@
 # 指定场景与资源根（cwd 任意）
 .\VulkanDesktop.exe --asset-root D:\Code\SiriusEngine_VulkanReboot --scene Data/Scenes/smoke.json
 
-# 开发：关 validation、跑 2 帧后正常退出（验证 UnloadScene）
-.\VulkanDesktop.exe --no-validation --smoke-frames 2
+# 开发：关 validation、默认场景加载后主循环至少 6s 后正常退出（验证 UnloadScene）
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6
 
 # 查看全部开关
 .\VulkanDesktop.exe --help
@@ -43,7 +43,8 @@
 | `--no-validation` / `--disable-validation` | — | 强制关闭校验层。 |
 | `--demo-rotate` | — | 开启 demo 实体绕 Z 轴旋转（`Gfx_TickDemoSceneTransforms`）。 |
 | `--no-demo-rotate` | — | 关闭 demo 旋转。 |
-| `--smoke-frames` `<n>` | 正整数 | 渲染 **n** 帧后请求关闭窗口，走完整 `UnloadScene` → `Shutdown`（CI/冒烟用，**不**面向玩家）。 |
+| `--smoke-frames` `<n>` | 正整数 | 渲染 **n** 帧后（与 `--smoke-seconds` 同时设置时需**同时**满足）请求关闭，走完整 `UnloadScene` → `Shutdown`。 |
+| `--smoke-seconds` `<s>` | 正数 | 场景 `LoadSceneResources` 完成、进入主循环后至少运行 **s** 秒再请求关闭（任务收尾冒烟**推荐**）。 |
 
 **说明：**
 
@@ -106,11 +107,13 @@ main
 
 ```powershell
 Set-Location x64\Debug
-.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/demo.json
-.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
+# 快速 CI（无 6 秒驻留）：
+.\VulkanDesktop.exe --no-validation --smoke-frames 2
 ```
 
-任务收尾优先用 **`--smoke-frames`**（完整 `UnloadScene`）；仅 `Stop-Process` 杀进程不会走卸载路径。
+任务收尾优先用 **`--smoke-seconds 6`**（默认 demo 场景加载后主循环至少 6 秒，完整 `UnloadScene`）；仅 `Stop-Process` 杀进程不会走卸载路径。
 
 ---
 

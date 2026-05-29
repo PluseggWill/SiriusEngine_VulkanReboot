@@ -7,6 +7,7 @@
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -77,8 +78,14 @@ void Application::LoadAndVerifyScene() {
 
 void Application::RunMainLoop() {
     Vk_Core& core = Vk_Core::GetInstance();
-    const int smokeFrameLimit = UtilEngineConfig::GetSmokeFrameLimit();
-    int       renderedFrames  = 0;
+    const int    smokeFrameLimit = UtilEngineConfig::GetSmokeFrameLimit();
+    const double smokeSeconds    = UtilEngineConfig::GetSmokeSeconds();
+    int          renderedFrames  = 0;
+    const auto   smokeStart =
+        ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    if ( smokeSeconds > 0.0 ) {
+        UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
+    }
     UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
     while ( !core.ShouldClose() ) {
         float frameSeconds = 0.0f;
@@ -92,8 +99,18 @@ void Application::RunMainLoop() {
         core.Render();
         TryProcessSceneReload();
         ++renderedFrames;
-        if ( smokeFrameLimit > 0 && renderedFrames >= smokeFrameLimit ) {
-            UtilLogger::Info( "APP", "Smoke frame limit reached (" + std::to_string( smokeFrameLimit ) + "); requesting exit." );
+
+        const bool frameThresholdMet = smokeFrameLimit <= 0 || renderedFrames >= smokeFrameLimit;
+        const bool timeThresholdMet  = smokeSeconds <= 0.0 ||
+                                      std::chrono::duration<double>( std::chrono::steady_clock::now() - smokeStart ).count() >= smokeSeconds;
+        const bool smokeExit         = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) && frameThresholdMet && timeThresholdMet;
+        if ( smokeExit ) {
+            if ( smokeSeconds > 0.0 ) {
+                UtilLogger::Info( "APP", "Smoke dwell reached (" + std::to_string( smokeSeconds ) + "s); requesting exit." );
+            }
+            if ( smokeFrameLimit > 0 ) {
+                UtilLogger::Info( "APP", "Smoke frame limit reached (" + std::to_string( smokeFrameLimit ) + "); requesting exit." );
+            }
             glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
         }
     }

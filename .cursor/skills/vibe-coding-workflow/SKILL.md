@@ -103,28 +103,29 @@ Run after implementation (or after each batch that changes compile/runtime behav
    | Check | Command (from `x64\Debug`) |
    |-------|----------------------------|
    | CLI only | `.\VulkanDesktop.exe --help` |
-   | **Preferred — full lifecycle** | `.\VulkanDesktop.exe --no-validation --smoke-frames 2` |
-   | Demo scene | add `--scene Data/Scenes/demo.json` |
+   | **Preferred — full lifecycle** | `.\VulkanDesktop.exe --no-validation --smoke-seconds 6` |
+   | Demo scene | add `--scene Data/Scenes/demo.json` (optional; default is demo) |
    | Minimal scene | add `--scene Data/Scenes/smoke.json` |
    | Asset root from odd cwd | `--asset-root <repo-root>` plus scene path above |
+   | Fast CI (no 6s dwell) | `--smoke-frames 2` only |
 
-   **Graceful smoke** (`--smoke-frames N`) exits cleanly through `UnloadScene` → `Shutdown`; use this for task close, not only `Stop-Process` after a timed wait.
+   **Graceful smoke** (`--smoke-seconds N`) keeps the main loop running **N seconds after scene load** (`LoadSceneResources` completed), then exits through `UnloadScene` → `Shutdown`. Use this for task close, not only `Stop-Process` after a timed wait.
 
    Optional quick visual (does **not** replace graceful smoke):
 
    ```powershell
    Set-Location x64\Debug
    $p = Start-Process -FilePath ".\VulkanDesktop.exe" -ArgumentList "--no-validation" -PassThru -WindowStyle Minimized
-   Start-Sleep -Seconds 4
+   Start-Sleep -Seconds 6
    if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
    ```
 
 4. **Signals of success** (adjust per task in the plan; see `vulkan-smoke-test.mdc`):
 
    - Build exit code 0; SPIR-V custom build OK when shaders touched.
-   - Smoke process exit code **0** when using `--smoke-frames`.
+   - Smoke process exit code **0** when using `--smoke-seconds` or `--smoke-frames`.
    - `[CONFIG] assetRoot=…` when asset root changed.
-   - `[SCENE] LoadSceneResources completed`; `[SCENE] UnloadScene: GPU scene resources released` for lifecycle smoke.
+   - `[SCENE] LoadSceneResources completed`; `[APP] Smoke dwell reached`; `[SCENE] UnloadScene: GPU scene resources released` for lifecycle smoke.
    - `[SHADER]` / `[LOADER]` / `[RESOURCE-TABLE]` / `[EXTRACT]` lines match scene scope.
    - No new `[ERROR]` during init before intentional shutdown (`--no-validation` if layers not installed).
 
@@ -204,7 +205,7 @@ Required actions:
 ## Closeout — YYYY-MM-DD
 
 - **Outcome:** …
-- **Verification:** `.\VulkanDesktop.exe --no-validation --smoke-frames 2` exit 0; log: `…`, `…`
+- **Verification:** `.\VulkanDesktop.exe --no-validation --smoke-seconds 6` exit 0; log: `…`, `…`
 - **Deviations:** none | …
 - **Plan:** [`{TaskName}_Plan.md`]({TaskName}_Plan.md)
 ```

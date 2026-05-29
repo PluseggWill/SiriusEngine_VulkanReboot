@@ -30,39 +30,47 @@ Full reference: [`Docs/CLI.md`](Docs/CLI.md). Implementation: `VulkanDesktop/Uti
 
 ## Graceful smoke (preferred for vibe-coding verification)
 
-Runs **n** frames, closes window, executes `UnloadScene` → `Shutdown`. Record exit code **0** and log lines in `_Progress.md`.
+After **`LoadSceneResources`**, runs the main loop for at least **6 seconds** (default scene from config), then closes and executes `UnloadScene` → `Shutdown`. Record exit code **0** and log lines in `_Progress.md`.
 
-From `x64\Debug` (asset root auto-detected):
+From `x64\Debug` (asset root auto-detected; default `Data/Scenes/demo.json`):
 
 ```powershell
 Set-Location x64\Debug
-.\VulkanDesktop.exe --no-validation --smoke-frames 2
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6
 ```
 
-**Demo scene** (9 entities):
+**Demo scene** (9 entities, explicit path):
 
 ```powershell
-.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/demo.json
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/demo.json
 ```
 
-**Smoke scene** (1 entity):
+**Smoke scene** (1 entity, faster load; still dwell 6s):
 
 ```powershell
-.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
+.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
 ```
 
 **Explicit asset root** (any cwd):
 
 ```powershell
-.\VulkanDesktop.exe --asset-root D:\Code\SiriusEngine_VulkanReboot --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
+.\VulkanDesktop.exe --asset-root D:\Code\SiriusEngine_VulkanReboot --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
 ```
+
+**Fast CI path** (minimal dwell; exits after **n** frames — use only when 6s wait is unnecessary):
+
+```powershell
+.\VulkanDesktop.exe --no-validation --smoke-frames 2
+```
+
+If both `--smoke-seconds` and `--smoke-frames` are set, **both** thresholds must be met before exit.
 
 ### Success signals (tail `Logs/engine_runtime_log.txt`)
 
 - `[CONFIG] assetRoot=…` under repo
 - `[SCENE] LoadSceneResources completed`
 - `[EXTRACT]` / `[RESOURCE-TABLE]` / `FillInstanceSlab` (counts match scene)
-- `[APP] Smoke frame limit reached`
+- `[APP] Smoke dwell:` / `[APP] Smoke dwell reached (6s)`
 - `[SCENE] UnloadScene: GPU scene resources released`
 - `[APP] Engine exited run loop normally`
 - No crash/assert after `Shutdown`; process exit code **0**
@@ -77,7 +85,7 @@ Does **not** run `UnloadScene` if the process is killed. Use only as a supplemen
 ```powershell
 Set-Location x64\Debug
 $p = Start-Process -FilePath ".\VulkanDesktop.exe" -ArgumentList "--no-validation" -PassThru -WindowStyle Minimized
-Start-Sleep -Seconds 4
+Start-Sleep -Seconds 6
 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 ```
 

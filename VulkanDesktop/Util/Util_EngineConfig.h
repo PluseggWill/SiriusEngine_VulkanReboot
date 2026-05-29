@@ -41,6 +41,10 @@ Util_AssetVerifyPolicy GetAssetVerifyPolicy();
 // When > 0, main loop requests window close after this many rendered frames (dev smoke / CI).
 int GetSmokeFrameLimit();
 
+// When > 0, main loop also requires this many seconds after scene load (RunMainLoop start) before smoke exit.
+// If both frame limit and seconds are set, both thresholds must be met.
+double GetSmokeSeconds();
+
 bool ResolveValidationEnabled( bool aBuildDefault );
 bool IsValidationEnabled();
 const std::vector< const char* >& GetValidationLayerNames();
