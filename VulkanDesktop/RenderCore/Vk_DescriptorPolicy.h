@@ -29,4 +29,11 @@ inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 // Bindless Set 1 texture array capacity (S1 bindless v0).
 inline constexpr uint32_t kMaxBindlessTextures = 64;
 
+// --- Material / descriptor rebuild (S2 layout verify) ---
+// Device boot: Vk_DescriptorSystem::InitDeviceLayouts -> CreateDescriptorSetLayout (+ bindless set layout if enabled).
+// LoadScene: InitSceneDescriptors -> pool, per-frame Set 0/2 descriptors, then CreateMaterialDescriptorSets (batch)
+//   or CreateBindlessDescriptorResources (bindless). Gfx_Material stores pipeline + layout handles from manifest load.
+// Swapchain recreate: RefreshMaterialPipelinesAfterSwapchainRecreate updates Gfx_Material pipeline handles only.
+// Material count, texture views, or bindless table content change: UnloadScene then LoadSceneResources (full GPU teardown).
+
 }  // namespace VkDescriptorPolicy

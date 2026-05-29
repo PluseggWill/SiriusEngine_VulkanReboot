@@ -261,7 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task (2026-05-29):** `descriptor-layout-verify` — confirm `VkPipelineLayout` Set 0/1/2 vs `Vk_DescriptorPolicy.h` and document material rebuild path (Sprint line below). Start a **new chat**; `@` only the new Plan once written. Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** pick first open S2 line below (e.g. temp init hacks or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 - [ ] Remove temp init hacks (`CreateMaterial`, `InitScene`, env buffer) or finish wiring.
 - [ ] **Image queue sharing** when transfer ≠ graphics family.
@@ -286,7 +286,6 @@ flowchart TB
 *Design and phased rollout: [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md). Replaces hard-coded `Util_DemoAssets` / `UtilStartupChecks` list with scene-derived `AssetManifest`.*
 
 - [ ] Flat world matrices (v1 flat `transform` only); hierarchy deferred — documented in [`SceneJSON.md`](SceneJSON.md) §3.8 and `Archived/plans/scene-load_Plan.md` non-goals.
-- [ ] **Verify descriptor policy (layout):** `VkPipelineLayout` lists Set 0/1/2 per `Vk_DescriptorPolicy.h`; rebuild path documented when materials change.
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 

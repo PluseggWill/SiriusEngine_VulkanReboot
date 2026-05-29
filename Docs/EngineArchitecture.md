@@ -224,7 +224,7 @@ After extract:
 
 **Implemented on desktop (2026-05-26):** `TriangleVertex.vert` — Set 0 `GpuCameraData` (`view`, `proj`); Set 2 `GpuObjectData` (`model`) via **`UNIFORM_BUFFER_DYNAMIC`** and per-draw `dynamicOffset` into the instance slab. Do not patch `model` through the camera UBO between draws. Push constants remain valid per policy for other pipelines; demo forward path uses Set 2 only.
 
-**VulkanDesktop today (demo):** binds **set 0** once per pass; **set 1** once per batch (`myMaterialDescriptorSets`); **set 2** per draw with `dynamicOffset`. Environment uses frame-indexed **static** offsets in Set 0 at init. Code contract: `Vk_DescriptorPolicy.h`, `Vk_Enum.h`.
+**VulkanDesktop today (demo):** binds **set 0** once per pass; **set 1** once per batch (`myMaterialDescriptorSets`) or once per pass (bindless set); **set 2** per draw with `dynamicOffset`. Environment uses frame-indexed **static** offsets in Set 0 at init. Code contract: `Vk_DescriptorPolicy.h`, `Vk_Enum.h`. **Material descriptor rebuild:** layouts at device init; pool + material/bindless sets on `LoadSceneResources`; swapchain recreate only refreshes `Gfx_Material` pipeline handles — material count or texture changes require `UnloadScene` → reload (see `Vk_DescriptorPolicy.h` rebuild comment).
 
 **Bindless vs traditional (S1 fork)**
 

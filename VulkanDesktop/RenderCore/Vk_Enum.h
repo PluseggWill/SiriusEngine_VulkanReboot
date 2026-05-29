@@ -2,7 +2,7 @@
 
 #include "Vk_DescriptorPolicy.h"
 
-// Set indices - VkDescriptorPolicy::kSet*; pipeline layout uses sets 0, 1 (placeholder), 2.
+// Set indices - VkDescriptorPolicy::kSet*; VkPipelineLayout pSetLayouts order: 0 frame, 1 material, 2 object.
 enum eDescriptorSet : uint32_t {
     eVk_SetFrame    = VkDescriptorPolicy::kSetFrame,
     eVk_SetMaterial = VkDescriptorPolicy::kSetMaterial,

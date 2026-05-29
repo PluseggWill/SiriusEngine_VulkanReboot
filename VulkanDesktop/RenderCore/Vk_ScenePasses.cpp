@@ -88,8 +88,9 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
-    const VkDescriptorSet frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0, nullptr );
+    const VkDescriptorSet  frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
+    const VkPipelineLayout   frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0, nullptr );
 
     static bool sPacketPathLoggedOnce   = false;
     static bool sPacketSkipLoggedOnce   = false;

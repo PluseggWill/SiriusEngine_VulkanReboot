@@ -14,6 +14,19 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
         CreateBindlessMaterialSetLayout( aCore );
         CreateBindlessPipelineLayout( aCore );
     }
+    LogLayoutContract( aCore );
+}
+
+void Vk_DescriptorSystem::LogLayoutContract( const Vk_Core& aCore ) {
+    const char* materialPath = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "bindless" : "batch";
+    const char* set1Summary  = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless
+                                   ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
+                                   : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
+    UtilLogger::Info(
+        "DESCRIPTOR",
+        std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
+        + "set0=camera+env (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) "
+        + set1Summary + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
 }
 
 void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {

@@ -5,8 +5,8 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | `descriptor-layout-verify` — verify `VkPipelineLayout` Set 0/1/2 vs `Vk_DescriptorPolicy.h` |
-| **Plan / Progress** | Create `Docs/descriptor-layout-verify_Plan.md` + `_Progress.md` when starting (only WIP pair at `Docs/` root) |
+| **Recommended next** | Temp init hacks, shader reflection, or flat world matrices (see S2 Scene / Shader systems) |
+| **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting (only WIP pair at `Docs/` root) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
