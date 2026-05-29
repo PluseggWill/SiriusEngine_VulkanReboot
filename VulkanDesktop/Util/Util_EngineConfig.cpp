@@ -23,6 +23,8 @@ uint32_t                 gWindowHeight = 1200;
 bool                     gVsync        = true;
 UtilLogger::LogLevel     gMinLogLevel  = UtilLogger::LogLevel::Info;
 UtilEngineConfig::FeatureFlags gFeatures{};
+Util_AssetVerifyPolicy         gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
+int                            gSmokeFrameLimit   = 0;
 std::optional< bool >    gCliValidationOverride;
 std::optional< bool >    gConfigValidation;
 bool                     gValidationResolved = false;
@@ -148,6 +150,19 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
             gFeatures.myRuntimeMipmap = features[ "runtimeMipmap" ].get< bool >();
         }
     }
+
+    if ( root.contains( "assetVerify" ) && root[ "assetVerify" ].is_string() ) {
+        const std::string policy = ToLower( root[ "assetVerify" ].get< std::string >() );
+        if ( policy == "strict" ) {
+            gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
+        }
+        else if ( policy == "warn" ) {
+            gAssetVerifyPolicy = Util_AssetVerifyPolicy::Warn;
+        }
+        else {
+            throw std::runtime_error( "Invalid assetVerify in config (expected strict|warn): " + policy );
+        }
+    }
 }
 
 struct CliOverrides {
@@ -160,6 +175,7 @@ struct CliOverrides {
     std::optional< uint32_t >                myWindowHeight;
     std::optional< bool >                    myDemoRotate;
     std::optional< bool >                    myRuntimeMipmap;
+    std::optional< int >                     mySmokeFrames;
 };
 
 CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
@@ -224,6 +240,16 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             overrides.myDemoRotate = false;
             continue;
         }
+        if ( arg == "--smoke-frames" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --smoke-frames" );
+            }
+            overrides.mySmokeFrames = std::stoi( aArgv[ ++i ] );
+            if ( *overrides.mySmokeFrames <= 0 ) {
+                throw std::runtime_error( "--smoke-frames must be > 0" );
+            }
+            continue;
+        }
         if ( arg == "--validation" || arg == "--enable-validation" ) {
             gCliValidationOverride = true;
             continue;
@@ -264,6 +290,9 @@ void ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.myRuntimeMipmap.has_value() ) {
         gFeatures.myRuntimeMipmap = *aOverrides.myRuntimeMipmap;
+    }
+    if ( aOverrides.mySmokeFrames.has_value() ) {
+        gSmokeFrameLimit = *aOverrides.mySmokeFrames;
     }
 }
 
@@ -307,10 +336,12 @@ void PrintUsage( const char* aProgramName ) {
               << "  --height <n>           Window height (overrides config)\n"
               << "  --vsync / --no-vsync   Swapchain present mode preference\n"
               << "  --log-level <level>    debug | info | warn | error\n"
-              << "  --validation           Enable Vulkan validation layers\n"
-              << "  --no-validation        Disable Vulkan validation layers\n"
+              << "  --validation / --enable-validation   Enable Vulkan validation layers\n"
+              << "  --no-validation / --disable-validation   Disable validation layers\n"
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
-              << "  --help                 Show this message\n";
+              << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
+              << "  --help                 Show this message\n"
+              << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
 }
 
 void Initialize( int aArgc, char** aArgv ) {
@@ -415,6 +446,20 @@ const FeatureFlags& GetFeatures() {
     return gFeatures;
 }
 
+Util_AssetVerifyPolicy GetAssetVerifyPolicy() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gAssetVerifyPolicy;
+}
+
+int GetSmokeFrameLimit() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gSmokeFrameLimit;
+}
+
 bool ResolveValidationEnabled( bool aBuildDefault ) {
     if ( !gInitialized ) {
         Initialize( 0, nullptr );
@@ -461,6 +506,7 @@ void LogResolvedSummary() {
     UtilLogger::Info( "CONFIG",
                       std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" ) + " runtimeMipmap=" +
                           ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
+    UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( gAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
 
     if ( gValidationResolved ) {
         const char* source = "build default";

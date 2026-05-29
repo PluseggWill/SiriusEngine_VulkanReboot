@@ -15,9 +15,39 @@ extern std::string fragShaderPath;
 extern std::string bindlessFragShaderPath;
 
 void Vk_GfxPipelineCache::InitScenePipelines( Vk_Core& aCore ) {
+    DestroyScenePipelines( aCore );
     CreateGfxPipeline( aCore );
     if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessGfxPipelines( aCore );
+    }
+}
+
+void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Core& aCore ) {
+    if ( aCore.myDevice == VK_NULL_HANDLE ) {
+        return;
+    }
+
+    const VkDevice device = aCore.myDevice;
+
+    if ( aCore.myBasicPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.myBasicPipeline, nullptr );
+        aCore.myBasicPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myTransparentPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.myTransparentPipeline, nullptr );
+        aCore.myTransparentPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myPipelineLayout != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( device, aCore.myPipelineLayout, nullptr );
+        aCore.myPipelineLayout = VK_NULL_HANDLE;
+    }
+    if ( aCore.myBasicPipelineBindless != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.myBasicPipelineBindless, nullptr );
+        aCore.myBasicPipelineBindless = VK_NULL_HANDLE;
+    }
+    if ( aCore.myTransparentPipelineBindless != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.myTransparentPipelineBindless, nullptr );
+        aCore.myTransparentPipelineBindless = VK_NULL_HANDLE;
     }
 }
 
@@ -91,16 +121,6 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Core& aCore ) {
 
     vkDestroyShaderModule( aCore.myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( aCore.myDevice, fragShaderModule, nullptr );
-
-    VkDevice         device             = aCore.myDevice;
-    VkPipeline       basicPipeline      = aCore.myBasicPipeline;
-    VkPipeline       transparentPipeline = aCore.myTransparentPipeline;
-    VkPipelineLayout pipelineLayout     = aCore.myPipelineLayout;
-    aCore.mySwapChainDeletionQueue.pushFunction( [ device, basicPipeline, transparentPipeline, pipelineLayout ]() {
-        vkDestroyPipeline( device, basicPipeline, nullptr );
-        vkDestroyPipeline( device, transparentPipeline, nullptr );
-        vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
-    } );
 }
 
 void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
@@ -160,12 +180,4 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
 
     vkDestroyShaderModule( aCore.myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( aCore.myDevice, fragShaderModule, nullptr );
-
-    VkDevice   device                    = aCore.myDevice;
-    VkPipeline basicPipelineBindless      = aCore.myBasicPipelineBindless;
-    VkPipeline transparentPipelineBindless = aCore.myTransparentPipelineBindless;
-    aCore.mySwapChainDeletionQueue.pushFunction( [ device, basicPipelineBindless, transparentPipelineBindless ]() {
-        vkDestroyPipeline( device, basicPipelineBindless, nullptr );
-        vkDestroyPipeline( device, transparentPipelineBindless, nullptr );
-    } );
 }

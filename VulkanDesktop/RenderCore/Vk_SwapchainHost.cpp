@@ -13,7 +13,6 @@ void Vk_SwapchainHost::Init( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Vk_SwapchainHost::Init." );
     CreateSwapChain( aCore );
     CreateRenderPass( aCore );
-    aCore.CreateDescriptorSetLayout();
     CreateColorResources( aCore );
     CreateDepthResources( aCore );
     CreateFrameBuffers( aCore );
@@ -30,11 +29,16 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
 
     vkDeviceWaitIdle( aCore.myDevice );
     aCore.myImGuiLayer.DestroySwapchainResources();
+    if ( aCore.myHasLoadedScene ) {
+        Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
+    }
     aCore.mySwapChainDeletionQueue.flush();
 
     CreateSwapChain( aCore );
     CreateRenderPass( aCore );
-    Vk_GfxPipelineCache::InitScenePipelines( aCore );
+    if ( aCore.myHasLoadedScene ) {
+        Vk_GfxPipelineCache::InitScenePipelines( aCore );
+    }
     CreateColorResources( aCore );
     CreateDepthResources( aCore );
     CreateFrameBuffers( aCore );

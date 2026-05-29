@@ -153,7 +153,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     const VmaAllocator allocator = aCore.myAllocator;
     const VkBuffer tableBuffer = aCore.myMaterialTableBuffer.myBuffer;
     const VmaAllocation tableAllocation = aCore.myMaterialTableBuffer.myAllocation;
-    aCore.myDeletionQueue.pushFunction( [allocator, tableBuffer, tableAllocation]() {
+    aCore.GetSceneDeletionQueue().pushFunction( [allocator, tableBuffer, tableAllocation]() {
         vmaDestroyBuffer( allocator, tableBuffer, tableAllocation );
     } );
 
@@ -206,7 +206,7 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
 
     const VkDevice         device = aCore.myDevice;
     const VkDescriptorPool pool   = aCore.myDescriptorPool;
-    aCore.myDeletionQueue.pushFunction( [device, pool]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
+    aCore.GetSceneDeletionQueue().pushFunction( [device, pool]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
@@ -233,7 +233,7 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
 
     const VkDevice  device  = aCore.myDevice;
     const VkSampler sampler = aCore.myTextureSampler;
-    aCore.myDeletionQueue.pushFunction( [device, sampler]() { vkDestroySampler( device, sampler, nullptr ); } );
+    aCore.GetSceneDeletionQueue().pushFunction( [device, sampler]() { vkDestroySampler( device, sampler, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
@@ -316,7 +316,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
         const VmaAllocator allocator  = aCore.myAllocator;
         const VkBuffer     buffer     = paramBuffer.myBuffer;
         const VmaAllocation allocation = paramBuffer.myAllocation;
-        aCore.myDeletionQueue.pushFunction( [allocator, buffer, allocation]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
+        aCore.GetSceneDeletionQueue().pushFunction( [allocator, buffer, allocation]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

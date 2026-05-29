@@ -90,8 +90,10 @@ std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aSc
     return paths;
 }
 
-void Util_VerifyManifest( const Util_AssetManifest& aManifest ) {
-    UtilLogger::Info( "STARTUP", "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s))." );
+void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy ) {
+    const char* policyLabel = aPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn";
+    UtilLogger::Info( "STARTUP",
+                      "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s), policy=" + policyLabel + ")." );
 
     std::vector< std::string > missing;
     for ( const Util_AssetManifestEntry& entry : aManifest.myEntries ) {
@@ -100,7 +102,12 @@ void Util_VerifyManifest( const Util_AssetManifest& aManifest ) {
         const std::filesystem::path path     = resolved;
         if ( !std::filesystem::exists( path ) || !std::filesystem::is_regular_file( path ) ) {
             missing.push_back( logical + " (resolved: " + resolved + ")" );
-            UtilLogger::Error( "STARTUP", "Missing required file: " + logical + " (resolved: " + resolved + ")" );
+            if ( aPolicy == Util_AssetVerifyPolicy::Warn ) {
+                UtilLogger::Warn( "STARTUP", "Missing optional file: " + logical + " (resolved: " + resolved + ")" );
+            }
+            else {
+                UtilLogger::Error( "STARTUP", "Missing required file: " + logical + " (resolved: " + resolved + ")" );
+            }
         }
         else {
             UtilLogger::Info( "STARTUP", "OK " + logical + " -> " + resolved );
@@ -108,6 +115,11 @@ void Util_VerifyManifest( const Util_AssetManifest& aManifest ) {
     }
 
     if ( !missing.empty() ) {
+        if ( aPolicy == Util_AssetVerifyPolicy::Warn ) {
+            UtilLogger::Warn( "STARTUP",
+                              "Manifest verify (warn): " + std::to_string( missing.size() ) + " missing path(s); continuing. First: " + missing.front() );
+            return;
+        }
         throw std::runtime_error( "Missing " + std::to_string( missing.size() ) + " required asset(s). First: " + missing.front() );
     }
 

@@ -128,7 +128,8 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 
 **Implemented (S1 v0):**
 
-- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` before `vkCreateInstance`. SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` (`Docs/application-lifecycle_Plan.md`).
+- **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` (`strict` / `warn` via `engine.json`). SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` (`Docs/application-lifecycle_Plan.md`).
+- **Scene GPU lifetime (2026-05-29):** scene meshes/textures/descriptors/pipelines register on **`mySceneDeletionQueue`**; **`UnloadScene`** flushes GPU resources. Runtime switch: ImGui **Scene** panel → `Application::TryProcessSceneReload` (`Docs/scene-load_Plan.md` Phase D, `Docs/CLI.md`).
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
 - **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
@@ -542,4 +543,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/SprintPlan.md` (S2 archives completed `gfx-vk-decoupling` boundary-hardening task; 2026-05-28).*
+*Last aligned with `Docs/SprintPlan.md` (scene-load Phase D + CLI/smoke-test docs; 2026-05-29).*

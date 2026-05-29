@@ -283,9 +283,7 @@ flowchart TB
 
 *Design and phased rollout: [`scene-load_Plan.md`](scene-load_Plan.md). Replaces hard-coded `Util_DemoAssets` / `UtilStartupChecks` list with scene-derived `AssetManifest`.*
 
-- [ ] **Scene-load Phase D:** GPU unload policy + strict/warn assets + `Data/Scenes/smoke.json` — **unblocked** (lifecycle landed); see [`scene-load_Plan.md`](scene-load_Plan.md) Handoff. Scene JSON: [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md).
 - [ ] Flat world matrices (v1 flat `transform` only); hierarchy deferred — documented in [`SceneJSON.md`](SceneJSON.md) §3.8 and `scene-load_Plan.md` non-goals.
-- [ ] GPU resource lifetime rules when scene edits (descriptor/pipeline rebuild policy) — plan Phase D1.
 - [ ] **Verify descriptor policy (layout):** `VkPipelineLayout` lists Set 0/1/2 per `Vk_DescriptorPolicy.h`; rebuild path documented when materials change.
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
@@ -559,6 +557,8 @@ flowchart LR
 - [x] **[S2]** Thin scheduler: `Vk_Core::Update` vs `Render` driven by `Application` main loop — 2026-05-27; with application-lifecycle.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `scene-load_Plan.md` Handoff.
 - [x] **[S2]** Scene-load Phase C: scene-driven SoA/LOD/manifest + `Vk_ResourceTables::LoadFromManifest`; `SetLoadedScene` before `Run()` — 2026-05-27; `Docs/scene-load_Plan.md` Phase C.
+- [x] **[S2]** Scene-load Phase D: `mySceneDeletionQueue` + GPU `UnloadScene`, `assetVerify` strict/warn (`engine.json`), `Data/Scenes/smoke.json`, `--smoke-frames` dev exit — 2026-05-29; `Docs/scene-load_Plan.md` Phase D.
+- [x] **[S2]** ImGui Scene panel + in-process scene reload + `Docs/CLI.md` — 2026-05-29; `Util_ScenePanel`, `Application::TryProcessSceneReload`.
 - [x] **[S2]** Scene-load Phase B: `Util_VerifyManifest` replaces `UtilStartupChecks` / `kRequiredFiles` — 2026-05-26; `Docs/scene-load_Plan.md` Phase B.
 - [x] **[S2]** Scene-load Phase A: `Data/Scenes/demo.json`, `Gfx_LoadSceneDesc`, `Util_CollectDependencies`, CLI `--scene` (parse only; GPU path unchanged) — 2026-05-26; `Docs/scene-load_Plan.md` Phase A, nlohmann/json vendored.
 - [x] **[S2]** Debug fly camera — `Docs/Archived/plans/fps-camera_Plan.md`; sampling still in `Vk_Core` until input module.

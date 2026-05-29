@@ -13,5 +13,5 @@ When this rule applies (files under `Docs/` are in context):
 3. **SprintPlan hygiene:** active sprints list only open `[ ]` tasks. When done, **move the task line** to `## Archived` with sprint tag (`[S0]`…`[S8]`, `[parallel]`); do not leave `[x]` in active sections. Keep `{TaskName}_Plan.md` / `_Progress.md` at **`Docs/` root for the current sprint** — do not move them to `Archived/plans/` on task close.
 4. Do not skip clarification for new tasks unless the user explicitly waives it.
 5. Implementation changes must remain traceable in `_Progress.md` after each completed plan step or coherent batch of work.
-6. Before closing a task: run **build / smoke-run** per the skill (or document N/A in plan + progress).
+6. Before closing a task: run **build / smoke-run** per the skill (or document N/A in plan + progress). Smoke commands: **`vulkan-smoke-test.mdc`**, **`Docs/CLI.md`**.
 7. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.

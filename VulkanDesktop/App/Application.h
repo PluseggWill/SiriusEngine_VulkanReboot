@@ -16,8 +16,10 @@ private:
     void InitApp( int argc, char** argv );
     void LoadAndVerifyScene();
     void RunMainLoop();
+    void TryProcessSceneReload();
 
     std::vector< const char* > myDeviceExtensions;
     Gfx_SceneDesc              mySceneDesc;
+    std::string                myLastLoadedScenePath;
     InputSystem                myInput;
 };

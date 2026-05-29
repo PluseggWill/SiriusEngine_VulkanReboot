@@ -3,6 +3,7 @@
 #include "Vk_Core.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_LightingPanel.h"
+#include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Util/Util_Loader.h"
@@ -105,7 +106,7 @@ void Vk_Core::Clear() {
     ShutdownImGui();
 
     mySwapChainDeletionQueue.flush();
-
+    mySceneDeletionQueue.flush();
     myDeletionQueue.flush();
     myResourceTables.Clear();
 
@@ -135,16 +136,23 @@ void Vk_Core::InitRenderDevice() {
     CreateFrameData();
     CreateInstanceSlabs();
     CreateUniformBuffers();
-    CreateDescriptorPool();
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 
 // Scene-load orchestration: scene description -> CPU scene state -> pipelines -> GPU resource tables -> descriptors.
-void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
+void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath ) {
+    if ( myHasLoadedScene ) {
+        throw std::runtime_error( "LoadSceneResources: scene already loaded; call UnloadScene first." );
+    }
+
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
-    myLoadedScene    = std::move( aScene );
-    myHasLoadedScene = true;
+    myLoadedScene             = std::move( aScene );
+    myLoadedSceneLogicalPath  = std::move( aLogicalScenePath );
+    myHasLoadedScene          = true;
+
+    myScenePanelState.myCurrentScenePath = myLoadedSceneLogicalPath;
+    UtilScenePanel::RefreshSceneList( myScenePanelState );
 
     const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
     vertShaderPath                      = litShader.myVertPath;
@@ -161,7 +169,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene ) {
         const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
         const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
         SyncResourceContext();
-        myResourceTables.LoadFromManifest( manifest, myResourceContext, myDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
+        myResourceTables.LoadFromManifest( manifest, myResourceContext, mySceneDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
@@ -178,9 +186,25 @@ void Vk_Core::UnloadScene() {
         return;
     }
 
-    UtilLogger::Info( "SCENE", "UnloadScene: releasing CPU scene state (GPU teardown in Shutdown)." );
+    UtilLogger::Info( "SCENE", "UnloadScene: releasing scene CPU + GPU resources." );
     if ( myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( myDevice );
+    }
+
+    ShutdownImGui();
+    Vk_GfxPipelineCache::DestroyScenePipelines( *this );
+    mySceneDeletionQueue.flush();
+    myResourceTables.Clear();
+
+    myDescriptorPool            = VK_NULL_HANDLE;
+    myTextureSampler            = VK_NULL_HANDLE;
+    myBindlessDescriptorSet     = VK_NULL_HANDLE;
+    myMaterialTableBuffer       = {};
+    myMaterialDescriptorSets.clear();
+    myMaterialParamBuffers.clear();
+    for ( Vk_FrameData& frame : myFrameDatas ) {
+        frame.myGlobalDescriptor = VK_NULL_HANDLE;
+        frame.myObjectDescriptor = VK_NULL_HANDLE;
     }
 
     mySceneSoA.Clear();
@@ -189,16 +213,29 @@ void Vk_Core::UnloadScene() {
     myDrawPrep.ClearFrameOutputs();
     myDrawPrep.ResetLogState();
     myDemoBaseTransforms.clear();
-    myMaterialDescriptorSets.clear();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
-    myLoadedScene     = Gfx_SceneDesc{};
-    mySceneIdTables   = Gfx_SceneIdTables{};
-    myHasLoadedScene  = false;
+    myLoadedScene            = Gfx_SceneDesc{};
+    mySceneIdTables          = Gfx_SceneIdTables{};
+    myLoadedSceneLogicalPath.clear();
+    myHasLoadedScene         = false;
+    myScenePanelState.myCurrentScenePath.clear();
 
     myMaterialBindLoggedOnce = false;
     myBindlessLoggedOnce         = false;
     myM1PerfLoggedOnce           = false;
+
+    UtilLogger::Info( "SCENE", "UnloadScene: GPU scene resources released." );
+}
+
+std::string Vk_Core::TakePendingSceneReloadPath() {
+    if ( !myScenePanelState.myReloadRequested ) {
+        return {};
+    }
+    std::string path = std::move( myScenePanelState.myReloadTargetPath );
+    myScenePanelState.myReloadRequested = false;
+    myScenePanelState.myReloadTargetPath.clear();
+    return path;
 }
 
 void Vk_Core::InitImGui() {
@@ -464,8 +501,11 @@ void Vk_Core::CreateInstanceSlabs() {
         myFrameDatas[ i ].myInstanceSlabMapped = mapped;
 
         myDeletionQueue.pushFunction( [ = ]() {
+            if ( myFrameDatas[ i ].myInstanceSlabMapped != nullptr ) {
+                vmaUnmapMemory( myAllocator, myFrameDatas[ i ].myObjectBuffer.myAllocation );
+                myFrameDatas[ i ].myInstanceSlabMapped = nullptr;
+            }
             vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myObjectBuffer.myBuffer, myFrameDatas[ i ].myObjectBuffer.myAllocation );
-            myFrameDatas[ i ].myInstanceSlabMapped = nullptr;
         } );
     }
 
@@ -576,6 +616,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
+    UtilScenePanel::Build( myScenePanelState );
     UtilStatsOverlay::Build( myFrameStats );
     ImGui::Render();
     Vk_ScenePasses::RecordImGui( *this, aFrameData.myCommandBuffer, imageIndex );

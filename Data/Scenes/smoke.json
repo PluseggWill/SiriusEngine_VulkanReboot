@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "shaders": {
+    "lit": {
+      "vert": "VulkanDesktop/Shader_Generated/TriangleVert.spv",
+      "frag": "VulkanDesktop/Shader_Generated/TrianglePix.spv"
+    }
+  },
+  "logicalMeshes": [
+    { "id": "viking", "lodMeshes": ["viking_room"] }
+  ],
+  "meshes": [
+    { "id": "viking_room", "path": "Data/Models/viking_room.obj" }
+  ],
+  "textures": [
+    { "id": "viking_albedo", "path": "Data/Textures/viking_room.png" }
+  ],
+  "materials": [
+    { "id": "mat_viking", "shader": "lit", "texture": "viking_albedo" }
+  ],
+  "entities": [
+    {
+      "logicalMesh": "viking",
+      "material": "mat_viking",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    }
+  ]
+}

@@ -17,7 +17,7 @@
 | **默认场景** | `Data/Scenes/demo.json` |
 | **CLI** | `VulkanDesktop.exe --scene Data/Scenes/your_scene.json` |
 | **资产根** | 所有 `path` 相对 **asset root**（`Config/engine.json` 的 `assetRoot` 或 `--asset-root`），由 `UtilLoader::ResolvePath` 解析 |
-| **启动校验** | 启动前 `Util_VerifyManifest` 检查场景中引用的**全部**文件存在；缺文件 → 进程退出（当前仅 **strict**，无 warn 模式） |
+| **启动校验** | 启动前 `Util_VerifyManifest` 检查 manifest；`Config/engine.json` 的 `"assetVerify": "strict"`（缺文件退出）或 `"warn"`（缺文件 `[STARTUP] WARN` 后继续） |
 
 **路径写法示例：**
 
@@ -296,8 +296,8 @@ T * S  →  对角线为 scale，最后一列前三个分量为平移
 
 | 能力 | v1 JSON | 计划 |
 |------|---------|------|
-| 场景卸载 / 热切换 | 不支持 | Phase D1 + Application lifecycle |
-| 缺资源 warn 继续 | 不支持 | Phase D2 / central config |
+| 场景卸载 / 热切换 | **支持** — ImGui Scene 面板进程内 reload；启动用 `--scene` | Phase D 完成 |
+| 缺资源 warn 继续 | **启动时** — `engine.json` `assetVerify: warn` | Phase D2 |
 | 场景层级 parent | 不支持 | scene-load non-goals，以后版本 |
 | 多 shader / permutation | 仅声明多组；运行时用 `lit` | S2 shader stack |
 | 相机 / 多视图 | 不在 JSON | S2 multi-view |

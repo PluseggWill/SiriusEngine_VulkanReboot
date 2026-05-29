@@ -16,7 +16,7 @@ void Vk_ResourceTables::Clear() {
     myMaterialTableGeneration = 0;
 }
 
-void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aDeletionQueue,
+void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
                                           uint32_t& aTextureMipLevels, VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout ) {
     Clear();
 
@@ -27,12 +27,12 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
 
     for ( const Gfx_TextureManifestEntry& entry : aManifest.myTextures ) {
         uint32_t textureMipLevels = 1;
-        LoadTexture( entry.myPath, entry.myId, aContext, aDeletionQueue, textureMipLevels );
+        LoadTexture( entry.myPath, entry.myId, aContext, aSceneDeletionQueue, textureMipLevels );
         aTextureMipLevels = std::max( aTextureMipLevels, textureMipLevels );
     }
 
     for ( const Gfx_MeshManifestEntry& entry : aManifest.myMeshes ) {
-        LoadMesh( entry.myPath, entry.myId, aContext, aDeletionQueue );
+        LoadMesh( entry.myPath, entry.myId, aContext, aSceneDeletionQueue );
     }
 
     for ( const Gfx_MaterialManifestEntry& entry : aManifest.myMaterials ) {
@@ -48,7 +48,7 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
                           std::to_string( myMaterialTableGeneration ) );
 }
 
-Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aDeletionQueue ) {
+Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue ) {
     const std::string resolvedPath = UtilLoader::ResolvePath( aPath );
     UtilLogger::Info( "RESOURCE", "Loading mesh id=" + std::to_string( aMeshId ) + " path=" + resolvedPath );
 
@@ -61,7 +61,7 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshI
     mesh.BuildBuffers( aContext );
 
     const VmaAllocator allocator = aContext.myAllocator;
-    aDeletionQueue.pushFunction( [ allocator, aMeshId, this ]() {
+    aSceneDeletionQueue.pushFunction( [ allocator, aMeshId, this ]() {
         if ( aMeshId >= myMeshes.size() ) {
             return;
         }
@@ -73,7 +73,7 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshI
     return &mesh;
 }
 
-Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aDeletionQueue,
+Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
                                              uint32_t& aMipLevels ) {
     const std::string resolvedPath = UtilLoader::ResolvePath( aPath );
     UtilLogger::Info( "RESOURCE", "Loading texture id=" + std::to_string( aTextureId ) + " path=" + resolvedPath );
@@ -90,7 +90,7 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t 
 
     const VmaAllocator allocator = aContext.myAllocator;
     const VkDevice     device    = aContext.myDevice;
-    aDeletionQueue.pushFunction( [ allocator, device, aTextureId, this ]() {
+    aSceneDeletionQueue.pushFunction( [ allocator, device, aTextureId, this ]() {
         if ( aTextureId >= myTextures.size() ) {
             return;
         }

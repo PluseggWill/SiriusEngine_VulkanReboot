@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Util_AssetManifest.h"
 #include "Util_Logger.h"
 
 #include <cstdint>
@@ -35,6 +36,10 @@ bool     GetVsync();
 
 UtilLogger::LogLevel GetMinLogLevel();
 const FeatureFlags&  GetFeatures();
+Util_AssetVerifyPolicy GetAssetVerifyPolicy();
+
+// When > 0, main loop requests window close after this many rendered frames (dev smoke / CI).
+int GetSmokeFrameLimit();
 
 bool ResolveValidationEnabled( bool aBuildDefault );
 bool IsValidationEnabled();

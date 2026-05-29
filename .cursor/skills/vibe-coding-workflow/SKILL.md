@@ -102,27 +102,35 @@ Run after implementation (or after each batch that changes compile/runtime behav
 
    Use `Release|x64` only when the plan or user asks for it.
 
-3. **Smoke-run** (pick what fits the task; at least one):
+3. **Smoke-run** — use commands from **`.cursor/rules/vulkan-smoke-test.mdc`** and full flag reference **`Docs/CLI.md`**. At least one:
 
-   ```powershell
-   & "x64\Debug\VulkanDesktop.exe" --help
-   ```
+   | Check | Command (from `x64\Debug`) |
+   |-------|----------------------------|
+   | CLI only | `.\VulkanDesktop.exe --help` |
+   | **Preferred — full lifecycle** | `.\VulkanDesktop.exe --no-validation --smoke-frames 2` |
+   | Demo scene | add `--scene Data/Scenes/demo.json` |
+   | Minimal scene | add `--scene Data/Scenes/smoke.json` |
+   | Asset root from odd cwd | `--asset-root <repo-root>` plus scene path above |
+
+   **Graceful smoke** (`--smoke-frames N`) exits cleanly through `UnloadScene` → `Shutdown`; use this for task close, not only `Stop-Process` after a timed wait.
+
+   Optional quick visual (does **not** replace graceful smoke):
 
    ```powershell
    Set-Location x64\Debug
-   $p = Start-Process -FilePath ".\VulkanDesktop.exe" -PassThru -WindowStyle Minimized
+   $p = Start-Process -FilePath ".\VulkanDesktop.exe" -ArgumentList "--no-validation" -PassThru -WindowStyle Minimized
    Start-Sleep -Seconds 4
    if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
    ```
 
-   For asset/config work, also run from a **different cwd** with `--asset-root <repo-root>` and confirm resolution in the log.
-
-4. **Signals of success** (adjust per task in the plan):
+4. **Signals of success** (adjust per task in the plan; see `vulkan-smoke-test.mdc`):
 
    - Build exit code 0; SPIR-V custom build OK when shaders touched.
+   - Smoke process exit code **0** when using `--smoke-frames`.
    - `[CONFIG] assetRoot=…` when asset root changed.
-   - `[SHADER]` / `[LOADER]` / `[RESOURCE]` lines show resolved paths under the repo.
-   - No new `[ERROR]` during init before intentional shutdown.
+   - `[SCENE] LoadSceneResources completed`; `[SCENE] UnloadScene: GPU scene resources released` for lifecycle smoke.
+   - `[SHADER]` / `[LOADER]` / `[RESOURCE-TABLE]` / `[EXTRACT]` lines match scene scope.
+   - No new `[ERROR]` during init before intentional shutdown (`--no-validation` if layers not installed).
 
 #### When build/smoke-run is N/A
 

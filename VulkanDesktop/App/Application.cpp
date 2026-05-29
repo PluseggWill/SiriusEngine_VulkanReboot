@@ -6,6 +6,7 @@
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
+#include <GLFW/glfw3.h>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -25,7 +26,8 @@ int Application::Run( int argc, char** argv ) {
         UtilLogger::Info( "APP", "InitRenderDevice." );
         core.InitRenderDevice();
         UtilLogger::Info( "APP", "LoadSceneResources." );
-        core.LoadSceneResources( std::move( mySceneDesc ) );
+        myLastLoadedScenePath = UtilEngineConfig::GetSceneLogicalPath();
+        core.LoadSceneResources( std::move( mySceneDesc ), myLastLoadedScenePath );
 
         RunMainLoop();
 
@@ -70,11 +72,13 @@ void Application::LoadAndVerifyScene() {
     UtilLogger::Info( "APP", "LoadSceneDesc." );
     mySceneDesc = Gfx_LoadSceneDesc( UtilEngineConfig::GetSceneLogicalPath() );
     UtilLogger::Info( "APP", "VerifyManifest." );
-    Util_VerifyManifest( Util_CollectDependencies( mySceneDesc ) );
+    Util_VerifyManifest( Util_CollectDependencies( mySceneDesc ), UtilEngineConfig::GetAssetVerifyPolicy() );
 }
 
 void Application::RunMainLoop() {
     Vk_Core& core = Vk_Core::GetInstance();
+    const int smokeFrameLimit = UtilEngineConfig::GetSmokeFrameLimit();
+    int       renderedFrames  = 0;
     UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
     while ( !core.ShouldClose() ) {
         float frameSeconds = 0.0f;
@@ -86,6 +90,47 @@ void Application::RunMainLoop() {
         }
         Gfx_TickDemoSceneTransforms( core.GetSceneSoA(), core.GetDemoBaseTransforms() );
         core.Render();
+        TryProcessSceneReload();
+        ++renderedFrames;
+        if ( smokeFrameLimit > 0 && renderedFrames >= smokeFrameLimit ) {
+            UtilLogger::Info( "APP", "Smoke frame limit reached (" + std::to_string( smokeFrameLimit ) + "); requesting exit." );
+            glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
+        }
     }
     UtilLogger::Info( "APP", "Main loop ended." );
+}
+
+void Application::TryProcessSceneReload() {
+    Vk_Core& core = Vk_Core::GetInstance();
+    const std::string reloadPath = core.TakePendingSceneReloadPath();
+    if ( reloadPath.empty() ) {
+        return;
+    }
+
+    UtilLogger::Info( "APP", "Scene reload requested: " + reloadPath );
+
+    auto loadScene = [ & ]( const std::string& aPath ) {
+        Gfx_SceneDesc desc = Gfx_LoadSceneDesc( aPath );
+        Util_VerifyManifest( Util_CollectDependencies( desc ), UtilEngineConfig::GetAssetVerifyPolicy() );
+        core.LoadSceneResources( std::move( desc ), aPath );
+        myLastLoadedScenePath = aPath;
+    };
+
+    try {
+        core.UnloadScene();
+        loadScene( reloadPath );
+        UtilLogger::Info( "APP", "Scene reload completed: " + reloadPath );
+    }
+    catch ( const std::exception& e ) {
+        UtilLogger::Error( "APP", std::string( "Scene reload failed: " ) + e.what() );
+        try {
+            if ( !myLastLoadedScenePath.empty() && myLastLoadedScenePath != reloadPath ) {
+                UtilLogger::Warn( "APP", "Restoring previous scene: " + myLastLoadedScenePath );
+                loadScene( myLastLoadedScenePath );
+            }
+        }
+        catch ( const std::exception& restoreError ) {
+            UtilLogger::Error( "APP", std::string( "Scene restore failed: " ) + restoreError.what() );
+        }
+    }
 }

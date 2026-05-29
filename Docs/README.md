@@ -9,7 +9,7 @@
 | [`input-abstraction_Plan.md`](input-abstraction_Plan.md) / [`input-abstraction_Progress.md`](input-abstraction_Progress.md) | S2 `InputSystem` + camera input path out of `Vk_Core` — **done** 2026-05-27 |
 | [`central-config_Plan.md`](central-config_Plan.md) / [`central-config_Progress.md`](central-config_Progress.md) | S2 `Util_EngineConfig` + `Config/engine.json` — **done** 2026-05-27 |
 | [`application-lifecycle_Plan.md`](application-lifecycle_Plan.md) / [`application-lifecycle_Progress.md`](application-lifecycle_Progress.md) | S2 Application lifecycle + Update/Render scheduler — **done** 2026-05-27 |
-| [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–C done; **Phase D unblocked** — see plan Handoff |
+| [`scene-load_Plan.md`](scene-load_Plan.md) / [`scene-load_Progress.md`](scene-load_Progress.md) | S2 scene-load Phases A–D **done** (GPU unload, ImGui scene switch, `CLI.md`) |
 | [`vk-core-decomposition_Plan.md`](vk-core-decomposition_Plan.md) / [`vk-core-decomposition_Progress.md`](vk-core-decomposition_Progress.md) | S2 `Vk_Core` RHI peel (context, draw prep, record/submit) — **done** 2026-05-27 |
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Sprint close-out validation runbook (S0–S8 acceptance checks) |
 | [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 lighting epic: complete forward baseline before deferred migration |
@@ -21,6 +21,8 @@
 
 | File | Purpose |
 |------|---------|
+| [`CLI.md`](CLI.md) | 命令行参数、`engine.json` 字段、示例与优先级 |
+| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent/CI 冒烟测试用 CLI（与 vibe-coding smoke-run 一致） |
 | [`bootstrap.md`](bootstrap.md) | New-machine toolchain, build, run, logs |
 | [`validation-layers.md`](validation-layers.md) | Validation layer install + runtime toggles |
 | [`SceneJSON.en.md`](SceneJSON.en.md) / [`SceneJSON.md`](SceneJSON.md) | Scene JSON v1 schema and authoring (EN / 中文) |

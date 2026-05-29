@@ -17,7 +17,7 @@
 | **Default scene** | `Data/Scenes/demo.json` |
 | **CLI** | `VulkanDesktop.exe --scene Data/Scenes/your_scene.json` |
 | **Asset root** | Every `path` is repo-relative to **asset root** (`assetRoot` in `Config/engine.json` or `--asset-root`), resolved by `UtilLoader::ResolvePath` |
-| **Startup verify** | Before Vulkan init, `Util_VerifyManifest` checks that **all** referenced files exist; missing file → exit (today: **strict** only, no warn mode) |
+| **Startup verify** | Before Vulkan init, `Util_VerifyManifest` checks the manifest; `Config/engine.json` `"assetVerify": "strict"` (missing → exit) or `"warn"` (missing → `[STARTUP] WARN`, continue) |
 
 **Path examples:**
 
@@ -295,8 +295,8 @@ Tables reflect **`demo.json` array order today**; reordering entries changes ind
 
 | Capability | v1 JSON | Planned |
 |------------|---------|---------|
-| Scene unload / hot reload | no | Phase D1 + Application lifecycle |
-| Warn on missing optional assets | no | Phase D2 / central config |
+| Scene unload / hot reload | **yes** — ImGui Scene panel; boot `--scene` | Phase D done |
+| Warn on missing optional assets | **at startup** — `assetVerify: warn` in `engine.json` | Phase D2 |
 | Parent/child hierarchy | no | scene-load non-goals; later |
 | Multiple shaders / permutations | declare only; runtime uses `lit` | S2 shader stack |
 | Cameras / multi-view | not in JSON | S2 multi-view |

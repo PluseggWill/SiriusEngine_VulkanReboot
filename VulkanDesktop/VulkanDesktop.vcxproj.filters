@@ -76,6 +76,9 @@
     <ClCompile Include="Util\Util_LightingPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_ScenePanel.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_StatsOverlay.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -247,6 +250,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_LightingPanel.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_ScenePanel.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_StatsOverlay.h">

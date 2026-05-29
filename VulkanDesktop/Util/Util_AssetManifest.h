@@ -31,5 +31,10 @@ Util_AssetManifest Util_CollectDependencies( const Gfx_SceneDesc& aScene );
 // Convenience: sorted unique repo-relative paths (same order as Util_CollectDependencies entries).
 std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aScene );
 
-// Fail-fast file existence check before Vulkan init (strict; logs [STARTUP]).
-void Util_VerifyManifest( const Util_AssetManifest& aManifest );
+enum class Util_AssetVerifyPolicy : uint8_t {
+    Strict = 0,  // Missing path throws before Vulkan init.
+    Warn   = 1,  // Missing path logs [STARTUP] WARN and continues (optional assets / dev).
+};
+
+// File existence check before Vulkan init. Strict fails fast; Warn logs and continues.
+void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy = Util_AssetVerifyPolicy::Strict );

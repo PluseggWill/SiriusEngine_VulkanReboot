@@ -9,7 +9,7 @@ If the user says "vibe coding", asks to follow a three-phase workflow, or refere
 
 1. Load and follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`).
 2. Enforce phase gates: Clarify + **user-confirmed landing details** before Plan, Plan before Implement.
-3. During implementation, do not allow silent deviations from `{TaskName}_Plan.md`; apply the deviation protocol first. Before task close: **build + smoke-run** (skill § Phase 3) unless documented N/A.
+3. During implementation, do not allow silent deviations from `{TaskName}_Plan.md`; apply the deviation protocol first. Before task close: **build + smoke-run** (skill § Phase 3) unless documented N/A — use test CLI from **`vulkan-smoke-test.mdc`** / **`Docs/CLI.md`** (prefer `--no-validation --smoke-frames 2` for full `UnloadScene` path).
 4. For P4-managed projects, remind the user when edits touch already checked-out files.
 5. Engine docs under `Docs/`: roadmap `SprintPlan.md`, architecture `EngineArchitecture.md`, index `Docs/README.md` — **edit both roadmap/arch together** when either changes (`docs-roadmap-arch-sync.mdc`); per-task `{TaskName}_Plan.md` and `_Progress.md` stay at **`Docs/` root for the current sprint** (do not move to `Archived/plans/` on task close); when closing a sprint item, **only** move the line to `SprintPlan.md` → `## Archived**.
 6. Code comments in `VulkanDesktop/`: follow **`cpp-comments.mdc`**.

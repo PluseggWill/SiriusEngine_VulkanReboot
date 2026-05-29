@@ -1,7 +1,7 @@
 # Plan: scene-load
 
 **Sprint:** S2 — Engine layering & hygiene (scene + lifecycle); ties to S1 resource tables  
-**Status:** Paused after Phase C (2026-05-27). **Phase D unblocked** — S2 Application lifecycle done (`Docs/application-lifecycle_Plan.md`); start D1 when ready (see [Handoff](#handoff--2026-05-27-pause)).  
+**Status:** Closed (2026-05-29). Phases A–D shipped including GPU `UnloadScene`, `assetVerify`, `smoke.json`, ImGui in-process scene reload, and `Docs/CLI.md`.  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) §3–4, [`SceneJSON.md`](SceneJSON.md), [`asset-root_Plan.md`](asset-root_Plan.md), [`startup-checks_Plan.md`](startup-checks_Plan.md), [`SprintPlan.md`](SprintPlan.md) § S2
 
 ## Problem
@@ -135,51 +135,76 @@ Exact schema is an implementation detail; plan steps below lock order, not every
 
 Runtime path (Phase C): `Gfx_LoadSceneDesc` → `SetLoadedScene` → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest`.
 
-### Phase D — Scene change & policy (deferred)
+### Phase D — Scene change & policy (complete)
 
-**Gate:** S2 Application lifecycle (explicit `LoadSceneResources` / `UnloadScene`, peel load out of `InitVulkan`) before D1. D2/D3 are soft-gated (can be small follow-ups after lifecycle).
+**Gate:** satisfied (Application lifecycle, `LoadSceneResources` / `UnloadScene`).
 
-- [ ] **D1** — `UnloadScene` + GPU lifetime rules (`DeletionQueue`, material descriptor free/rebuild policy).
-- [ ] **D2** — `engine.json` or scene flag: strict vs warn for missing optional assets (overlaps S2 central config).
-- [ ] **D3** — Second tiny scene for load smoke tests (`Data/Scenes/smoke.json`); best as lifecycle smoke after D1.
+#### D1 — GPU unload + reload-safe scene scope
 
-## Handoff — 2026-05-27 pause
+- [x] **D1.1** — `mySceneDeletionQueue`: meshes/textures, sampler, descriptor pool, material param buffers, bindless table buffer register here (not device `myDeletionQueue`).
+- [x] **D1.2** — Remove duplicate `CreateDescriptorPool` from `InitRenderDevice` (pool is scene-scoped; created in `InitSceneDescriptors` only).
+- [x] **D1.3** — `Vk_GfxPipelineCache::DestroyScenePipelines` — immediate destroy + null handles; call from `UnloadScene` and `Vk_SwapchainHost::Recreate` when `myHasLoadedScene` (no pipeline lambdas on swapchain queue).
+- [x] **D1.4** — `UnloadScene`: `vkDeviceWaitIdle`, `ShutdownImGui`, destroy pipelines, flush `mySceneDeletionQueue`, `myResourceTables.Clear()`, reset scene Vulkan handles (pool, sampler, material sets, frame descriptor set handles).
+- [x] **D1.5** — `LoadSceneResources` requires prior unload (fail-closed if scene already loaded).
 
-### What is done (shipped on `VibeCoding`)
+#### D2 — Strict vs warn manifest verify
+
+- [x] **D2.1** — `Util_AssetVerifyPolicy` + `Util_VerifyManifest(manifest, policy)`; missing paths log `[STARTUP] WARN` and continue when `Warn`.
+- [x] **D2.2** — `Config/engine.json` key `"assetVerify": "strict" | "warn"` (default `strict`); `UtilEngineConfig::GetAssetVerifyPolicy()`.
+
+#### D3 — Smoke scene
+
+- [x] **D3.1** — `Data/Scenes/smoke.json` (single entity, minimal mesh/texture/shader closure).
+- [x] **D3.2** — `Data/Scenes/README.md` note + smoke-run with `--scene Data/Scenes/smoke.json`.
+
+#### D4 — Runtime scene switch (follow-up to D1)
+
+- [x] **D4.1** — ImGui **Scene** panel (`Util_ScenePanel`): list `Data/Scenes/*.json`, **Load selected scene**.
+- [x] **D4.2** — `Application::TryProcessSceneReload`: `UnloadScene` → parse → `Util_VerifyManifest` → `LoadSceneResources`; restore previous scene on failure.
+- [x] **D4.3** — `Docs/CLI.md` + `.cursor/rules/vulkan-smoke-test.mdc` (agent smoke CLI).
+
+**Dev smoke:** `--smoke-frames N` + `--no-validation` for graceful `UnloadScene` → `Shutdown` (see `vulkan-smoke-test.mdc`).
+
+#### Phase D verification
+
+```powershell
+# Build
+& "<MSBuild.exe>" VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m
+Set-Location x64\Debug
+.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
+.\VulkanDesktop.exe --no-validation --smoke-frames 2 --scene Data/Scenes/demo.json
+```
+
+Log: `[SCENE] UnloadScene: GPU scene resources released`, `[RESOURCE-TABLE]` on load, `[APP] Engine exited run loop normally`, exit code 0.
+
+## Handoff — 2026-05-29 closeout
+
+### What is done (Phases A–D)
 
 | Phase | Summary | Key symbols |
 |-------|---------|-------------|
-| **A** | JSON parse, `--scene`, dependency collect | `Gfx_LoadSceneDesc`, `Util_CollectDependencies`, `Data/Scenes/demo.json`, `lib/nlohmann/json.hpp` |
+| **A** | JSON parse, `--scene`, dependency collect | `Gfx_LoadSceneDesc`, `Util_CollectDependencies`, `Data/Scenes/demo.json` |
 | **B** | Manifest startup verify | `Util_VerifyManifest`; removed `Util_StartupChecks` |
-| **C** | Scene drives SoA, LOD, resource tables, lit shader paths | `Gfx_SceneApply`, `SetLoadedScene`, `Gfx_BuildResourceManifestFromSceneDesc`, `logicalMeshes` in JSON |
+| **C** | Scene drives SoA, LOD, resource tables | `Gfx_SceneApply`, `Gfx_BuildResourceManifestFromSceneDesc`, `LoadSceneResources` |
+| **D** | GPU unload, verify policy, smoke scene, ImGui reload | `mySceneDeletionQueue`, `assetVerify`, `smoke.json`, `Util_ScenePanel`, `TryProcessSceneReload` |
 
-**Commits (reference):** Phase A `cb5ed00`, Phase B `67c52f1`, Phase C + legacy notes `cbad9a9`.
+### Remaining (out of scene-load scope)
 
-### What is NOT done (do not assume)
+| Item | Notes |
+|------|--------|
+| Scene graph / parent transforms | Non-goal v1 — `SceneJSON.md` §3.8 |
+| Runtime warn for optional assets without restart | `assetVerify=warn` at boot only; per-entity optional assets deferred |
+| CLI reload without ImGui | Use `--scene` at startup or Scene panel at runtime |
 
-| Gap | Detail |
-|-----|--------|
-| **S2 Application lifecycle** | **Done** — `App/Application`; `InitRenderDevice` + `LoadSceneResources`; see `application-lifecycle_Plan.md`. |
-| **Phase D** | No `UnloadScene`, no scene reload, no `smoke.json`, boot verify always **strict** (no warn mode). |
-| **Scheduler** | No `Update` / `Render` split in app layer. |
-| **Scene graph** | Flat world matrices only; no parent/child in JSON. |
-| **Hierarchy in SprintPlan** | Lines “Scene description on disk” / “Flat world matrices” / “GPU resource lifetime rules” remain open — partially satisfied by A–C; close or reword when lifecycle lands. |
-
-### Runtime flow today (for next session)
+### Runtime flow today
 
 ```text
-VulkanDesktop::main
-  UtilAssetConfig::Initialize     // --asset-root, --scene, --config
-  Gfx_LoadSceneDesc(path)
-  Util_VerifyManifest(CollectDependencies(scene))
-  Application::Run()
-    InitApp / LoadSceneDesc / VerifyManifest
-    Vk_Core::InitWindow()
-    Vk_Core::InitRenderDevice()
-    Vk_Core::LoadSceneResources(scene)   // SoA, LOD, pipelines, manifest
-    loop Update() / Render()
-    Vk_Core::UnloadScene()               // CPU scene state (partial)
-    Vk_Core::Shutdown()                  // was Clear()
+Application::Run
+  UtilEngineConfig::Initialize
+  Gfx_LoadSceneDesc + Util_VerifyManifest
+  InitWindow → InitRenderDevice → LoadSceneResources
+  loop: Update / Render / TryProcessSceneReload (ImGui Scene panel)
+  UnloadScene (GPU + CPU) → Shutdown
 ```
 
 ### Dependency graph (what blocks what)
@@ -228,11 +253,9 @@ flowchart TB
 | **Phase D3 smoke.json** | D1 ideal; can author file earlier using [`SceneJSON.md`](SceneJSON.md) | CI / manual load tests |
 | **Multi-view** | Lifecycle + Extract (S1 done) | S7 frame graph experiments |
 
-### Recommended next task (team decision 2026-05-27)
+### Recommended next (post closeout)
 
-1. ~~**S2 Application lifecycle**~~ — done (`application-lifecycle_Plan.md`).
-2. ~~**Thin scheduler**~~ — done (`Update` / `Render`).
-3. **Next:** scene-load Phase D (D1 → D3, D2 with config).
+See `Docs/SprintPlan.md` S2 open items: descriptor layout verify, S2 hygiene (init hacks, queue sharing), shader reflection.
 
 ### Doc index for scene JSON
 

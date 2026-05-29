@@ -176,6 +176,7 @@
     <ClCompile Include="Util\Util_CameraPanel.cpp" />
     <ClCompile Include="Util\Util_Input.cpp" />
     <ClCompile Include="Util\Util_LightingPanel.cpp" />
+    <ClCompile Include="Util\Util_ScenePanel.cpp" />
     <ClCompile Include="Util\Util_StatsOverlay.cpp" />
     <ClCompile Include="Util\Util_ImGuiLayer.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
@@ -237,6 +238,7 @@
     <ClInclude Include="Util\Util_Input.h" />
     <ClInclude Include="Util\Util_InputSnapshot.h" />
     <ClInclude Include="Util\Util_LightingPanel.h" />
+    <ClInclude Include="Util\Util_ScenePanel.h" />
     <ClInclude Include="Util\Util_StatsOverlay.h" />
     <ClInclude Include="Util\Util_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />

@@ -7,6 +7,7 @@
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_InputSnapshot.h"
+#include "../Util/Util_ScenePanel.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
@@ -64,8 +65,14 @@ public:
     // Application lifecycle (orchestrated by App/Application).
     void InitWindow();
     void InitRenderDevice();
-    void LoadSceneResources( Gfx_SceneDesc aScene );
+    void LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath = {} );
     void UnloadScene();
+
+    const std::string& GetLoadedSceneLogicalPath() const { return myLoadedSceneLogicalPath; }
+    std::string TakePendingSceneReloadPath();
+
+    // Scene-scoped GPU teardown queue (meshes, textures, descriptor pool, material buffers). Flushed in UnloadScene.
+    Vk_DeletionQueue& GetSceneDeletionQueue() { return mySceneDeletionQueue; }
     void Shutdown();
     void BeginPlatformFrame( float& aOutDeltaSeconds );
     void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
@@ -212,12 +219,15 @@ public:
     std::vector< glm::mat4 >                     myDemoBaseTransforms;
     Gfx_SceneDesc                                myLoadedScene;
     Gfx_SceneIdTables                            mySceneIdTables;
+    std::string                                  myLoadedSceneLogicalPath;
     bool                                         myHasLoadedScene = false;
+    UtilScenePanel::State                        myScenePanelState;
     std::vector< VkDescriptorSet >               myMaterialDescriptorSets;
 #pragma endregion
 
 private:
     Vk_DeletionQueue         myDeletionQueue;
+    Vk_DeletionQueue         mySceneDeletionQueue;
     Vk_DeletionQueue         mySwapChainDeletionQueue;
     uint32_t              myWidth, myHeight;
     GLFWwindow*           myWindow;
