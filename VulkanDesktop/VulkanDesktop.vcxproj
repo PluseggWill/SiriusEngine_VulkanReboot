@@ -194,7 +194,6 @@
     <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />
     <ClCompile Include="Gfx\Gfx_RenderPacket.cpp" />
     <ClCompile Include="Gfx\Gfx_Lod.cpp" />
-    <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneLoader.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
@@ -282,7 +281,6 @@
     <ClInclude Include="Util\Util_AssetConfig.h" />
     <ClInclude Include="Util\Util_EngineConfig.h" />
     <ClInclude Include="Util\Util_AssetManifest.h" />
-    <ClInclude Include="Util\Util_DemoAssets.h" />
     <ClInclude Include="Util\Util_ValidationConfig.h" />
     <ClInclude Include="Util\Util_DebugMessenger.h" />
     <ClInclude Include="Util\Util_ValidationLayers.h" />

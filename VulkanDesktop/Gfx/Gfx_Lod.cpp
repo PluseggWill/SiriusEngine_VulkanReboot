@@ -1,7 +1,5 @@
 #include "Gfx_Lod.h"
 
-#include "../Util/Util_DemoAssets.h"
-
 #include <algorithm>
 #include <cmath>
 
@@ -89,28 +87,6 @@ uint32_t Gfx_LodState::GetPreviousLod( uint32_t aSlot ) const {
 void Gfx_LodState::SetPreviousLod( uint32_t aSlot, uint32_t aLodLevel ) {
     EnsureSlotCount( aSlot + 1 );
     myPreviousLodBySlot[ aSlot ] = aLodLevel;
-}
-
-void Gfx_BuildDemoLodTable( Gfx_LodTable& aOut ) {
-    aOut = Gfx_LodTable{};
-
-    auto singleMesh = []( uint32_t aMeshId ) {
-        Gfx_LodChain chain{};
-        chain.myMeshIds.push_back( aMeshId );
-        return chain;
-    };
-
-    aOut.SetChain( UtilDemoAssets::kLogicalViking, singleMesh( UtilDemoAssets::kMeshViking ) );
-    aOut.SetChain( UtilDemoAssets::kLogicalMonkey, singleMesh( UtilDemoAssets::kMeshMonkey ) );
-    aOut.SetChain( UtilDemoAssets::kLogicalRock, singleMesh( UtilDemoAssets::kMeshRock ) );
-    aOut.SetChain( UtilDemoAssets::kLogicalCampfire, singleMesh( UtilDemoAssets::kMeshCampfire ) );
-    aOut.SetChain( UtilDemoAssets::kLogicalTent, singleMesh( UtilDemoAssets::kMeshTent ) );
-    aOut.SetChain( UtilDemoAssets::kLogicalStump, singleMesh( UtilDemoAssets::kMeshStump ) );
-
-    Gfx_LodChain tree{};
-    tree.myMeshIds             = { UtilDemoAssets::kMeshTreeDetailed, UtilDemoAssets::kMeshTreeSimple };
-    tree.myDistanceThresholds  = { 14.0f };
-    aOut.SetChain( UtilDemoAssets::kLogicalTree, std::move( tree ) );
 }
 
 uint32_t Gfx_SelectLodLevel( float aEyeDistance, float aLodBias, const Gfx_LodChain& aChain ) {

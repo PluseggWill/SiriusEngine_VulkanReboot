@@ -40,8 +40,6 @@ private:
     std::vector< uint32_t > myPreviousLodBySlot;
 };
 
-void Gfx_BuildDemoLodTable( Gfx_LodTable& aOut );
-
 uint32_t Gfx_SelectLodLevel( float aEyeDistance, float aLodBias, const Gfx_LodChain& aChain );
 
 uint32_t Gfx_ApplyLodHysteresis( uint32_t aSlot, uint32_t aCandidateLod, const Gfx_LodChain& aChain, float aEyeDistance, float aLodBias, Gfx_LodState& aState );

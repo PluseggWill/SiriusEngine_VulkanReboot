@@ -5,8 +5,8 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | Temp init hacks, shader reflection, or flat world matrices (see S2 Scene / Shader systems) |
-| **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting (only WIP pair at `Docs/` root) |
+| **Recommended next** | Image queue sharing, shader reflection, or dynamic pipeline state |
+| **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*

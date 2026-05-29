@@ -261,9 +261,8 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** pick first open S2 line below (e.g. temp init hacks or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** pick first open S2 line below (e.g. image queue sharing or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
-- [ ] Remove temp init hacks (`CreateMaterial`, `InitScene`, env buffer) or finish wiring.
 - [ ] **Image queue sharing** when transfer ≠ graphics family.
 - [ ] Wire or remove dynamic pipeline state in `Vk_PipelineBuilder`.
 

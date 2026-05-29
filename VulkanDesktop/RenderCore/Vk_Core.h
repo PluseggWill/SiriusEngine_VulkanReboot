@@ -20,7 +20,6 @@
 #include "Vk_ResourceTables.h"
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;   // swapchain frames in flight; also env UBO slice count
-constexpr bool USE_MANUAL_VERTICES = false;  // if true, skip OBJ load path (legacy)
 constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
@@ -33,17 +32,8 @@ class Gfx_RenderObject;
 struct GLFWwindow;
 
 // RHI-shaped Vulkan backend: device, swapchain, pipelines, descriptors, frame sync, command record/submit.
-// Owns scene SoA/LOD (until sim peel), Vk_ResourceTables, Vk_FrameDrawPrep output consumed by RecordScenePass.
-// Delegates: Gfx_BuildFrameDrawStream (CPU draw list), Gfx_TickDemoSceneTransforms (Application), Vk_ResourceContext (table load).
-//
-// TODO(vk-core-peel phase-2): see Docs/Archived-Plan.md [S2] vk-core decomposition lines
-//   1) Vk_ResourceContext v2 — buffer/image/upload helpers off public Vk_Core API
-//   2) Vk_RenderDevice — instance/device/queues/VMA/command pools (InitRenderDevice)
-//   3) Vk_SwapchainHost — swapchain, render pass, framebuffers, acquire/present
-//   4) Vk_DescriptorSystem — layouts, pool, material/bindless sets
-//   5) Vk_ForwardScenePass — RecordScenePass / batch record
-//   6) Scene host — SoA/LOD/LoadSceneResources CPU path out of RenderCore
-//   7) Vk_PlatformFrame — GLFW window + BeginPlatformFrame + ImGui init
+// Orchestration slices: Vk_RenderDevice, Vk_SwapchainHost, Vk_DescriptorSystem, Vk_GfxPipelineCache, Vk_ScenePasses,
+// Vk_FrameDrawPrep, Vk_SceneHost (SoA/LOD + demo camera/env defaults), Vk_PlatformFrame.
 class Vk_Core {
     friend class Vk_RenderDevice;
     friend class Vk_SwapchainHost;
@@ -84,12 +74,10 @@ public:
     Gfx_SceneSoA& GetSceneSoA() { return mySceneSoA; }
     const std::vector< glm::mat4 >& GetDemoBaseTransforms() const { return myDemoBaseTransforms; }
 
-    // TODO: maybe merge all the set function when initializing?
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
-    // TODO(vk-core-peel): move to Vk_ResourceContext — Util_Loader / Gfx_Mesh::BuildBuffers should not use GetInstance().
-    // Resource helpers (used by Gfx/Util loaders; prefer injecting context long-term).
+    // Resource helpers (used by Gfx/Util loaders via Vk_ResourceContext injection long-term).
     // isExclusive: true = single queue family; false = graphics+transfer concurrent when families differ.
     void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
@@ -114,9 +102,7 @@ private:
     void Clear();
     void SyncResourceContext();
 
-    // Init Functions:
-    // TODO(vk-core-peel): Part 1 → Vk_RenderDevice (instance, device, queues, VMA, command pools).
-    // Part 1: Base
+    // Device init (Vk_RenderDevice + frame slabs; env UBO buffer allocated here, CPU defaults at scene load).
     void CreateInstance();
     void PickPhysicalDevice();
     void InitVk_QueueFamilyIndices();
@@ -124,49 +110,16 @@ private:
     void CreateSurface();
     void CreateCommandPool();
     void InitAllocator();
-
-    // TODO(vk-core-peel): Part 2 → Vk_SwapchainHost (swapchain, render pass, depth/color, framebuffers, RecreateSwapChain).
-    // Part 2: Swap chain
-    void CreateSwapChain();
-    void CreateRenderPass();
-    void CreateDescriptorSetLayout();
-    void CreateBindlessMaterialSetLayout();
-    void CreateBindlessPipelineLayout();
-    void CreateBindlessGfxPipelines();
-    void CreateBindlessDescriptorResources();
-    void CreateGfxPipeline();
-    void CreateDepthResources();
-    void CreateColorResources();
-    void CreateFrameBuffers();
-
-    // TODO(vk-core-peel): Part 3 → Vk_DescriptorSystem (layouts, pool, Set0/1/2, material + bindless descriptors).
-    // Part 3: Resources
-    void CreateTextureSampler();
-    void CreateDescriptorPool();
-    void CreateDescriptorSets();
-    void CreateMaterialDescriptorSets();
-
-    // Part 4: Prepare for draw frames
     void CreateFrameData();
     void CreateInstanceSlabs();
-    void CreateCamera();
-    void InitDefaultEnvironmentData();
     void CreateUniformBuffers();
     void InitImGui();
     void ShutdownImGui();
 
-    // Draw frame:
     void DrawFrame( const Vk_FrameData aFrameData );
-    void RecreateSwapChain();
     void RefreshMaterialPipelinesAfterSwapchainRecreate();
     void LogM1PerfSnapshot() const;
-    void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
     size_t InstanceSlabStride() const;
-    // TODO(vk-core-peel): RecordScenePass + RecordDrawBatches* → Vk_ForwardScenePass; DrawFrame only submits prepared prep.
-    // Live Vulkan scene path: Vk_FrameDrawPrep → RecordScenePass.
-    void RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    void RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    // Required when pipeline uses VK_DYNAMIC_STATE_VIEWPORT / LINE_WIDTH (SetDefaultDynamicStates).
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
 
     // Helper functions:
@@ -205,7 +158,6 @@ public:
     Vk_ResourceContext                           myResourceContext;
     Vk_ResourceTables                            myResourceTables;
     std::vector< Gfx_RenderObject >              myRenderObjects;
-    // TODO(vk-core-peel): scene host — move SoA/LOD/demo bases to Application or Gfx_WorldStore; Vk_Core holds view + table refs only.
     Gfx_SceneSoA                                 mySceneSoA;
     Gfx_LodTable                                 myLodTable;
     Gfx_LodState                                 myLodState;

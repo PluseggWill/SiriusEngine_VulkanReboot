@@ -124,9 +124,6 @@
     <ClCompile Include="Gfx\Gfx_Lod.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
-    <ClCompile Include="Gfx\Gfx_ResourceManifest.cpp">
-      <Filter>Gfx</Filter>
-    </ClCompile>
     <ClCompile Include="Gfx\Gfx_SceneApply.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -208,9 +205,6 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_AssetManifest.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\Util_DemoAssets.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_ValidationConfig.h">

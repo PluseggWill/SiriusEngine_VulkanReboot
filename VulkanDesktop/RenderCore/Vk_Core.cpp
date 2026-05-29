@@ -174,8 +174,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
     Gfx_SetMaterialTableGenerationForExtract( myResourceTables.GetMaterialTableGeneration() );
-    CreateCamera();
-    InitDefaultEnvironmentData();
+    Vk_SceneHost::InitScenePresentation( *this );
     InitImGui();
     UtilLogger::Info( "SCENE", "LoadSceneResources completed." );
 }
@@ -431,24 +430,6 @@ void Vk_Core::InitAllocator() {
     myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myAllocator ); } );
 }
 
-// Swapchain lifecycle is owned by Vk_SwapchainHost.
-void Vk_Core::CreateSwapChain() {
-    Vk_SwapchainHost::CreateSwapChain( *this );
-}
-
-// Scene pipeline creation/refresh is delegated to Vk_GfxPipelineCache.
-void Vk_Core::CreateGfxPipeline() {
-    Vk_GfxPipelineCache::CreateGfxPipeline( *this );
-}
-
-void Vk_Core::CreateRenderPass() {
-    Vk_SwapchainHost::CreateRenderPass( *this );
-}
-
-void Vk_Core::CreateFrameBuffers() {
-    Vk_SwapchainHost::CreateFrameBuffers( *this );
-}
-
 void Vk_Core::CreateFrameData() {
     myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
 
@@ -515,7 +496,8 @@ void Vk_Core::CreateInstanceSlabs() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // Single env UBO slab; each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
+    // Device-scoped env UBO slab (CPU defaults written at scene load — Vk_SceneHost::InitScenePresentation).
+    // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
@@ -656,74 +638,11 @@ void Vk_Core::LogM1PerfSnapshot() const {
                           Vk_RenderMaterialPathName( myMaterialPath ) );
 }
 
-void Vk_Core::CreateCamera() {
-    myCamera.SetLens( 45.0f, 0.1f, 32.0f, static_cast< float >( mySwapChainExtent.width ) / static_cast< float >( mySwapChainExtent.height ) );
-    // Demo: hero meshes at x=+/-4, Kenney camp props toward -Z; eye pulled back for full layout.
-    myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 9.0f ), glm::vec3( 0.0f, 0.5f, -2.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-}
-
-void Vk_Core::InitDefaultEnvironmentData() {
-    myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };
-    myEnvironmentData.myFogColor          = { 1.0f, 1.0f, 1.0f, 1.0f };
-    myEnvironmentData.myFogDistance         = { 0.45f, 32.0f, 1.0f, 0.0f };
-    myEnvironmentData.mySunlightDirection = { glm::normalize( glm::vec3( -0.35f, -0.85f, -0.4f ) ), 0.0f };
-    myEnvironmentData.mySunlightColor     = { 0.9f, 0.88f, 0.82f, 1.0f };
-    myEnvironmentData.myViewWorldPos      = { myCamera.myEye, 1.0f };
-}
-
-void Vk_Core::RecreateSwapChain() {
-    Vk_SwapchainHost::Recreate( *this );
-}
-
 void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
     const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
     const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
     const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
     myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
-}
-
-void Vk_Core::CreateDescriptorSetLayout() {
-    Vk_DescriptorSystem::CreateDescriptorSetLayout( *this );
-}
-
-void Vk_Core::CreateBindlessMaterialSetLayout() {
-    Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( *this );
-}
-
-void Vk_Core::CreateBindlessPipelineLayout() {
-    Vk_DescriptorSystem::CreateBindlessPipelineLayout( *this );
-}
-
-void Vk_Core::CreateBindlessGfxPipelines() {
-    Vk_GfxPipelineCache::CreateBindlessGfxPipelines( *this );
-}
-
-void Vk_Core::CreateBindlessDescriptorResources() {
-    Vk_DescriptorSystem::CreateBindlessDescriptorResources( *this );
-}
-
-void Vk_Core::CreateDescriptorPool() {
-    Vk_DescriptorSystem::CreateDescriptorPool( *this );
-}
-
-void Vk_Core::CreateDescriptorSets() {
-    Vk_DescriptorSystem::CreateDescriptorSets( *this );
-}
-
-void Vk_Core::CreateMaterialDescriptorSets() {
-    Vk_DescriptorSystem::CreateMaterialDescriptorSets( *this );
-}
-
-void Vk_Core::CreateTextureSampler() {
-    Vk_DescriptorSystem::CreateTextureSampler( *this );
-}
-
-void Vk_Core::CreateDepthResources() {
-    Vk_SwapchainHost::CreateDepthResources( *this );
-}
-
-void Vk_Core::CreateColorResources() {
-    Vk_SwapchainHost::CreateColorResources( *this );
 }
 
 void Vk_Core::InitVk_QueueFamilyIndices() {
@@ -980,15 +899,6 @@ void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 
-// Scene pass command recording is owned by Vk_ScenePasses.
-void Vk_Core::RecordScenePass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    Vk_ScenePasses::RecordScene( *this, aCommandBuffer, anImageIndex );
-}
-
-void Vk_Core::RecordImGuiPass( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    Vk_ScenePasses::RecordImGui( *this, aCommandBuffer, anImageIndex );
-}
-
 void Vk_Core::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
     const auto vkCore = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
 
@@ -1071,10 +981,6 @@ size_t Vk_Core::InstanceSlabStride() const {
 }
 
 // Per-frame UBO upload is delegated to Vk_FrameUniformUploader.
-void Vk_Core::UpdateUniformBuffer( uint32_t aCurrentFrame ) const {
-    Vk_FrameUniformUploader::Update( *this, aCurrentFrame );
-}
-
 void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                            Vk_AllocatedImage& anImage ) const {
     CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
