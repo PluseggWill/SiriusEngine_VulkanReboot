@@ -546,4 +546,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 shader reflection bindless verify 2d closed; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 permutation registry closed; 2026-06-01).*
