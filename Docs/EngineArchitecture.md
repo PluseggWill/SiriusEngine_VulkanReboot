@@ -295,7 +295,7 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | **Layout from reflection (2b)** | Runtime JSON → `ShaderEffectMeta` + FNV layout hash cache → `vkCreateDescriptorSetLayout` for lit batch Set 0/1/2 | Set 2: SPIR-V `UNIFORM_BUFFER` → layout `UNIFORM_BUFFER_DYNAMIC` via engine override |
 | **Bindless reflect verify (2d)** | Offline SPIR-V → `reflection_lit_bindless.json`; MSBuild vs `DescriptorContract_LitBindless.json` | Bindless Set 1 layout still hand-written; runtime `VerifyLitBindlessReflectionContract` when `Vk_RenderMaterialPath::Bindless` |
 | **Permutation** | `Shader/PermutationRegistry.json` + offline glslc `-D` variants → `Shader_Generated/` | `Gfx_ShaderPermutation`; active perm via `engine.json` / `--shader-permutation`; sort key `EncodeSortKeyPermSlot(shaderPerm, materialTableGeneration)` |
-| **Cache** | `VkPipelineCache` + versioned disk blob | Invalidate on shader timestamp or driver change; benchmark cold/warm in S7 |
+| **Cache** | `Vk_DevicePipelineCache` → `Cache/pipeline_cache_v1.bin` (GPU UUID + driver + SPIR-V mtimes) | Invalidate on fingerprint mismatch; save on shutdown; cold/warm benchmark in S7 |
 
 Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph passes**, not per-object virtual branches.
 
@@ -546,4 +546,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 permutation registry closed; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 pipeline cache disk closed; 2026-06-01).*

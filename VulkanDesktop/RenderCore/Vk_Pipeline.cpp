@@ -26,7 +26,8 @@ void Vk_PipelineBuilder::SetDefaultDynamicStates() {
     SetDynamicStates( kDefaultGraphicsDynamicStates );
 }
 
-VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
+VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache,
+                                              const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
     // Create the viewport state
     VkPipelineViewportStateCreateInfo viewportState{};
 
@@ -74,7 +75,7 @@ VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPa
     }
 
     VkPipeline newPipeline;
-    const VkResult createResult = vkCreateGraphicsPipelines( aDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline );
+    const VkResult createResult = vkCreateGraphicsPipelines( aDevice, aPipelineCache, 1, &pipelineInfo, nullptr, &newPipeline );
     if ( createResult != VK_SUCCESS ) {
         if ( aDiagnostics != nullptr ) {
             UtilLogger::Error( "PIPELINE", "vkCreateGraphicsPipelines failed after summary for: " + std::string( aDiagnostics->myLabel ) );

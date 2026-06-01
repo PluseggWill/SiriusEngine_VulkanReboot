@@ -111,13 +111,14 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Core& aCore ) {
     pipelineDiag.myColorFormat             = aCore.mySwapChainImageFormat;
     pipelineDiag.myDepthFormat             = aCore.FindDepthFormat();
 
-    aCore.myBasicPipeline = pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, &pipelineDiag );
+    aCore.myBasicPipeline = pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, aCore.myPipelineCache, &pipelineDiag );
 
     pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     Vk_GraphicsPipelineBuildInfo transparentDiag = pipelineDiag;
     transparentDiag.myLabel                      = "basic-lit-transparent";
-    aCore.myTransparentPipeline                  = pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, &transparentDiag );
+    aCore.myTransparentPipeline =
+        pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, aCore.myPipelineCache, &transparentDiag );
 
     vkDestroyShaderModule( aCore.myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( aCore.myDevice, fragShaderModule, nullptr );
@@ -171,12 +172,14 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
     diag.myColorFormat    = aCore.mySwapChainImageFormat;
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
-    aCore.myBasicPipelineBindless = pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, &diag );
+    aCore.myBasicPipelineBindless =
+        pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, aCore.myPipelineCache, &diag );
 
     pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     diag.myLabel                           = "basic-lit-bindless-transparent";
-    aCore.myTransparentPipelineBindless    = pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, &diag );
+    aCore.myTransparentPipelineBindless =
+        pipelineBuilder.BuildPipeline( aCore.myDevice, aCore.myRenderPass, aCore.myPipelineCache, &diag );
 
     vkDestroyShaderModule( aCore.myDevice, vertShaderModule, nullptr );
     vkDestroyShaderModule( aCore.myDevice, fragShaderModule, nullptr );

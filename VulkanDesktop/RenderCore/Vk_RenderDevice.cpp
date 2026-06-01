@@ -2,6 +2,7 @@
 
 #include "Vk_Bindless.h"
 #include "Vk_Core.h"
+#include "Vk_DevicePipelineCache.h"
 #include "../Util/Util_Logger.h"
 
 void Vk_RenderDevice::Init( Vk_Core& aCore ) {
@@ -15,6 +16,8 @@ void Vk_RenderDevice::Init( Vk_Core& aCore ) {
     aCore.CreateLogicalDevice();
     aCore.myMaterialPath = Vk_SelectRenderMaterialPath( aCore.myBindlessCaps );
     UtilLogger::Info( "BINDLESS", std::string( "materialPath=" ) + Vk_RenderMaterialPathName( aCore.myMaterialPath ) );
+    // After material path is known (bindless frag included in shader fingerprint when applicable).
+    Vk_DevicePipelineCache::Create( aCore );
     aCore.CreateCommandPool();
     aCore.InitAllocator();
 }

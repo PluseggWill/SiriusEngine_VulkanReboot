@@ -261,7 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** **pipeline cache**. Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** Stage 1 forward baseline gate or **multi-view** (`multi-view_Plan.md`). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)
 
@@ -285,7 +285,6 @@ flowchart TB
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 
-- [ ] **Pipeline cache:** `VkPipelineCache` + disk `Cache/pipeline_*.bin` (versioned); invalidate on shader timestamp / driver change.
 - [ ] Stage 1 gate: finish forward baseline contracts from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (material/permutation/preset parity handoff).
 
 ### Multi-view — *deps: M1 Extract, lifecycle; unblocks S7 FG*

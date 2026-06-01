@@ -46,6 +46,7 @@ class Vk_Core {
     friend class Vk_DescriptorSystem;
     friend void VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest( Vk_Core& );
     friend class Vk_GfxPipelineCache;
+    friend class Vk_DevicePipelineCache;
     friend class Vk_ScenePasses;
     friend class Vk_FrameUniformUploader;
     friend class Vk_SceneHost;
@@ -213,6 +214,7 @@ private:
     VkPipeline            myTransparentPipeline;
     VkPipeline            myBasicPipelineBindless       = VK_NULL_HANDLE;
     VkPipeline            myTransparentPipelineBindless = VK_NULL_HANDLE;
+    VkPipelineCache       myPipelineCache               = VK_NULL_HANDLE;  // device lifetime; see Vk_DevicePipelineCache
     VkDescriptorSet       myBindlessDescriptorSet       = VK_NULL_HANDLE;
     Vk_AllocatedBuffer    myMaterialTableBuffer;
     std::vector< Vk_AllocatedBuffer >            myMaterialParamBuffers;

@@ -26,5 +26,7 @@ public:
     // Scene default: viewport + scissor + line width (see Vk_Core::SetGraphicsDynamicState).
     void SetDefaultDynamicStates();
 
-    VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass, const Vk_GraphicsPipelineBuildInfo* aDiagnostics = nullptr );
+    // aPipelineCache: Vk_Core::myPipelineCache (VK_NULL_HANDLE allowed but disables cross-run reuse).
+    VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache,
+                              const Vk_GraphicsPipelineBuildInfo* aDiagnostics = nullptr );
 };

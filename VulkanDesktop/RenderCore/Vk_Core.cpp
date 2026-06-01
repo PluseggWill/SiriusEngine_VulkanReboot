@@ -17,6 +17,7 @@
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_DescriptorSystem.h"
 #include "Vk_FrameUniformUploader.h"
+#include "Vk_DevicePipelineCache.h"
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
@@ -113,6 +114,9 @@ void Vk_Core::Clear() {
 
     vkDestroyCommandPool( myDevice, myGraphicsCommandPool, nullptr );
     vkDestroyCommandPool( myDevice, myTransferCommandPool, nullptr );
+
+    // Persist pipeline cache blob while device is still valid.
+    Vk_DevicePipelineCache::Destroy( *this );
 
     vkDestroyDevice( myDevice, nullptr );
 
