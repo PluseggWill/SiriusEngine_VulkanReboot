@@ -1,6 +1,7 @@
 // Module: Vk_Initializer — factory helpers for Vulkan *CreateInfo / write structs used at init time.
 
 #pragma once
+#include <array>
 #include <string>
 #include <vector>
 #include <vulkan/vulkan.h>
@@ -54,6 +55,8 @@ VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someF
 // --- Images (vkCreateImage / vkCreateImageView) ---
 
 VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
+void              FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily, std::array< uint32_t, 2 >& someQueueFamilyIndices,
+                                        VkImageCreateInfo& aInOut );
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
 

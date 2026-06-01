@@ -2,6 +2,7 @@
 
 #include "Vk_Initializer.h"
 
+#include <array>
 #include <stdexcept>
 
 void Vk_ResourceContext::Bind( VkDevice aDevice, VmaAllocator aAllocator, VkPhysicalDevice aPhysicalDevice, VkQueue aGraphicsQueue, VkQueue aTransferQueue,
@@ -50,7 +51,8 @@ void Vk_ResourceContext::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkI
     imageInfo.tiling            = aTiling;
     imageInfo.samples           = aNumSamples;
     imageInfo.flags             = 0;
-    imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
+    std::array< uint32_t, 2 > queueFamilyIndices{};
+    VkInit::FillImageSharingMode( myGraphicsQueueFamily, myTransferQueueFamily, queueFamilyIndices, imageInfo );
 
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;

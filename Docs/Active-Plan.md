@@ -261,9 +261,8 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** pick first open S2 line below (e.g. image queue sharing or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** pick first open S2 line below (e.g. dynamic pipeline state or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
-- [ ] **Image queue sharing** when transfer ≠ graphics family.
 - [ ] Wire or remove dynamic pipeline state in `Vk_PipelineBuilder`.
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)

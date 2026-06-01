@@ -673,6 +673,13 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
     }
 
     myQueueFamilyIndices.ApplyTransferFallback();
+
+    const uint32_t graphicsFamily = myQueueFamilyIndices.myGraphicsFamily.value_or( 0 );
+    const uint32_t transferFamily = myQueueFamilyIndices.myTransferFamily.value_or( graphicsFamily );
+    const bool     useConcurrent  = graphicsFamily != transferFamily;
+    // Startup signal for queue-family ownership policy used by image/buffer allocations.
+    UtilLogger::Info( "VULKAN", "Queue families: graphics=" + std::to_string( graphicsFamily ) + " transfer=" + std::to_string( transferFamily )
+                                    + " (image/buffer sharing=" + std::string( useConcurrent ? "CONCURRENT" : "EXCLUSIVE" ) + ")" );
 }
 
 #pragma region Helpers - device, queues, shaders
@@ -1001,9 +1008,8 @@ void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling 
     imageInfo.tiling      = aTiling;
     imageInfo.samples     = aNumSamples;
     imageInfo.flags       = 0;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    // Current image allocation path is graphics-owned (exclusive sharing).
+    std::array< uint32_t, 2 > queueFamilyIndices{};
+    VkInit::FillImageSharingMode( myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value(), queueFamilyIndices, imageInfo );
 
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;

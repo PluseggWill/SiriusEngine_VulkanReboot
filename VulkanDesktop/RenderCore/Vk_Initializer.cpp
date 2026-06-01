@@ -293,8 +293,8 @@ VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFla
 
 // --- Images ---
 
-// VkImageCreateInfo — vkCreateImage template (2D, optimal tiling, exclusive sharing).
-// Used when: Vk_Core::CreateImage before VMA allocation; caller may override samples/sharing.
+// VkImageCreateInfo — vkCreateImage template (2D, optimal tiling, exclusive sharing by default).
+// Used when: Vk_Core::CreateImage before VMA allocation; caller may override samples/sharing (e.g. FillImageSharingMode for graphics+transfer).
 // Example: ImageCreateInfo( VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT, extent ) for textures.
 VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent ) {
     VkImageCreateInfo imageInfo{};
@@ -314,6 +314,22 @@ VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags a
     imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
 
     return imageInfo;
+}
+
+void VkInit::FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily, std::array< uint32_t, 2 >& someQueueFamilyIndices,
+                                   VkImageCreateInfo& aInOut ) {
+    // Same-family fallback must stay EXCLUSIVE; CONCURRENT with duplicate family indices is invalid.
+    if ( aGraphicsQueueFamily == aTransferQueueFamily ) {
+        aInOut.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
+        aInOut.queueFamilyIndexCount = 0;
+        aInOut.pQueueFamilyIndices   = nullptr;
+        return;
+    }
+
+    someQueueFamilyIndices          = { aGraphicsQueueFamily, aTransferQueueFamily };
+    aInOut.sharingMode              = VK_SHARING_MODE_CONCURRENT;
+    aInOut.queueFamilyIndexCount    = 2;
+    aInOut.pQueueFamilyIndices      = someQueueFamilyIndices.data();
 }
 
 // VkImageViewCreateInfo — vkCreateImageView for a 2D subresource range.
