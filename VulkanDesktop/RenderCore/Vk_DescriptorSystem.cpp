@@ -3,7 +3,9 @@
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
+#include "Vk_ShaderEffectMeta.h"
 
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include <array>
@@ -43,52 +45,15 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
 }
 
 void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
-    // CONTRACT: These bindings must match shader layout(binding=N) and Vk_Enum.h constants.
-    VkDescriptorSetLayoutBinding uboLayoutBinding =
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, eVk_CameraBinding );
-    VkDescriptorSetLayoutBinding gpuEnvDataLayoutBinding =
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_EnvBinding );
+    // Lit batch Set 0/1/2 from reflection_lit.json + layout hash cache (S2 phase 2b).
+    const LitBatchDescriptorSetLayouts layouts = VkShaderEffectMeta::AcquireLitBatchDescriptorSetLayouts( aCore.myDevice, aCore.myDeletionQueue );
+    aCore.myGlobalSetLayout   = layouts.myGlobalSetLayout;
+    aCore.myMaterialSetLayout = layouts.myMaterialSetLayout;
+    aCore.myObjectSetLayout   = layouts.myObjectSetLayout;
 
-    std::array< VkDescriptorSetLayoutBinding, eVk_FrameBindingCount > frameBindings = { uboLayoutBinding, gpuEnvDataLayoutBinding };
-    VkDescriptorSetLayoutCreateInfo frameLayoutInfo{};
-    frameLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    frameLayoutInfo.bindingCount = static_cast< uint32_t >( frameBindings.size() );
-    frameLayoutInfo.pBindings    = frameBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDevice, &frameLayoutInfo, nullptr, &aCore.myGlobalSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create frame descriptor set layout!" );
+    if ( UtilEngineConfig::GetDescriptorLayoutMismatchTest() ) {
+        VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest( aCore );
     }
-
-    std::array< VkDescriptorSetLayoutBinding, 2 > materialBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialTextureBinding ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_MaterialAlphaBinding ),
-    };
-    VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
-    materialLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    materialLayoutInfo.bindingCount = static_cast< uint32_t >( materialBindings.size() );
-    materialLayoutInfo.pBindings    = materialBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDevice, &materialLayoutInfo, nullptr, &aCore.myMaterialSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create material descriptor set layout!" );
-    }
-
-    VkDescriptorSetLayoutBinding objectBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, eVk_ObjectModelBinding );
-    VkDescriptorSetLayoutCreateInfo objectLayoutInfo{};
-    objectLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    objectLayoutInfo.bindingCount = 1;
-    objectLayoutInfo.pBindings    = &objectBinding;
-    if ( vkCreateDescriptorSetLayout( aCore.myDevice, &objectLayoutInfo, nullptr, &aCore.myObjectSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create object descriptor set layout!" );
-    }
-
-    const VkDevice device                    = aCore.myDevice;
-    const VkDescriptorSetLayout globalLayout = aCore.myGlobalSetLayout;
-    const VkDescriptorSetLayout materialLayout = aCore.myMaterialSetLayout;
-    const VkDescriptorSetLayout objectLayout = aCore.myObjectSetLayout;
-    aCore.myDeletionQueue.pushFunction( [device, globalLayout, materialLayout, objectLayout]() {
-        vkDestroyDescriptorSetLayout( device, globalLayout, nullptr );
-        vkDestroyDescriptorSetLayout( device, materialLayout, nullptr );
-        vkDestroyDescriptorSetLayout( device, objectLayout, nullptr );
-    } );
 }
 
 void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {

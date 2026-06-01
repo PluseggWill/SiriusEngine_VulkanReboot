@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <string>
+
 namespace UtilDebugMessenger {
 
 // VK_EXT_debug_utils: route validation/layer output to UtilLogger ([VULKAN-VALIDATION]).
@@ -14,6 +16,13 @@ bool SetupForInstanceCreate( VkInstanceCreateInfo& aCreateInfo );
 
 bool Create( VkInstance aInstance );
 
+bool HasActiveMessenger();
+
 void Destroy( VkInstance aInstance );
+
+// Dev/test: capture first validation ERROR message (e.g. descriptor layout mismatch probe).
+void BeginValidationErrorCapture();
+void EndValidationErrorCapture();
+bool TryConsumeCapturedValidationError( std::string& aOutMessage );
 
 }  // namespace UtilDebugMessenger

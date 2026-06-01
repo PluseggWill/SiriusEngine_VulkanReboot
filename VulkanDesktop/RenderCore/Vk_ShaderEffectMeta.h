@@ -1,0 +1,56 @@
+#pragma once
+
+#include <vulkan/vulkan.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+struct Vk_DeletionQueue;
+class Vk_Core;
+
+// ShaderEffectMeta: lit_batch descriptor layout from reflection_lit.json (S2 phase 2b).
+// SPIR-V reports UNIFORM_BUFFER for Set 2; engine applies UNIFORM_BUFFER_DYNAMIC at layout create.
+struct ShaderResource {
+    uint32_t           myBinding    = 0;
+    VkDescriptorType   myType       = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uint32_t           myCount      = 1;
+    VkShaderStageFlags myStageFlags = 0;
+    std::string        myName;
+};
+
+struct DescriptorSetLayoutData {
+    uint32_t                                      mySetNumber = 0;
+    std::unordered_map< uint32_t, ShaderResource > myBindings;
+};
+
+struct ShaderEffectMeta {
+    std::string                                           myPipelineGroup;
+    std::unordered_map< uint32_t, DescriptorSetLayoutData > mySets;
+};
+
+// Handles for lit_batch pipeline layout order: Set 0 frame, Set 1 material, Set 2 object (dynamic UBO).
+struct LitBatchDescriptorSetLayouts {
+    VkDescriptorSetLayout myGlobalSetLayout   = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myMaterialSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myObjectSetLayout   = VK_NULL_HANDLE;
+};
+
+namespace VkShaderEffectMeta {
+
+// Same path as MSBuild ShaderReflect output (2a); resolved via UtilLoader::ResolvePath.
+inline constexpr const char* kLitBatchReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit.json";
+
+ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath = kLitBatchReflectionLogicalPath );
+void             ApplyLitBatchLayoutOverrides( ShaderEffectMeta& aMeta );
+size_t           HashLayout( const ShaderEffectMeta& aMeta );
+void             LogMetaDump( const ShaderEffectMeta& aMeta );
+
+// Creates Set 0/1/2 layouts via hash cache; registers destroy on aDeletionQueue.
+LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevice, Vk_DeletionQueue& aDeletionQueue );
+
+void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore );
+
+}  // namespace VkShaderEffectMeta

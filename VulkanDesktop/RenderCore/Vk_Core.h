@@ -31,6 +31,12 @@ class Gfx_Mesh;
 class Gfx_RenderObject;
 struct GLFWwindow;
 
+class Vk_Core;
+
+namespace VkShaderEffectMeta {
+void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore );
+}
+
 // RHI-shaped Vulkan backend: device, swapchain, pipelines, descriptors, frame sync, command record/submit.
 // Orchestration slices: Vk_RenderDevice, Vk_SwapchainHost, Vk_DescriptorSystem, Vk_GfxPipelineCache, Vk_ScenePasses,
 // Vk_FrameDrawPrep, Vk_SceneHost (SoA/LOD + demo camera/env defaults), Vk_PlatformFrame.
@@ -38,6 +44,7 @@ class Vk_Core {
     friend class Vk_RenderDevice;
     friend class Vk_SwapchainHost;
     friend class Vk_DescriptorSystem;
+    friend void VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest( Vk_Core& );
     friend class Vk_GfxPipelineCache;
     friend class Vk_ScenePasses;
     friend class Vk_FrameUniformUploader;

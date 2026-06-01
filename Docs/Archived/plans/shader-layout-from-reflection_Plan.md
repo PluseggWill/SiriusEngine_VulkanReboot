@@ -1,7 +1,7 @@
 # Plan: shader-layout-from-reflection (2b) — DRAFT
 
 **Sprint:** S2 — Shader systems (phase **2b**)  
-**Status:** **Draft (backlog)** — do **not** implement until scheduled; no `_Progress.md` until vibe task start  
+**Status:** **Closed (2026-06-01)**  
 **Prerequisite:** [shader-reflection (2a)](Archived/plans/shader-reflection_Plan.md) — **done 2026-06-01**  
 **Roadmap:** [`Active-Plan.md`](Active-Plan.md) — *Shader layout from reflection (2b)*
 
@@ -57,7 +57,7 @@ Start **2b** when you are ready to **change runtime descriptor layout creation**
 | Contract | `VulkanDesktop/Shader/DescriptorContract_LitBatch.json` |
 | Policy | `Vk_DescriptorPolicy.h`, `EngineArchitecture.md` §5.3 |
 
-**2b may:** load `reflection_lit.json` at runtime **or** call shared C++ parser used by `ShaderReflect` **or** codegen `ShaderBindings_LitBatch.generated.h` from JSON at build time. Pick one in Phase 1 landing.
+**Landing (confirmed):** runtime load `VulkanDesktop/Shader_Generated/reflection_lit.json` via `UtilLoader::ResolvePath`; Set 2 `UNIFORM_BUFFER` → `UNIFORM_BUFFER_DYNAMIC` in `ApplyLitBatchLayoutOverrides` (not in SPIR-V/contract JSON).
 
 ---
 
@@ -135,31 +135,31 @@ flowchart LR
 
 ### M1 — Meta + reflect at load (no Vulkan swap yet)
 
-- [ ] Add `ShaderEffectMeta` types + unit-style log dump from existing SPV (console or dev command).
-- [ ] Reuse merge logic from `ShaderReflect` (extract shared `.cpp` or read `reflection_lit.json` for parity).
-- [ ] **Exit:** Meta dump matches `reflection_lit.json` / contract.
+- [x] Add `ShaderEffectMeta` types + unit-style log dump from existing SPV (console or dev command).
+- [x] Reuse merge logic from `ShaderReflect` (extract shared `.cpp` or read `reflection_lit.json` for parity).
+- [x] **Exit:** Meta dump matches `reflection_lit.json` / contract.
 
 ### M2 — Layout cache + create descriptors
 
-- [ ] Implement hash + `DescriptorLayoutCache`.
-- [ ] `CreateDescriptorSetLayoutsFromMeta(ShaderEffectMeta)` → vector of `VkDescriptorSetLayout`.
-- [ ] Feature flag or `#ifdef` to compare handles against legacy creation (dev only).
+- [x] Implement hash + `DescriptorLayoutCache`.
+- [x] `CreateDescriptorSetLayoutsFromMeta(ShaderEffectMeta)` → vector of `VkDescriptorSetLayout`.
+- [ ] Feature flag or `#ifdef` to compare handles against legacy creation (dev only) — deferred; smoke parity sufficient for v1.
 
 ### M3 — Wire lit batch path
 
-- [ ] `Vk_DescriptorSystem::InitDeviceLayouts` — lit batch uses meta path.
-- [ ] Remove duplicated binding tables for Set 0/1/2 **when parity proven**.
-- [ ] Swapchain recreate / material rebuild contracts unchanged (`Vk_DescriptorPolicy.h`).
+- [x] `Vk_DescriptorSystem::InitDeviceLayouts` — lit batch uses meta path.
+- [x] Remove duplicated binding tables for Set 0/1/2 **when parity proven**.
+- [x] Swapchain recreate / material rebuild contracts unchanged (`Vk_DescriptorPolicy.h`).
 
 ### M4 — Validation milestone
 
-- [ ] Dev-only wrong-type or wrong-set bind test; capture Validation message.
-- [ ] Document in Progress closeout.
+- [x] Dev-only wrong-type or wrong-set bind test; capture Validation message (`--descriptor-layout-mismatch-test` + `--validation`).
+- [x] Document in Progress closeout.
 
 ### M5 — Docs + close
 
-- [ ] Architecture §5.7 / §5.3 note dynamic vs reflected types.
-- [ ] Build + smoke; archive task; Active-Plan 2b → Archived-Plan.
+- [x] Architecture §5.7 / §5.3 note dynamic vs reflected types.
+- [x] Build + smoke; archive task; Active-Plan 2b → Archived-Plan.
 
 ---
 

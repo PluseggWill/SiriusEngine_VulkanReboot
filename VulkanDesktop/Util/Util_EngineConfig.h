@@ -45,6 +45,9 @@ int GetSmokeFrameLimit();
 // If both frame limit and seconds are set, both thresholds must be met.
 double GetSmokeSeconds();
 
+// Dev (S2 shader-layout 2b M4): intentional descriptor type mismatch; requires validation layers.
+bool GetDescriptorLayoutMismatchTest();
+
 bool ResolveValidationEnabled( bool aBuildDefault );
 bool IsValidationEnabled();
 const std::vector< const char* >& GetValidationLayerNames();

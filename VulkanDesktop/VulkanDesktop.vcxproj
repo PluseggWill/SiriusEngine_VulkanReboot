@@ -202,6 +202,7 @@
     <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp" />
+    <ClCompile Include="RenderCore\Vk_ShaderEffectMeta.cpp" />
     <ClCompile Include="RenderCore\Vk_FrameUniformUploader.cpp" />
     <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp" />
     <ClCompile Include="RenderCore\Vk_GfxPipelineCache.cpp" />
@@ -257,6 +258,7 @@
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
     <ClInclude Include="RenderCore\Vk_DescriptorSystem.h" />
+    <ClInclude Include="RenderCore\Vk_ShaderEffectMeta.h" />
     <ClInclude Include="RenderCore\Vk_Bindless.h" />
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_PlatformFrame.h" />

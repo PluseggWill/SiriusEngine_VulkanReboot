@@ -23,7 +23,7 @@ Historical artifacts — **not** the active task queue. Open work: [`../Active-P
 
 ### S2 — engine layering & hygiene
 
-`fps-camera`, `input-abstraction`, `central-config`, `application-lifecycle`, `vk-core-decomposition`, `gfx-vk-decoupling`, `scene-load`, `descriptor-layout-verify`, `s2-init-hygiene`, `image-queue-sharing`, `pipeline-dynamic-state-wire`, `shader-reflection`
+`fps-camera`, `input-abstraction`, `central-config`, `application-lifecycle`, `vk-core-decomposition`, `gfx-vk-decoupling`, `scene-load`, `descriptor-layout-verify`, `s2-init-hygiene`, `image-queue-sharing`, `pipeline-dynamic-state-wire`, `shader-reflection`, `shader-layout-from-reflection`
 
 *(S2 batch archived from `Docs/` root 2026-05-29; vibe-coding skill now archives on **task close**, not sprint close.)*
 

@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | permutation registry, flat world, or multi-view — **2b** draft ready at [`shader-layout-from-reflection_Plan.md`](shader-layout-from-reflection_Plan.md) |
+| **Recommended next** | permutation registry or bindless reflection verify (2d) |
 | **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

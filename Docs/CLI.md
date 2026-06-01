@@ -45,6 +45,7 @@
 | `--no-demo-rotate` | — | 关闭 demo 旋转。 |
 | `--smoke-frames` `<n>` | 正整数 | 渲染 **n** 帧后（与 `--smoke-seconds` 同时设置时需**同时**满足）请求关闭，走完整 `UnloadScene` → `Shutdown`。 |
 | `--smoke-seconds` `<s>` | 正数 | 场景 `LoadSceneResources` 完成、进入主循环后至少运行 **s** 秒再请求关闭（任务收尾冒烟**推荐**）。 |
+| `--descriptor-layout-mismatch-test` | — | 开发用：在 `InitDeviceLayouts` 后对 Set 2 做一次故意的 `vkUpdateDescriptorSets` 类型不匹配，供 validation 报错（**必须**配合 `--validation`）。 |
 
 **说明：**
 

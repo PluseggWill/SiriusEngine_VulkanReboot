@@ -15,6 +15,9 @@ PFN_vkDestroyDebugUtilsMessengerEXT gDestroyDebugUtilsMessengerEXT = nullptr;
 
 VkDebugUtilsMessengerCreateInfoEXT gMessengerCreateInfo{};
 
+bool        gCaptureValidationErrors = false;
+std::string gCapturedValidationError;
+
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT aMessageSeverity, VkDebugUtilsMessageTypeFlagsEXT aMessageTypes,
                                               const VkDebugUtilsMessengerCallbackDataEXT* aCallbackData, void* /*aUserData*/ ) {
     if ( aCallbackData == nullptr ) {
@@ -36,6 +39,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBit
     }
 
     const std::string message = line.str();
+    if ( gCaptureValidationErrors && ( aMessageTypes & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT ) && gCapturedValidationError.empty() ) {
+        const bool isError   = ( aMessageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT ) != 0;
+        const bool isWarning = ( aMessageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ) != 0;
+        if ( isError || isWarning ) {
+            gCapturedValidationError = message;
+        }
+    }
     if ( aMessageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT ) {
         UtilLogger::Error( "VULKAN-VALIDATION", message );
     }
@@ -105,6 +115,10 @@ bool SetupForInstanceCreate( VkInstanceCreateInfo& aCreateInfo ) {
     return true;
 }
 
+bool HasActiveMessenger() {
+    return gMessenger != VK_NULL_HANDLE;
+}
+
 bool Create( VkInstance aInstance ) {
     if ( !LoadInstanceProcs( aInstance ) ) {
         UtilLogger::Warn( "VULKAN", "vkCreateDebugUtilsMessengerEXT not available; messenger handle not created." );
@@ -132,6 +146,24 @@ void Destroy( VkInstance aInstance ) {
     gDestroyDebugUtilsMessengerEXT( aInstance, gMessenger, nullptr );
     gMessenger = VK_NULL_HANDLE;
     UtilLogger::Info( "VULKAN", "Debug utils messenger destroyed." );
+}
+
+void BeginValidationErrorCapture() {
+    gCaptureValidationErrors   = true;
+    gCapturedValidationError.clear();
+}
+
+void EndValidationErrorCapture() {
+    gCaptureValidationErrors = false;
+}
+
+bool TryConsumeCapturedValidationError( std::string& aOutMessage ) {
+    if ( gCapturedValidationError.empty() ) {
+        return false;
+    }
+    aOutMessage = gCapturedValidationError;
+    gCapturedValidationError.clear();
+    return true;
 }
 
 }  // namespace UtilDebugMessenger

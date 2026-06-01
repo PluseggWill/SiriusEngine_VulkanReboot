@@ -35,6 +35,17 @@ Example `Config/engine.json`:
 }
 ```
 
+## Descriptor layout mismatch test (S2 / 2b M4)
+
+With validation installed and active:
+
+```powershell
+Set-Location x64\Debug
+.\VulkanDesktop.exe --validation --descriptor-layout-mismatch-test --smoke-frames 2
+```
+
+Expect `[DESCRIPTOR] layout mismatch test OK` and a `[VULKAN-VALIDATION]` line containing `VUID` / `descriptor`. Without the Khronos layer, the process exits with an explicit error (layers requested but unavailable).
+
 ## Verify in this project
 
 1. Build `VulkanDesktop.sln` (Debug\|x64).

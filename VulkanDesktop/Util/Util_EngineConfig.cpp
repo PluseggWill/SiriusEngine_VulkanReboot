@@ -26,6 +26,7 @@ UtilEngineConfig::FeatureFlags gFeatures{};
 Util_AssetVerifyPolicy         gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
 int                            gSmokeFrameLimit   = 0;
 double                         gSmokeSeconds      = 0.0;
+bool                           gDescriptorLayoutMismatchTest = false;
 std::optional< bool >    gCliValidationOverride;
 std::optional< bool >    gConfigValidation;
 bool                     gValidationResolved = false;
@@ -270,6 +271,10 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             gCliValidationOverride = false;
             continue;
         }
+        if ( arg == "--descriptor-layout-mismatch-test" ) {
+            gDescriptorLayoutMismatchTest = true;
+            continue;
+        }
         if ( arg == "--help" || arg == "-h" || arg == "/?" ) {
             continue;
         }
@@ -356,6 +361,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
+              << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
 }
@@ -481,6 +487,13 @@ double GetSmokeSeconds() {
         Initialize( 0, nullptr );
     }
     return gSmokeSeconds;
+}
+
+bool GetDescriptorLayoutMismatchTest() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gDescriptorLayoutMismatchTest;
 }
 
 bool ResolveValidationEnabled( bool aBuildDefault ) {

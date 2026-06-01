@@ -148,6 +148,9 @@
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ShaderEffectMeta.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_FrameUniformUploader.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -301,6 +304,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_DescriptorSystem.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ShaderEffectMeta.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h">
