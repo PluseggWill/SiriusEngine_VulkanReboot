@@ -1,5 +1,5 @@
 ---
-description: VulkanDesktop 模块目录、VS 过滤器与 Util/Vk/Gfx 命名前缀约定
+description: VulkanDesktop 目录/命名/VS 过滤器 + C++/Vulkan 实现要点
 globs: VulkanDesktop/**/*
 alwaysApply: false
 ---
@@ -10,70 +10,57 @@ alwaysApply: false
 
 | 模块 | 磁盘目录 | 职责 |
 |------|----------|------|
-| **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板、第三方 imgui |
+| **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板 |
 | **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制、相机 |
-| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material 等），与 API 无关 |
-| **入口** | `VulkanDesktop/VulkanDesktop.cpp` | 应用 `main`，留在项目根，不归入三类 |
+| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material），与 API 无关 |
+| **入口** | `VulkanDesktop/VulkanDesktop.cpp` | `main`，留在项目根 |
 
-着色器：**源**在 `VulkanDesktop/Shader/`（GLSL + `CompileShader*.bat`），**生成物**在 `VulkanDesktop/Shader_Generated/`（`.spv`）。VS Custom Build 挂在 `TriangleVertex.vert`。过滤器：**Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
+着色器：源 `VulkanDesktop/Shader/`，生成物 `Shader_Generated/`（`.spv`）。VS 过滤器 **Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
 
-## Visual Studio 项目树（`.vcxproj.filters`）
+## Visual Studio（`.vcxproj.filters`）
 
-与磁盘目录对齐，**不要**使用默认 `Source Files` / `Header Files`：
+与磁盘对齐，不用默认 `Source Files` / `Header Files`。新增/移动源文件时**同时**更新 `.vcxproj` 与 `.vcxproj.filters`。
 
 ```
 VulkanDesktop.cpp
-Util/                    ← 全部 Util_* 与 Util 命名空间 API
-  ThirdParty/imgui/      ← lib\imgui 引用项
-RenderCore/              ← 全部 Vk_*
+Util/          ← Util_* ；ThirdParty/imgui/
+RenderCore/    ← Vk_*
 Gfx/
-  Shader/                ← *.vert, *.frag, CompileShader*.bat (sources + scripts)
-  Shader_Generated/      ← *.spv (glslc output; do not edit)
+  Shader/              ← *.vert, *.frag, CompileShader*.bat
+  Shader Generated/    ← *.spv（勿手改）
 ```
 
-新增/移动源文件时，**同时**更新 `VulkanDesktop.vcxproj` 与 `VulkanDesktop.vcxproj.filters`。
+## 命名
 
-## 文件命名
+- 文件：`{Util|Vk|Gfx}_{Name}.h/.cpp`
+- 类型：与文件名一致（`Vk_Core`, `Gfx_Mesh`）；GPU UBO → `Gpu*`（不加模块前缀）；描述符成员 `eVk_*`
+- Util 自由函数 → `UtilLogger::` 等；RenderCore 初始化辅助 → `VkInit::`
+- 成员 `my*`，参数 `a*`
 
-- 格式：`{模块前缀}_{名称}.h` / `.cpp`
-- 前缀与目录一致：`Util_`、`Vk_`、`Gfx_`
-- 示例：`Util_Logger.h`、`Vk_Core.cpp`、`Gfx_ViewData.h`
+### 类型归属
 
-## 类型与 API 命名
+- **Util**：Logger、Loader、ImGui/面板、统计
+- **Vk_**：设备、交换链、管线、录制、相机、RAII 缓冲
+- **Gfx_**：mesh/material/场景 SoA；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
 
-| 种类 | 规则 | 示例 |
-|------|------|------|
-| 主类/结构体 | 与文件名一致，带模块前缀 | `Vk_Core`, `Gfx_Mesh`, `Util_FrameStats` |
-| Util 自由函数 | 命名空间 = 去掉下划线的模块名 + 功能名 | `UtilLogger::Info`, `UtilLightingPanel::Build` |
-| RenderCore 初始化辅助 | 命名空间 `VkInit` | `VkInit::Pipeline_VertexInputStateCreateInfo` |
-| GPU UBO 布局 | 前缀 `Gpu`，**不加** Util/Vk/Gfx | `GpuCameraData`, `GpuEnvironmentData` |
-| 描述符等枚举 | 枚举名可简短，成员 `eVk_*` | `eVk_CameraBinding`, `eVk_TextureBinding` |
-
-### 类型归属（新增代码时）
-
-- **Util**：`Util_ImGuiLayer`、面板、统计、Logger/Loader
-- **Vk_**：`Vk_Camera`, `Vk_FrameData`, `Vk_PipelineBuilder`, `Vk_DeletionQueue`, `Vk_AllocatedBuffer`, `Vk_QueueFamilyIndices` 等 Vulkan 后端类型
-- **Gfx_**：`Gfx_Vertex`, `Gfx_Mesh`, `Gfx_Material`, `Gfx_Texture`, `Gfx_RenderObject`（定义目前在 `Vk_Types.h`，新 Gfx 类型优先放 `Gfx/` 下新头文件）
-
-## Include 路径
+### Include
 
 - 同目录：`#include "Vk_Core.h"`
-- 跨模块：`#include "../Util/Util_Logger.h"`、`#include "../Gfx/Gfx_ViewData.h"`
-- 应用入口：`#include "RenderCore/Vk_Core.h"`
+- 跨模块：`#include "../Util/Util_Logger.h"`
+- 入口：`#include "RenderCore/Vk_Core.h"`
 
-## 反例（不要这样做）
+### 反例
 
-- `Editor/LightingPanel.h`（应 `Util/Util_LightingPanel.h`）
-- `Graphics/Gfx_ViewData.cpp`（目录已改为 `Gfx/`）
-- `class Gfx_Camera` 放在 `Vk_Camera.h`（相机属 RenderCore → `Vk_Camera`）
-- `FrameStats` / `PipelineBuilder` 等无前缀类型名
-- 批量替换时改 Vulkan 结构体字段名（如保持 `pQueueFamilyIndices`，勿写成 `pVk_QueueFamilyIndices`）
+- 无前缀类型名；`Gfx_Camera` 放在 `Vk_Camera.h`；改 Vulkan 结构体字段名（保持 `pQueueFamilyIndices`）
 
-## 注释
+## C++ / Vulkan 实现
 
-编写或审查 `VulkanDesktop/` 内注释时遵循 **`cpp-comments.mdc`**（契约、易错点、GPU/描述符布局；避免无信息量的 Step 流水账）。
+- **热路径零分配**：录制/每帧更新中禁止隐式堆分配（未 `reserve` 的 `push_back`、`string` 拼接、`new`）
+- **所有权**：`unique_ptr`/`shared_ptr`；裸指针仅非拥有观察
+- **RAII**：`vkCreate*` 对称销毁或 deletion queue；GPU struct 用 `alignas` + std140/std430
+- **安全**：枚举 `switch` 全覆盖或显式 `default`；`VkResult` 等 `[[nodiscard]]`
+- **错误**：Debug 用 `VK_CHECK` 等，不吞 API 失败
+- **Bindless**：优先描述符数组/表，少 per-draw 绑定点抖动
+- **格式化**：仓库根 `.clang-format`（`clang-format -i`）
 
-## 成员与参数（沿用现有风格）
-
-- 成员：`my` 前缀（`myDevice`, `myFrameStats`）
-- 参数：`a` 前缀（`aCommandBuffer`, `aFilename`）
+注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。
