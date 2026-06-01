@@ -1,8 +1,8 @@
 #include "Vk_FrameDrawPrep.h"
 
 #include "../Util/Util_Logger.h"
-#include "Vk_RenderBackend.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_RenderBackend.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -32,7 +32,7 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
     Gfx_FrameDrawStreamOutput streamOut{};
     Gfx_BuildFrameDrawStream( streamParams, streamOut, myStreamLogs );
 
-    myDrawCountBeforeCull  = streamOut.myDrawCountBeforeCull;
+    myDrawCountBeforeCull = streamOut.myDrawCountBeforeCull;
 
     Gfx_BuildFrameRenderPacketFromStream( streamOut, myFramePacket );
 
@@ -59,13 +59,12 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
     const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
     if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
         UtilLogger::Error( "RESOURCE",
-                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" +
-                               std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
+                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
         return false;
     }
 
-    char* const  slabBase = static_cast< char* >( frame.myInstanceSlabMapped );
-    const size_t stride   = aParams.myInstanceSlabStride;
+    char* const  slabBase   = static_cast< char* >( frame.myInstanceSlabMapped );
+    const size_t stride     = aParams.myInstanceSlabStride;
     size_t       writeIndex = 0;
 
     auto writeDrawList = [ & ]( std::vector< Gfx_DrawInstance >& someDraws ) {

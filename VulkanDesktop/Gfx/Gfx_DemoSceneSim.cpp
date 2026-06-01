@@ -16,11 +16,10 @@ glm::mat4 ComputeDemoSpinMatrix( const glm::mat4& aWorldTransform, float aTimeSe
 }  // namespace
 
 void Gfx_TickDemoSceneTransforms( Gfx_SceneSoA& aScene, const std::vector< glm::mat4 >& aBaseTransforms ) {
-    static auto startTime = std::chrono::high_resolution_clock::now();
+    static auto startTime   = std::chrono::high_resolution_clock::now();
     const auto  currentTime = std::chrono::high_resolution_clock::now();
-    const float timeSeconds =
-        std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
-    const bool demoRotate = UtilEngineConfig::GetFeatures().myDemoRotate;
+    const float timeSeconds = std::chrono::duration< float, std::chrono::seconds::period >( currentTime - startTime ).count();
+    const bool  demoRotate  = UtilEngineConfig::GetFeatures().myDemoRotate;
 
     for ( const uint32_t slot : aScene.GetActiveSlots() ) {
         if ( slot >= aBaseTransforms.size() ) {

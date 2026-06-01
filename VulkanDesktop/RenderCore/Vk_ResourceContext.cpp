@@ -6,8 +6,7 @@
 #include <stdexcept>
 
 void Vk_ResourceContext::Bind( VkDevice aDevice, VmaAllocator aAllocator, VkPhysicalDevice aPhysicalDevice, VkQueue aGraphicsQueue, VkQueue aTransferQueue,
-                               VkCommandPool aGraphicsCommandPool, VkCommandPool aTransferCommandPool, uint32_t aGraphicsQueueFamily,
-                               uint32_t aTransferQueueFamily ) {
+                               VkCommandPool aGraphicsCommandPool, VkCommandPool aTransferCommandPool, uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily ) {
     myDevice              = aDevice;
     myAllocator           = aAllocator;
     myPhysicalDevice      = aPhysicalDevice;
@@ -31,9 +30,9 @@ void Vk_ResourceContext::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aB
     }
     else {
         const uint32_t queueFamilyIndices[] = { myGraphicsQueueFamily, myTransferQueueFamily };
-        bufferInfo.sharingMode           = VK_SHARING_MODE_CONCURRENT;
-        bufferInfo.queueFamilyIndexCount = 2;
-        bufferInfo.pQueueFamilyIndices   = queueFamilyIndices;
+        bufferInfo.sharingMode              = VK_SHARING_MODE_CONCURRENT;
+        bufferInfo.queueFamilyIndexCount    = 2;
+        bufferInfo.pQueueFamilyIndices      = queueFamilyIndices;
     }
 
     VmaAllocationCreateInfo vmaAllocInfo{};
@@ -119,15 +118,15 @@ void Vk_ResourceContext::TransitionImageLayout( VkImage aImage, VkFormat aFormat
 void Vk_ResourceContext::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
     VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
     VkBufferImageCopy region{};
-    region.bufferOffset      = 0;
-    region.bufferRowLength   = 0;
-    region.bufferImageHeight = 0;
+    region.bufferOffset                    = 0;
+    region.bufferRowLength                 = 0;
+    region.bufferImageHeight               = 0;
     region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
     region.imageSubresource.mipLevel       = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount     = 1;
-    region.imageOffset = { 0, 0, 0 };
-    region.imageExtent = { aWidth, aHeight, 1 };
+    region.imageOffset                     = { 0, 0, 0 };
+    region.imageExtent                     = { aWidth, aHeight, 1 };
 
     vkCmdCopyBufferToImage( commandBuffer, aBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
     EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
@@ -150,7 +149,7 @@ void Vk_ResourceContext::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat,
         throw std::runtime_error( "texture image does not support linear blitting!" );
     }
 
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer      commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
     VkImageMemoryBarrier barrier{};
     barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image                           = aImage;
@@ -172,18 +171,18 @@ void Vk_ResourceContext::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat,
         vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 
         VkImageBlit blit{};
-        blit.srcOffsets[ 0 ]                 = { 0, 0, 0 };
-        blit.srcOffsets[ 1 ]                 = { mipWidth, mipHeight, 1 };
-        blit.srcSubresource.aspectMask       = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.srcSubresource.mipLevel         = i - 1;
-        blit.srcSubresource.baseArrayLayer   = 0;
-        blit.srcSubresource.layerCount       = 1;
-        blit.dstOffsets[ 0 ]                 = { 0, 0, 0 };
-        blit.dstOffsets[ 1 ]                 = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-        blit.dstSubresource.aspectMask       = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.dstSubresource.mipLevel         = i;
-        blit.dstSubresource.baseArrayLayer   = 0;
-        blit.dstSubresource.layerCount       = 1;
+        blit.srcOffsets[ 0 ]               = { 0, 0, 0 };
+        blit.srcOffsets[ 1 ]               = { mipWidth, mipHeight, 1 };
+        blit.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel       = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount     = 1;
+        blit.dstOffsets[ 0 ]               = { 0, 0, 0 };
+        blit.dstOffsets[ 1 ]               = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+        blit.dstSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel       = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount     = 1;
         vkCmdBlitImage( commandBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR );
 
         barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;

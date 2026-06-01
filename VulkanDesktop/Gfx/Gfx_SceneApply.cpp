@@ -45,7 +45,7 @@ Gfx_SceneShaderPair Gfx_GetSceneShader( const Gfx_SceneDesc& aScene, const std::
 }
 
 void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_ResourceManifest& aOut ) {
-    (void)aTables;
+    ( void )aTables;
     aOut.myMeshes.clear();
     aOut.myTextures.clear();
     aOut.myMaterials.clear();
@@ -60,7 +60,7 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
 
     for ( size_t i = 0; i < aScene.myMaterials.size(); ++i ) {
         const Gfx_SceneMaterialEntry& src = aScene.myMaterials[ i ];
-        Gfx_MaterialManifestEntry       dst{};
+        Gfx_MaterialManifestEntry     dst{};
         dst.myId                    = static_cast< uint32_t >( i );
         dst.myTextureId             = LookupId( aTables.myTextureIdByName, src.myTextureId, "texture" );
         dst.myPipelinePermutationId = 0;
@@ -69,8 +69,8 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
         aOut.myMaterials.push_back( dst );
     }
 
-    UtilLogger::Info( "SCENE", "Built resource manifest from scene: meshes=" + std::to_string( aOut.myMeshes.size() ) + " textures=" +
-                                   std::to_string( aOut.myTextures.size() ) + " materials=" + std::to_string( aOut.myMaterials.size() ) );
+    UtilLogger::Info( "SCENE", "Built resource manifest from scene: meshes=" + std::to_string( aOut.myMeshes.size() ) + " textures=" + std::to_string( aOut.myTextures.size() )
+                                   + " materials=" + std::to_string( aOut.myMaterials.size() ) );
 }
 
 void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_LodTable& aOut ) {
@@ -90,8 +90,7 @@ void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_Scen
         chain.myDistanceThresholds = logical.myLodDistances;
 
         if ( chain.myDistanceThresholds.size() >= chain.myMeshIds.size() ) {
-            throw std::runtime_error( "[SCENE] logicalMeshes['" + logical.myId +
-                                      "']: lodDistances count must be less than lodMeshes count" );
+            throw std::runtime_error( "[SCENE] logicalMeshes['" + logical.myId + "']: lodDistances count must be less than lodMeshes count" );
         }
 
         aOut.SetChain( static_cast< uint32_t >( logicalIndex ), std::move( chain ) );
@@ -100,8 +99,7 @@ void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_Scen
     UtilLogger::Info( "SCENE", "Built LOD table: logicalMeshes=" + std::to_string( aScene.myLogicalMeshes.size() ) );
 }
 
-void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA,
-                                        std::vector< glm::mat4 >& aBaseTransforms ) {
+void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, std::vector< glm::mat4 >& aBaseTransforms ) {
     aSceneSoA.Clear();
     aBaseTransforms.clear();
 
@@ -109,8 +107,7 @@ void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_S
         const uint32_t logicalMeshId = LookupId( aTables.myLogicalMeshIdByName, entity.myLogicalMeshId, "logicalMesh" );
         const uint32_t materialId    = LookupId( aTables.myMaterialIdByName, entity.myMaterialId, "material" );
 
-        const Gfx_StableEntityId id =
-            aSceneSoA.AllocEntity( logicalMeshId, materialId, entity.myTransform, entity.myLayerMask, entity.myRenderFlags, entity.myLodBias );
+        const Gfx_StableEntityId id = aSceneSoA.AllocEntity( logicalMeshId, materialId, entity.myTransform, entity.myLayerMask, entity.myRenderFlags, entity.myLodBias );
         if ( id.myIndex >= aBaseTransforms.size() ) {
             aBaseTransforms.resize( id.myIndex + 1 );
         }

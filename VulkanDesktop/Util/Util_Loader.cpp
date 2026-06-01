@@ -1,8 +1,8 @@
 #include "Util_Loader.h"
+#include "../RenderCore/Vk_ResourceContext.h"
 #include "Util_AssetConfig.h"
 #include "Util_EngineConfig.h"
 #include "Util_Logger.h"
-#include "../RenderCore/Vk_ResourceContext.h"
 
 #include <stb_image.h>
 
@@ -52,10 +52,10 @@ std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
 bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
     const std::string resolvedPath = ResolvePath( aFilename );
     UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
-    int      texWidth = 0;
-    int      texHeight = 0;
+    int      texWidth    = 0;
+    int      texHeight   = 0;
     int      texChannels = 0;
-    stbi_uc* pixels = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+    stbi_uc* pixels      = stbi_load( resolvedPath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
 
     // WARNING: validate before using dimensions (undefined behavior if read size when load failed).
     if ( !pixels || texWidth <= 0 || texHeight <= 0 ) {
@@ -67,8 +67,7 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceCon
     const VmaAllocator allocator = aContext.myAllocator;
 
     const bool useRuntimeMipmap = UtilEngineConfig::GetFeatures().myRuntimeMipmap;
-    aTextureMipLevel =
-        useRuntimeMipmap ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
+    aTextureMipLevel            = useRuntimeMipmap ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     Vk_AllocatedBuffer stagingBuffer;
 
@@ -85,8 +84,8 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceCon
     const VkExtent3D texExtent = { static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ), 1 };
 
     aContext.CreateImage( texExtent, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
-                          aTextureMipLevel, VK_SAMPLE_COUNT_1_BIT, aTextureOut.AllocImage() );
+                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, aTextureMipLevel,
+                          VK_SAMPLE_COUNT_1_BIT, aTextureOut.AllocImage() );
 
     aContext.TransitionImageLayout( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aTextureMipLevel );
     aContext.CopyBufferToImage( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );

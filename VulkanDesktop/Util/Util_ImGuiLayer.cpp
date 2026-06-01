@@ -14,8 +14,8 @@ void CheckVkResult( VkResult aResult ) {
 }  // namespace
 
 void Util_ImGuiLayer::Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysicalDevice aPhysicalDevice, VkDevice aDevice, uint32_t aQueueFamily, VkQueue aQueue,
-                          VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews, uint32_t aImageCount,
-                          uint32_t aMinImageCount ) {
+                            VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews, uint32_t aImageCount,
+                            uint32_t aMinImageCount ) {
     myWindow          = aWindow;
     myInstance        = anInstance;
     myPhysicalDevice  = aPhysicalDevice;
@@ -86,7 +86,7 @@ void Util_ImGuiLayer::DestroySwapchainResources() {
 }
 
 void Util_ImGuiLayer::CreateSwapchainResources( VkFormat aSwapchainFormat, VkExtent2D anExtent, const std::vector< VkImageView >& someSwapchainImageViews,
-                                              uint32_t aImageCount, uint32_t aMinImageCount ) {
+                                                uint32_t aImageCount, uint32_t aMinImageCount ) {
     mySwapchainFormat = aSwapchainFormat;
     CreateRenderPass( mySwapchainFormat );
     CreateFramebuffers( someSwapchainImageViews, anExtent );
@@ -169,18 +169,18 @@ void Util_ImGuiLayer::DestroyFramebuffers() {
 
 void Util_ImGuiLayer::InitImGuiBackends( uint32_t aImageCount, uint32_t aMinImageCount ) {
     ImGui_ImplVulkan_InitInfo initInfo{};
-    initInfo.Instance          = myInstance;
-    initInfo.PhysicalDevice    = myPhysicalDevice;
-    initInfo.Device            = myDevice;
-    initInfo.QueueFamily       = myQueueFamily;
-    initInfo.Queue             = myQueue;
-    initInfo.DescriptorPool    = VK_NULL_HANDLE;
+    initInfo.Instance           = myInstance;
+    initInfo.PhysicalDevice     = myPhysicalDevice;
+    initInfo.Device             = myDevice;
+    initInfo.QueueFamily        = myQueueFamily;
+    initInfo.Queue              = myQueue;
+    initInfo.DescriptorPool     = VK_NULL_HANDLE;
     initInfo.DescriptorPoolSize = 64;
-    initInfo.RenderPass        = myRenderPass;
-    initInfo.MinImageCount     = aMinImageCount;
-    initInfo.ImageCount        = aImageCount;
-    initInfo.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
-    initInfo.CheckVkResultFn     = CheckVkResult;
+    initInfo.RenderPass         = myRenderPass;
+    initInfo.MinImageCount      = aMinImageCount;
+    initInfo.ImageCount         = aImageCount;
+    initInfo.MSAASamples        = VK_SAMPLE_COUNT_1_BIT;
+    initInfo.CheckVkResultFn    = CheckVkResult;
 
     if ( !ImGui_ImplVulkan_Init( &initInfo ) )
         throw std::runtime_error( "ImGui_ImplVulkan_Init failed." );

@@ -11,7 +11,7 @@
 namespace {
 
 std::string RepoRelativeScenePath( const std::filesystem::path& aAssetRoot, const std::filesystem::path& aJsonPath ) {
-    std::error_code ec;
+    std::error_code             ec;
     const std::filesystem::path rel = std::filesystem::relative( aJsonPath, aAssetRoot, ec );
     if ( ec ) {
         return aJsonPath.filename().string();
@@ -57,65 +57,64 @@ void RefreshSceneList( State& aState ) {
 }
 
 void Build( State& aState ) {
-  ImGui::SetNextWindowPos( ImVec2( 10.f, 520.f ), ImGuiCond_FirstUseEver );
-  ImGui::SetNextWindowBgAlpha( 0.9f );
-  ImGui::Begin( "Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
+    ImGui::SetNextWindowPos( ImVec2( 10.f, 520.f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowBgAlpha( 0.9f );
+    ImGui::Begin( "Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
 
-  ImGui::Text( "Current: %s", aState.myCurrentScenePath.empty() ? "(none)" : aState.myCurrentScenePath.c_str() );
+    ImGui::Text( "Current: %s", aState.myCurrentScenePath.empty() ? "(none)" : aState.myCurrentScenePath.c_str() );
 
-  if ( ImGui::Button( "Refresh list" ) ) {
-      RefreshSceneList( aState );
-  }
+    if ( ImGui::Button( "Refresh list" ) ) {
+        RefreshSceneList( aState );
+    }
 
-  if ( !aState.myLastError.empty() ) {
-      ImGui::TextColored( ImVec4( 1.f, 0.4f, 0.3f, 1.f ), "%s", aState.myLastError.c_str() );
-  }
+    if ( !aState.myLastError.empty() ) {
+        ImGui::TextColored( ImVec4( 1.f, 0.4f, 0.3f, 1.f ), "%s", aState.myLastError.c_str() );
+    }
 
-  if ( aState.myAvailableScenes.empty() ) {
-      ImGui::TextDisabled( "No .json under Data/Scenes/" );
-  }
-  else {
-      if ( aState.mySelectedIndex < 0 || aState.mySelectedIndex >= static_cast< int >( aState.myAvailableScenes.size() ) ) {
-          aState.mySelectedIndex = 0;
-      }
+    if ( aState.myAvailableScenes.empty() ) {
+        ImGui::TextDisabled( "No .json under Data/Scenes/" );
+    }
+    else {
+        if ( aState.mySelectedIndex < 0 || aState.mySelectedIndex >= static_cast< int >( aState.myAvailableScenes.size() ) ) {
+            aState.mySelectedIndex = 0;
+        }
 
-      const char* preview = aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ].c_str();
-      if ( ImGui::BeginCombo( "Scene file", preview ) ) {
-          for ( int i = 0; i < static_cast< int >( aState.myAvailableScenes.size() ); ++i ) {
-              const bool selected = ( i == aState.mySelectedIndex );
-              if ( ImGui::Selectable( aState.myAvailableScenes[ static_cast< size_t >( i ) ].c_str(), selected ) ) {
-                  aState.mySelectedIndex = i;
-              }
-              if ( selected ) {
-                  ImGui::SetItemDefaultFocus();
-              }
-          }
-          ImGui::EndCombo();
-      }
+        const char* preview = aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ].c_str();
+        if ( ImGui::BeginCombo( "Scene file", preview ) ) {
+            for ( int i = 0; i < static_cast< int >( aState.myAvailableScenes.size() ); ++i ) {
+                const bool selected = ( i == aState.mySelectedIndex );
+                if ( ImGui::Selectable( aState.myAvailableScenes[ static_cast< size_t >( i ) ].c_str(), selected ) ) {
+                    aState.mySelectedIndex = i;
+                }
+                if ( selected ) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
 
-      const bool sameAsCurrent =
-          !aState.myCurrentScenePath.empty() && aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ] == aState.myCurrentScenePath;
+        const bool sameAsCurrent =
+            !aState.myCurrentScenePath.empty() && aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ] == aState.myCurrentScenePath;
 
-      if ( sameAsCurrent ) {
-          ImGui::BeginDisabled();
-      }
-      if ( ImGui::Button( "Load selected scene" ) ) {
-          aState.myReloadTargetPath   = aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ];
-          aState.myReloadRequested    = true;
-      }
-      if ( sameAsCurrent ) {
-          ImGui::EndDisabled();
-          ImGui::SameLine();
-          ImGui::TextDisabled( "(already loaded)" );
-      }
-  }
+        if ( sameAsCurrent ) {
+            ImGui::BeginDisabled();
+        }
+        if ( ImGui::Button( "Load selected scene" ) ) {
+            aState.myReloadTargetPath = aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ];
+            aState.myReloadRequested  = true;
+        }
+        if ( sameAsCurrent ) {
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled( "(already loaded)" );
+        }
+    }
 
-  ImGui::Separator();
-  ImGui::TextDisabled( "assetVerify=%s (engine.json / startup)",
-                        UtilEngineConfig::GetAssetVerifyPolicy() == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" );
-  ImGui::TextDisabled( "CLI reference: Docs/CLI.md" );
+    ImGui::Separator();
+    ImGui::TextDisabled( "assetVerify=%s (engine.json / startup)", UtilEngineConfig::GetAssetVerifyPolicy() == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" );
+    ImGui::TextDisabled( "CLI reference: Docs/CLI.md" );
 
-  ImGui::End();
+    ImGui::End();
 }
 
 }  // namespace UtilScenePanel

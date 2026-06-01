@@ -73,7 +73,7 @@ void Gfx_CullDrawInstancesInPlace( const Gfx_SceneSoA& aScene, const Gfx_CullVie
         }
 
         if ( writeIndex != readIndex ) {
-            aInOut.myDrawInstances[ writeIndex ]          = draw;
+            aInOut.myDrawInstances[ writeIndex ]        = draw;
             aInOut.myVisibleEntityIndices[ writeIndex ] = aInOut.myVisibleEntityIndices[ readIndex ];
         }
         ++writeIndex;
@@ -92,9 +92,8 @@ void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult ) {
     std::vector< size_t > order( count );
     std::iota( order.begin(), order.end(), size_t{ 0 } );
 
-    std::sort( order.begin(), order.end(), [ &aResult ]( size_t aLeft, size_t aRight ) {
-        return aResult.myDrawInstances[ aLeft ].mySortKey < aResult.myDrawInstances[ aRight ].mySortKey;
-    } );
+    std::sort( order.begin(), order.end(),
+               [ &aResult ]( size_t aLeft, size_t aRight ) { return aResult.myDrawInstances[ aLeft ].mySortKey < aResult.myDrawInstances[ aRight ].mySortKey; } );
 
     std::vector< Gfx_DrawInstance > sortedDraws;
     std::vector< uint32_t >         sortedVisible;
@@ -106,7 +105,7 @@ void Gfx_SortOpaqueDrawInstances( Gfx_ExtractResult& aResult ) {
         sortedVisible.push_back( aResult.myVisibleEntityIndices[ sourceIndex ] );
     }
 
-    aResult.myDrawInstances         = std::move( sortedDraws );
+    aResult.myDrawInstances        = std::move( sortedDraws );
     aResult.myVisibleEntityIndices = std::move( sortedVisible );
 }
 
@@ -150,6 +149,6 @@ void Gfx_SortTransparentDrawInstances( Gfx_ExtractResult& aResult, const Gfx_Sce
         sortedVisible.push_back( aResult.myVisibleEntityIndices[ sourceIndex ] );
     }
 
-    aResult.myDrawInstances          = std::move( sortedDraws );
+    aResult.myDrawInstances        = std::move( sortedDraws );
     aResult.myVisibleEntityIndices = std::move( sortedVisible );
 }

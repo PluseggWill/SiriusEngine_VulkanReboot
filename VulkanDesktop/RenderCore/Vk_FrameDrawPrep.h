@@ -26,8 +26,8 @@ struct Vk_FrameDrawPrepBuildParams {
 
 class Vk_FrameDrawPrep {
 public:
-    size_t                      myDrawCountBeforeCull = 0;
-    Gfx_FrameRenderPacket       myFramePacket;
+    size_t                myDrawCountBeforeCull = 0;
+    Gfx_FrameRenderPacket myFramePacket;
 
     Gfx_FrameDrawStreamLogState myStreamLogs;
 
@@ -40,6 +40,6 @@ public:
 private:
     bool FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
 
-    bool mySlabFillLoggedOnce          = false;
-    bool myInstanceSlabOverflowLogged  = false;
+    bool mySlabFillLoggedOnce         = false;
+    bool myInstanceSlabOverflowLogged = false;
 };

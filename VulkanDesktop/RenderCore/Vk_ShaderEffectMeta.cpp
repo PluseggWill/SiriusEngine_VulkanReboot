@@ -64,8 +64,8 @@ VkDescriptorType DescriptorTypeFromName( const std::string& aName ) {
 }
 
 struct CachedLitBatchLayouts {
-    size_t                  myHash = 0;
-    VkDescriptorSetLayout   mySetLayouts[ 3 ] = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
+    size_t                myHash            = 0;
+    VkDescriptorSetLayout mySetLayouts[ 3 ] = { VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE };
 };
 
 // Process-lifetime cache: lit_batch layouts are created once per device boot (InitDeviceLayouts).
@@ -83,7 +83,7 @@ std::vector< VkDescriptorSetLayoutBinding > BuildVkBindings( const DescriptorSet
     std::vector< VkDescriptorSetLayoutBinding > vkBindings;
     vkBindings.reserve( bindingOrder.size() );
     for ( uint32_t bindingIndex : bindingOrder ) {
-        const ShaderResource& resource = aSetData.myBindings.at( bindingIndex );
+        const ShaderResource&        resource = aSetData.myBindings.at( bindingIndex );
         VkDescriptorSetLayoutBinding vkBinding{};
         vkBinding.binding            = resource.myBinding;
         vkBinding.descriptorType     = resource.myType;
@@ -97,7 +97,7 @@ std::vector< VkDescriptorSetLayoutBinding > BuildVkBindings( const DescriptorSet
 
 VkDescriptorSetLayout CreateOneSetLayout( VkDevice aDevice, const DescriptorSetLayoutData& aSetData ) {
     const std::vector< VkDescriptorSetLayoutBinding > vkBindings = BuildVkBindings( aSetData );
-    VkDescriptorSetLayoutCreateInfo createInfo{};
+    VkDescriptorSetLayoutCreateInfo                   createInfo{};
     createInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     createInfo.bindingCount = static_cast< uint32_t >( vkBindings.size() );
     createInfo.pBindings    = vkBindings.data();
@@ -135,17 +135,17 @@ ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath
     }
 
     for ( const Json& setEntry : root[ "sets" ] ) {
-        const uint32_t setNumber = setEntry.at( "set" ).get< uint32_t >();
-        DescriptorSetLayoutData& setData = meta.mySets[ setNumber ];
-        setData.mySetNumber              = setNumber;
+        const uint32_t           setNumber = setEntry.at( "set" ).get< uint32_t >();
+        DescriptorSetLayoutData& setData   = meta.mySets[ setNumber ];
+        setData.mySetNumber                = setNumber;
 
         for ( const Json& bindingEntry : setEntry.at( "bindings" ) ) {
             ShaderResource resource{};
-            resource.myBinding    = bindingEntry.at( "binding" ).get< uint32_t >();
-            resource.myName         = bindingEntry.value( "name", "" );
-            resource.myCount        = bindingEntry.value( "count", 1 );
-            resource.myType         = DescriptorTypeFromName( bindingEntry.at( "descriptorType" ).get< std::string >() );
-            resource.myStageFlags   = StagesFromJson( bindingEntry.at( "stages" ) );
+            resource.myBinding                       = bindingEntry.at( "binding" ).get< uint32_t >();
+            resource.myName                          = bindingEntry.value( "name", "" );
+            resource.myCount                         = bindingEntry.value( "count", 1 );
+            resource.myType                          = DescriptorTypeFromName( bindingEntry.at( "descriptorType" ).get< std::string >() );
+            resource.myStageFlags                    = StagesFromJson( bindingEntry.at( "stages" ) );
             setData.myBindings[ resource.myBinding ] = std::move( resource );
         }
     }
@@ -189,7 +189,7 @@ size_t HashLayout( const ShaderEffectMeta& aMeta ) {
     std::sort( setNumbers.begin(), setNumbers.end() );
 
     for ( uint32_t setNumber : setNumbers ) {
-        hash = HashCombine( hash, setNumber );
+        hash                                   = HashCombine( hash, setNumber );
         const DescriptorSetLayoutData& setData = aMeta.mySets.at( setNumber );
 
         std::vector< uint32_t > bindingNumbers;
@@ -221,7 +221,7 @@ void LogMetaDump( const ShaderEffectMeta& aMeta ) {
 
     for ( uint32_t setNumber : setNumbers ) {
         const DescriptorSetLayoutData& setData = aMeta.mySets.at( setNumber );
-        std::vector< uint32_t >         bindingNumbers;
+        std::vector< uint32_t >        bindingNumbers;
         for ( const auto& bindingPair : setData.myBindings ) {
             bindingNumbers.push_back( bindingPair.first );
         }
@@ -246,15 +246,13 @@ void LogMetaDump( const ShaderEffectMeta& aMeta ) {
             default:
                 break;
             }
-            const std::string stageLabel =
-                ( resource.myStageFlags & VK_SHADER_STAGE_VERTEX_BIT ) != 0 && ( resource.myStageFlags & VK_SHADER_STAGE_FRAGMENT_BIT ) != 0
-                    ? "VERTEX|FRAGMENT"
-                    : ( resource.myStageFlags & VK_SHADER_STAGE_VERTEX_BIT ) != 0 ? "VERTEX"
-                      : ( resource.myStageFlags & VK_SHADER_STAGE_FRAGMENT_BIT ) != 0 ? "FRAGMENT"
-                                                                                      : "NONE";
-            UtilLogger::Info( "DESCRIPTOR",
-                              "  set=" + std::to_string( setNumber ) + " binding=" + std::to_string( bindingNumber ) + " name=" + resource.myName
-                                  + " type=" + typeName + " stages=" + stageLabel );
+            const std::string stageLabel = ( resource.myStageFlags & VK_SHADER_STAGE_VERTEX_BIT ) != 0 && ( resource.myStageFlags & VK_SHADER_STAGE_FRAGMENT_BIT ) != 0
+                                               ? "VERTEX|FRAGMENT"
+                                           : ( resource.myStageFlags & VK_SHADER_STAGE_VERTEX_BIT ) != 0   ? "VERTEX"
+                                           : ( resource.myStageFlags & VK_SHADER_STAGE_FRAGMENT_BIT ) != 0 ? "FRAGMENT"
+                                                                                                           : "NONE";
+            UtilLogger::Info( "DESCRIPTOR", "  set=" + std::to_string( setNumber ) + " binding=" + std::to_string( bindingNumber ) + " name=" + resource.myName
+                                                + " type=" + typeName + " stages=" + stageLabel );
         }
     }
 }
@@ -268,7 +266,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevi
     LogMetaDump( meta );
 
     LitBatchDescriptorSetLayouts result{};
-    const size_t               layoutHash = HashLayout( meta );
+    const size_t                 layoutHash = HashLayout( meta );
     if ( gLitBatchLayoutCache.myHash == layoutHash && gLitBatchLayoutCache.mySetLayouts[ 0 ] != VK_NULL_HANDLE ) {
         UtilLogger::Info( "DESCRIPTOR", "layout cache hit hash=" + std::to_string( layoutHash ) );
         result.myGlobalSetLayout   = gLitBatchLayoutCache.mySetLayouts[ 0 ];
@@ -302,7 +300,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevi
     const VkDescriptorSetLayout globalLayout   = layouts[ 0 ];
     const VkDescriptorSetLayout materialLayout = layouts[ 1 ];
     const VkDescriptorSetLayout objectLayout   = layouts[ 2 ];
-    aDeletionQueue.pushFunction( [aDevice, globalLayout, materialLayout, objectLayout]() {
+    aDeletionQueue.pushFunction( [ aDevice, globalLayout, materialLayout, objectLayout ]() {
         vkDestroyDescriptorSetLayout( aDevice, globalLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, materialLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, objectLayout, nullptr );
@@ -315,8 +313,7 @@ void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore ) {
         throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );
     }
     if ( !UtilDebugMessenger::HasActiveMessenger() ) {
-        throw std::runtime_error(
-            "layout mismatch test: VK_LAYER_KHRONOS_validation not available (install Vulkan SDK; see Docs/validation-layers.md)" );
+        throw std::runtime_error( "layout mismatch test: VK_LAYER_KHRONOS_validation not available (install Vulkan SDK; see Docs/validation-layers.md)" );
     }
 
     UtilLogger::Info( "DESCRIPTOR", "layout mismatch test: creating wrong Set 2 layout (COMBINED_IMAGE_SAMPLER vs reflected DYNAMIC UBO)" );
@@ -376,16 +373,14 @@ void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore ) {
     bufferInfo.range  = sizeof( GpuObjectData );
 
     UtilDebugMessenger::BeginValidationErrorCapture();
-    VkWriteDescriptorSet mismatchWrite = VkInit::DescriptorSetWriteCreateInfo( wrongSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &bufferInfo,
-                                                                               eVk_ObjectModelBinding, 1 );
+    VkWriteDescriptorSet mismatchWrite = VkInit::DescriptorSetWriteCreateInfo( wrongSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &bufferInfo, eVk_ObjectModelBinding, 1 );
     vkUpdateDescriptorSets( aCore.myDevice, 1, &mismatchWrite, 0, nullptr );
     UtilDebugMessenger::EndValidationErrorCapture();
 
     std::string validationMessage;
-    const bool  sawValidationError = UtilDebugMessenger::TryConsumeCapturedValidationError( validationMessage );
-    const bool  looksLikeDescriptorVuid =
-        validationMessage.find( "VUID" ) != std::string::npos || validationMessage.find( "Descriptor" ) != std::string::npos
-        || validationMessage.find( "descriptor" ) != std::string::npos;
+    const bool  sawValidationError      = UtilDebugMessenger::TryConsumeCapturedValidationError( validationMessage );
+    const bool  looksLikeDescriptorVuid = validationMessage.find( "VUID" ) != std::string::npos || validationMessage.find( "Descriptor" ) != std::string::npos
+                                         || validationMessage.find( "descriptor" ) != std::string::npos;
 
     vmaDestroyBuffer( aCore.myAllocator, probeBuffer.myBuffer, probeBuffer.myAllocation );
     vkDestroyDescriptorPool( aCore.myDevice, pool, nullptr );
@@ -402,47 +397,42 @@ void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore ) {
 // Runtime guard (2d): hand-written bindless Set 1 in Vk_DescriptorSystem must match reflection_lit_bindless.json + Vk_Enum.h.
 namespace {
 
-const ShaderResource* FindBinding( const ShaderEffectMeta& aMeta, uint32_t aSet, uint32_t aBinding ) {
-    const auto setIt = aMeta.mySets.find( aSet );
-    if ( setIt == aMeta.mySets.end() ) {
-        return nullptr;
+    const ShaderResource* FindBinding( const ShaderEffectMeta& aMeta, uint32_t aSet, uint32_t aBinding ) {
+        const auto setIt = aMeta.mySets.find( aSet );
+        if ( setIt == aMeta.mySets.end() ) {
+            return nullptr;
+        }
+        const auto bindingIt = setIt->second.myBindings.find( aBinding );
+        if ( bindingIt == setIt->second.myBindings.end() ) {
+            return nullptr;
+        }
+        return &bindingIt->second;
     }
-    const auto bindingIt = setIt->second.myBindings.find( aBinding );
-    if ( bindingIt == setIt->second.myBindings.end() ) {
-        return nullptr;
-    }
-    return &bindingIt->second;
-}
 
-void ExpectBinding( const ShaderResource* aResource, uint32_t aSet, uint32_t aBinding, VkDescriptorType aType, VkShaderStageFlags aStages,
-                    const char* aContext ) {
-    if ( aResource == nullptr ) {
-        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: missing set " ) + std::to_string( aSet ) + " binding "
-                                  + std::to_string( aBinding ) + " (" + aContext + ")" );
+    void ExpectBinding( const ShaderResource* aResource, uint32_t aSet, uint32_t aBinding, VkDescriptorType aType, VkShaderStageFlags aStages, const char* aContext ) {
+        if ( aResource == nullptr ) {
+            throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: missing set " ) + std::to_string( aSet ) + " binding " + std::to_string( aBinding )
+                                      + " (" + aContext + ")" );
+        }
+        if ( aResource->myType != aType || ( aResource->myStageFlags & aStages ) != aStages ) {
+            throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: " ) + aContext + " type/stage mismatch" );
+        }
     }
-    if ( aResource->myType != aType || ( aResource->myStageFlags & aStages ) != aStages ) {
-        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: " ) + aContext + " type/stage mismatch" );
-    }
-}
 
 }  // namespace
 
 void VerifyLitBindlessReflectionContract() {
     const ShaderEffectMeta meta = LoadLitBindlessFromReflectionJson();
 
-    const ShaderResource* textureArray = FindBinding( meta, eVk_SetMaterial, eVk_BindlessTextureArrayBinding );
+    const ShaderResource* textureArray  = FindBinding( meta, eVk_SetMaterial, eVk_BindlessTextureArrayBinding );
     const ShaderResource* materialTable = FindBinding( meta, eVk_SetMaterial, eVk_BindlessMaterialTableBinding );
-    ExpectBinding( textureArray, eVk_SetMaterial, eVk_BindlessTextureArrayBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT, "u_Textures" );
-    ExpectBinding( materialTable, eVk_SetMaterial, eVk_BindlessMaterialTableBinding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                   VK_SHADER_STAGE_FRAGMENT_BIT, "MaterialTable SSBO" );
+    ExpectBinding( textureArray, eVk_SetMaterial, eVk_BindlessTextureArrayBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, "u_Textures" );
+    ExpectBinding( materialTable, eVk_SetMaterial, eVk_BindlessMaterialTableBinding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, "MaterialTable SSBO" );
 
     // SPIR-V reports runtime-array count=1; Vk layout uses kMaxBindlessTextures (partially bound). Types/stages must match.
-    UtilLogger::Info(
-        "DESCRIPTOR",
-        "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName + " (engine descriptorCount="
-            + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures ) + ", SPIR-V count=" + std::to_string( textureArray->myCount )
-            + "); binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
+    UtilLogger::Info( "DESCRIPTOR", "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName
+                                        + " (engine descriptorCount=" + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures )
+                                        + ", SPIR-V count=" + std::to_string( textureArray->myCount ) + "); binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
 }
 
 }  // namespace VkShaderEffectMeta

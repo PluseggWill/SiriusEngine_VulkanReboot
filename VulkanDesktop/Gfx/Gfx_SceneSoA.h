@@ -31,20 +31,26 @@ public:
     bool               FreeEntity( Gfx_StableEntityId aId );
     bool               IsAlive( Gfx_StableEntityId aId ) const;
 
-    uint32_t GetActiveCount() const { return static_cast< uint32_t >( myActiveSlots.size() ); }
-    uint32_t GetSlotCount() const { return static_cast< uint32_t >( myTransforms.size() ); }
-    bool     IsSlotActive( uint32_t aSlot ) const;
+    uint32_t GetActiveCount() const {
+        return static_cast< uint32_t >( myActiveSlots.size() );
+    }
+    uint32_t GetSlotCount() const {
+        return static_cast< uint32_t >( myTransforms.size() );
+    }
+    bool IsSlotActive( uint32_t aSlot ) const;
 
-    const std::vector< uint32_t >& GetActiveSlots() const { return myActiveSlots; }
+    const std::vector< uint32_t >& GetActiveSlots() const {
+        return myActiveSlots;
+    }
 
-    const glm::mat4& GetTransform( uint32_t aSlot ) const;
+    const glm::mat4&  GetTransform( uint32_t aSlot ) const;
     const Gfx_Bounds& GetBounds( uint32_t aSlot ) const;
-    uint32_t         GetLogicalMeshId( uint32_t aSlot ) const;
-    float            GetLodBias( uint32_t aSlot ) const;
-    uint32_t         GetMaterialId( uint32_t aSlot ) const;
-    uint32_t         GetLayerMask( uint32_t aSlot ) const;
-    Gfx_RenderFlags  GetRenderFlags( uint32_t aSlot ) const;
-    uint32_t         GetGeneration( uint32_t aSlot ) const;
+    uint32_t          GetLogicalMeshId( uint32_t aSlot ) const;
+    float             GetLodBias( uint32_t aSlot ) const;
+    uint32_t          GetMaterialId( uint32_t aSlot ) const;
+    uint32_t          GetLayerMask( uint32_t aSlot ) const;
+    Gfx_RenderFlags   GetRenderFlags( uint32_t aSlot ) const;
+    uint32_t          GetGeneration( uint32_t aSlot ) const;
 
     void SetTransform( uint32_t aSlot, const glm::mat4& aWorldTransform );
 

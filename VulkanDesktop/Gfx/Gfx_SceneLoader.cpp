@@ -205,7 +205,7 @@ void ParseEntities( const Json& aRoot, Gfx_SceneDesc& aOut ) {
         if ( !entry.contains( "transform" ) ) {
             throw std::runtime_error( "[SCENE] Missing transform in " + context );
         }
-        entity.myTransform = ParseTransform( entry[ "transform" ], context.c_str() );
+        entity.myTransform   = ParseTransform( entry[ "transform" ], context.c_str() );
         entity.myRenderFlags = ParseRenderFlags( entry );
         if ( entry.contains( "layerMask" ) ) {
             if ( !entry[ "layerMask" ].is_number_unsigned() ) {
@@ -248,8 +248,7 @@ Gfx_SceneDesc Gfx_LoadSceneDesc( const std::string& aLogicalPath ) {
     }
     scene.myVersion = root[ "version" ].get< uint32_t >();
     if ( scene.myVersion != kGfxSceneFormatVersion ) {
-        throw std::runtime_error( "[SCENE] Unsupported scene version " + std::to_string( scene.myVersion ) + " (expected " +
-                                  std::to_string( kGfxSceneFormatVersion ) + ")" );
+        throw std::runtime_error( "[SCENE] Unsupported scene version " + std::to_string( scene.myVersion ) + " (expected " + std::to_string( kGfxSceneFormatVersion ) + ")" );
     }
 
     if ( root.contains( "name" ) ) {
@@ -266,9 +265,9 @@ Gfx_SceneDesc Gfx_LoadSceneDesc( const std::string& aLogicalPath ) {
     ParseMaterials( root, scene );
     ParseEntities( root, scene );
 
-    UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName + "' logicalMeshes=" +
-                                   std::to_string( scene.myLogicalMeshes.size() ) + " meshes=" + std::to_string( scene.myMeshes.size() ) +
-                                   " textures=" + std::to_string( scene.myTextures.size() ) + " materials=" +
-                                   std::to_string( scene.myMaterials.size() ) + " entities=" + std::to_string( scene.myEntities.size() ) );
+    UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName
+                                   + "' logicalMeshes=" + std::to_string( scene.myLogicalMeshes.size() ) + " meshes=" + std::to_string( scene.myMeshes.size() )
+                                   + " textures=" + std::to_string( scene.myTextures.size() ) + " materials=" + std::to_string( scene.myMaterials.size() )
+                                   + " entities=" + std::to_string( scene.myEntities.size() ) );
     return scene;
 }

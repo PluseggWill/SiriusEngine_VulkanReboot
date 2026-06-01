@@ -48,25 +48,24 @@ Vk_BindlessCapabilities Vk_ProbeBindlessCapabilities( VkPhysicalDevice aPhysical
 
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features2.pNext   = &indexingFeatures;
+    features2.pNext = &indexingFeatures;
     vkGetPhysicalDeviceFeatures2( aPhysicalDevice, &features2 );
 
     caps.myRuntimeDescriptorArray = indexingFeatures.runtimeDescriptorArray == VK_TRUE;
     caps.myNonUniformIndexing     = indexingFeatures.shaderSampledImageArrayNonUniformIndexing == VK_TRUE;
 
-    UtilLogger::Info( "BINDLESS",
-                      "descriptorIndexingExt=" + std::string( caps.myDescriptorIndexingExtension ? "yes" : "no" ) + " runtimeArray=" +
-                          std::string( caps.myRuntimeDescriptorArray ? "yes" : "no" ) + " nonUniformIndexing=" +
-                          std::string( caps.myNonUniformIndexing ? "yes" : "no" ) );
+    UtilLogger::Info( "BINDLESS", "descriptorIndexingExt=" + std::string( caps.myDescriptorIndexingExtension ? "yes" : "no" )
+                                      + " runtimeArray=" + std::string( caps.myRuntimeDescriptorArray ? "yes" : "no" )
+                                      + " nonUniformIndexing=" + std::string( caps.myNonUniformIndexing ? "yes" : "no" ) );
 
     return caps;
 }
 
 Vk_RenderMaterialPath Vk_SelectRenderMaterialPath( const Vk_BindlessCapabilities& aCaps ) {
 #ifdef _MSC_VER
-    char*       forceBatchEnv = nullptr;
-    size_t      envLen        = 0;
-    const errno_t envErr      = _dupenv_s( &forceBatchEnv, &envLen, "FORCE_MATERIAL_BATCH" );
+    char*         forceBatchEnv = nullptr;
+    size_t        envLen        = 0;
+    const errno_t envErr        = _dupenv_s( &forceBatchEnv, &envLen, "FORCE_MATERIAL_BATCH" );
     const bool    forceBatch    = envErr == 0 && forceBatchEnv != nullptr && forceBatchEnv[ 0 ] != '\0' && forceBatchEnv[ 0 ] != '0';
     if ( forceBatchEnv != nullptr ) {
         free( forceBatchEnv );

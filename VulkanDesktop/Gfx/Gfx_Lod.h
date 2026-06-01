@@ -45,5 +45,4 @@ uint32_t Gfx_SelectLodLevel( float aEyeDistance, float aLodBias, const Gfx_LodCh
 uint32_t Gfx_ApplyLodHysteresis( uint32_t aSlot, uint32_t aCandidateLod, const Gfx_LodChain& aChain, float aEyeDistance, float aLodBias, Gfx_LodState& aState );
 
 // After cull: resolve mesh ids on draw instances; refresh opaque sort keys. Transparent sort keys unchanged (mesh not in key).
-void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState,
-                                 Gfx_FrameExtract& aInOut );
+void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, Gfx_FrameExtract& aInOut );

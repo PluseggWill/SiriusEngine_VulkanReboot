@@ -5,12 +5,12 @@
 namespace UtilValidationConfig {
 
 void ParseCli( int aArgc, char** aArgv ) {
-    (void)aArgc;
-    (void)aArgv;
+    ( void )aArgc;
+    ( void )aArgv;
 }
 
 void LoadFromConfigFile( const std::string& aConfigPath ) {
-    (void)aConfigPath;
+    ( void )aConfigPath;
 }
 
 bool ResolveEnabled( bool aBuildDefault ) {

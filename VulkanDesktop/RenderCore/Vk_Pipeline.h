@@ -19,7 +19,7 @@ public:
     VkPipelineDynamicStateCreateInfo       myDynamicState;
 
     std::vector< VkPipelineShaderStageCreateInfo > myShaderStages;
-    std::vector< VkDynamicState >                myDynamicStatesStorage;
+    std::vector< VkDynamicState >                  myDynamicStatesStorage;
 
     // Copies aStates into owned storage; wires myDynamicState.pDynamicStates for pipeline create.
     void SetDynamicStates( std::initializer_list< VkDynamicState > aStates );
@@ -27,6 +27,5 @@ public:
     void SetDefaultDynamicStates();
 
     // aPipelineCache: Vk_Core::myPipelineCache (VK_NULL_HANDLE allowed but disables cross-run reuse).
-    VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache,
-                              const Vk_GraphicsPipelineBuildInfo* aDiagnostics = nullptr );
+    VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache, const Vk_GraphicsPipelineBuildInfo* aDiagnostics = nullptr );
 };

@@ -14,10 +14,10 @@ namespace {
 
 using Json = nlohmann::json;
 
-bool                     gInitialized = false;
-std::vector< Gfx_ShaderPermutationDef > gDefinitions;
+bool                                        gInitialized = false;
+std::vector< Gfx_ShaderPermutationDef >     gDefinitions;
 std::unordered_map< std::string, uint32_t > gIdByName;
-uint32_t                 gActiveId = 0;
+uint32_t                                    gActiveId = 0;
 
 uint32_t FeatureFromName( const std::string& aName ) {
     if ( aName == "ALPHA_CLIP" ) {
@@ -146,11 +146,10 @@ void SetActiveByName( const std::string& aName ) {
     if ( it == gIdByName.end() ) {
         throw std::runtime_error( "Gfx_ShaderPermutation: unknown permutation '" + aName + "'" );
     }
-    gActiveId = it->second;
+    gActiveId                           = it->second;
     const Gfx_ShaderPermutationDef& def = GetDefinition( gActiveId );
-    UtilLogger::Info( "SHADER-PERM",
-                      "active permutation name=" + def.myName + " id=" + std::to_string( def.myId ) + " featureMask=0x"
-                          + std::to_string( def.myFeatureMask ) + " fragSpv=" + def.myFragSpvLogicalPath );
+    UtilLogger::Info( "SHADER-PERM", "active permutation name=" + def.myName + " id=" + std::to_string( def.myId ) + " featureMask=0x" + std::to_string( def.myFeatureMask )
+                                         + " fragSpv=" + def.myFragSpvLogicalPath );
 }
 
 }  // namespace Gfx_ShaderPermutation

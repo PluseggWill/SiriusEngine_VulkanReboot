@@ -1,15 +1,15 @@
 #include "Vk_ScenePasses.h"
 
+#include "../Util/Util_Logger.h"
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_RenderBackend.h"
-#include "../Util/Util_Logger.h"
 
 #include <array>
 
 void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass ) {
-    const VkDescriptorSet objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout          = aCore.myPipelineLayout;
+    const VkDescriptorSet  objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout           = aCore.myPipelineLayout;
 
     for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
         const Gfx_DrawInstance& firstDraw = aPass.myDraws[ batch.myFirstDrawIndex ];
@@ -44,8 +44,8 @@ void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffe
 }
 
 void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline ) {
-    const VkDescriptorSet objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout          = aCore.myBindlessPipelineLayout;
+    const VkDescriptorSet  objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout           = aCore.myBindlessPipelineLayout;
 
     if ( aPass.myDraws.empty() ) {
         return;
@@ -79,8 +79,8 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     renderPassInfo.renderArea.extent = aCore.mySwapChainExtent;
 
     std::array< VkClearValue, 2 > clearValues{};
-    clearValues[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    clearValues[ 1 ].depthStencil = { 1.0f, 0 };
+    clearValues[ 0 ].color         = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+    clearValues[ 1 ].depthStencil  = { 1.0f, 0 };
     renderPassInfo.clearValueCount = static_cast< uint32_t >( clearValues.size() );
     renderPassInfo.pClearValues    = clearValues.data();
 
@@ -89,11 +89,11 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     aCore.SetGraphicsDynamicState( aCommandBuffer );
 
     const VkDescriptorSet  frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
-    const VkPipelineLayout   frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
+    const VkPipelineLayout frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0, nullptr );
 
-    static bool sPacketPathLoggedOnce   = false;
-    static bool sPacketSkipLoggedOnce   = false;
+    static bool sPacketPathLoggedOnce = false;
+    static bool sPacketSkipLoggedOnce = false;
     const bool  usePacketPath         = Vk_RenderBackend::ValidateFramePacket( aCore.myDrawPrep.myFramePacket );
 
     if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {

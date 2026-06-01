@@ -16,7 +16,7 @@ void Vk_FrameUniformUploader::Update( const Vk_Core& aCore, uint32_t aCurrentFra
     memcpy( data, &cam, sizeof( cam ) );
     vmaUnmapMemory( aCore.myAllocator, aCore.myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
 
-    GpuEnvironmentData env = aCore.myEnvironmentData;
+    GpuEnvironmentData env    = aCore.myEnvironmentData;
     const glm::vec3    sunDir = glm::vec3( env.mySunlightDirection );
     if ( glm::dot( sunDir, sunDir ) > 0.0001f ) {
         env.mySunlightDirection = glm::vec4( glm::normalize( sunDir ), 0.0f );

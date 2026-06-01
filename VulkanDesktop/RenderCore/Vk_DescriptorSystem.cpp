@@ -23,14 +23,11 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
 
 void Vk_DescriptorSystem::LogLayoutContract( const Vk_Core& aCore ) {
     const char* materialPath = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "bindless" : "batch";
-    const char* set1Summary  = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless
-                                   ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
-                                   : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
-    UtilLogger::Info(
-        "DESCRIPTOR",
-        std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
-        + "set0=camera+env (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) "
-        + set1Summary + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
+    const char* set1Summary  = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
+                                                                                       : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
+    UtilLogger::Info( "DESCRIPTOR", std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
+                                        + "set0=camera+env (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) " + set1Summary
+                                        + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
 }
 
 void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
@@ -49,9 +46,9 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
 void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
     // Lit batch Set 0/1/2 from reflection_lit.json + layout hash cache (S2 phase 2b).
     const LitBatchDescriptorSetLayouts layouts = VkShaderEffectMeta::AcquireLitBatchDescriptorSetLayouts( aCore.myDevice, aCore.myDeletionQueue );
-    aCore.myGlobalSetLayout   = layouts.myGlobalSetLayout;
-    aCore.myMaterialSetLayout = layouts.myMaterialSetLayout;
-    aCore.myObjectSetLayout   = layouts.myObjectSetLayout;
+    aCore.myGlobalSetLayout                    = layouts.myGlobalSetLayout;
+    aCore.myMaterialSetLayout                  = layouts.myMaterialSetLayout;
+    aCore.myObjectSetLayout                    = layouts.myObjectSetLayout;
 
     if ( UtilEngineConfig::GetDescriptorLayoutMismatchTest() ) {
         VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest( aCore );
@@ -65,12 +62,12 @@ void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {
     textureArrayBinding.descriptorCount = VkDescriptorPolicy::kMaxBindlessTextures;
     textureArrayBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkDescriptorSetLayoutBinding tableBinding = VkInit::DescriptorSetLayoutBindingCreateInfo(
-        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_BindlessMaterialTableBinding );
+    VkDescriptorSetLayoutBinding tableBinding =
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, eVk_BindlessMaterialTableBinding );
     std::array< VkDescriptorSetLayoutBinding, 2 > bindings = { textureArrayBinding, tableBinding };
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
-    bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlagsInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
     VkDescriptorBindingFlags flags[ 2 ] = { VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT, 0 };
     bindingFlagsInfo.bindingCount       = static_cast< uint32_t >( bindings.size() );
     bindingFlagsInfo.pBindingFlags      = flags;
@@ -84,23 +81,23 @@ void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {
         throw std::runtime_error( "failed to create bindless material descriptor set layout!" );
     }
 
-    const VkDevice device = aCore.myDevice;
+    const VkDevice              device         = aCore.myDevice;
     const VkDescriptorSetLayout bindlessLayout = aCore.myBindlessMaterialSetLayout;
-    aCore.myDeletionQueue.pushFunction( [device, bindlessLayout]() { vkDestroyDescriptorSetLayout( device, bindlessLayout, nullptr ); } );
+    aCore.myDeletionQueue.pushFunction( [ device, bindlessLayout ]() { vkDestroyDescriptorSetLayout( device, bindlessLayout, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Core& aCore ) {
     const std::array< VkDescriptorSetLayout, 3 > setLayouts = { aCore.myGlobalSetLayout, aCore.myBindlessMaterialSetLayout, aCore.myObjectSetLayout };
-    VkPipelineLayoutCreateInfo layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    layoutInfo.setLayoutCount             = static_cast< uint32_t >( setLayouts.size() );
-    layoutInfo.pSetLayouts                = setLayouts.data();
+    VkPipelineLayoutCreateInfo                   layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    layoutInfo.setLayoutCount                               = static_cast< uint32_t >( setLayouts.size() );
+    layoutInfo.pSetLayouts                                  = setLayouts.data();
     if ( vkCreatePipelineLayout( aCore.myDevice, &layoutInfo, nullptr, &aCore.myBindlessPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create bindless pipeline layout!" );
     }
 
-    const VkDevice device = aCore.myDevice;
+    const VkDevice         device                 = aCore.myDevice;
     const VkPipelineLayout bindlessPipelineLayout = aCore.myBindlessPipelineLayout;
-    aCore.myDeletionQueue.pushFunction( [device, bindlessPipelineLayout]() { vkDestroyPipelineLayout( device, bindlessPipelineLayout, nullptr ); } );
+    aCore.myDeletionQueue.pushFunction( [ device, bindlessPipelineLayout ]() { vkDestroyPipelineLayout( device, bindlessPipelineLayout, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
@@ -109,7 +106,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
 
     std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
     for ( size_t textureId = 0; textureId < textureCount && textureId < VkDescriptorPolicy::kMaxBindlessTextures; ++textureId ) {
-        const Gfx_Texture& texture      = aCore.myResourceTables.GetTexture( static_cast< uint32_t >( textureId ) );
+        const Gfx_Texture& texture          = aCore.myResourceTables.GetTexture( static_cast< uint32_t >( textureId ) );
         imageInfos[ textureId ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfos[ textureId ].imageView   = texture.ImageView();
         imageInfos[ textureId ].sampler     = aCore.myTextureSampler;
@@ -117,8 +114,8 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
 
     std::vector< GpuMaterialTableEntry > tableEntries( materialCount );
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t textureId = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Material& material = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        const uint32_t      textureId             = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Material& material              = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
         tableEntries[ materialId ].myTextureIndex = textureId;
         tableEntries[ materialId ].myAlpha        = material.myAlpha;
     }
@@ -130,12 +127,10 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     memcpy( mapped, tableEntries.data(), static_cast< size_t >( tableSize ) );
     vmaUnmapMemory( aCore.myAllocator, aCore.myMaterialTableBuffer.myAllocation );
 
-    const VmaAllocator allocator = aCore.myAllocator;
-    const VkBuffer tableBuffer = aCore.myMaterialTableBuffer.myBuffer;
+    const VmaAllocator  allocator       = aCore.myAllocator;
+    const VkBuffer      tableBuffer     = aCore.myMaterialTableBuffer.myBuffer;
     const VmaAllocation tableAllocation = aCore.myMaterialTableBuffer.myAllocation;
-    aCore.GetSceneDeletionQueue().pushFunction( [allocator, tableBuffer, tableAllocation]() {
-        vmaDestroyBuffer( allocator, tableBuffer, tableAllocation );
-    } );
+    aCore.GetSceneDeletionQueue().pushFunction( [ allocator, tableBuffer, tableAllocation ]() { vmaDestroyBuffer( allocator, tableBuffer, tableAllocation ); } );
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -154,13 +149,12 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     std::array< VkWriteDescriptorSet, 2 > writes{};
     writes[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfos.data(),
                                                         eVk_BindlessTextureArrayBinding, static_cast< uint32_t >( VkDescriptorPolicy::kMaxBindlessTextures ) );
-    writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &tableBufferInfo,
-                                                        eVk_BindlessMaterialTableBinding, 1 );
+    writes[ 1 ] =
+        VkInit::DescriptorSetWriteCreateInfo( aCore.myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &tableBufferInfo, eVk_BindlessMaterialTableBinding, 1 );
     vkUpdateDescriptorSets( aCore.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 
-    UtilLogger::Info( "BINDLESS",
-                      "bindless set ready: textures=" + std::to_string( textureCount ) + " materials=" + std::to_string( materialCount ) +
-                          " tableGeneration=" + std::to_string( aCore.myResourceTables.GetMaterialTableGeneration() ) );
+    UtilLogger::Info( "BINDLESS", "bindless set ready: textures=" + std::to_string( textureCount ) + " materials=" + std::to_string( materialCount )
+                                      + " tableGeneration=" + std::to_string( aCore.myResourceTables.GetMaterialTableGeneration() ) );
 }
 
 void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
@@ -186,7 +180,7 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
 
     const VkDevice         device = aCore.myDevice;
     const VkDescriptorPool pool   = aCore.myDescriptorPool;
-    aCore.GetSceneDeletionQueue().pushFunction( [device, pool]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
+    aCore.GetSceneDeletionQueue().pushFunction( [ device, pool ]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
@@ -213,7 +207,7 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
 
     const VkDevice  device  = aCore.myDevice;
     const VkSampler sampler = aCore.myTextureSampler;
-    aCore.GetSceneDeletionQueue().pushFunction( [device, sampler]() { vkDestroySampler( device, sampler, nullptr ); } );
+    aCore.GetSceneDeletionQueue().pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
@@ -228,7 +222,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
         }
 
         std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
-        VkDescriptorBufferInfo camBufferInfo{};
+        VkDescriptorBufferInfo                camBufferInfo{};
         camBufferInfo.buffer = aCore.myFrameDatas[ i ].myCameraBuffer.myBuffer;
         camBufferInfo.offset = 0;
         camBufferInfo.range  = sizeof( GpuCameraData );
@@ -238,10 +232,10 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
         envBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
         envBufferInfo.range  = sizeof( GpuEnvironmentData );
 
-        descriptorWrites[ 0 ] = VkInit::DescriptorSetWriteCreateInfo(
-            aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
-        descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo(
-            aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
+        descriptorWrites[ 0 ] =
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
+        descriptorWrites[ 1 ] =
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
         vkUpdateDescriptorSets( aCore.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
 
         VkDescriptorSetAllocateInfo objectAllocInfo{};
@@ -254,12 +248,11 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
         }
 
         VkDescriptorBufferInfo objectBufferInfo{};
-        objectBufferInfo.buffer = aCore.myFrameDatas[ i ].myObjectBuffer.myBuffer;
-        objectBufferInfo.offset = 0;
-        objectBufferInfo.range  = sizeof( GpuObjectData );
-        VkWriteDescriptorSet objectWrite = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myObjectDescriptor,
-                                                                                 VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &objectBufferInfo,
-                                                                                 eVk_ObjectModelBinding, 1 );
+        objectBufferInfo.buffer          = aCore.myFrameDatas[ i ].myObjectBuffer.myBuffer;
+        objectBufferInfo.offset          = 0;
+        objectBufferInfo.range           = sizeof( GpuObjectData );
+        VkWriteDescriptorSet objectWrite = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myObjectDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                                                                                 &objectBufferInfo, eVk_ObjectModelBinding, 1 );
         vkUpdateDescriptorSets( aCore.myDevice, 1, &objectWrite, 0, nullptr );
     }
 }
@@ -270,7 +263,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
     aCore.myMaterialParamBuffers.resize( materialCount );
 
     std::vector< VkDescriptorSetLayout > layouts( materialCount, aCore.myMaterialSetLayout );
-    VkDescriptorSetAllocateInfo allocInfo{};
+    VkDescriptorSetAllocateInfo          allocInfo{};
     allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool     = aCore.myDescriptorPool;
     allocInfo.descriptorSetCount = static_cast< uint32_t >( materialCount );
@@ -280,9 +273,9 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
     }
 
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t      textureId = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Texture&  texture   = aCore.myResourceTables.GetTexture( textureId );
-        const Gfx_Material& material  = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        const uint32_t      textureId   = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Texture&  texture     = aCore.myResourceTables.GetTexture( textureId );
+        const Gfx_Material& material    = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
         Vk_AllocatedBuffer& paramBuffer = aCore.myMaterialParamBuffers[ materialId ];
         aCore.CreateBuffer( sizeof( GpuMaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
 
@@ -293,10 +286,10 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
         memcpy( mapped, &params, sizeof( params ) );
         vmaUnmapMemory( aCore.myAllocator, paramBuffer.myAllocation );
 
-        const VmaAllocator allocator  = aCore.myAllocator;
-        const VkBuffer     buffer     = paramBuffer.myBuffer;
+        const VmaAllocator  allocator  = aCore.myAllocator;
+        const VkBuffer      buffer     = paramBuffer.myBuffer;
         const VmaAllocation allocation = paramBuffer.myAllocation;
-        aCore.GetSceneDeletionQueue().pushFunction( [allocator, buffer, allocation]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
+        aCore.GetSceneDeletionQueue().pushFunction( [ allocator, buffer, allocation ]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -309,8 +302,8 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
         std::array< VkWriteDescriptorSet, 2 > writes{};
         writes[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo,
                                                             eVk_MaterialTextureBinding, 1 );
-        writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &paramInfo,
-                                                            eVk_MaterialAlphaBinding, 1 );
+        writes[ 1 ] =
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &paramInfo, eVk_MaterialAlphaBinding, 1 );
         vkUpdateDescriptorSets( aCore.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 

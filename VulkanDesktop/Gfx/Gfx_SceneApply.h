@@ -17,5 +17,4 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
 
 void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_LodTable& aOut );
 
-void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA,
-                                        std::vector< glm::mat4 >& aBaseTransforms );
+void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, std::vector< glm::mat4 >& aBaseTransforms );

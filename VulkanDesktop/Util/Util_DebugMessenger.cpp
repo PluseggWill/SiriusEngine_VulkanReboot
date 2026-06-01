@@ -63,10 +63,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBit
 }
 
 bool LoadInstanceProcs( VkInstance aInstance ) {
-    gCreateDebugUtilsMessengerEXT = reinterpret_cast< PFN_vkCreateDebugUtilsMessengerEXT >(
-        vkGetInstanceProcAddr( aInstance, "vkCreateDebugUtilsMessengerEXT" ) );
-    gDestroyDebugUtilsMessengerEXT = reinterpret_cast< PFN_vkDestroyDebugUtilsMessengerEXT >(
-        vkGetInstanceProcAddr( aInstance, "vkDestroyDebugUtilsMessengerEXT" ) );
+    gCreateDebugUtilsMessengerEXT  = reinterpret_cast< PFN_vkCreateDebugUtilsMessengerEXT >( vkGetInstanceProcAddr( aInstance, "vkCreateDebugUtilsMessengerEXT" ) );
+    gDestroyDebugUtilsMessengerEXT = reinterpret_cast< PFN_vkDestroyDebugUtilsMessengerEXT >( vkGetInstanceProcAddr( aInstance, "vkDestroyDebugUtilsMessengerEXT" ) );
     return gCreateDebugUtilsMessengerEXT != nullptr && gDestroyDebugUtilsMessengerEXT != nullptr;
 }
 
@@ -94,17 +92,16 @@ bool IsExtensionAvailable() {
 void PopulateCreateInfo( VkDebugUtilsMessengerCreateInfoEXT& aOut ) {
     aOut                 = {};
     aOut.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    aOut.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-                           | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    aOut.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-                           | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    aOut.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                           | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    aOut.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     aOut.pfnUserCallback = DebugCallback;
 }
 
 bool SetupForInstanceCreate( VkInstanceCreateInfo& aCreateInfo ) {
     if ( !IsExtensionAvailable() ) {
-        UtilLogger::Warn( "VULKAN", std::string( "Extension not available: " ) + VK_EXT_DEBUG_UTILS_EXTENSION_NAME
-                                         + " (validation messages may not reach engine_runtime_log.txt)." );
+        UtilLogger::Warn( "VULKAN",
+                          std::string( "Extension not available: " ) + VK_EXT_DEBUG_UTILS_EXTENSION_NAME + " (validation messages may not reach engine_runtime_log.txt)." );
         return false;
     }
 
@@ -149,7 +146,7 @@ void Destroy( VkInstance aInstance ) {
 }
 
 void BeginValidationErrorCapture() {
-    gCaptureValidationErrors   = true;
+    gCaptureValidationErrors = true;
     gCapturedValidationError.clear();
 }
 

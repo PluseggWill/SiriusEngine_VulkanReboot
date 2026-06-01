@@ -11,8 +11,7 @@ void Gfx_BuildOpaqueDrawBatches( const std::vector< Gfx_DrawInstance >& aSortedD
     size_t runStart = 0;
     for ( size_t i = 1; i <= aSortedDraws.size(); ++i ) {
         const bool endOfRun =
-            ( i == aSortedDraws.size() ) || ( Gfx_OpaqueBatchKey( aSortedDraws[ i ].mySortKey )
-                                              != Gfx_OpaqueBatchKey( aSortedDraws[ runStart ].mySortKey ) );
+            ( i == aSortedDraws.size() ) || ( Gfx_OpaqueBatchKey( aSortedDraws[ i ].mySortKey ) != Gfx_OpaqueBatchKey( aSortedDraws[ runStart ].mySortKey ) );
         if ( !endOfRun ) {
             continue;
         }

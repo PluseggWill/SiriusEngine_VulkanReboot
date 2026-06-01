@@ -22,12 +22,12 @@ struct ShaderResource {
 };
 
 struct DescriptorSetLayoutData {
-    uint32_t                                      mySetNumber = 0;
+    uint32_t                                       mySetNumber = 0;
     std::unordered_map< uint32_t, ShaderResource > myBindings;
 };
 
 struct ShaderEffectMeta {
-    std::string                                           myPipelineGroup;
+    std::string                                             myPipelineGroup;
     std::unordered_map< uint32_t, DescriptorSetLayoutData > mySets;
 };
 
@@ -41,7 +41,7 @@ struct LitBatchDescriptorSetLayouts {
 namespace VkShaderEffectMeta {
 
 // Same path as MSBuild ShaderReflect output (2a); resolved via UtilLoader::ResolvePath.
-inline constexpr const char* kLitBatchReflectionLogicalPath    = "VulkanDesktop/Shader_Generated/reflection_lit.json";
+inline constexpr const char* kLitBatchReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit.json";
 // S2 phase 2d: bindless frag SPIR-V contract (Set 1 texture array + material SSBO). MSBuild validates; runtime checks types when Bindless path is active.
 inline constexpr const char* kLitBindlessReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit_bindless.json";
 

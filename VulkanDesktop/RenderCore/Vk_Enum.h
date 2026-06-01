@@ -11,8 +11,8 @@ enum eDescriptorSet : uint32_t {
 
 // Set 0 (Frame) - TriangleVertex.vert set 0; TriangleFrag_Lit.frag env only (no albedo).
 enum eDescriptorBinding {
-    eVk_CameraBinding = 0,  // VERTEX | GpuCameraData (view, proj)
-    eVk_EnvBinding    = 1,  // FRAGMENT | GpuEnvironmentData (see myFogDistance packing)
+    eVk_CameraBinding     = 0,  // VERTEX | GpuCameraData (view, proj)
+    eVk_EnvBinding        = 1,  // FRAGMENT | GpuEnvironmentData (see myFogDistance packing)
     eVk_FrameBindingCount = 2,
 };
 
@@ -24,7 +24,7 @@ enum eVk_MaterialBinding : uint32_t {
 
 // Set 1 (Bindless) - TriangleFrag_Lit_Bindless.frag; one set per pass.
 enum eVk_BindlessMaterialBinding : uint32_t {
-    eVk_BindlessTextureArrayBinding = 0,  // FRAGMENT | sampler2D[]
+    eVk_BindlessTextureArrayBinding  = 0,  // FRAGMENT | sampler2D[]
     eVk_BindlessMaterialTableBinding = 1,  // FRAGMENT | SSBO GpuMaterialTableEntry[]
 };
 

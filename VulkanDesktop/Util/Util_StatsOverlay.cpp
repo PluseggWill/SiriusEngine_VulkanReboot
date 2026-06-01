@@ -23,8 +23,7 @@ void UtilStatsOverlay::Build( const Util_FrameStats& aStats ) {
     ImGui::Text( "  GPU fence wait:     %.2f ms", aStats.myGpuFenceWaitMs );
     ImGui::Text( "  display (vsync):    %.2f ms", aStats.myEstimatedDisplayLagMs );
     ImGui::Text( "  total (est.):       %.2f ms", aStats.myEstimatedTotalLagMs );
-    ImGui::PlotLines( "Input lag est. ms", aStats.myInputLagHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 50.f,
-                      ImVec2( 0.f, 48.f ) );
+    ImGui::PlotLines( "Input lag est. ms", aStats.myInputLagHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 50.f, ImVec2( 0.f, 48.f ) );
     ImGui::TextDisabled( "Total = sample->present + ~1 frame if vsync FIFO." );
     ImGui::TextDisabled( "Try --no-vsync to compare present mode." );
     ImGui::Separator();

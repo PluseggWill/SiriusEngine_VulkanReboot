@@ -13,26 +13,26 @@ namespace {
 
 constexpr const char* kDefaultValidationLayer = "VK_LAYER_KHRONOS_validation";
 
-bool                     gInitialized = false;
-std::filesystem::path    gAssetRoot;
-std::string              gConfigPathUsed;
-std::string              gSceneLogicalPath = kGfxDefaultSceneLogicalPath;
-std::string              gLogFilePath;
-uint32_t                 gWindowWidth  = 1600;
-uint32_t                 gWindowHeight = 1200;
-bool                     gVsync        = true;
-UtilLogger::LogLevel     gMinLogLevel  = UtilLogger::LogLevel::Info;
+bool                           gInitialized = false;
+std::filesystem::path          gAssetRoot;
+std::string                    gConfigPathUsed;
+std::string                    gSceneLogicalPath = kGfxDefaultSceneLogicalPath;
+std::string                    gLogFilePath;
+uint32_t                       gWindowWidth  = 1600;
+uint32_t                       gWindowHeight = 1200;
+bool                           gVsync        = true;
+UtilLogger::LogLevel           gMinLogLevel  = UtilLogger::LogLevel::Info;
 UtilEngineConfig::FeatureFlags gFeatures{};
-Util_AssetVerifyPolicy         gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
-int                            gSmokeFrameLimit   = 0;
-double                         gSmokeSeconds      = 0.0;
+Util_AssetVerifyPolicy         gAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;
+int                            gSmokeFrameLimit              = 0;
+double                         gSmokeSeconds                 = 0.0;
 bool                           gDescriptorLayoutMismatchTest = false;
 std::string                    gShaderPermutationName        = "lit";
-std::optional< bool >    gCliValidationOverride;
-std::optional< bool >    gConfigValidation;
-bool                     gValidationResolved = false;
-bool                     gValidationEnabled   = false;
-std::vector< const char* > gValidationLayers = { kDefaultValidationLayer };
+std::optional< bool >          gCliValidationOverride;
+std::optional< bool >          gConfigValidation;
+bool                           gValidationResolved = false;
+bool                           gValidationEnabled  = false;
+std::vector< const char* >     gValidationLayers   = { kDefaultValidationLayer };
 
 std::filesystem::path FindRepoRoot() {
     std::filesystem::path dir = std::filesystem::current_path();
@@ -173,18 +173,18 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
 }
 
 struct CliOverrides {
-    std::optional< std::string >             myAssetRoot;
-    std::optional< std::filesystem::path >   myConfigPath;
-    std::optional< std::string >             myScene;
-    std::optional< std::string >             myLogLevel;
-    std::optional< bool >                    myVsync;
-    std::optional< uint32_t >                myWindowWidth;
-    std::optional< uint32_t >                myWindowHeight;
-    std::optional< bool >                    myDemoRotate;
-    std::optional< bool >                    myRuntimeMipmap;
-    std::optional< int >                     mySmokeFrames;
-    std::optional< double >                  mySmokeSeconds;
-    std::optional< std::string >             myShaderPermutation;
+    std::optional< std::string >           myAssetRoot;
+    std::optional< std::filesystem::path > myConfigPath;
+    std::optional< std::string >           myScene;
+    std::optional< std::string >           myLogLevel;
+    std::optional< bool >                  myVsync;
+    std::optional< uint32_t >              myWindowWidth;
+    std::optional< uint32_t >              myWindowHeight;
+    std::optional< bool >                  myDemoRotate;
+    std::optional< bool >                  myRuntimeMipmap;
+    std::optional< int >                   mySmokeFrames;
+    std::optional< double >                mySmokeSeconds;
+    std::optional< std::string >           myShaderPermutation;
 };
 
 CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
@@ -392,9 +392,8 @@ void Initialize( int aArgc, char** aArgv ) {
 
     CliOverrides overrides = ParseCliOverrides( aArgc, aArgv );
 
-    const std::filesystem::path configPath =
-        overrides.myConfigPath ? ResolvePathArgument( overrides.myConfigPath->string() ) : DefaultConfigPath();
-    gConfigPathUsed = configPath.string();
+    const std::filesystem::path configPath = overrides.myConfigPath ? ResolvePathArgument( overrides.myConfigPath->string() ) : DefaultConfigPath();
+    gConfigPathUsed                        = configPath.string();
 
     if ( std::filesystem::exists( configPath ) ) {
         ApplyJsonFile( configPath );
@@ -559,13 +558,10 @@ void LogResolvedSummary() {
     UtilLogger::Info( "CONFIG", "config=" + gConfigPathUsed );
     UtilLogger::Info( "CONFIG", "assetRoot=" + std::filesystem::weakly_canonical( gAssetRoot ).string() );
     UtilLogger::Info( "CONFIG", "scene=" + gSceneLogicalPath );
-    UtilLogger::Info( "CONFIG",
-                      "window=" + std::to_string( gWindowWidth ) + "x" + std::to_string( gWindowHeight ) + " vsync=" +
-                          ( gVsync ? "on" : "off" ) );
+    UtilLogger::Info( "CONFIG", "window=" + std::to_string( gWindowWidth ) + "x" + std::to_string( gWindowHeight ) + " vsync=" + ( gVsync ? "on" : "off" ) );
     UtilLogger::Info( "CONFIG", std::string( "logLevel=" ) + LogLevelName( gMinLogLevel ) );
-    UtilLogger::Info( "CONFIG",
-                      std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" ) + " runtimeMipmap=" +
-                          ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
+    UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" )
+                                    + " runtimeMipmap=" + ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( gAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
     UtilLogger::Info( "CONFIG", "shaderPermutation=" + gShaderPermutationName );
 
@@ -577,8 +573,7 @@ void LogResolvedSummary() {
         else if ( gConfigValidation.has_value() ) {
             source = "config";
         }
-        UtilLogger::Info( "CONFIG",
-                          std::string( "validationLayers=" ) + ( gValidationEnabled ? "enabled" : "disabled" ) + " (" + source + ")" );
+        UtilLogger::Info( "CONFIG", std::string( "validationLayers=" ) + ( gValidationEnabled ? "enabled" : "disabled" ) + " (" + source + ")" );
     }
 }
 

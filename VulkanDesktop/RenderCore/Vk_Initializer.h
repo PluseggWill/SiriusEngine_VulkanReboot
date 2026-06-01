@@ -54,8 +54,7 @@ VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someF
 // --- Images (vkCreateImage / vkCreateImageView) ---
 
 VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
-void              FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily, std::array< uint32_t, 2 >& someQueueFamilyIndices,
-                                        VkImageCreateInfo& aInOut );
+void FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily, std::array< uint32_t, 2 >& someQueueFamilyIndices, VkImageCreateInfo& aInOut );
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
 

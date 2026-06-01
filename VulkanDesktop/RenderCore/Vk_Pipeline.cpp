@@ -26,8 +26,7 @@ void Vk_PipelineBuilder::SetDefaultDynamicStates() {
     SetDynamicStates( kDefaultGraphicsDynamicStates );
 }
 
-VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache,
-                                              const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
+VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache, const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
     // Create the viewport state
     VkPipelineViewportStateCreateInfo viewportState{};
 
@@ -63,7 +62,7 @@ VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPa
     pipelineInfo.pMultisampleState   = &myMultisampling;
     pipelineInfo.pDepthStencilState  = &myDepthStencil;
     pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDynamicState = ( myDynamicState.dynamicStateCount > 0 ) ? &myDynamicState : nullptr;
+    pipelineInfo.pDynamicState       = ( myDynamicState.dynamicStateCount > 0 ) ? &myDynamicState : nullptr;
     pipelineInfo.layout              = myPipelineLayout;
     pipelineInfo.renderPass          = aPass;
     pipelineInfo.subpass             = 0;
@@ -74,7 +73,7 @@ VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPa
         VkPipelineDiagnostics::LogGraphicsPipelineSummary( *aDiagnostics, *this, aPass );
     }
 
-    VkPipeline newPipeline;
+    VkPipeline     newPipeline;
     const VkResult createResult = vkCreateGraphicsPipelines( aDevice, aPipelineCache, 1, &pipelineInfo, nullptr, &newPipeline );
     if ( createResult != VK_SUCCESS ) {
         if ( aDiagnostics != nullptr ) {

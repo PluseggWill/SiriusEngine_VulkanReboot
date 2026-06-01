@@ -12,8 +12,7 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     Gfx_ExtractDrawInstances( *aParams.myScene, aParams.myView, aOut.myExtract );
 
-    aOut.myDrawCountBeforeCull =
-        aOut.myExtract.myOpaque.myDrawInstances.size() + aOut.myExtract.myTransparent.myDrawInstances.size();
+    aOut.myDrawCountBeforeCull = aOut.myExtract.myOpaque.myDrawInstances.size() + aOut.myExtract.myTransparent.myDrawInstances.size();
 
     Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myOpaque );
     Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myTransparent );
@@ -21,17 +20,13 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     if ( !aLogs.myLodLoggedOnce ) {
         for ( const Gfx_DrawInstance& draw : aOut.myExtract.myOpaque.myDrawInstances ) {
-            if ( aParams.myLodDebugLogicalMeshId == UINT32_MAX ||
-                 aParams.myScene->GetLogicalMeshId( draw.myEntityIndex ) != aParams.myLodDebugLogicalMeshId ) {
+            if ( aParams.myLodDebugLogicalMeshId == UINT32_MAX || aParams.myScene->GetLogicalMeshId( draw.myEntityIndex ) != aParams.myLodDebugLogicalMeshId ) {
                 continue;
             }
-            const glm::vec3 center =
-                ( aParams.myScene->GetBounds( draw.myEntityIndex ).myMin + aParams.myScene->GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
-            const float dist = glm::length( center - aParams.myCameraEye );
-            UtilLogger::Info( "LOD",
-                              "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" +
-                                  std::to_string( aParams.myLodDebugLogicalMeshId ) + " resolvedMeshId=" +
-                                  std::to_string( draw.myMeshId ) + " dist=" + std::to_string( dist ) );
+            const glm::vec3 center = ( aParams.myScene->GetBounds( draw.myEntityIndex ).myMin + aParams.myScene->GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
+            const float     dist   = glm::length( center - aParams.myCameraEye );
+            UtilLogger::Info( "LOD", "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" + std::to_string( aParams.myLodDebugLogicalMeshId )
+                                         + " resolvedMeshId=" + std::to_string( draw.myMeshId ) + " dist=" + std::to_string( dist ) );
         }
         aLogs.myLodLoggedOnce = true;
     }
@@ -43,25 +38,20 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     if ( !aLogs.myBatchLoggedOnce ) {
         UtilLogger::Info( "BATCH",
-                          "opaque runs=" + std::to_string( aOut.myOpaqueBatchRuns.size() ) + " draws=" +
-                              std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() ) );
+                          "opaque runs=" + std::to_string( aOut.myOpaqueBatchRuns.size() ) + " draws=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() ) );
         aLogs.myBatchLoggedOnce = true;
     }
 
     if ( !aLogs.myTransLoggedOnce ) {
         UtilLogger::Info( "TRANSP",
-                          "runs=" + std::to_string( aOut.myTransparentBatchRuns.size() ) + " draws=" +
-                              std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) );
+                          "runs=" + std::to_string( aOut.myTransparentBatchRuns.size() ) + " draws=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) );
         aLogs.myTransLoggedOnce = true;
     }
 
     if ( !aLogs.myExtractLoggedOnce ) {
-        UtilLogger::Info( "EXTRACT",
-                          "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" +
-                              std::to_string( aOut.myDrawCountBeforeCull ) );
-        UtilLogger::Info( "CULL",
-                          "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() ) + " transparent=" +
-                              std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (frustum+layer)" );
+        UtilLogger::Info( "EXTRACT", "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" + std::to_string( aOut.myDrawCountBeforeCull ) );
+        UtilLogger::Info( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
+                                      + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (frustum+layer)" );
         aLogs.myExtractLoggedOnce = true;
     }
 }

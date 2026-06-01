@@ -12,7 +12,7 @@
 // Canonical on-disk scene description (AoS, string ids). Parsed from Data/Scenes/*.json.
 // Hydration into Gfx_SceneSoA + resource table ids is scene-load Phase C (not here).
 
-inline constexpr uint32_t kGfxSceneFormatVersion = 1;
+inline constexpr uint32_t    kGfxSceneFormatVersion      = 1;
 inline constexpr const char* kGfxDefaultSceneLogicalPath = "Data/Scenes/demo.json";
 
 struct Gfx_SceneShaderPair {
@@ -39,9 +39,9 @@ struct Gfx_SceneMaterialEntry {
 };
 
 struct Gfx_SceneLogicalMeshEntry {
-    std::string              myId;
+    std::string                myId;
     std::vector< std::string > myLodMeshes;
-    std::vector< float >     myLodDistances;
+    std::vector< float >       myLodDistances;
 };
 
 struct Gfx_SceneEntityEntry {
@@ -54,14 +54,14 @@ struct Gfx_SceneEntityEntry {
 };
 
 struct Gfx_SceneDesc {
-    uint32_t myVersion = 0;
-    std::string myName;
+    uint32_t                                               myVersion = 0;
+    std::string                                            myName;
     std::unordered_map< std::string, Gfx_SceneShaderPair > myShaders;
-    std::vector< Gfx_SceneLogicalMeshEntry > myLogicalMeshes;
-    std::vector< Gfx_SceneMeshEntry > myMeshes;
-    std::vector< Gfx_SceneTextureEntry > myTextures;
-    std::vector< Gfx_SceneMaterialEntry > myMaterials;
-    std::vector< Gfx_SceneEntityEntry > myEntities;
+    std::vector< Gfx_SceneLogicalMeshEntry >               myLogicalMeshes;
+    std::vector< Gfx_SceneMeshEntry >                      myMeshes;
+    std::vector< Gfx_SceneTextureEntry >                   myTextures;
+    std::vector< Gfx_SceneMaterialEntry >                  myMaterials;
+    std::vector< Gfx_SceneEntityEntry >                    myEntities;
 };
 
 // Stable string-id → dense table index maps (array order in scene JSON).

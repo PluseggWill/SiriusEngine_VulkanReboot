@@ -1,7 +1,7 @@
 #include "Vk_PlatformFrame.h"
 
-#include "Vk_Core.h"
 #include "../Util/Util_Logger.h"
+#include "Vk_Core.h"
 
 void Vk_PlatformFrame::InitWindow( Vk_Core& aCore ) {
     UtilLogger::Info( "WINDOW", "Initializing GLFW window." );

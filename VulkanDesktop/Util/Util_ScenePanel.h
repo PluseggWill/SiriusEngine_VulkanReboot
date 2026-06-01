@@ -7,12 +7,12 @@
 namespace UtilScenePanel {
 
 struct State {
-    std::string              myCurrentScenePath;
+    std::string                myCurrentScenePath;
     std::vector< std::string > myAvailableScenes;
-    int                      mySelectedIndex     = 0;
-    bool                     myReloadRequested   = false;
-    std::string              myReloadTargetPath;
-    std::string              myLastError;
+    int                        mySelectedIndex   = 0;
+    bool                       myReloadRequested = false;
+    std::string                myReloadTargetPath;
+    std::string                myLastError;
 };
 
 // Scan <assetRoot>/Data/Scenes/*.json; paths are repo-relative (e.g. Data/Scenes/demo.json).

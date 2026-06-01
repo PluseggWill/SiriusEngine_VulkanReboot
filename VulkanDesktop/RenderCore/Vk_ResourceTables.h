@@ -25,21 +25,27 @@ public:
     const Gfx_Texture&  GetTexture( uint32_t aTextureId ) const;
     uint32_t            GetTextureIdForMaterial( uint32_t aMaterialId ) const;
 
-    size_t GetMeshCount() const { return myMeshes.size(); }
-    size_t GetMaterialCount() const { return myMaterials.size(); }
-    size_t GetTextureCount() const { return myTextures.size(); }
+    size_t GetMeshCount() const {
+        return myMeshes.size();
+    }
+    size_t GetMaterialCount() const {
+        return myMaterials.size();
+    }
+    size_t GetTextureCount() const {
+        return myTextures.size();
+    }
 
-    uint16_t GetMaterialTableGeneration() const { return myMaterialTableGeneration; }
+    uint16_t GetMaterialTableGeneration() const {
+        return myMaterialTableGeneration;
+    }
 
     // After swapchain recreate: Vk pipelines are recreated; refresh stored handles (same material ids).
     void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
 private:
     Gfx_Mesh*    LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue );
-    Gfx_Texture* LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
-                              uint32_t& aMipLevels );
-    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha,
-                                       bool aIsTransparent );
+    Gfx_Texture* LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
+    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha, bool aIsTransparent );
 
     std::vector< Gfx_Mesh >     myMeshes;
     std::vector< Gfx_Material > myMaterials;

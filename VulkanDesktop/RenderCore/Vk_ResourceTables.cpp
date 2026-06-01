@@ -42,10 +42,8 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
 
     ++myMaterialTableGeneration;
 
-    UtilLogger::Info( "RESOURCE-TABLE",
-                      "meshes=" + std::to_string( myMeshes.size() ) + " materials=" + std::to_string( myMaterials.size() ) +
-                          " textures=" + std::to_string( myTextures.size() ) + " materialTableGeneration=" +
-                          std::to_string( myMaterialTableGeneration ) );
+    UtilLogger::Info( "RESOURCE-TABLE", "meshes=" + std::to_string( myMeshes.size() ) + " materials=" + std::to_string( myMaterials.size() )
+                                            + " textures=" + std::to_string( myTextures.size() ) + " materialTableGeneration=" + std::to_string( myMaterialTableGeneration ) );
 }
 
 Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue ) {
@@ -113,7 +111,7 @@ void Vk_ResourceTables::RefreshMaterialPipelines( VkPipeline aOpaquePipeline, Vk
 }
 
 Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha,
-                                                    bool aIsTransparent ) {
+                                                      bool aIsTransparent ) {
     if ( aMaterialId >= myMaterials.size() ) {
         myMaterials.resize( aMaterialId + 1 );
     }

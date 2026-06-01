@@ -76,7 +76,7 @@ void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewPar
         float            ndcZ        = 0.0f;
         if ( std::abs( clip.w ) > 1e-6f ) {
             const glm::vec4 ndc = clip / clip.w;
-            ndcZ              = ndc.z;
+            ndcZ                = ndc.z;
         }
 
         const uint16_t depthBucket = Gfx_ComputeDepthBucket( ndcZ );

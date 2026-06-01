@@ -12,8 +12,7 @@
 
 namespace {
 
-void AddPath( std::vector< Util_AssetManifestEntry >& aOut, std::unordered_set< std::string >& aSeen, const std::string& aPath,
-              Util_AssetKind aKind ) {
+void AddPath( std::vector< Util_AssetManifestEntry >& aOut, std::unordered_set< std::string >& aSeen, const std::string& aPath, Util_AssetKind aKind ) {
     if ( aPath.empty() || aSeen.find( aPath ) != aSeen.end() ) {
         return;
     }
@@ -42,7 +41,7 @@ Util_AssetManifest Util_CollectDependencies( const Gfx_SceneDesc& aScene ) {
     std::unordered_set< std::string > seenPaths;
 
     for ( const auto& [ shaderId, shaderPair ] : aScene.myShaders ) {
-        (void)shaderId;
+        ( void )shaderId;
         AddPath( manifest.myEntries, seenPaths, shaderPair.myVertPath, Util_AssetKind::ShaderVert );
         AddPath( manifest.myEntries, seenPaths, shaderPair.myFragPath, Util_AssetKind::ShaderFrag );
     }
@@ -72,9 +71,7 @@ Util_AssetManifest Util_CollectDependencies( const Gfx_SceneDesc& aScene ) {
     }
 
     std::sort( manifest.myEntries.begin(), manifest.myEntries.end(),
-               []( const Util_AssetManifestEntry& aLeft, const Util_AssetManifestEntry& aRight ) {
-                   return aLeft.myLogicalPath < aRight.myLogicalPath;
-               } );
+               []( const Util_AssetManifestEntry& aLeft, const Util_AssetManifestEntry& aRight ) { return aLeft.myLogicalPath < aRight.myLogicalPath; } );
 
     UtilLogger::Info( "SCENE", "Collected " + std::to_string( manifest.myEntries.size() ) + " unique asset path(s) from scene manifest" );
     return manifest;
@@ -92,8 +89,7 @@ std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aSc
 
 void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy ) {
     const char* policyLabel = aPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn";
-    UtilLogger::Info( "STARTUP",
-                      "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s), policy=" + policyLabel + ")." );
+    UtilLogger::Info( "STARTUP", "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s), policy=" + policyLabel + ")." );
 
     std::vector< std::string > missing;
     for ( const Util_AssetManifestEntry& entry : aManifest.myEntries ) {
@@ -116,8 +112,7 @@ void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyP
 
     if ( !missing.empty() ) {
         if ( aPolicy == Util_AssetVerifyPolicy::Warn ) {
-            UtilLogger::Warn( "STARTUP",
-                              "Manifest verify (warn): " + std::to_string( missing.size() ) + " missing path(s); continuing. First: " + missing.front() );
+            UtilLogger::Warn( "STARTUP", "Manifest verify (warn): " + std::to_string( missing.size() ) + " missing path(s); continuing. First: " + missing.front() );
             return;
         }
         throw std::runtime_error( "Missing " + std::to_string( missing.size() ) + " required asset(s). First: " + missing.front() );

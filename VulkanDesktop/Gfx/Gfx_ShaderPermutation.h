@@ -14,12 +14,12 @@ enum Gfx_ShaderFeatureBit : uint32_t {
 };
 
 struct Gfx_ShaderPermutationDef {
-    uint32_t             myId           = 0;
-    std::string          myName;
-    uint32_t             myFeatureMask  = 0;
+    uint32_t                   myId = 0;
+    std::string                myName;
+    uint32_t                   myFeatureMask = 0;
     std::vector< std::string > myGlslcDefines;
-    std::string          myVertSpvLogicalPath;
-    std::string          myFragSpvLogicalPath;
+    std::string                myVertSpvLogicalPath;
+    std::string                myFragSpvLogicalPath;
 };
 
 namespace Gfx_ShaderPermutation {
@@ -31,7 +31,7 @@ bool IsInitialized();
 
 const std::vector< Gfx_ShaderPermutationDef >& GetDefinitions();
 
-uint32_t     GetActiveId();
+uint32_t                        GetActiveId();
 const Gfx_ShaderPermutationDef& GetActiveDefinition();
 const Gfx_ShaderPermutationDef& GetDefinition( uint32_t aId );
 

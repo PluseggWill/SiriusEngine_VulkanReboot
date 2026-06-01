@@ -14,7 +14,7 @@ struct Gfx_PassDrawPacket {
     // Draw order is already finalized by Gfx (opaque/transparent pass semantics preserved).
     std::vector< Gfx_DrawInstance > myDraws;
     // Batch runs are optional for bindless path but always populated by current stream builder.
-    std::vector< Gfx_BatchRun >     myBatchRuns;
+    std::vector< Gfx_BatchRun > myBatchRuns;
 };
 
 struct Gfx_FrameRenderPacket {

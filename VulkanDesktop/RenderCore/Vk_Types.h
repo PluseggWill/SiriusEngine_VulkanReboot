@@ -25,7 +25,7 @@ public:
 struct Gfx_Texture {
 private:
     Vk_AllocatedImage myAllocImage;
-    VkImageView    myImageView;
+    VkImageView       myImageView;
 
 public:
     VkImage& Image() {
@@ -87,16 +87,16 @@ public:
 namespace std {
 template <> struct hash< Gfx_Vertex > {
     size_t operator()( Gfx_Vertex const& vertex ) const {
-        return ( ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 ) ) ^
-               ( hash< glm::vec3 >()( vertex.normal ) << 1 );
+        return ( ( ( hash< glm::vec3 >()( vertex.pos ) ^ ( hash< glm::vec3 >()( vertex.color ) << 1 ) ) >> 1 ) ^ ( hash< glm::vec2 >()( vertex.texCoord ) << 1 ) )
+               ^ ( hash< glm::vec3 >()( vertex.normal ) << 1 );
     }
 };
 }  // namespace std
 
 class Gfx_Mesh {
 public:
-    std::vector< Gfx_Vertex >   myVertices;
-    std::vector< uint32_t > myIndices;
+    std::vector< Gfx_Vertex > myVertices;
+    std::vector< uint32_t >   myIndices;
 
     Vk_AllocatedBuffer myVertexBuffer;
     Vk_AllocatedBuffer myIndexBuffer;
@@ -112,15 +112,15 @@ class Gfx_RenderObject {
 public:
     Gfx_Mesh*     myMesh;
     Gfx_Material* myMaterial;
-    glm::mat4 myTransform;
+    glm::mat4     myTransform;
 };
 
 // std140 UBO, binding eVk_EnvBinding - field order must match EnvironmentData in TriangleFrag_Lit.frag.
 struct GpuEnvironmentData {
-    glm::vec4 myFogColor;           // reserved (fog not implemented in shader)
-    glm::vec4 myFogDistance;        // REPURPOSED: x=specularStrength, y=shininess, z=textureBlend, w unused
+    glm::vec4 myFogColor;     // reserved (fog not implemented in shader)
+    glm::vec4 myFogDistance;  // REPURPOSED: x=specularStrength, y=shininess, z=textureBlend, w unused
     glm::vec4 myAmbientColor;
     glm::vec4 mySunlightDirection;  // xyz = direction from surface toward sun (normalized each frame)
     glm::vec4 mySunlightColor;
-    glm::vec4 myViewWorldPos;       // xyz = camera world position (specular view vector)
+    glm::vec4 myViewWorldPos;  // xyz = camera world position (specular view vector)
 };

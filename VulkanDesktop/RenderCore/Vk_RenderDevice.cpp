@@ -1,9 +1,9 @@
 #include "Vk_RenderDevice.h"
 
+#include "../Util/Util_Logger.h"
 #include "Vk_Bindless.h"
 #include "Vk_Core.h"
 #include "Vk_DevicePipelineCache.h"
-#include "../Util/Util_Logger.h"
 
 void Vk_RenderDevice::Init( Vk_Core& aCore ) {
     UtilLogger::Info( "VULKAN", "Vk_RenderDevice::Init: instance/device/allocator." );

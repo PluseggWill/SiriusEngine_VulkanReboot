@@ -9,8 +9,8 @@ void Util_FrameStats::ResetPerFrameCounters() {
     myMaterialSetBinds = 0;
 }
 
-void Util_FrameStats::SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws,
-                                            uint32_t aOpaqueBatchRuns, uint32_t aTransparentBatchRuns ) {
+void Util_FrameStats::SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws, uint32_t aOpaqueBatchRuns,
+                                            uint32_t aTransparentBatchRuns ) {
     myActiveEntities          = aActiveEntities;
     myVisibleOpaqueDraws      = aVisibleOpaqueDraws;
     myVisibleTransparentDraws = aVisibleTransparentDraws;
@@ -29,12 +29,11 @@ void Util_FrameStats::RecordInputLatency( float aInputToPresentMs, float aGpuFen
     }
     else {
         constexpr float kAlpha = 0.15f;
-        mySmoothedTotalLagMs = mySmoothedTotalLagMs * ( 1.f - kAlpha ) + myEstimatedTotalLagMs * kAlpha;
+        mySmoothedTotalLagMs   = mySmoothedTotalLagMs * ( 1.f - kAlpha ) + myEstimatedTotalLagMs * kAlpha;
     }
 
     if ( myHistorySampleCount > 0 ) {
-        const int lagIndex =
-            ( myFrameHistoryIndex - 1 + FRAME_HISTORY_COUNT ) % FRAME_HISTORY_COUNT;
+        const int lagIndex                                     = ( myFrameHistoryIndex - 1 + FRAME_HISTORY_COUNT ) % FRAME_HISTORY_COUNT;
         myInputLagHistory[ static_cast< size_t >( lagIndex ) ] = myEstimatedTotalLagMs;
     }
 }
@@ -45,8 +44,8 @@ void Util_FrameStats::PushFrameTime( float aFrameMs ) {
         myFps = 1000.f / aFrameMs;
 
     myFrameHistory[ static_cast< size_t >( myFrameHistoryIndex ) ] = aFrameMs;
-    myFrameHistoryIndex = ( myFrameHistoryIndex + 1 ) % FRAME_HISTORY_COUNT;
-    myHistorySampleCount = std::min( myHistorySampleCount + 1, FRAME_HISTORY_COUNT );
+    myFrameHistoryIndex                                            = ( myFrameHistoryIndex + 1 ) % FRAME_HISTORY_COUNT;
+    myHistorySampleCount                                           = std::min( myHistorySampleCount + 1, FRAME_HISTORY_COUNT );
 
     UpdateAggregates();
 }

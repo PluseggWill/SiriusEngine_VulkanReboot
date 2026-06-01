@@ -8,12 +8,12 @@
 // Production path: Gfx_BuildResourceManifestFromSceneDesc (scene-load Phase C).
 
 struct Gfx_MeshManifestEntry {
-    uint32_t    myId   = 0;
+    uint32_t    myId = 0;
     std::string myPath;
 };
 
 struct Gfx_TextureManifestEntry {
-    uint32_t    myId   = 0;
+    uint32_t    myId = 0;
     std::string myPath;
 };
 

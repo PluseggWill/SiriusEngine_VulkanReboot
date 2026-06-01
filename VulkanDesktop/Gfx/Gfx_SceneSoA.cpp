@@ -40,13 +40,13 @@ void Gfx_SceneSoA::UpdateBoundsForSlot( uint32_t aSlot ) {
     };
 
     Gfx_Bounds bounds{};
-    bounds.myMin = center - halfExtents;
-    bounds.myMax = center + halfExtents;
+    bounds.myMin      = center - halfExtents;
+    bounds.myMax      = center + halfExtents;
     myBounds[ aSlot ] = bounds;
 }
 
 Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask,
-                                            Gfx_RenderFlags aRenderFlags, float aLodBias ) {
+                                              Gfx_RenderFlags aRenderFlags, float aLodBias ) {
     uint32_t slot = kInvalidSlot;
     if ( !myFreeSlots.empty() ) {
         slot = myFreeSlots.back();
@@ -59,10 +59,10 @@ Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aLogicalMeshId, uint32_t 
 
     myLogicalMeshIds[ slot ] = aLogicalMeshId;
     myLodBiases[ slot ]      = aLodBias;
-    myMaterialIds[ slot ]   = aMaterialId;
-    myLayerMasks[ slot ]    = aLayerMask;
-    myRenderFlags[ slot ]   = aRenderFlags;
-    myTransforms[ slot ]    = aWorldTransform;
+    myMaterialIds[ slot ]    = aMaterialId;
+    myLayerMasks[ slot ]     = aLayerMask;
+    myRenderFlags[ slot ]    = aRenderFlags;
+    myTransforms[ slot ]     = aWorldTransform;
     UpdateBoundsForSlot( slot );
 
     myActiveSlots.push_back( slot );

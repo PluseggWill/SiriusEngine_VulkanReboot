@@ -13,7 +13,7 @@
 namespace UtilEngineConfig {
 
 struct FeatureFlags {
-    bool myDemoRotate     = true;
+    bool myDemoRotate    = true;
     bool myRuntimeMipmap = false;
 };
 
@@ -26,16 +26,16 @@ void Initialize( int aArgc, char** aArgv );
 bool IsInitialized();
 
 std::filesystem::path GetAssetRoot();
-std::string         GetConfigPathUsed();
-std::string         GetSceneLogicalPath();
-std::string         GetLogFilePath();  // Empty => default Logs/engine_runtime_log.txt under repo.
+std::string           GetConfigPathUsed();
+std::string           GetSceneLogicalPath();
+std::string           GetLogFilePath();  // Empty => default Logs/engine_runtime_log.txt under repo.
 
 uint32_t GetWindowWidth();
 uint32_t GetWindowHeight();
 bool     GetVsync();
 
-UtilLogger::LogLevel GetMinLogLevel();
-const FeatureFlags&  GetFeatures();
+UtilLogger::LogLevel   GetMinLogLevel();
+const FeatureFlags&    GetFeatures();
 Util_AssetVerifyPolicy GetAssetVerifyPolicy();
 
 // When > 0, main loop requests window close after this many rendered frames (dev smoke / CI).
@@ -51,8 +51,8 @@ bool GetDescriptorLayoutMismatchTest();
 // Active entry in Shader/PermutationRegistry.json (default "lit").
 const std::string& GetShaderPermutationName();
 
-bool ResolveValidationEnabled( bool aBuildDefault );
-bool IsValidationEnabled();
+bool                              ResolveValidationEnabled( bool aBuildDefault );
+bool                              IsValidationEnabled();
 const std::vector< const char* >& GetValidationLayerNames();
 
 void LogResolvedSummary();

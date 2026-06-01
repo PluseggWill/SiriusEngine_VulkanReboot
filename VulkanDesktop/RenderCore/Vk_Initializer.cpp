@@ -154,10 +154,10 @@ VkPipelineDepthStencilStateCreateInfo VkInit::Pipeline_DepthStencilCreateInfo( V
 VkPipelineLayoutCreateInfo VkInit::Pipeline_LayoutCreateInfo() {
     VkPipelineLayoutCreateInfo layoutInfo{};
 
-    layoutInfo.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.flags                  = 0;
-    layoutInfo.setLayoutCount         = 0;
-    layoutInfo.pSetLayouts            = nullptr;
+    layoutInfo.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.flags          = 0;
+    layoutInfo.setLayoutCount = 0;
+    layoutInfo.pSetLayouts    = nullptr;
     // Push constant ranges are set by the caller (e.g. Vk_Core::CreateGfxPipeline — mat4 model, VERTEX).
     layoutInfo.pushConstantRangeCount = 0;
     layoutInfo.pPushConstantRanges    = nullptr;
@@ -309,10 +309,10 @@ void VkInit::FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTran
         return;
     }
 
-    someQueueFamilyIndices          = { aGraphicsQueueFamily, aTransferQueueFamily };
-    aInOut.sharingMode              = VK_SHARING_MODE_CONCURRENT;
-    aInOut.queueFamilyIndexCount    = 2;
-    aInOut.pQueueFamilyIndices      = someQueueFamilyIndices.data();
+    someQueueFamilyIndices       = { aGraphicsQueueFamily, aTransferQueueFamily };
+    aInOut.sharingMode           = VK_SHARING_MODE_CONCURRENT;
+    aInOut.queueFamilyIndexCount = 2;
+    aInOut.pQueueFamilyIndices   = someQueueFamilyIndices.data();
 }
 
 // VkImageViewCreateInfo — vkCreateImageView for a 2D subresource range.

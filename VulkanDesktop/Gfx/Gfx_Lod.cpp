@@ -18,15 +18,15 @@ float EyeDistance( const glm::vec3& aEyeWorld, const glm::vec3& aWorldPoint ) {
 
 void ApplyLodToResult( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, Gfx_ExtractResult& aInOut ) {
     for ( Gfx_DrawInstance& draw : aInOut.myDrawInstances ) {
-        const uint32_t slot       = draw.myEntityIndex;
-        const uint32_t logicalId  = aScene.GetLogicalMeshId( slot );
-        const float    lodBias    = aScene.GetLodBias( slot );
-        const Gfx_LodChain* chain = aTable.GetChain( logicalId );
+        const uint32_t      slot      = draw.myEntityIndex;
+        const uint32_t      logicalId = aScene.GetLogicalMeshId( slot );
+        const float         lodBias   = aScene.GetLodBias( slot );
+        const Gfx_LodChain* chain     = aTable.GetChain( logicalId );
         if ( chain == nullptr || chain->myMeshIds.empty() ) {
             continue;
         }
 
-        const float eyeDist     = EyeDistance( aEyeWorld, BoundsCenter( aScene.GetBounds( slot ) ) );
+        const float    eyeDist   = EyeDistance( aEyeWorld, BoundsCenter( aScene.GetBounds( slot ) ) );
         const uint32_t candidate = Gfx_SelectLodLevel( eyeDist, lodBias, *chain );
         const uint32_t lodLevel  = Gfx_ApplyLodHysteresis( slot, candidate, *chain, eyeDist, lodBias, aState );
         const uint32_t resolved  = aTable.GetResolvedMeshId( logicalId, lodLevel );
@@ -146,8 +146,7 @@ uint32_t Gfx_ApplyLodHysteresis( uint32_t aSlot, uint32_t aCandidateLod, const G
     return lod;
 }
 
-void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState,
-                                 Gfx_FrameExtract& aInOut ) {
+void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, Gfx_FrameExtract& aInOut ) {
     aState.EnsureSlotCount( aScene.GetSlotCount() );
     ApplyLodToResult( aScene, aEyeWorld, aTable, aState, aInOut.myOpaque );
     ApplyLodToResult( aScene, aEyeWorld, aTable, aState, aInOut.myTransparent );

@@ -14,7 +14,7 @@
 // CPU draw-stream prep: extract → cull → LOD → sort → batch. No Vulkan.
 
 struct Gfx_FrameDrawStreamParams {
-    const Gfx_SceneSoA* myScene                 = nullptr;
+    const Gfx_SceneSoA* myScene = nullptr;
     Gfx_CullViewParams  myView{};
     glm::vec3           myCameraEye{};
     glm::mat4           myCameraView{ 1.0f };

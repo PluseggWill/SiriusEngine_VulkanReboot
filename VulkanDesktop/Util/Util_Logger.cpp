@@ -1,6 +1,7 @@
 #include "Util_Logger.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -8,14 +9,13 @@
 #include <iostream>
 #include <mutex>
 #include <sstream>
-#include <cstdlib>
 
 namespace {
 std::mutex           gLogMutex;
 std::ofstream        gLogFile;
-bool                 gIsInitialized = false;
-UtilLogger::LogLevel gMinLogLevel     = UtilLogger::LogLevel::Info;
-const char* const kDefaultRuntimeLogFileName = "engine_runtime_log.txt";
+bool                 gIsInitialized             = false;
+UtilLogger::LogLevel gMinLogLevel               = UtilLogger::LogLevel::Info;
+const char* const    kDefaultRuntimeLogFileName = "engine_runtime_log.txt";
 
 std::filesystem::path FindRepoRoot() {
     std::filesystem::path dir = std::filesystem::current_path();
@@ -35,7 +35,7 @@ std::filesystem::path FindRepoRoot() {
 }
 
 std::string DefaultRuntimeLogPath() {
-    const auto logsDir = FindRepoRoot() / "Logs";
+    const auto      logsDir = FindRepoRoot() / "Logs";
     std::error_code ec;
     std::filesystem::create_directories( logsDir, ec );
     return ( logsDir / kDefaultRuntimeLogFileName ).string();
@@ -51,7 +51,7 @@ void RotateLogsViaBatchScript( const std::filesystem::path& aRepoRoot ) {
     std::string cmd = "cmd /c call \"" + bat.string() + "\" \"" + aRepoRoot.string() + "\" >nul 2>&1";
     std::system( cmd.c_str() );
 #else
-    (void)aRepoRoot;
+    ( void )aRepoRoot;
 #endif
 }
 
@@ -97,7 +97,7 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
 
     RotateLogsViaBatchScript( FindRepoRoot() );
 
-    const std::string logPath = aLogFilePath.empty() ? DefaultRuntimeLogPath() : aLogFilePath;
+    const std::string     logPath = aLogFilePath.empty() ? DefaultRuntimeLogPath() : aLogFilePath;
     std::filesystem::path logFilePath( logPath );
     if ( logFilePath.has_parent_path() ) {
         std::error_code ec;
@@ -110,8 +110,8 @@ void UtilLogger::Init( const std::string& aLogFilePath ) {
         return;
     }
 
-    gIsInitialized = true;
-    const std::string absPath = std::filesystem::absolute( logFilePath ).string();
+    gIsInitialized             = true;
+    const std::string absPath  = std::filesystem::absolute( logFilePath ).string();
     const std::string initLine = "[" + NowTimestamp() + "] [INFO] [LOGGER] Logger initialized. Output: " + absPath;
     gLogFile << initLine << std::endl;
     std::cerr << initLine << std::endl;
@@ -149,8 +149,7 @@ void UtilLogger::Log( LogLevel aLevel, const std::string& aCategory, const std::
         return;
     }
 
-    const std::string line =
-        "[" + NowTimestamp() + "] [" + ToString( aLevel ) + "] [" + aCategory + "] " + aMessage;
+    const std::string line = "[" + NowTimestamp() + "] [" + ToString( aLevel ) + "] [" + aCategory + "] " + aMessage;
     gLogFile << line << std::endl;
     std::cerr << line << std::endl;
 }

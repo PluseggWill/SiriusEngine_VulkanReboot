@@ -11,7 +11,7 @@ void Vk_SceneHost::LoadCpuState( Vk_Core& aCore ) {
     Gfx_BuildLodTableFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.myLodTable );
     aCore.myLodState.Clear();
 
-    const auto treeIt = aCore.mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
+    const auto treeIt             = aCore.mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
     aCore.myLodDebugLogicalMeshId = treeIt != aCore.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
@@ -22,7 +22,7 @@ void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore ) {
 
     aCore.myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };
     aCore.myEnvironmentData.myFogColor          = { 1.0f, 1.0f, 1.0f, 1.0f };
-    aCore.myEnvironmentData.myFogDistance         = { 0.45f, 32.0f, 1.0f, 0.0f };
+    aCore.myEnvironmentData.myFogDistance       = { 0.45f, 32.0f, 1.0f, 0.0f };
     aCore.myEnvironmentData.mySunlightDirection = { glm::normalize( glm::vec3( -0.35f, -0.85f, -0.4f ) ), 0.0f };
     aCore.myEnvironmentData.mySunlightColor     = { 0.9f, 0.88f, 0.82f, 1.0f };
     aCore.myEnvironmentData.myViewWorldPos      = { aCore.myCamera.myEye, 1.0f };

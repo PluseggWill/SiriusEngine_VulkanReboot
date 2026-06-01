@@ -1,31 +1,30 @@
 // Module: Vk_Core — Vulkan device/swapchain, frame orchestration (acquire → prep → record → present).
 // Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
-#include "../Util/Util_CameraPanel.h"
-#include "../Util/Util_LightingPanel.h"
-#include "../Util/Util_ScenePanel.h"
-#include "../Util/Util_StatsOverlay.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
-#include "../Util/Util_Loader.h"
-#include "../Util/Util_EngineConfig.h"
-#include "../Util/Util_Logger.h"
+#include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_DebugMessenger.h"
+#include "../Util/Util_EngineConfig.h"
+#include "../Util/Util_LightingPanel.h"
+#include "../Util/Util_Loader.h"
+#include "../Util/Util_Logger.h"
+#include "../Util/Util_ScenePanel.h"
+#include "../Util/Util_StatsOverlay.h"
 #include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_Bindless.h"
-#include "Vk_PipelineDiagnostics.h"
 #include "Vk_DescriptorSystem.h"
-#include "Vk_FrameUniformUploader.h"
 #include "Vk_DevicePipelineCache.h"
+#include "Vk_FrameUniformUploader.h"
 #include "Vk_GfxPipelineCache.h"
+#include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
 #include "Vk_SceneHost.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_SwapchainHost.h"
 
-#include <imgui.h>
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Types.h"
@@ -34,6 +33,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <imgui.h>
 #include <limits>
 #include <optional>
 #include <set>
@@ -80,7 +80,6 @@ bool Vk_Core::ShouldClose() const {
     return myWindow != nullptr && glfwWindowShouldClose( myWindow );
 }
 
-
 void Vk_Core::Render() {
     // Uses myCurrentFrame slot (frame-in-flight ring); increment/rotate after submission.
     DrawFrame( myFrameDatas[ myCurrentFrame ] );
@@ -99,7 +98,6 @@ void Vk_Core::Shutdown() {
 void Vk_Core::InitWindow() {
     Vk_PlatformFrame::InitWindow( *this );
 }
-
 
 void Vk_Core::Clear() {
     UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
@@ -152,14 +150,14 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     }
 
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
-    myLoadedScene             = std::move( aScene );
-    myLoadedSceneLogicalPath  = std::move( aLogicalScenePath );
-    myHasLoadedScene          = true;
+    myLoadedScene            = std::move( aScene );
+    myLoadedSceneLogicalPath = std::move( aLogicalScenePath );
+    myHasLoadedScene         = true;
 
     myScenePanelState.myCurrentScenePath = myLoadedSceneLogicalPath;
     UtilScenePanel::RefreshSceneList( myScenePanelState );
 
-    (void)Gfx_GetSceneShader( myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
+    ( void )Gfx_GetSceneShader( myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
     vertShaderPath                             = activePerm.myVertSpvLogicalPath;
     fragShaderPath                             = activePerm.myFragSpvLogicalPath;
@@ -170,10 +168,10 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildResourceManifestFromSceneDesc( myLoadedScene, mySceneIdTables, manifest );
-        myTextureImageMipLevels = 1;
-        const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
-        const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
-        const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
+        myTextureImageMipLevels           = 1;
+        const VkPipeline       opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
+        const VkPipeline       transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
+        const VkPipelineLayout layout     = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
         SyncResourceContext();
         myResourceTables.LoadFromManifest( manifest, myResourceContext, mySceneDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
@@ -201,10 +199,10 @@ void Vk_Core::UnloadScene() {
     mySceneDeletionQueue.flush();
     myResourceTables.Clear();
 
-    myDescriptorPool            = VK_NULL_HANDLE;
-    myTextureSampler            = VK_NULL_HANDLE;
-    myBindlessDescriptorSet     = VK_NULL_HANDLE;
-    myMaterialTableBuffer       = {};
+    myDescriptorPool        = VK_NULL_HANDLE;
+    myTextureSampler        = VK_NULL_HANDLE;
+    myBindlessDescriptorSet = VK_NULL_HANDLE;
+    myMaterialTableBuffer   = {};
     myMaterialDescriptorSets.clear();
     myMaterialParamBuffers.clear();
     for ( Vk_FrameData& frame : myFrameDatas ) {
@@ -213,22 +211,22 @@ void Vk_Core::UnloadScene() {
     }
 
     mySceneSoA.Clear();
-    myLodTable  = Gfx_LodTable{};
+    myLodTable = Gfx_LodTable{};
     myLodState.Clear();
     myDrawPrep.ClearFrameOutputs();
     myDrawPrep.ResetLogState();
     myDemoBaseTransforms.clear();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
-    myLoadedScene            = Gfx_SceneDesc{};
-    mySceneIdTables          = Gfx_SceneIdTables{};
+    myLoadedScene   = Gfx_SceneDesc{};
+    mySceneIdTables = Gfx_SceneIdTables{};
     myLoadedSceneLogicalPath.clear();
-    myHasLoadedScene         = false;
+    myHasLoadedScene = false;
     myScenePanelState.myCurrentScenePath.clear();
 
     myMaterialBindLoggedOnce = false;
-    myBindlessLoggedOnce         = false;
-    myM1PerfLoggedOnce           = false;
+    myBindlessLoggedOnce     = false;
+    myM1PerfLoggedOnce       = false;
 
     UtilLogger::Info( "SCENE", "UnloadScene: GPU scene resources released." );
 }
@@ -237,7 +235,7 @@ std::string Vk_Core::TakePendingSceneReloadPath() {
     if ( !myScenePanelState.myReloadRequested ) {
         return {};
     }
-    std::string path = std::move( myScenePanelState.myReloadTargetPath );
+    std::string path                    = std::move( myScenePanelState.myReloadTargetPath );
     myScenePanelState.myReloadRequested = false;
     myScenePanelState.myReloadTargetPath.clear();
     return path;
@@ -352,7 +350,7 @@ void Vk_Core::CreateLogicalDevice() {
     // Build one queue create-info per unique family (graphics/present/transfer may collapse to fewer families).
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
     std::set< uint32_t >                   uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(),
-                                                 myQueueFamilyIndices.myTransferFamily.value() };
+                                                                   myQueueFamilyIndices.myTransferFamily.value() };
 
     float queuePriority = 1.0f;
     for ( uint32_t queueFamily : uniqueQueueFamilies ) {
@@ -373,12 +371,12 @@ void Vk_Core::CreateLogicalDevice() {
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
     if ( myBindlessCaps.myDescriptorIndexingExtension ) {
-        indexingFeatures.runtimeDescriptorArray                 = VK_TRUE;
+        indexingFeatures.runtimeDescriptorArray                    = VK_TRUE;
         indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     }
 
     VkPhysicalDeviceFeatures2 features2{};
-    features2.sType  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features2.features = deviceFeatures;
     features2.pNext    = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &indexingFeatures ) : nullptr;
 
@@ -386,9 +384,9 @@ void Vk_Core::CreateLogicalDevice() {
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pNext = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &features2 ) : nullptr;
 
-    createInfo.pQueueCreateInfos    = queueCreateInfos.data();
-    createInfo.queueCreateInfoCount = static_cast< uint32_t >( queueCreateInfos.size() );
-    createInfo.pEnabledFeatures     = myBindlessCaps.myDescriptorIndexingExtension ? nullptr : &deviceFeatures;
+    createInfo.pQueueCreateInfos       = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount    = static_cast< uint32_t >( queueCreateInfos.size() );
+    createInfo.pEnabledFeatures        = myBindlessCaps.myDescriptorIndexingExtension ? nullptr : &deviceFeatures;
     createInfo.enabledExtensionCount   = static_cast< uint32_t >( myDeviceExtensions.size() );
     createInfo.ppEnabledExtensionNames = myDeviceExtensions.data();
 
@@ -477,8 +475,7 @@ void Vk_Core::CreateFrameData() {
 }
 
 void Vk_Core::CreateInstanceSlabs() {
-    const VkDeviceSize slabSize =
-        static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * static_cast< VkDeviceSize >( InstanceSlabStride() );
+    const VkDeviceSize slabSize = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * static_cast< VkDeviceSize >( InstanceSlabStride() );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         CreateBuffer( slabSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myObjectBuffer, true );
@@ -496,9 +493,8 @@ void Vk_Core::CreateInstanceSlabs() {
         } );
     }
 
-    UtilLogger::Info( "RESOURCE",
-                      "Instance slab: entries=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) +
-                          " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
+    UtilLogger::Info( "RESOURCE", "Instance slab: entries=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries )
+                                      + " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
 }
 
 void Vk_Core::CreateUniformBuffers() {
@@ -561,8 +557,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     // CONTRACT: record path consumes packet output from Vk_FrameDrawPrep only.
     const bool slabOk = myDrawPrep.Build( prepParams );
 
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
-                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ), static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) );
@@ -573,18 +568,16 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         }
         else {
             UtilLogger::Info( "DESCRIPTOR",
-                              "Set 1 material binds this frame will be <= batch runs (" +
-                                  std::to_string( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() +
-                                                  myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) +
-                                  ")" );
+                              "Set 1 material binds this frame will be <= batch runs ("
+                                  + std::to_string( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() + myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() )
+                                  + ")" );
         }
         myMaterialBindLoggedOnce = true;
     }
 
     if ( !myBindlessLoggedOnce && myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        UtilLogger::Info( "BINDLESS",
-                          "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() ) +
-                              " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
+        UtilLogger::Info( "BINDLESS", "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() )
+                                          + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
         myBindlessLoggedOnce = true;
     }
 
@@ -609,7 +602,6 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     ImGui::Render();
     Vk_ScenePasses::RecordImGui( *this, aFrameData.myCommandBuffer, imageIndex );
 
-
     if ( vkEndCommandBuffer( aFrameData.myCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
     }
@@ -633,21 +625,18 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
 void Vk_Core::LogM1PerfSnapshot() const {
     const uint32_t visibleDraws = myFrameStats.myVisibleOpaqueDraws + myFrameStats.myVisibleTransparentDraws;
     const uint32_t batchRuns    = myFrameStats.myOpaqueBatchRuns + myFrameStats.myTransparentBatchRuns;
-    UtilLogger::Info( "PERF",
-                      "frameMs=" + std::to_string( myFrameStats.myFrameMs ) + " fps=" + std::to_string( myFrameStats.myFps ) +
-                          " entities=" + std::to_string( myFrameStats.myActiveEntities ) + " visibleDraws=" + std::to_string( visibleDraws ) +
-                          " batchRuns=" + std::to_string( batchRuns ) + " (opaque=" + std::to_string( myFrameStats.myOpaqueBatchRuns ) +
-                          " transparent=" + std::to_string( myFrameStats.myTransparentBatchRuns ) + ")" +
-                          " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) +
-                          " pipelineBinds=" + std::to_string( myFrameStats.myPipelineBinds ) +
-                          " drawCalls=" + std::to_string( myFrameStats.myDrawCalls ) + " materialPath=" +
-                          Vk_RenderMaterialPathName( myMaterialPath ) );
+    UtilLogger::Info( "PERF", "frameMs=" + std::to_string( myFrameStats.myFrameMs ) + " fps=" + std::to_string( myFrameStats.myFps )
+                                  + " entities=" + std::to_string( myFrameStats.myActiveEntities ) + " visibleDraws=" + std::to_string( visibleDraws )
+                                  + " batchRuns=" + std::to_string( batchRuns ) + " (opaque=" + std::to_string( myFrameStats.myOpaqueBatchRuns ) + " transparent="
+                                  + std::to_string( myFrameStats.myTransparentBatchRuns ) + ")" + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds )
+                                  + " pipelineBinds=" + std::to_string( myFrameStats.myPipelineBinds ) + " drawCalls=" + std::to_string( myFrameStats.myDrawCalls )
+                                  + " materialPath=" + Vk_RenderMaterialPathName( myMaterialPath ) );
 }
 
 void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
-    const VkPipeline      opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
-    const VkPipeline      transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
-    const VkPipelineLayout layout    = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
+    const VkPipeline       opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
+    const VkPipeline       transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
+    const VkPipelineLayout layout     = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
     myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
 }
 
@@ -716,7 +705,6 @@ void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensi
     myDeviceExtensions = someDeviceExtensions;
 }
 
-
 bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     vkGetPhysicalDeviceProperties( aPhysicalDevice, &myPhysicalDeviceProperties );
 
@@ -730,7 +718,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     bool swapChainAdequate = false;
     if ( extensionSupported ) {
         Vk_SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport( aPhysicalDevice );
-        swapChainAdequate                        = !swapChainSupport.myFormats.empty() && !swapChainSupport.myPresentModes.empty();
+        swapChainAdequate                           = !swapChainSupport.myFormats.empty() && !swapChainSupport.myPresentModes.empty();
     }
 
 #ifdef _DEBUG
@@ -742,7 +730,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
 
 Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
     Vk_QueueFamilyIndices indices;
-    uint32_t           queueFamilyCount = 0;
+    uint32_t              queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( aPhysicalDevice, &queueFamilyCount, nullptr );
 
     std::vector< VkQueueFamilyProperties > queueFamilies( queueFamilyCount );
@@ -838,9 +826,8 @@ VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfac
 }
 
 VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const {
-    auto hasMode = [&]( VkPresentModeKHR aMode ) {
-        return std::find( someAvailablePresentModes.begin(), someAvailablePresentModes.end(), aMode ) !=
-               someAvailablePresentModes.end();
+    auto hasMode = [ & ]( VkPresentModeKHR aMode ) {
+        return std::find( someAvailablePresentModes.begin(), someAvailablePresentModes.end(), aMode ) != someAvailablePresentModes.end();
     };
 
     if ( myVsync ) {
@@ -899,7 +886,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     const VkResult moduleResult = vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule );
     if ( moduleResult != VK_SUCCESS ) {
         UtilLogger::Error( "SHADER", "vkCreateShaderModule " + UtilVulkanResult::Describe( moduleResult ) + " path=" + aShaderPath
-                                        + " codeSize=" + std::to_string( shaderCode.size() ) );
+                                         + " codeSize=" + std::to_string( shaderCode.size() ) );
     }
     UtilVulkanResult::ThrowOnFailure( moduleResult, "vkCreateShaderModule" );
 
@@ -1018,10 +1005,10 @@ void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling 
                            VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     VkImageCreateInfo imageInfo = VkInit::ImageCreateInfo( aFormat, anImageUsage, anExtent );
 
-    imageInfo.mipLevels   = aMipLevel;
-    imageInfo.tiling      = aTiling;
-    imageInfo.samples     = aNumSamples;
-    imageInfo.flags       = 0;
+    imageInfo.mipLevels = aMipLevel;
+    imageInfo.tiling    = aTiling;
+    imageInfo.samples   = aNumSamples;
+    imageInfo.flags     = 0;
     std::array< uint32_t, 2 > queueFamilyIndices{};
     VkInit::FillImageSharingMode( myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value(), queueFamilyIndices, imageInfo );
 
