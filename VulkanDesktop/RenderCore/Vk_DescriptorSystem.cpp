@@ -116,8 +116,11 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
         const uint32_t      textureId             = aCore.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
         const Gfx_Material& material              = aCore.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
-        tableEntries[ materialId ].myTextureIndex = textureId;
-        tableEntries[ materialId ].myAlpha        = material.myAlpha;
+        tableEntries[ materialId ].myTextureIndex    = textureId;
+        tableEntries[ materialId ].myRoughness       = material.myRoughness;
+        tableEntries[ materialId ].myMetallic        = material.myMetallic;
+        tableEntries[ materialId ].myAlpha           = material.myAlpha;
+        tableEntries[ materialId ].myBaseColorFactor = material.myBaseColorFactor;
     }
 
     const VkDeviceSize tableSize = sizeof( GpuMaterialTableEntry ) * materialCount;
@@ -279,8 +282,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
         Vk_AllocatedBuffer& paramBuffer = aCore.myMaterialParamBuffers[ materialId ];
         aCore.CreateBuffer( sizeof( GpuMaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
 
-        GpuMaterialParams params{};
-        params.myAlpha = material.myAlpha;
+        const GpuMaterialParams params = Gfx_MaterialToGpuParams( material );
         void* mapped   = nullptr;
         vmaMapMemory( aCore.myAllocator, paramBuffer.myAllocation, &mapped );
         memcpy( mapped, &params, sizeof( params ) );

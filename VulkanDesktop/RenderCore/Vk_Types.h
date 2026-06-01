@@ -49,23 +49,52 @@ public:
     }
 };
 
+// Alpha mode for forward materials (matches MaterialData.alphaMode in lit shaders).
+enum Gfx_MaterialAlphaMode : uint32_t {
+    Gfx_MaterialAlphaMode_Opaque = 0,
+    Gfx_MaterialAlphaMode_Mask   = 1,
+    Gfx_MaterialAlphaMode_Blend  = 2,
+};
+
 struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
-    float            myAlpha         = 1.0f;
-    bool             myIsTransparent = false;
+    glm::vec4        myBaseColorFactor{ 1.0f };
+    float            myRoughness       = 0.5f;
+    float            myMetallic        = 0.0f;
+    float            myAlpha           = 1.0f;
+    uint32_t         myAlphaMode       = Gfx_MaterialAlphaMode_Opaque;
+    bool             myIsTransparent   = false;
 };
 
-// std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag.
+// std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag (Stage 1 forward contract).
 struct GpuMaterialParams {
-    alignas( 4 ) float myAlpha = 1.0f;
+    alignas( 16 ) glm::vec4 myBaseColorFactor{ 1.0f };
+    alignas( 4 ) float      myRoughness = 0.5f;
+    alignas( 4 ) float      myMetallic  = 0.0f;
+    alignas( 4 ) float      myAlpha     = 1.0f;
+    alignas( 4 ) uint32_t   myAlphaMode = Gfx_MaterialAlphaMode_Opaque;
 };
 
 // std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag.
 struct GpuMaterialTableEntry {
-    uint32_t myTextureIndex = 0;
-    float    myAlpha        = 1.0f;
+    uint32_t  myTextureIndex    = 0;
+    float     myRoughness       = 0.5f;
+    float     myMetallic        = 0.0f;
+    float     myAlpha           = 1.0f;
+    float     myPadding         = 0.0f;
+    glm::vec4 myBaseColorFactor{ 1.0f };
 };
+
+inline GpuMaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
+    GpuMaterialParams params{};
+    params.myBaseColorFactor = aMaterial.myBaseColorFactor;
+    params.myRoughness      = aMaterial.myRoughness;
+    params.myMetallic       = aMaterial.myMetallic;
+    params.myAlpha          = aMaterial.myAlpha;
+    params.myAlphaMode       = aMaterial.myAlphaMode;
+    return params;
+}
 
 class Gfx_Vertex {
 public:

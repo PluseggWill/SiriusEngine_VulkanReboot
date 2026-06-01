@@ -12,8 +12,13 @@ layout(set = 0, binding = 1) uniform EnvironmentData {
 
 // Set 1 — material batch (bound once per batch in RecordScenePass).
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
+// Stage 1 forward contract (std140). PBR fields uploaded; shading still Blinn-Phong until PBR perm lands.
 layout(set = 1, binding = 1) uniform MaterialData {
+    vec4 baseColorFactor;
+    float roughness;
+    float metallic;
     float alpha;
+    uint alphaMode;  // 0=opaque, 1=mask, 2=blend
 } material;
 
 layout(location = 0) in vec3 inColor;

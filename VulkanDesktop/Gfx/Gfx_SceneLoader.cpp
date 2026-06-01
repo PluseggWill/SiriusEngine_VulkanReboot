@@ -56,6 +56,48 @@ glm::mat4 ParseTransform( const Json& aJson, const char* aContext ) {
     return glm::make_mat4( values.data() );
 }
 
+uint32_t ParseAlphaMode( const Json& aMaterialJson ) {
+    if ( !aMaterialJson.contains( "alphaMode" ) ) {
+        return 0;
+    }
+    if ( !aMaterialJson[ "alphaMode" ].is_string() ) {
+        throw std::runtime_error( "[SCENE] materials[].alphaMode must be string (opaque|mask|blend)" );
+    }
+    const std::string value = aMaterialJson[ "alphaMode" ].get< std::string >();
+    if ( value == "opaque" ) {
+        return 0;
+    }
+    if ( value == "mask" ) {
+        return 1;
+    }
+    if ( value == "blend" ) {
+        return 2;
+    }
+    throw std::runtime_error( "[SCENE] Unknown materials[].alphaMode: " + value );
+}
+
+glm::vec4 ParseBaseColor( const Json& aMaterialJson ) {
+    if ( !aMaterialJson.contains( "baseColor" ) ) {
+        return glm::vec4( 1.0f );
+    }
+    const Json& color = aMaterialJson[ "baseColor" ];
+    RequireArray( color, "materials[].baseColor" );
+    if ( color.size() != 3 && color.size() != 4 ) {
+        throw std::runtime_error( "[SCENE] materials[].baseColor must have 3 or 4 floats" );
+    }
+    glm::vec4 out{ 1.0f };
+    for ( size_t i = 0; i < color.size(); ++i ) {
+        if ( !color[ i ].is_number() ) {
+            throw std::runtime_error( "[SCENE] materials[].baseColor entries must be numeric" );
+        }
+        out[ static_cast< int >( i ) ] = color[ i ].get< float >();
+    }
+    if ( color.size() == 3 ) {
+        out.a = 1.0f;
+    }
+    return out;
+}
+
 Gfx_RenderFlags ParseRenderFlags( const Json& aEntityJson ) {
     if ( !aEntityJson.contains( "renderFlags" ) ) {
         return Gfx_RenderOpaque;
@@ -173,20 +215,56 @@ void ParseMaterials( const Json& aRoot, Gfx_SceneDesc& aOut ) {
         material.myShaderId  = RequireString( entry, "shader", "materials[]" );
         material.myTextureId = RequireString( entry, "texture", "materials[]" );
         RequireUniqueId( seenIds, material.myId, "materials" );
+        material.myBaseColorFactor = ParseBaseColor( entry );
+        if ( entry.contains( "roughness" ) ) {
+            if ( !entry[ "roughness" ].is_number() ) {
+                throw std::runtime_error( "[SCENE] materials[].roughness must be numeric" );
+            }
+            material.myRoughness = entry[ "roughness" ].get< float >();
+        }
+        if ( entry.contains( "metallic" ) ) {
+            if ( !entry[ "metallic" ].is_number() ) {
+                throw std::runtime_error( "[SCENE] materials[].metallic must be numeric" );
+            }
+            material.myMetallic = entry[ "metallic" ].get< float >();
+        }
         if ( entry.contains( "alpha" ) ) {
             if ( !entry[ "alpha" ].is_number() ) {
                 throw std::runtime_error( "[SCENE] materials[].alpha must be numeric" );
             }
             material.myAlpha = entry[ "alpha" ].get< float >();
         }
+        material.myAlphaMode = ParseAlphaMode( entry );
         if ( entry.contains( "transparent" ) ) {
             if ( !entry[ "transparent" ].is_boolean() ) {
                 throw std::runtime_error( "[SCENE] materials[].transparent must be boolean" );
             }
             material.myIsTransparent = entry[ "transparent" ].get< bool >();
         }
+        if ( material.myIsTransparent && !entry.contains( "alphaMode" ) ) {
+            material.myAlphaMode = 2;  // blend when transparent flag set without explicit alphaMode
+        }
         aOut.myMaterials.push_back( std::move( material ) );
     }
+}
+
+glm::vec3 ParseVec3Field( const Json& aJson, const char* aField, const char* aContext ) {
+    if ( !aJson.contains( aField ) ) {
+        throw std::runtime_error( std::string( "[SCENE] Missing " ) + aField + " in " + aContext );
+    }
+    const Json& arr = aJson[ aField ];
+    RequireArray( arr, aContext );
+    if ( arr.size() != 3 ) {
+        throw std::runtime_error( std::string( "[SCENE] " ) + aField + " must have 3 floats in " + aContext );
+    }
+    glm::vec3 out{};
+    for ( size_t i = 0; i < 3; ++i ) {
+        if ( !arr[ i ].is_number() ) {
+            throw std::runtime_error( std::string( "[SCENE] " ) + aField + " entries must be numeric in " + aContext );
+        }
+        out[ static_cast< int >( i ) ] = arr[ i ].get< float >();
+    }
+    return out;
 }
 
 void ParseEntities( const Json& aRoot, Gfx_SceneDesc& aOut ) {

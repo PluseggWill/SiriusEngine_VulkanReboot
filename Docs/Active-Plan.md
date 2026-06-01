@@ -261,7 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** Stage 1 forward baseline gate or **multi-view** (`multi-view_Plan.md`). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** Stage 1 epic B–C (forward pass hardening) or **flat world matrices**. Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)
 
@@ -283,16 +283,18 @@ flowchart TB
 
 - [ ] Flat world matrices (v1 flat `transform` only); hierarchy deferred — documented in [`SceneJSON.md`](SceneJSON.md) §3.8 and `Archived/plans/scene-load_Plan.md` non-goals.
 
+### Multi-view — *deps: M1 draw stream, dynamic viewport; unblocks S7 frame graph*
+
+- [ ] **`Gfx_RenderView`** — camera source (fly vs scene), normalized viewport, layer mask; v1 targets swapchain only.
+- [ ] Scene JSON **`cameras[]`** — parse eye/center/up/fov/viewport; demo overview PiP camera.
+- [ ] Per-view extract + record — draw stream + instance slab + `UpdateForView` per view; dynamic viewport/scissor.
+- [ ] ImGui **Multi-view** panel — PiP toggle + secondary camera index.
+
+*Prior implementation archived then reverted on branch (2026-06-01); see [`Archived/plans/multi-view_Plan.md`](Archived/plans/multi-view_Plan.md).*
+
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 
-- [ ] Stage 1 gate: finish forward baseline contracts from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (material/permutation/preset parity handoff).
-
-### Multi-view — *deps: M1 Extract, lifecycle; unblocks S7 FG*
-
-- [ ] `RenderView`: camera id, viewport, layer/cull masks, optional render target — plan `multi-view_Plan.md`.
-- [ ] Extract per view (or shared visible set + per-view filter); per-view Set 0 (view/proj).
-- [ ] Record loop: foreach active view; scene JSON `cameras[]` + default active.
-- [ ] Debug: second view (minimap / picture-in-picture) or ImGui view switch.
+- [ ] Stage 1 gate (epic B–C): forward pass hardening + migration validation from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (§A done — `Archived/plans/forward-stage1-contracts_*`).
 
 ---
 

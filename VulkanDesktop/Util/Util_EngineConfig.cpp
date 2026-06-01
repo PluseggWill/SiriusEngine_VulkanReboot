@@ -1,5 +1,6 @@
 #include "Util_EngineConfig.h"
 
+#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include <nlohmann/json.hpp>
 
@@ -28,6 +29,9 @@ int                            gSmokeFrameLimit              = 0;
 double                         gSmokeSeconds                 = 0.0;
 bool                           gDescriptorLayoutMismatchTest = false;
 std::string                    gShaderPermutationName        = "lit";
+std::string                    gRenderPresetName;
+std::optional< std::string >   gConfigShaderPermutation;
+std::optional< std::string >   gConfigRenderPreset;
 std::optional< bool >          gCliValidationOverride;
 std::optional< bool >          gConfigValidation;
 bool                           gValidationResolved = false;
@@ -168,7 +172,10 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
     }
 
     if ( root.contains( "shaderPermutation" ) && root[ "shaderPermutation" ].is_string() ) {
-        gShaderPermutationName = root[ "shaderPermutation" ].get< std::string >();
+        gConfigShaderPermutation = root[ "shaderPermutation" ].get< std::string >();
+    }
+    if ( root.contains( "renderPreset" ) && root[ "renderPreset" ].is_string() ) {
+        gConfigRenderPreset = root[ "renderPreset" ].get< std::string >();
     }
 }
 
@@ -185,7 +192,29 @@ struct CliOverrides {
     std::optional< int >                   mySmokeFrames;
     std::optional< double >                mySmokeSeconds;
     std::optional< std::string >           myShaderPermutation;
+    std::optional< std::string >           myRenderPreset;
 };
+
+void ResolveActiveShaderPermutation( const CliOverrides& aOverrides ) {
+    if ( aOverrides.myShaderPermutation.has_value() ) {
+        gShaderPermutationName = *aOverrides.myShaderPermutation;
+        return;
+    }
+    if ( aOverrides.myRenderPreset.has_value() ) {
+        gRenderPresetName      = *aOverrides.myRenderPreset;
+        gShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( gRenderPresetName );
+        return;
+    }
+    if ( gConfigShaderPermutation.has_value() ) {
+        gShaderPermutationName = *gConfigShaderPermutation;
+        return;
+    }
+    if ( gConfigRenderPreset.has_value() ) {
+        gRenderPresetName      = *gConfigRenderPreset;
+        gShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( gRenderPresetName );
+        return;
+    }
+}
 
 CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
     CliOverrides overrides;
@@ -284,6 +313,13 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             overrides.myShaderPermutation = aArgv[ ++i ];
             continue;
         }
+        if ( arg == "--render-preset" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --render-preset" );
+            }
+            overrides.myRenderPreset = aArgv[ ++i ];
+            continue;
+        }
         if ( arg == "--descriptor-layout-mismatch-test" ) {
             gDescriptorLayoutMismatchTest = true;
             continue;
@@ -327,9 +363,7 @@ void ApplyCliOverrides( const CliOverrides& aOverrides ) {
     if ( aOverrides.mySmokeSeconds.has_value() ) {
         gSmokeSeconds = *aOverrides.mySmokeSeconds;
     }
-    if ( aOverrides.myShaderPermutation.has_value() ) {
-        gShaderPermutationName = *aOverrides.myShaderPermutation;
-    }
+    ResolveActiveShaderPermutation( aOverrides );
 }
 
 const char* LogLevelName( UtilLogger::LogLevel aLevel ) {
@@ -378,6 +412,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
               << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
+              << "  --render-preset <name>        Stage 1 preset (ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
@@ -563,6 +598,9 @@ void LogResolvedSummary() {
     UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" )
                                     + " runtimeMipmap=" + ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( gAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
+    if ( !gRenderPresetName.empty() ) {
+        UtilLogger::Info( "CONFIG", "renderPreset=" + gRenderPresetName );
+    }
     UtilLogger::Info( "CONFIG", "shaderPermutation=" + gShaderPermutationName );
 
     if ( gValidationResolved ) {

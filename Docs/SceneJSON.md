@@ -149,8 +149,12 @@ JSON 对象内键顺序不影响解析；上表顺序便于人工阅读和对照
 | `id` | 是 | — | 实体 `material` 引用 |
 | `shader` | 是 | — | 须存在于 `shaders` |
 | `texture` | 是 | — | 须存在于 `textures` |
+| `baseColor` | 否 | `[1,1,1,1]` | 3 或 4 个 float（RGB 或 RGBA），写入 `GpuMaterialParams.baseColorFactor` |
+| `roughness` | 否 | `0.5` | PBR 预留（当前着色仍用环境 UBO 高光参数） |
+| `metallic` | 否 | `0.0` | PBR 预留 |
 | `alpha` | 否 | `1.0` | 材质 alpha（透明材质常用 &lt; 1） |
-| `transparent` | 否 | `false` | `true` → 走透明 pass |
+| `alphaMode` | 否 | `opaque` | `opaque` / `mask` / `blend`；与 `transparent: true` 同时出现时未写 `alphaMode` 时默认为 `blend` |
+| `transparent` | 否 | `false` | `true` → 走透明 pass（与 `renderFlags: transparent` 一致） |
 
 **运行时 id：** 数组下标 = 材质表 id。
 
@@ -300,7 +304,7 @@ T * S  →  对角线为 scale，最后一列前三个分量为平移
 | 缺资源 warn 继续 | **启动时** — `engine.json` `assetVerify: warn` | Phase D2 |
 | 场景层级 parent | 不支持 | scene-load non-goals，以后版本 |
 | 多 shader / permutation | 仅声明多组；运行时用 `lit` | S2 shader stack |
-| 相机 / 多视图 | 不在 JSON | S2 multi-view |
+| 相机 / 多视图 | 不在 JSON | S2 multi-view（见 Active-Plan） |
 
 ---
 

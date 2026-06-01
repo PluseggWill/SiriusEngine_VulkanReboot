@@ -45,7 +45,7 @@ public:
 private:
     Gfx_Mesh*    LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue );
     Gfx_Texture* LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
-    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, float aAlpha, bool aIsTransparent );
+    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, const Gfx_MaterialManifestEntry& aSurface );
 
     std::vector< Gfx_Mesh >     myMeshes;
     std::vector< Gfx_Material > myMaterials;

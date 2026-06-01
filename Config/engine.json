@@ -9,6 +9,7 @@
   "logLevel": "info",
   "assetVerify": "strict",
   "enableValidationLayers": true,
+  "renderPreset": "ForwardLit",
   "features": {
     "demoRotate": true,
     "runtimeMipmap": false

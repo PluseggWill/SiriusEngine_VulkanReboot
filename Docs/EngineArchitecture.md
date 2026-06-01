@@ -201,7 +201,7 @@ After extract:
 - **Bind once per batch**, not once per logical object when shareable.
 - Prefer **instancing** or **multi-draw** when many instances share the same mesh/material.
 - **Push constants** or **dynamic uniform offsets** for small per-draw variation (e.g. material index) when bindless is not used.
-- **Scene lit pipelines (S2, 2026-06-01):** graphics pipelines declare **dynamic** viewport, scissor, and line width (`Vk_PipelineBuilder::SetDefaultDynamicStates`). `Vk_Core::SetGraphicsDynamicState` sets full-swapchain viewport/scissor and line width `1.0f` **once per scene render pass** after `vkCmdBeginRenderPass`. Per-view rects land with **multi-view** (§5.9).
+- **Scene lit pipelines (S2, 2026-06-01):** graphics pipelines declare **dynamic** viewport, scissor, and line width (`Vk_PipelineBuilder::SetDefaultDynamicStates`). `Vk_Core::SetGraphicsDynamicState` sets full-swapchain viewport/scissor and line width `1.0f` **once per scene render pass** after `vkCmdBeginRenderPass`. Per-view rects are **multi-view** (§5.9, not yet on branch).
 
 ### 5.3 Descriptor policy (locked S0)
 
@@ -309,7 +309,7 @@ Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph pass
 
 ### 5.9 Multi-view and frame graph
 
-**RenderView** (conceptual): `cameraId`, viewport, render target handle, layer/cull masks. Scene JSON may define multiple cameras; application picks active views.
+**RenderView (planned S2):** per-view `myViewportNorm` (x,y,w,h), `myLayerMask`, camera source (fly vs scene `cameras[]`). **v1 target:** all views to swapchain; one render pass, clear once; per view: extract → instance slab → frame UBO → dynamic viewport/scissor → record opaque+transparent. Offscreen RTs remain S7/frame graph. *(Implementation reverted on branch 2026-06-01; design in [`Archived/plans/multi-view_Plan.md`](Archived/plans/multi-view_Plan.md).)*
 
 **Frame graph (S7):** declarative pass/resource DAG for a frame (or per view):
 
@@ -347,6 +347,8 @@ Lighting roadmap is staged to reduce risk while keeping GPU-driven geometry work
 **Compatibility rule:** mesh-shader / GPU-driven milestones (`S3`–`S6`) stay focused on geometry submission and visibility. Lighting architecture evolves through pass topology and shading contracts, not by coupling gameplay/simulation logic to renderer internals.
 
 **Parity rule:** keep `ForwardLit` as a baseline preset for A/B validation while Stage 2 lands, then preserve non-DDGI hybrid behavior when Stage 3 is enabled.
+
+**Stage 1 material contract (2026-06-01):** `GpuMaterialParams` (Set 1 UBO, std140) and `GpuMaterialTableEntry` (bindless SSBO, std430) carry `baseColorFactor`, `roughness`, `metallic`, `alpha`, `alphaMode` (0=opaque, 1=mask, 2=blend). Lit shaders upload all fields; shading remains Blinn-Phong until a `PBR` permutation lands. Scene JSON optional fields mirror the struct. `Config/engine.json` `renderPreset` (`ForwardLit` → permutation `lit`) resolves before `shaderPermutation` when the latter is unset; CLI `--render-preset` / `--shader-permutation` follow the same priority as config.
 
 #### 5.10.1 Lighting dependency graph
 
@@ -546,4 +548,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 pipeline cache disk closed; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 material contract; multi-view deferred; 2026-06-01).*

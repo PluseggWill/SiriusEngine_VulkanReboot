@@ -11,6 +11,7 @@ enum Gfx_ShaderFeatureBit : uint32_t {
     Gfx_ShaderFeature_AlphaClip = 1u << 0,
     Gfx_ShaderFeature_Shadows   = 1u << 1,
     Gfx_ShaderFeature_Ibl       = 1u << 2,
+    Gfx_ShaderFeature_Pbr       = 1u << 3,  // Reserved (Stage 2); no registry entry yet.
 };
 
 struct Gfx_ShaderPermutationDef {

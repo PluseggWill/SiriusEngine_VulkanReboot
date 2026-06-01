@@ -64,7 +64,11 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
         dst.myId                    = static_cast< uint32_t >( i );
         dst.myTextureId             = LookupId( aTables.myTextureIdByName, src.myTextureId, "texture" );
         dst.myPipelinePermutationId = 0;
+        dst.myBaseColorFactor       = src.myBaseColorFactor;
+        dst.myRoughness             = src.myRoughness;
+        dst.myMetallic              = src.myMetallic;
         dst.myAlpha                 = src.myAlpha;
+        dst.myAlphaMode             = src.myAlphaMode;
         dst.myIsTransparent         = src.myIsTransparent;
         aOut.myMaterials.push_back( dst );
     }

@@ -540,7 +540,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         return;
     }
 
-    // --- CPU prep: per-frame UBO upload + draw extraction/batching + instance slab write ---
+    // --- CPU prep: extract/cull/sort + instance slab + frame UBO ---
     myFrameStats.ResetPerFrameCounters();
     Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
@@ -554,10 +554,10 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     prepParams.myFrameDatas            = &myFrameDatas;
     prepParams.myInstanceSlabStride    = InstanceSlabStride();
 
-    // CONTRACT: record path consumes packet output from Vk_FrameDrawPrep only.
-    const bool slabOk = myDrawPrep.Build( prepParams );
-
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ), static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
+    myDrawPrep.ClearFrameOutputs();
+    myDrawPrep.Build( prepParams );
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
+                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) );
@@ -590,10 +590,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    // Skip scene record if instance slab write failed (avoid binding stale per-draw offsets).
-    if ( slabOk ) {
-        Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex );
-    }
+    Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex );
 
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
@@ -896,12 +893,15 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 // Required when bound pipeline declares dynamic viewport/scissor/line width (SetDefaultDynamicStates).
 void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
     // CONTRACT: VkDynamicState list must match Vk_PipelineBuilder::SetDefaultDynamicStates().
-    const VkViewport viewport = VkInit::ViewportCreateInfo( mySwapChainExtent );
+    const VkViewport viewport{ 0.0f,
+                               0.0f,
+                               static_cast< float >( mySwapChainExtent.width ),
+                               static_cast< float >( mySwapChainExtent.height ),
+                               0.0f,
+                               1.0f };
     vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
 
-    VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
-    scissor.extent = mySwapChainExtent;
+    const VkRect2D scissor{ { 0, 0 }, mySwapChainExtent };
     vkCmdSetScissor( aCommandBuffer, 0, 1, &scissor );
 
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );

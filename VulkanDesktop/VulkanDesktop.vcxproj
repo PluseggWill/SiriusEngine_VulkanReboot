@@ -197,6 +197,7 @@
     <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneLoader.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderPreset.cpp" />
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
     <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />

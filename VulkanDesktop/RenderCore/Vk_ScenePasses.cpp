@@ -34,7 +34,6 @@ void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffe
             vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
             vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-            // One draw = one dynamic offset into the frame-local instance slab (Set 2).
             const uint32_t dynamicOffset = draw.myInstanceDataOffset;
             vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1, &objectDescriptor, 1, &dynamicOffset );
             aCore.myFrameStats.myDrawCalls++;
@@ -62,7 +61,6 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
         vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
         vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
 
-        // Bind per-draw transform/material index slice via dynamic UBO offset.
         const uint32_t dynamicOffset = draw.myInstanceDataOffset;
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetObject, 1, &objectDescriptor, 1, &dynamicOffset );
         aCore.myFrameStats.myDrawCalls++;
@@ -85,7 +83,6 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     renderPassInfo.pClearValues    = clearValues.data();
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-    // Once per pass: all scene lit pipelines share the same dynamic viewport/scissor (full swapchain).
     aCore.SetGraphicsDynamicState( aCommandBuffer );
 
     const VkDescriptorSet  frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
@@ -104,24 +101,18 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
             RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, aCore.myBasicPipelineBindless );
             RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, aCore.myTransparentPipelineBindless );
         }
-        else {
-            if ( !sPacketSkipLoggedOnce ) {
-                UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
-                sPacketSkipLoggedOnce = true;
-            }
+        else if ( !sPacketSkipLoggedOnce ) {
+            UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
+            sPacketSkipLoggedOnce = true;
         }
     }
-    else {
-        if ( usePacketPath ) {
-            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass );
-            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass );
-        }
-        else {
-            if ( !sPacketSkipLoggedOnce ) {
-                UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
-                sPacketSkipLoggedOnce = true;
-            }
-        }
+    else if ( usePacketPath ) {
+        RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass );
+        RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass );
+    }
+    else if ( !sPacketSkipLoggedOnce ) {
+        UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
+        sPacketSkipLoggedOnce = true;
     }
 
     if ( usePacketPath && !sPacketPathLoggedOnce ) {

@@ -53,9 +53,9 @@ flowchart LR
 
 **Deps:** `S1 M1` draw stream done, `S2` shader reflection/permutation scaffolding in progress.
 
-- [ ] Freeze per-material data layout for forward path (`baseColor`, roughness/metallic factors, alpha mode contract).
-- [ ] Keep transparent policy explicit (`opaque` vs `transparent`) and document sorting contract.
-- [ ] Define shader feature bits that will carry into deferred (`SHADOWS`, `IBL`, `ALPHA_CLIP`, `PBR`).
+- [x] Freeze per-material data layout for forward path (`baseColor`, roughness/metallic factors, alpha mode contract) — 2026-06-01 `forward-stage1-contracts`.
+- [x] Keep transparent policy explicit (`opaque` vs `transparent`) and document sorting contract — SceneJSON + `EngineArchitecture.md` §5.10.
+- [x] Define shader feature bits that will carry into deferred (`SHADOWS`, `IBL`, `ALPHA_CLIP`, `PBR`) — `Gfx_ShaderFeatureBit` + `PermutationRegistry.json` comment.
 
 ### B. Forward pass hardening
 

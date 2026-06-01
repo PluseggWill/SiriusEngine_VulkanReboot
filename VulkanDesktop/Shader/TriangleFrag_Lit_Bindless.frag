@@ -14,7 +14,11 @@ layout(set = 1, binding = 0) uniform sampler2D u_Textures[];
 
 struct GpuMaterialEntry {
     uint textureIndex;
+    float roughness;
+    float metallic;
     float alpha;
+    float _pad;
+    vec4 baseColorFactor;
 };
 
 layout(set = 1, binding = 1) readonly buffer MaterialTable {
@@ -35,8 +39,9 @@ void main()
     const float shininess = max(envData.fogDistances.y, 1.0);
     const float textureBlend = clamp(envData.fogDistances.z, 0.0, 1.0);
 
-    const uint texIndex = materials.entries[inMaterialIndex].textureIndex;
-    const float alpha = materials.entries[inMaterialIndex].alpha;
+    const GpuMaterialEntry mat = materials.entries[inMaterialIndex];
+    const uint texIndex = mat.textureIndex;
+    const float alpha = mat.alpha;
 
     const vec3 texAlbedo = texture(nonuniformEXT(u_Textures[texIndex]), inTexCoord).rgb;
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend);
