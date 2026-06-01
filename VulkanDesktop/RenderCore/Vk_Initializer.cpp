@@ -5,12 +5,6 @@
 #include <array>
 #include <vector>
 
-namespace {
-
-const std::array< VkDynamicState, 2 > kDefaultDynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
-
-}  // namespace
-
 // --- Graphics pipeline stages ---
 
 // VkPipelineShaderStageCreateInfo — one shader stage for vkCreateGraphicsPipelines (pStages[]).
@@ -64,17 +58,6 @@ void VkInit::Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicSt
     aOut.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     aOut.dynamicStateCount = static_cast< uint32_t >( aStorage.size() );
     aOut.pDynamicStates    = aStorage.empty() ? nullptr : aStorage.data();
-}
-
-// VkPipelineDynamicStateCreateInfo — default viewport + line width; points at process-static storage (safe to copy struct, not to relocate storage).
-// Used when: quick one-off or tests; production path prefers Vk_PipelineBuilder::SetDefaultDynamicStates().
-// Example: auto dyn = Pipeline_DynamicStateCreateInfo(); pass to pipeline create in same scope (do not store pointer past static lifetime changes).
-VkPipelineDynamicStateCreateInfo VkInit::Pipeline_DynamicStateCreateInfo() {
-    static const std::vector< VkDynamicState > storage( kDefaultDynamicStates.begin(), kDefaultDynamicStates.end() );
-    static VkPipelineDynamicStateCreateInfo     info{};
-
-    Pipeline_FillDynamicStateCreateInfo( storage, info );
-    return info;
 }
 
 // VkPipelineInputAssemblyStateCreateInfo — primitive topology (pInputAssemblyState).

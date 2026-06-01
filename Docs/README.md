@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | Dynamic pipeline state, shader reflection, or flat world matrices |
+| **Recommended next** | Shader reflection, flat world matrices, or multi-view |
 | **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

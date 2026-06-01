@@ -261,9 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** pick first open S2 line below (e.g. dynamic pipeline state or shader reflection). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
-
-- [ ] Wire or remove dynamic pipeline state in `Vk_PipelineBuilder`.
+**Next recommended vibe task:** pick first open S2 line below (e.g. shader reflection or flat world matrices). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)
 

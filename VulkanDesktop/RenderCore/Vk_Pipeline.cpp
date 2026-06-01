@@ -9,8 +9,10 @@
 #include <string>
 
 namespace {
+// Scene lit pipelines: must stay in sync with Vk_Core::SetGraphicsDynamicState (vkCmdSet* calls).
 const std::initializer_list< VkDynamicState > kDefaultGraphicsDynamicStates = {
     VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
     VK_DYNAMIC_STATE_LINE_WIDTH,
 };
 }  // namespace

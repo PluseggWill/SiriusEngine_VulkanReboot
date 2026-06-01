@@ -120,6 +120,7 @@ private:
     void RefreshMaterialPipelinesAfterSwapchainRecreate();
     void LogM1PerfSnapshot() const;
     size_t InstanceSlabStride() const;
+    // vkCmdSetViewport/Scissor/LineWidth for scene pipelines; call once per scene render pass after BeginRenderPass.
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
 
     // Helper functions:

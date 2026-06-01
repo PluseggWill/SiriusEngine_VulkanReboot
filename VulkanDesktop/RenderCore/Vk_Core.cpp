@@ -900,9 +900,17 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     return shaderModule;
 }
 
+// Required when bound pipeline declares dynamic viewport/scissor/line width (SetDefaultDynamicStates).
 void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
+    // CONTRACT: VkDynamicState list must match Vk_PipelineBuilder::SetDefaultDynamicStates().
     const VkViewport viewport = VkInit::ViewportCreateInfo( mySwapChainExtent );
     vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
+
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = mySwapChainExtent;
+    vkCmdSetScissor( aCommandBuffer, 0, 1, &scissor );
+
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 

@@ -201,6 +201,7 @@ After extract:
 - **Bind once per batch**, not once per logical object when shareable.
 - Prefer **instancing** or **multi-draw** when many instances share the same mesh/material.
 - **Push constants** or **dynamic uniform offsets** for small per-draw variation (e.g. material index) when bindless is not used.
+- **Scene lit pipelines (S2, 2026-06-01):** graphics pipelines declare **dynamic** viewport, scissor, and line width (`Vk_PipelineBuilder::SetDefaultDynamicStates`). `Vk_Core::SetGraphicsDynamicState` sets full-swapchain viewport/scissor and line width `1.0f` **once per scene render pass** after `vkCmdBeginRenderPass`. Per-view rects land with **multi-view** (§5.9).
 
 ### 5.3 Descriptor policy (locked S0)
 
@@ -543,4 +544,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` split (roadmap hygiene; 2026-05-29).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 dynamic pipeline state policy; 2026-06-01).*

@@ -25,9 +25,8 @@ VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo( VkPolyg
 
 VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount );
 
-// Preferred: caller-owned vector + Fill. Legacy: default viewport/line-width list (static storage).
-void                              Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
-VkPipelineDynamicStateCreateInfo  Pipeline_DynamicStateCreateInfo();
+// Caller-owned vector + Fill; scene defaults via Vk_PipelineBuilder::SetDefaultDynamicStates().
+void Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
 
 VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo( VkBool32 aDepthWriteEnable = VK_TRUE );
 

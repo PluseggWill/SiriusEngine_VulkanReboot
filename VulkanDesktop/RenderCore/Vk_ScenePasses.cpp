@@ -17,7 +17,6 @@ void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffe
 
         aCore.myFrameStats.myPipelineBinds++;
         vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
-        aCore.SetGraphicsDynamicState( aCommandBuffer );
 
         const uint32_t materialId = firstDraw.myMaterialId;
         if ( materialId < aCore.myMaterialDescriptorSets.size() ) {
@@ -54,7 +53,6 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
 
     aCore.myFrameStats.myPipelineBinds++;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aPipeline );
-    aCore.SetGraphicsDynamicState( aCommandBuffer );
 
     for ( const Gfx_DrawInstance& draw : aPass.myDraws ) {
         const Gfx_Mesh& mesh = aCore.myResourceTables.GetMesh( draw.myMeshId );
@@ -87,6 +85,8 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     renderPassInfo.pClearValues    = clearValues.data();
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
+    // Once per pass: all scene lit pipelines share the same dynamic viewport/scissor (full swapchain).
+    aCore.SetGraphicsDynamicState( aCommandBuffer );
 
     const VkDescriptorSet  frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
     const VkPipelineLayout   frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;

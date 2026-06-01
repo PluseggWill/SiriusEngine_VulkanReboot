@@ -23,6 +23,7 @@ public:
 
     // Copies aStates into owned storage; wires myDynamicState.pDynamicStates for pipeline create.
     void SetDynamicStates( std::initializer_list< VkDynamicState > aStates );
+    // Scene default: viewport + scissor + line width (see Vk_Core::SetGraphicsDynamicState).
     void SetDefaultDynamicStates();
 
     VkPipeline BuildPipeline( VkDevice aDevice, VkRenderPass aPass, const Vk_GraphicsPipelineBuildInfo* aDiagnostics = nullptr );
