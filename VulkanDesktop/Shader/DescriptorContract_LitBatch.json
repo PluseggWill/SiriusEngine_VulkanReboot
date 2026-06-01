@@ -1,0 +1,52 @@
+{
+  "_comment": "Engine expectation for lit_batch (batch Set 1 path). Must match Vk_Enum.h and TriangleVertex.vert / TriangleFrag_Lit.frag. Set 2 uses UNIFORM_BUFFER in SPIR-V; dynamic is alloc policy (VkDescriptorPolicy).",
+  "schemaVersion": 1,
+  "pipelineGroup": "lit_batch",
+  "sets": [
+    {
+      "set": 0,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "CameraData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["VERTEX"]
+        },
+        {
+          "binding": 1,
+          "name": "EnvironmentData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["FRAGMENT"]
+        }
+      ]
+    },
+    {
+      "set": 1,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "texSampler",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 1,
+          "name": "MaterialData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["FRAGMENT"]
+        }
+      ]
+    },
+    {
+      "set": 2,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "ObjectData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["VERTEX"]
+        }
+      ]
+    }
+  ]
+}

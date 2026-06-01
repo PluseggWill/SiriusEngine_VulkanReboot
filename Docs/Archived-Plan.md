@@ -27,6 +27,7 @@ Completed lines from [Active-Plan.md](Active-Plan.md). Task logs: [Archived/plan
 ### Engine / hygiene
 
 - [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/Archived/plans/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
+- [x] **[S2]** Shader reflection (2a): offline SPIRV-Reflect → `reflection_lit.json`; MSBuild validate vs `DescriptorContract_LitBatch.json` — 2026-06-01; [`Archived/plans/shader-reflection_Plan.md`](Archived/plans/shader-reflection_Plan.md).
 - [x] **[S2]** Wire dynamic pipeline state (viewport + scissor + line width); pass-level `SetGraphicsDynamicState`; remove legacy `Pipeline_DynamicStateCreateInfo` — 2026-06-01; `Archived/plans/pipeline-dynamic-state-wire_Plan.md`.
 - [x] **[S2]** Input abstraction: `App/InputSystem` owns sampling + `Util_InputState`; `Application` drives platform → input → `ApplyCameraInput` → render; no `UtilInput::Sample` in RenderCore — 2026-05-27; `Archived/plans/input-abstraction_Plan.md`.
 - [x] **[S2]** Central config: `Util_EngineConfig` + `Config/engine.json` (window, vsync, asset root, scene, log level, validation, demoRotate/runtimeMipmap); thin `Util_AssetConfig` / `Util_ValidationConfig` delegates — 2026-05-27; `Archived/plans/central-config_Plan.md`.

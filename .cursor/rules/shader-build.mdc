@@ -9,15 +9,17 @@ alwaysApply: false
 ## Toolchain
 
 - **Sources** (`Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (developer-edited GLSL).
-- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` — glslc output only; do not hand-edit.
+- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` — glslc output only; do not hand-edit. `reflection_lit.json` — ShaderReflect output (committed; regen on shader compile).
 - **VS build + runtime**: **glslc** only; pipeline entry `"main"` in `Vk_Core::CreateGfxPipeline`.
 - **Custom Build** is on `Shader\TriangleVertex.vert`; **Outputs** go to `Shader_Generated\`.
 
 | Script | Role |
 |--------|------|
 | `CompileShader.bat` | VS entry → `CompileShader_Glslc.bat` |
-| `CompileShader_Glslc.bat` | Compiles GLSL to SPIR-V |
+| `CompileShader_Glslc.bat` | Compiles GLSL to SPIR-V, then `ReflectShaders_Lit.bat` |
+| `ReflectShaders_Lit.bat` | `ShaderReflect.exe` → `reflection_lit.json` + contract validate |
 | `ShaderBuild_Common.bat` | Shared `init` / `log` |
+| `Tools/ShaderReflect/` | Offline SPIRV-Reflect tool (`BuildShaderReflect.bat`) |
 
 ## Logs
 
@@ -32,4 +34,4 @@ alwaysApply: false
 ## Descriptor / UBO contract
 
 - Bindings must match `Vk_Enum.h`, `GpuCameraData` / `GpuEnvironmentData`, and `TriangleFrag_Lit.frag` / `TriangleVertex.vert`.
-- When editing layouts, update C++, GLSL, and comments together.
+- When editing layouts, update C++, GLSL, `Shader/DescriptorContract_LitBatch.json`, and comments together (MSBuild fails on drift).

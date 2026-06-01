@@ -261,7 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** pick first open S2 line below (e.g. shader reflection or flat world matrices). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** **shader layout from reflection (2b)** after stabilizing shader edits, or **permutation registry** if deferring layout peel. Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)
 
@@ -285,7 +285,8 @@ flowchart TB
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 
-- [ ] **Shader reflection:** offline SPIRV-Reflect (or equivalent) → JSON bindings (`set`/`binding`/types); validate against `Vk_DescriptorPolicy.h` — plan `shader-reflection_Plan.md`.
+- [ ] **Shader layout from reflection (2b):** `ShaderEffectMeta` + descriptor layout hash cache; replace hand-written `Vk_DescriptorSystem::CreateDescriptorSetLayout` for lit path — draft [`shader-layout-from-reflection_Plan.md`](shader-layout-from-reflection_Plan.md) *(2a done; defer until shader/perm focus)*.
+- [ ] **Shader reflection bindless verify (2d):** reflect `TrianglePix_Bindless.spv` vs bindless contract; optional runtime name/type checks — after 2a *(may merge with 2b)*.
 - [ ] **Permutation registry:** feature key bits (`SHADOWS`, `IBL`, `ALPHA_CLIP`, …) + offline glslc variants → `Shader_Generated/`; sort key carries `pipelinePermutationId`.
 - [ ] **Pipeline cache:** `VkPipelineCache` + disk `Cache/pipeline_*.bin` (versioned); invalidate on shader timestamp / driver change.
 - [ ] Stage 1 gate: finish forward baseline contracts from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (material/permutation/preset parity handoff).
@@ -502,7 +503,7 @@ flowchart LR
 - [ ] **Multi-threading v2:** job system parallel cull/LOD/transform — *deps: MT v1, S1 LOD*; unblocks faster M2 record prep.
 - [ ] **Multi-threading v3 (optional):** render thread + command stream — *deps: S7 frame graph stable*.
 - [ ] **[S1+] Cull/sort depth metric:** opaque `depthBucket` from bounds center **eye-space Z** (not entity-origin NDC); tighten world AABB for rotated transforms.
-- [ ] Shader reflection-driven **layout codegen** (full auto `VkPipelineLayout`) — *deps: S2 reflection JSON*.
+- [ ] Shader reflection-driven **layout codegen** — superseded by S2 **shader layout from reflection (2b)** when that task is scheduled; *deps: reflection 2a JSON*.
 - [ ] `VK_KHR_pipeline_binary` disk cache research — *deps: S2 pipeline cache*.
 - [ ] Editor, networking, non-Windows — see parking lot.
 

@@ -291,7 +291,7 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 
 | Layer | Role | Policy |
 |-------|------|--------|
-| **Reflection** | Offline SPIR-V → binding metadata JSON | Validate against `Vk_DescriptorPolicy.h`; reduces layout drift (S2) |
+| **Reflection (2a)** | Offline SPIR-V → `Shader_Generated/reflection_lit.json` via `ShaderReflect` | MSBuild validates vs `Shader/DescriptorContract_LitBatch.json` (aligned with `Vk_Enum` / §5.3); runtime layout still hand-written until **2b** |
 | **Permutation** | Feature flags → limited shader/pipeline variants | Registry with explicit key bits; sort key includes `pipelinePermutationId`; avoid combinatorial explosion |
 | **Cache** | `VkPipelineCache` + versioned disk blob | Invalidate on shader timestamp or driver change; benchmark cold/warm in S7 |
 
@@ -544,4 +544,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 dynamic pipeline state policy; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 shader reflection 2a + dynamic pipeline state; 2026-06-01).*
