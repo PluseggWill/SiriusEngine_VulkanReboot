@@ -1,0 +1,52 @@
+{
+  "_comment": "Engine expectation for lit_bindless (Set 1 = texture array + material SSBO). Must match Vk_Enum.h eVk_Bindless* and TriangleFrag_Lit_Bindless.frag / TriangleVertex.vert. Set 2 dynamic UBO is alloc policy.",
+  "schemaVersion": 1,
+  "pipelineGroup": "lit_bindless",
+  "sets": [
+    {
+      "set": 0,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "CameraData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["VERTEX"]
+        },
+        {
+          "binding": 1,
+          "name": "EnvironmentData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["FRAGMENT"]
+        }
+      ]
+    },
+    {
+      "set": 1,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "u_Textures",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 1,
+          "name": "MaterialTable",
+          "descriptorType": "STORAGE_BUFFER",
+          "stages": ["FRAGMENT"]
+        }
+      ]
+    },
+    {
+      "set": 2,
+      "bindings": [
+        {
+          "binding": 0,
+          "name": "ObjectData",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["VERTEX"]
+        }
+      ]
+    }
+  ]
+}

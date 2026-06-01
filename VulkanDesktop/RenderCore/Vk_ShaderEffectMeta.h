@@ -41,9 +41,12 @@ struct LitBatchDescriptorSetLayouts {
 namespace VkShaderEffectMeta {
 
 // Same path as MSBuild ShaderReflect output (2a); resolved via UtilLoader::ResolvePath.
-inline constexpr const char* kLitBatchReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit.json";
+inline constexpr const char* kLitBatchReflectionLogicalPath    = "VulkanDesktop/Shader_Generated/reflection_lit.json";
+// S2 phase 2d: bindless frag SPIR-V contract (Set 1 texture array + material SSBO). MSBuild validates; runtime checks types when Bindless path is active.
+inline constexpr const char* kLitBindlessReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit_bindless.json";
 
 ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath = kLitBatchReflectionLogicalPath );
+ShaderEffectMeta LoadLitBindlessFromReflectionJson( const std::string& aLogicalPath = kLitBindlessReflectionLogicalPath );
 void             ApplyLitBatchLayoutOverrides( ShaderEffectMeta& aMeta );
 size_t           HashLayout( const ShaderEffectMeta& aMeta );
 void             LogMetaDump( const ShaderEffectMeta& aMeta );
@@ -52,5 +55,8 @@ void             LogMetaDump( const ShaderEffectMeta& aMeta );
 LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevice, Vk_DeletionQueue& aDeletionQueue );
 
 void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore );
+
+// S2 phase 2d: compare reflection_lit_bindless.json Set 1 vs hand-written bindless layout (Vk_Enum / Vk_DescriptorPolicy).
+void VerifyLitBindlessReflectionContract();
 
 }  // namespace VkShaderEffectMeta

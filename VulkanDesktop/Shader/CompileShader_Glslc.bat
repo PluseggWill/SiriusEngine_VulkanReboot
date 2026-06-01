@@ -43,7 +43,9 @@ if errorlevel 1 (
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix_Bindless.spv"
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 
-REM Phase 2a: SPIRV-Reflect + DescriptorContract_LitBatch.json (stderr/log only; see shader-build.mdc).
+REM Phase 2a (lit_batch) + 2d (lit_bindless): SPIRV-Reflect + descriptor contracts — stderr/log only; see shader-build.mdc.
 call "%~dp0ReflectShaders_Lit.bat"
+if errorlevel 1 exit /b 1
+call "%~dp0ReflectShaders_LitBindless.bat"
 if errorlevel 1 exit /b 1
 exit /b 0

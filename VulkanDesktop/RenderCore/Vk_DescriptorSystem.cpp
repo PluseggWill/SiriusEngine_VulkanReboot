@@ -15,6 +15,8 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
     if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessMaterialSetLayout( aCore );
         CreateBindlessPipelineLayout( aCore );
+        // S2 2d: SPIR-V/contract already checked at build; catch hand-written layout drift at runtime on bindless GPUs.
+        VkShaderEffectMeta::VerifyLitBindlessReflectionContract();
     }
     LogLayoutContract( aCore );
 }

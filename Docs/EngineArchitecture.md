@@ -292,7 +292,8 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | Layer | Role | Policy |
 |-------|------|--------|
 | **Reflection (2a)** | Offline SPIR-V → `Shader_Generated/reflection_lit.json` via `ShaderReflect` | MSBuild validates vs `Shader/DescriptorContract_LitBatch.json` (aligned with `Vk_Enum` / §5.3) |
-| **Layout from reflection (2b)** | Runtime JSON → `ShaderEffectMeta` + FNV layout hash cache → `vkCreateDescriptorSetLayout` for lit batch Set 0/1/2 | Set 2: SPIR-V `UNIFORM_BUFFER` → layout `UNIFORM_BUFFER_DYNAMIC` via engine override; bindless Set 1 still hand-written (**2d**) |
+| **Layout from reflection (2b)** | Runtime JSON → `ShaderEffectMeta` + FNV layout hash cache → `vkCreateDescriptorSetLayout` for lit batch Set 0/1/2 | Set 2: SPIR-V `UNIFORM_BUFFER` → layout `UNIFORM_BUFFER_DYNAMIC` via engine override |
+| **Bindless reflect verify (2d)** | Offline SPIR-V → `reflection_lit_bindless.json`; MSBuild vs `DescriptorContract_LitBindless.json` | Bindless Set 1 layout still hand-written; runtime `VerifyLitBindlessReflectionContract` when `Vk_RenderMaterialPath::Bindless` |
 | **Permutation** | Feature flags → limited shader/pipeline variants | Registry with explicit key bits; sort key includes `pipelinePermutationId`; avoid combinatorial explosion |
 | **Cache** | `VkPipelineCache` + versioned disk blob | Invalidate on shader timestamp or driver change; benchmark cold/warm in S7 |
 
@@ -545,4 +546,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 shader layout from reflection 2b closed; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S2 shader reflection bindless verify 2d closed; 2026-06-01).*

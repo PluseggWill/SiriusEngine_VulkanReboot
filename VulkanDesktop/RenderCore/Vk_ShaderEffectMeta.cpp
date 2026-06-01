@@ -153,6 +153,15 @@ ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath
     return meta;
 }
 
+// Reuses lit_batch JSON parser; pipelineGroup must be lit_bindless (see DescriptorContract_LitBindless.json).
+ShaderEffectMeta LoadLitBindlessFromReflectionJson( const std::string& aLogicalPath ) {
+    ShaderEffectMeta meta = LoadLitBatchFromReflectionJson( aLogicalPath );
+    if ( meta.myPipelineGroup != "lit_bindless" ) {
+        throw std::runtime_error( "Vk_ShaderEffectMeta: expected pipelineGroup lit_bindless, got " + meta.myPipelineGroup );
+    }
+    return meta;
+}
+
 void ApplyLitBatchLayoutOverrides( ShaderEffectMeta& aMeta ) {
     // CONTRACT: SPIR-V/JSON use UNIFORM_BUFFER for objectData; Vk layout uses DYNAMIC (VkDescriptorPolicy Set 2).
     auto setIt = aMeta.mySets.find( VkDescriptorPolicy::kSetObject );
@@ -230,6 +239,9 @@ void LogMetaDump( const ShaderEffectMeta& aMeta ) {
                 break;
             case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
                 typeName = "COMBINED_IMAGE_SAMPLER";
+                break;
+            case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                typeName = "STORAGE_BUFFER";
                 break;
             default:
                 break;
@@ -385,6 +397,52 @@ void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore ) {
 
     const size_t logLen = std::min( validationMessage.size(), static_cast< size_t >( 240 ) );
     UtilLogger::Info( "DESCRIPTOR", "layout mismatch test OK (validation caught): " + validationMessage.substr( 0, logLen ) );
+}
+
+// Runtime guard (2d): hand-written bindless Set 1 in Vk_DescriptorSystem must match reflection_lit_bindless.json + Vk_Enum.h.
+namespace {
+
+const ShaderResource* FindBinding( const ShaderEffectMeta& aMeta, uint32_t aSet, uint32_t aBinding ) {
+    const auto setIt = aMeta.mySets.find( aSet );
+    if ( setIt == aMeta.mySets.end() ) {
+        return nullptr;
+    }
+    const auto bindingIt = setIt->second.myBindings.find( aBinding );
+    if ( bindingIt == setIt->second.myBindings.end() ) {
+        return nullptr;
+    }
+    return &bindingIt->second;
+}
+
+void ExpectBinding( const ShaderResource* aResource, uint32_t aSet, uint32_t aBinding, VkDescriptorType aType, VkShaderStageFlags aStages,
+                    const char* aContext ) {
+    if ( aResource == nullptr ) {
+        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: missing set " ) + std::to_string( aSet ) + " binding "
+                                  + std::to_string( aBinding ) + " (" + aContext + ")" );
+    }
+    if ( aResource->myType != aType || ( aResource->myStageFlags & aStages ) != aStages ) {
+        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta bindless verify: " ) + aContext + " type/stage mismatch" );
+    }
+}
+
+}  // namespace
+
+void VerifyLitBindlessReflectionContract() {
+    const ShaderEffectMeta meta = LoadLitBindlessFromReflectionJson();
+
+    const ShaderResource* textureArray = FindBinding( meta, eVk_SetMaterial, eVk_BindlessTextureArrayBinding );
+    const ShaderResource* materialTable = FindBinding( meta, eVk_SetMaterial, eVk_BindlessMaterialTableBinding );
+    ExpectBinding( textureArray, eVk_SetMaterial, eVk_BindlessTextureArrayBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT, "u_Textures" );
+    ExpectBinding( materialTable, eVk_SetMaterial, eVk_BindlessMaterialTableBinding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                   VK_SHADER_STAGE_FRAGMENT_BIT, "MaterialTable SSBO" );
+
+    // SPIR-V reports runtime-array count=1; Vk layout uses kMaxBindlessTextures (partially bound). Types/stages must match.
+    UtilLogger::Info(
+        "DESCRIPTOR",
+        "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName + " (engine descriptorCount="
+            + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures ) + ", SPIR-V count=" + std::to_string( textureArray->myCount )
+            + "); binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
 }
 
 }  // namespace VkShaderEffectMeta

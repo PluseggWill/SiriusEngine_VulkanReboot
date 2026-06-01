@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | permutation registry or bindless reflection verify (2d) |
+| **Recommended next** | permutation registry |
 | **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
