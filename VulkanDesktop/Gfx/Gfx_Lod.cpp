@@ -33,8 +33,9 @@ void ApplyLodToResult( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, c
 
         draw.myMeshId = resolved;
 
+        const uint16_t permSlot    = static_cast< uint16_t >( ( draw.mySortKey >> 48 ) & 0xFFFFu );
         const uint16_t depthBucket = static_cast< uint16_t >( draw.mySortKey & 0xFFFFu );
-        draw.mySortKey             = Gfx_PackOpaqueSortKey( draw.myPipelinePermutationId, draw.myMaterialId, resolved, depthBucket );
+        draw.mySortKey             = Gfx_PackOpaqueSortKey( permSlot, draw.myMaterialId, resolved, depthBucket );
     }
 }
 }  // namespace

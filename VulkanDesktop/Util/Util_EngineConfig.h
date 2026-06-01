@@ -48,6 +48,9 @@ double GetSmokeSeconds();
 // Dev (S2 shader-layout 2b M4): intentional descriptor type mismatch; requires validation layers.
 bool GetDescriptorLayoutMismatchTest();
 
+// Active entry in Shader/PermutationRegistry.json (default "lit").
+const std::string& GetShaderPermutationName();
+
 bool ResolveValidationEnabled( bool aBuildDefault );
 bool IsValidationEnabled();
 const std::vector< const char* >& GetValidationLayerNames();

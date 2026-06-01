@@ -2,6 +2,7 @@
 
 #include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
+#include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_EngineConfig.h"
@@ -50,6 +51,7 @@ void Application::InitApp( int argc, char** argv ) {
     UtilEngineConfig::Initialize( argc, argv );
     UtilLogger::Init( UtilEngineConfig::GetLogFilePath() );
     UtilLogger::SetMinLogLevel( UtilEngineConfig::GetMinLogLevel() );
+    Gfx_ShaderPermutation::Initialize();
 
     UtilLogger::Info( "APP", "InitApp." );
 

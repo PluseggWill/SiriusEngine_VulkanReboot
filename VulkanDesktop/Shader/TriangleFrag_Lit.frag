@@ -46,4 +46,9 @@ void main()
     const vec3 specular = envData.sunlightColor.rgb * spec;
 
     outColor = vec4(ambient + diffuse + specular, clamp(material.alpha, 0.0, 1.0));
+#ifdef ALPHA_CLIP
+    if (outColor.a < 0.5) {
+        discard;
+    }
+#endif
 }

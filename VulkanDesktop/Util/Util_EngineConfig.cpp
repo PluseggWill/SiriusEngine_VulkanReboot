@@ -27,6 +27,7 @@ Util_AssetVerifyPolicy         gAssetVerifyPolicy = Util_AssetVerifyPolicy::Stri
 int                            gSmokeFrameLimit   = 0;
 double                         gSmokeSeconds      = 0.0;
 bool                           gDescriptorLayoutMismatchTest = false;
+std::string                    gShaderPermutationName        = "lit";
 std::optional< bool >    gCliValidationOverride;
 std::optional< bool >    gConfigValidation;
 bool                     gValidationResolved = false;
@@ -165,6 +166,10 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
             throw std::runtime_error( "Invalid assetVerify in config (expected strict|warn): " + policy );
         }
     }
+
+    if ( root.contains( "shaderPermutation" ) && root[ "shaderPermutation" ].is_string() ) {
+        gShaderPermutationName = root[ "shaderPermutation" ].get< std::string >();
+    }
 }
 
 struct CliOverrides {
@@ -179,6 +184,7 @@ struct CliOverrides {
     std::optional< bool >                    myRuntimeMipmap;
     std::optional< int >                     mySmokeFrames;
     std::optional< double >                  mySmokeSeconds;
+    std::optional< std::string >             myShaderPermutation;
 };
 
 CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
@@ -271,6 +277,13 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             gCliValidationOverride = false;
             continue;
         }
+        if ( arg == "--shader-permutation" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --shader-permutation" );
+            }
+            overrides.myShaderPermutation = aArgv[ ++i ];
+            continue;
+        }
         if ( arg == "--descriptor-layout-mismatch-test" ) {
             gDescriptorLayoutMismatchTest = true;
             continue;
@@ -313,6 +326,9 @@ void ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.mySmokeSeconds.has_value() ) {
         gSmokeSeconds = *aOverrides.mySmokeSeconds;
+    }
+    if ( aOverrides.myShaderPermutation.has_value() ) {
+        gShaderPermutationName = *aOverrides.myShaderPermutation;
     }
 }
 
@@ -361,6 +377,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
+              << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
@@ -526,6 +543,13 @@ const std::vector< const char* >& GetValidationLayerNames() {
     return gValidationLayers;
 }
 
+const std::string& GetShaderPermutationName() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gShaderPermutationName;
+}
+
 void LogResolvedSummary() {
     if ( !gInitialized ) {
         return;
@@ -543,6 +567,7 @@ void LogResolvedSummary() {
                       std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" ) + " runtimeMipmap=" +
                           ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( gAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
+    UtilLogger::Info( "CONFIG", "shaderPermutation=" + gShaderPermutationName );
 
     if ( gValidationResolved ) {
         const char* source = "build default";

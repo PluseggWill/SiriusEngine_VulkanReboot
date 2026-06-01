@@ -6,6 +6,7 @@
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
 #include "../Gfx/Gfx_SceneApply.h"
+#include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
@@ -154,9 +155,10 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     myScenePanelState.myCurrentScenePath = myLoadedSceneLogicalPath;
     UtilScenePanel::RefreshSceneList( myScenePanelState );
 
-    const Gfx_SceneShaderPair litShader = Gfx_GetSceneShader( myLoadedScene, "lit" );
-    vertShaderPath                      = litShader.myVertPath;
-    fragShaderPath                      = litShader.myFragPath;
+    (void)Gfx_GetSceneShader( myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
+    const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
+    vertShaderPath                             = activePerm.myVertSpvLogicalPath;
+    fragShaderPath                             = activePerm.myFragSpvLogicalPath;
     Vk_SceneHost::LoadCpuState( *this );
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );

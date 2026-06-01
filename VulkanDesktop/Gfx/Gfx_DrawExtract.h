@@ -30,8 +30,9 @@ struct Gfx_FrameExtract {
     Gfx_ExtractResult myTransparent;
 };
 
-// Opaque sort key: (pipelinePerm 16 | material 16 | mesh 16 | depthBucket 16). pipelinePerm carries materialTableGeneration in v0.
-uint64_t Gfx_PackOpaqueSortKey( uint32_t aPipelinePermutationId, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket );
+// Opaque sort key: (permSlot 16 | material 16 | mesh 16 | depthBucket 16).
+// permSlot: Gfx_ShaderPermutation::EncodeSortKeyPermSlot(shaderPermId, materialTableGeneration) — see Gfx_ShaderPermutation.h.
+uint64_t Gfx_PackOpaqueSortKey( uint32_t aPermSlot, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket );
 
 void Gfx_SetMaterialTableGenerationForExtract( uint16_t aGeneration );
 

@@ -1,5 +1,7 @@
 #include "Gfx_DrawExtract.h"
 
+#include "Gfx_ShaderPermutation.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -17,14 +19,16 @@ constexpr float kDepthBucketScale = 256.0f;
 void AppendDraw( Gfx_ExtractResult& aOut, uint32_t aSlot, const Gfx_SceneSoA& aScene, uint16_t aDepthBucket ) {
     const uint32_t meshId     = aScene.GetLogicalMeshId( aSlot );
     const uint32_t materialId = aScene.GetMaterialId( aSlot );
-    const uint64_t sortKey    = Gfx_PackOpaqueSortKey( gMaterialTableGeneration, materialId, meshId, aDepthBucket );
+    const uint16_t shaderPerm = Gfx_ShaderPermutation::GetActiveId();
+    const uint16_t permSlot   = Gfx_ShaderPermutation::EncodeSortKeyPermSlot( shaderPerm, gMaterialTableGeneration );
+    const uint64_t sortKey    = Gfx_PackOpaqueSortKey( permSlot, materialId, meshId, aDepthBucket );
 
     Gfx_DrawInstance draw{};
     draw.mySortKey               = sortKey;
     draw.myMeshId                = meshId;
     draw.myMaterialId            = materialId;
     draw.myInstanceDataOffset    = 0;
-    draw.myPipelinePermutationId = 0;
+    draw.myPipelinePermutationId = shaderPerm;
     draw.myEntityIndex           = aSlot;
 
     aOut.myVisibleEntityIndices.push_back( aSlot );
@@ -32,8 +36,8 @@ void AppendDraw( Gfx_ExtractResult& aOut, uint32_t aSlot, const Gfx_SceneSoA& aS
 }
 }  // namespace
 
-uint64_t Gfx_PackOpaqueSortKey( uint32_t aPipelinePermutationId, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket ) {
-    const uint64_t perm  = static_cast< uint64_t >( aPipelinePermutationId & 0xFFFFu ) << 48;
+uint64_t Gfx_PackOpaqueSortKey( uint32_t aPermSlot, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket ) {
+    const uint64_t perm  = static_cast< uint64_t >( aPermSlot & 0xFFFFu ) << 48;
     const uint64_t mat   = static_cast< uint64_t >( aMaterialId & 0xFFFFu ) << 32;
     const uint64_t mesh  = static_cast< uint64_t >( aMeshId & 0xFFFFu ) << 16;
     const uint64_t depth = static_cast< uint64_t >( aDepthBucket );

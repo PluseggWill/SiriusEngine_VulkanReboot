@@ -294,7 +294,7 @@ SoA → Extract → [GPU: cull meshlets → compact list] → vkCmdDrawMeshTasks
 | **Reflection (2a)** | Offline SPIR-V → `Shader_Generated/reflection_lit.json` via `ShaderReflect` | MSBuild validates vs `Shader/DescriptorContract_LitBatch.json` (aligned with `Vk_Enum` / §5.3) |
 | **Layout from reflection (2b)** | Runtime JSON → `ShaderEffectMeta` + FNV layout hash cache → `vkCreateDescriptorSetLayout` for lit batch Set 0/1/2 | Set 2: SPIR-V `UNIFORM_BUFFER` → layout `UNIFORM_BUFFER_DYNAMIC` via engine override |
 | **Bindless reflect verify (2d)** | Offline SPIR-V → `reflection_lit_bindless.json`; MSBuild vs `DescriptorContract_LitBindless.json` | Bindless Set 1 layout still hand-written; runtime `VerifyLitBindlessReflectionContract` when `Vk_RenderMaterialPath::Bindless` |
-| **Permutation** | Feature flags → limited shader/pipeline variants | Registry with explicit key bits; sort key includes `pipelinePermutationId`; avoid combinatorial explosion |
+| **Permutation** | `Shader/PermutationRegistry.json` + offline glslc `-D` variants → `Shader_Generated/` | `Gfx_ShaderPermutation`; active perm via `engine.json` / `--shader-permutation`; sort key `EncodeSortKeyPermSlot(shaderPerm, materialTableGeneration)` |
 | **Cache** | `VkPipelineCache` + versioned disk blob | Invalidate on shader timestamp or driver change; benchmark cold/warm in S7 |
 
 Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph passes**, not per-object virtual branches.
