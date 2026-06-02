@@ -43,7 +43,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | Transparency | Done — opaque + transparent lists | — |
 | LOD v0 (CPU) | Done — `Gfx_LodTable` → resolved `meshId` | GPU LOD parity (**S3**) |
 
-**Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §5.3).
+**Pitfall (2026-05-26):** Do not patch `model` in a shared per-frame camera UBO between draws on the same descriptor set — use dynamic offsets (`.cursor/rules/vulkan-descriptor-per-draw.mdc`, `EngineArchitecture.md` §6.1).
 
 ### S1 — completed tasks
 
@@ -94,7 +94,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ### Engine / hygiene
 
-- [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/Archived/plans/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §5.3, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
+- [x] **[S0]** Descriptor strategy locked (static + dynamic UBO + push hybrid by frequency) — 2026-05-22; `Docs/Archived/plans/descriptor-strategy_Plan.md`, `EngineArchitecture.md` §6.1, `Vk_DescriptorPolicy.h`. Set 0 demo verified; Set 1/2 + push verification tracked in **S1** / **S2** tasks.
 - [x] **[S2]** Shader reflection (2a): offline SPIRV-Reflect → `reflection_lit.json`; MSBuild validate vs `DescriptorContract_LitBatch.json` — 2026-06-01; [`Archived/plans/shader-reflection_Plan.md`](Archived/plans/shader-reflection_Plan.md).
 - [x] **[S2]** Shader layout from reflection (2b): `ShaderEffectMeta` + layout hash cache from `reflection_lit.json`; lit batch `vkCreateDescriptorSetLayout`; M4 `--descriptor-layout-mismatch-test` — 2026-06-01; [`Archived/plans/shader-layout-from-reflection_Plan.md`](Archived/plans/shader-layout-from-reflection_Plan.md).
 - [x] **[S2]** Shader reflection bindless verify (2d): `reflection_lit_bindless.json` + `DescriptorContract_LitBindless.json` MSBuild validate; runtime `VerifyLitBindlessReflectionContract` on bindless path — 2026-06-01; [`Archived/plans/shader-reflection-bindless-verify_Plan.md`](Archived/plans/shader-reflection-bindless-verify_Plan.md).

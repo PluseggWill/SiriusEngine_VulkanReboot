@@ -2,8 +2,8 @@
 
 **Sprint:** S2 — Stage 1 forward epic §B  
 **Status:** Closed (2026-06-02)  
-**Roadmap:** [`Active-Plan.md`](../Active-Plan.md) — epic §C remains open  
-**Epic:** [`forward-rendering-epic_Plan.md`](../forward-rendering-epic_Plan.md) § B  
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) — epic §C remains open  
+**Epic:** [`forward-rendering-epic_Plan.md`](../../forward-rendering-epic_Plan.md) § B  
 **Depends on:** [`forward-stage1-contracts_Plan.md`](forward-stage1-contracts_Plan.md) (§A closed 2026-06-01)
 
 ## Problem statement

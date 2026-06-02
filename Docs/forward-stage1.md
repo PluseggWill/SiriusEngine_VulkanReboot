@@ -88,10 +88,10 @@ Use before starting hybrid deferred work.
 | Topic | Source of truth |
 |-------|-----------------|
 | Material CPU/GPU layout | `GpuMaterialParams`, `GpuMaterialTableEntry`, `Vk_Types.h`; `SceneJSON.md` |
-| Descriptor sets 0/1/2 | `Vk_DescriptorPolicy.h`, `EngineArchitecture.md` §5.3 |
+| Descriptor sets 0/1/2 | `Vk_DescriptorPolicy.h`, `EngineArchitecture.md` §6.1 |
 | Draw stream | `Gfx_FrameRenderPacket` opaque → transparent |
-| Transparent policy | `EngineArchitecture.md` §5.8 — back-to-front sort, depth write off on transparent pipe |
-| Stage 2 depth import | §5.8 — `ForwardTransparent` reads opaque depth; test on / write off |
+| Transparent policy | `EngineArchitecture.md` §5.2 — back-to-front sort, depth write off on transparent pipe |
+| Stage 2 depth import | §5.2 — `ForwardTransparent` reads opaque depth; test on / write off |
 | Render preset | `ForwardLit` via `Gfx_RenderPreset`, config / CLI |
 | Shader perm bits | `Gfx_ShaderFeatureBit`, `PermutationRegistry.json` |
 | Pass record | `Vk_ScenePasses` CONTRACT (single RP, two sub-stages) |
@@ -154,6 +154,6 @@ Not blockers if §2 is satisfied.
 
 ## Related
 
-- Architecture: [`EngineArchitecture.md`](EngineArchitecture.md) §5.8, §5.10
+- Architecture: [`EngineArchitecture.md`](EngineArchitecture.md) §5.2, §7
 - Validation gate: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) § Stage 1 forward
 - CLI / config: [`CLI.md`](CLI.md)

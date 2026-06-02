@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Shader systems  
 **Status:** Closed (2026-06-01)  
-**Roadmap:** [`Active-Plan.md`](../Active-Plan.md)
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md)
 
 ## Goals
 

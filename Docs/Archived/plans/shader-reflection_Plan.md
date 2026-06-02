@@ -2,8 +2,8 @@
 
 **Sprint:** S2 — Shader systems  
 **Status:** Closed (2026-06-01) — Phase 2a only; 2b/2d tracked in Active-Plan  
-**Roadmap:** [`Active-Plan.md`](Active-Plan.md) — *Shader reflection: offline SPIRV-Reflect → JSON bindings; validate against `Vk_DescriptorPolicy.h`*  
-**Related:** S0 descriptor policy — [`Archived/plans/descriptor-strategy_Plan.md`](Archived/plans/descriptor-strategy_Plan.md); S2 layout audit — [`Archived/plans/descriptor-layout-verify_Plan.md`](Archived/plans/descriptor-layout-verify_Plan.md)
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) — *Shader reflection: offline SPIRV-Reflect → JSON bindings; validate against `Vk_DescriptorPolicy.h`*  
+**Related:** S0 descriptor policy — [`Archived/plans/descriptor-strategy_Plan.md`](descriptor-strategy_Plan.md); S2 layout audit — [`Archived/plans/descriptor-layout-verify_Plan.md`](descriptor-layout-verify_Plan.md)
 
 ---
 

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # VulkanDesktop — test & smoke-run CLI
 
-Full reference: [`Docs/CLI.md`](Docs/CLI.md). Implementation: `VulkanDesktop/Util/Util_EngineConfig.cpp`.
+Full reference: [`Docs/CLI.md`](../../Docs/CLI.md). Implementation: `VulkanDesktop/Util/Util_EngineConfig.cpp`.
 
 **Binary:** `x64\Debug\VulkanDesktop.exe` (after `MSBuild VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64`).
 

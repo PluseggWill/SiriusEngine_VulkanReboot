@@ -2,8 +2,8 @@
 
 **Sprint:** S2 — Shader systems (phase **2b**)  
 **Status:** **Closed (2026-06-01)**  
-**Prerequisite:** [shader-reflection (2a)](Archived/plans/shader-reflection_Plan.md) — **done 2026-06-01**  
-**Roadmap:** [`Active-Plan.md`](Active-Plan.md) — *Shader layout from reflection (2b)*
+**Prerequisite:** [shader-reflection (2a)](shader-reflection_Plan.md) — **done 2026-06-01**  
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) — *Shader layout from reflection (2b)*
 
 ---
 

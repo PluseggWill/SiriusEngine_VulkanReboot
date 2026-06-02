@@ -70,7 +70,7 @@ Keep `Util_DemoAssets` only until the first scene file drives the same demo; the
 | Default scene | `Data/Scenes/demo.json` equivalent to current demo content |
 | Lifecycle order (target) | `InitApp` → `LoadSceneDesc` → `VerifyManifest` → `InitWindow` → `InitRenderDevice` → **`LoadSceneResources`** → loop → **`UnloadScene`** → shutdown |
 | Lifecycle order (today) | `main`: parse/verify/`SetLoadedScene` → `Run()` → `InitWindow` → `InitVulkan` (**still loads SoA + GPU tables inside InitVulkan**) → loop → `Clear()` |
-| Scene authoring | [`SceneJSON.en.md`](SceneJSON.en.md), [`SceneJSON.md`](SceneJSON.md) |
+| Scene authoring | [`SceneJSON.en.md`](../../SceneJSON.en.md), [`SceneJSON.md`](../../SceneJSON.md) |
 | Modules (today) | `Gfx_SceneLoader`, `Gfx_SceneApply`, `Util_AssetManifest`; coordinator still `VulkanDesktop.cpp` + `Vk_Core` (no `Application` type yet) |
 
 ### Example scene sketch (v1)
@@ -250,7 +250,7 @@ flowchart TB
 | **Application lifecycle** | Phase C (done) | Phase D1, multi-view, clean reload, moving load out of `InitVulkan` |
 | **Phase D1 UnloadScene** | Application lifecycle | Scene hot-swap, D3 smoke |
 | **Phase D2 warn policy** | Optional; central config helps | Vertical slice optional assets |
-| **Phase D3 smoke.json** | D1 ideal; can author file earlier using [`SceneJSON.md`](SceneJSON.md) | CI / manual load tests |
+| **Phase D3 smoke.json** | D1 ideal; can author file earlier using [`SceneJSON.md`](../../SceneJSON.md) | CI / manual load tests |
 | **Multi-view** | Lifecycle + Extract (S1 done) | S7 frame graph experiments |
 
 ### Recommended next (post closeout)
@@ -259,7 +259,7 @@ See `Docs/Active-Plan.md` S2 open items: descriptor layout verify, S2 hygiene (i
 
 ### Doc index for scene JSON
 
-Authoring: **[`SceneJSON.en.md`](SceneJSON.en.md)** / [`SceneJSON.md`](SceneJSON.md). LOD: [`Data/LOD.md`](../Data/LOD.md). Example: [`Data/Scenes/demo.json`](../Data/Scenes/demo.json).
+Authoring: **[`SceneJSON.en.md`](../../SceneJSON.en.md)** / [`SceneJSON.md`](../../SceneJSON.md). LOD: [`Data/LOD.md`](../../../Data/LOD.md). Example: [`Data/Scenes/demo.json`](../../../Data/Scenes/demo.json).
 
 ## Files (expected touch list)
 

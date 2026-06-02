@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Multi-view  
 **Status:** Closed (2026-06-02)  
-**Roadmap:** [`Active-Plan.md`](Active-Plan.md) § Multi-view
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) § Multi-view
 
 ## Goals
 

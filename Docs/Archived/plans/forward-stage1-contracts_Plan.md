@@ -2,8 +2,8 @@
 
 **Sprint:** S2 — Stage 1 forward gate (epic A)  
 **Status:** Closed (2026-06-01)  
-**Roadmap:** [`Active-Plan.md`](Active-Plan.md) — *Stage 1 gate: forward baseline contracts*  
-**Epic:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) § A
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) — *Stage 1 gate: forward baseline contracts*  
+**Epic:** [`forward-rendering-epic_Plan.md`](../../forward-rendering-epic_Plan.md) § A
 
 ## Goals
 

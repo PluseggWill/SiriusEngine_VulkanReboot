@@ -8,7 +8,7 @@ alwaysApply: false
 
 **Single source for doc boundaries.** Other rules/skills link here; do not duplicate the tables below.
 
-Index: [`Docs/README.md`](Docs/README.md). Workflow: [`vibe-coding-workflow` SKILL](../skills/vibe-coding-workflow/SKILL.md).
+Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflow` SKILL](../skills/vibe-coding-workflow/SKILL.md).
 
 **Editing `Docs/Archived/plans/`** — history only; sync checklist **N/A** unless fixing broken links.
 

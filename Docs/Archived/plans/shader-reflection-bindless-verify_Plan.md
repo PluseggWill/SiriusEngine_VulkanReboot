@@ -3,7 +3,7 @@
 **Sprint:** S2 — Shader systems  
 **Status:** Closed (2026-06-01)  
 **Prerequisite:** shader-reflection (2a), shader-layout-from-reflection (2b) — done  
-**Roadmap:** [`Active-Plan.md`](Active-Plan.md) — *Shader reflection bindless verify (2d)*
+**Roadmap:** [`Active-Plan.md`](../../Active-Plan.md) — *Shader reflection bindless verify (2d)*
 
 ---
 

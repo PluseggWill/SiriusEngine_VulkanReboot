@@ -54,7 +54,7 @@ flowchart LR
 **Deps:** `S1 M1` draw stream done, `S2` shader reflection/permutation scaffolding in progress.
 
 - [x] Freeze per-material data layout for forward path (`baseColor`, roughness/metallic factors, alpha mode contract) — 2026-06-01 `forward-stage1-contracts`.
-- [x] Keep transparent policy explicit (`opaque` vs `transparent`) and document sorting contract — SceneJSON + `EngineArchitecture.md` §5.10.
+- [x] Keep transparent policy explicit (`opaque` vs `transparent`) and document sorting contract — SceneJSON + `EngineArchitecture.md` §5.2.
 - [x] Define shader feature bits that will carry into deferred (`SHADOWS`, `IBL`, `ALPHA_CLIP`, `PBR`) — `Gfx_ShaderFeatureBit` + `PermutationRegistry.json` comment.
 
 ### B. Forward pass hardening
@@ -62,7 +62,7 @@ flowchart LR
 **Deps:** A complete; requires current transparent policy from S1 and descriptor contracts (`Set 0/1/2`) locked in docs.
 
 - [x] Separate forward opaque and forward transparent record flow clearly in pass-level docs — 2026-06-02 `forward-pass-hardening`.
-- [x] Ensure transparent pass policy stays compatible with later deferred depth consumption — `EngineArchitecture.md` §5.8 Stage 2 depth contract.
+- [x] Ensure transparent pass policy stays compatible with later deferred depth consumption — `EngineArchitecture.md` §5.2 Stage 2 depth contract.
 - [x] Add debug views/preset switches required for future parity checks — `Util_RenderDebugPanel`, depth/normal modes, skip-pass toggles.
 
 ### C. Validation and migration gates
@@ -76,7 +76,7 @@ flowchart LR
 ## Acceptance
 
 - [x] Default scene renders correctly with forward opaque + transparent policy — `demo.json` + baseline runbook (2026-06-02).
-- [x] Material and permutation contracts are documented and reused by Stage 2 plan — Architecture §5.10, handoff checklist, `hybrid-deferred-epic` deps.
+- [x] Material and permutation contracts are documented and reused by Stage 2 plan — Architecture §7, handoff checklist, `hybrid-deferred-epic` deps.
 - [x] `ForwardLit` baseline can be selected for A/B comparison after deferred path lands — `Config/engine.benchmark.json`, `--render-preset ForwardLit`.
 
 ## Exit criteria for Stage 2

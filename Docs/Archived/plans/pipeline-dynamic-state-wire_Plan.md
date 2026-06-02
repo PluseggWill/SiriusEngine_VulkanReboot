@@ -2,8 +2,8 @@
 
 **Sprint:** S2 — Engine layering & hygiene  
 **Status:** Closed (2026-06-01)  
-**Roadmap:** moved to [`Archived-Plan.md`](Archived-Plan.md) `[S2]`  
-**Prior art:** S0 [`Archived/plans/pipeline-dynamic-state_Plan.md`](Archived/plans/pipeline-dynamic-state_Plan.md)
+**Roadmap:** moved to [`Archived-Plan.md`](../../Archived-Plan.md) `[S2]`  
+**Prior art:** S0 [`Archived/plans/pipeline-dynamic-state_Plan.md`](pipeline-dynamic-state_Plan.md)
 
 ## Problem
 
