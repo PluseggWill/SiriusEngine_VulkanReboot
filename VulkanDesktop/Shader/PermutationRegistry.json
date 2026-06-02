@@ -1,0 +1,21 @@
+{
+  "_comment": "Offline shader permutation table (S2). glslc -D flags per entry; sort key uses registry id in pipelinePermutationId. Reserved features: SHADOWS, IBL, PBR (Stage 2+). Render presets ForwardLit/ForwardLitAlphaClip map here via Gfx_RenderPreset.",
+  "schemaVersion": 1,
+  "permutations": [
+    {
+      "id": 0,
+      "name": "lit",
+      "features": [],
+      "vertSpv": "VulkanDesktop/Shader_Generated/TriangleVert.spv",
+      "fragSpv": "VulkanDesktop/Shader_Generated/TrianglePix.spv"
+    },
+    {
+      "id": 1,
+      "name": "lit_alpha_clip",
+      "features": ["ALPHA_CLIP"],
+      "glslcDefines": ["ALPHA_CLIP=1"],
+      "vertSpv": "VulkanDesktop/Shader_Generated/TriangleVert.spv",
+      "fragSpv": "VulkanDesktop/Shader_Generated/TrianglePix_AlphaClip.spv"
+    }
+  ]
+}

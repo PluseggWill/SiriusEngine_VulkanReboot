@@ -1,0 +1,41 @@
+---
+description: VulkanDesktop 注释与 shader↔CPU 契约（C++/GLSL）
+globs: VulkanDesktop/**/*
+alwaysApply: false
+---
+
+# VulkanDesktop — 注释约定
+
+`VulkanDesktop/` 内注释用**英文**、**短而有用**。目录/命名/C++ 要点见 **`vulkan-desktop-layout.mdc`**。
+
+## 何时写 / 不写
+
+| 写 | 不写 |
+|----|------|
+| UBO/描述符布局、binding、packed 字段 | 下一行显而易见的行为 |
+| 队列族、sharing、frame-in-flight | 复述参数名 |
+| Z-up、投影 Y 翻转、光照方向等非显然约定 | Step 1…N 教程 |
+| `TODO(area):` + **原因** | 与代码矛盾的旧注 |
+
+## 格式
+
+```cpp
+// Module: Vk_Core — device, swapchain, frame loop.
+// --- Frame loop (CPU) ---
+// CONTRACT: eVk_* must match TriangleVertex.vert layout(binding = N).
+// WARNING: texcoord_index may be -1; guard before indexing.
+// TODO(draw-stream): reason
+```
+
+## 领域
+
+- **Gpu***：std140/430、对应 shader binding、字段复用说明
+- **Descriptors**：index + type + stage；与 `Vk_Enum.h`/GLSL 同步
+- **Queues**：graphics/transfer 复用、`CONCURRENT` vs `EXCLUSIVE`
+- **Paths**：在 `UtilLoader::ResolvePath` 等解析点注明逻辑路径，非每次 `ReadFile`
+
+## 维护
+
+- 改函数时修正注释错别字；删矛盾注释；`TODO` 带 scope
+
+架构/路线图：`Docs/EngineArchitecture.md`、`Docs/Active-Plan.md`、`Docs/Archived-Plan.md`

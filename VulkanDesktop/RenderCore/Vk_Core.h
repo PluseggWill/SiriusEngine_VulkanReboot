@@ -1,50 +1,132 @@
 #pragma once
 #include <array>
+#include <chrono>
 #include <string>
 #include <vk_mem_alloc.h>
 
+#include "../Gfx/Gfx_Lod.h"
+#include "../Gfx/Gfx_RenderView.h"
+#include "../Gfx/Gfx_SceneDesc.h"
+#include "../Gfx/Gfx_SceneTransform.h"
+#include "../Util/Util_FrameStats.h"
+#include "../Util/Util_ImGuiLayer.h"
+#include "../Util/Util_InputSnapshot.h"
+#include "../Util/Util_RenderDebugPanel.h"
+#include "../Util/Util_ScenePanel.h"
+#include "Vk_Bindless.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
+#include "Vk_FrameDrawPrep.h"
+#include "Vk_RenderDoc.h"
+#include "Vk_ResourceContext.h"
+#include "Vk_ResourceTables.h"
+#include <optional>
 
-constexpr int   MAX_FRAMES_IN_FLIGHT = 2;
-constexpr bool  USE_RUNTIME_MIPMAP   = false;
-constexpr bool  USE_MANUAL_VERTICES  = false;
-constexpr bool  ENABLE_ROTATE        = true;
-constexpr bool  FILL_MODE_LINE       = false;
-constexpr float SPEED                = 0.3f;
-// const bool ENABLE_MSAA          = false;
+constexpr int  MAX_FRAMES_IN_FLIGHT = 2;      // swapchain frames in flight; also env UBO slice count
+constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
 
-struct AllocatedImage;
-struct AllocatedBuffer;
-struct Texture;
-struct Material;
-class Vertex;
-class Mesh;
-class RenderObject;
+struct Vk_AllocatedImage;
+struct Vk_AllocatedBuffer;
+struct Gfx_Texture;
+struct Gfx_Material;
+class Gfx_Vertex;
+class Gfx_Mesh;
+class Gfx_RenderObject;
+struct GLFWwindow;
 
+class Vk_Core;
+
+namespace VkShaderEffectMeta {
+void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore );
+}
+
+// RHI-shaped Vulkan backend: device, swapchain, pipelines, descriptors, frame sync, command record/submit.
+// Orchestration slices: Vk_RenderDevice, Vk_SwapchainHost, Vk_DescriptorSystem, Vk_GfxPipelineCache, Vk_ScenePasses,
+// Vk_FrameDrawPrep, Vk_SceneHost (SoA/LOD + demo camera/env defaults), Vk_PlatformFrame.
 class Vk_Core {
+    friend class Vk_RenderDevice;
+    friend class Vk_SwapchainHost;
+    friend class Vk_DescriptorSystem;
+    friend void VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest( Vk_Core& );
+    friend class Vk_GfxPipelineCache;
+    friend class Vk_DevicePipelineCache;
+    friend class Vk_ScenePasses;
+    friend class Vk_FrameUniformUploader;
+    friend class Vk_SceneHost;
+    friend class Vk_PlatformFrame;
+
 public:
+    struct MultiViewState {
+        bool     myEnablePiP            = true;
+        uint32_t mySecondaryCameraIndex = 0;
+    };
+
+    struct ActiveRenderView {
+        Gfx_RenderView myView;
+        Vk_Camera      myCamera;
+        VkViewport     myViewport{};
+        VkRect2D       myScissor{};
+    };
+
     static Vk_Core& GetInstance();
-    Vk_Core( const Vk_Core& ) = delete;
+    Vk_Core( const Vk_Core& )            = delete;
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
-    void Run();
+    void SetVsync( bool aVsync );
     void Reset();
-    // TODO: maybe merge all the set function when initializing?
+
+    // Application lifecycle (orchestrated by App/Application).
+    void InitWindow();
+    void InitRenderDevice();
+    void LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath = {} );
+    void UnloadScene();
+
+    const std::string& GetLoadedSceneLogicalPath() const {
+        return myLoadedSceneLogicalPath;
+    }
+    std::string TakePendingSceneReloadPath();
+
+    // Scene-scoped GPU teardown queue (meshes, textures, descriptor pool, material buffers). Flushed in UnloadScene.
+    Vk_DeletionQueue& GetSceneDeletionQueue() {
+        return mySceneDeletionQueue;
+    }
+    void        Shutdown();
+    void        BeginPlatformFrame( float& aOutDeltaSeconds );
+    void        ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
+    void        SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
+    void        Render();
+    void        ConfigureRenderDoc( bool aEnableRenderDoc );
+    void        TriggerRenderDocCapture();
+    bool        IsRenderDocEnabled() const;
+    void        CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const;
+    void        CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
+    bool        ShouldClose() const;
+    GLFWwindow* GetWindow() const {
+        return myWindow;
+    }
+
+    Gfx_SceneSoA& GetSceneSoA() {
+        return mySceneSoA;
+    }
+    Gfx_SceneTransformState& GetSceneTransformState() {
+        return mySceneTransformState;
+    }
+
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
     void SetRequiredExtension( std::vector< const char* > someDeviceExtensions );
 
-    // Util Functions:
-    void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, AllocatedBuffer& aBuffer, bool isExclusive ) const;
+    // Resource helpers (used by Gfx/Util loaders via Vk_ResourceContext injection long-term).
+    // isExclusive: true = single queue family; false = graphics+transfer concurrent when families differ.
+    void           CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                                AllocatedImage& anImage ) const;
+                                Vk_AllocatedImage& anImage ) const;
     void           CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+                                VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     void           CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                                VkSampleCountFlagBits aNumSamples, AllocatedImage& anImage ) const;
+                                VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     VkShaderModule CreateShaderModule( const std::vector< char >& someShaderCode ) const;
     VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
     VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
@@ -58,136 +140,147 @@ private:
     Vk_Core();
     ~Vk_Core();
 
-    void InitWindow();
-    void MainLoop();
     void Clear();
-    void InitVulkan();
+    void SyncResourceContext();
 
-    // Init Functions:
-    // Part 1: Base
+    // Device init (Vk_RenderDevice + frame slabs; env UBO buffer allocated here, CPU defaults at scene load).
     void CreateInstance();
     void PickPhysicalDevice();
-    void InitQueueFamilyIndices();
+    void InitVk_QueueFamilyIndices();
     void CreateLogicalDevice();
     void CreateSurface();
     void CreateCommandPool();
     void InitAllocator();
-
-    // Part 2: Swap chain
-    void CreateSwapChain();
-    void CreateRenderPass();
-    void CreateDescriptorSetLayout();
-    void CreateGfxPipeline();
-    void CreateDepthResources();
-    void CreateColorResources();
-    void CreateFrameBuffers();
-
-    // Part 3: Resources
-    void CreateTextureSampler();
-    void CreateDescriptorPool();
-    void CreateDescriptorSets();
-
-    // Part 4: Prepare for draw frames
     void CreateFrameData();
-    void CreateCamera();
+    void CreateInstanceSlabs();
     void CreateUniformBuffers();
-    void InitScene();
+    void InitImGui();
+    void ShutdownImGui();
 
-    // Draw frame:
-    void DrawFrame( const FrameData aFrameData );
-    void RecreateSwapChain();
-    void UpdateUniformBuffer( uint32_t aCurrentFrame ) const;
-    void RecordCommandBuffer( VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
-    void DrawObjects( VkCommandBuffer aCommandBuffer, std::vector< RenderObject >& someRenderObjects, uint32_t anImageIndex );
+    void   DrawFrame( const Vk_FrameData aFrameData );
+    void   RefreshMaterialPipelinesAfterSwapchainRecreate();
+    void   LogM1PerfSnapshot() const;
+    size_t InstanceSlabStride() const;
+    // vkCmdSetViewport/Scissor/LineWidth for scene pipelines; call once per scene render pass after BeginRenderPass.
+    void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const;
+    std::array< ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount ) const;
 
     // Helper functions:
-    void                    CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
-    void                    CheckExtensionSupport() const;
-    bool                    CheckValidationLayerSupport() const;
-    bool                    CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const;
-    bool                    CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
-    QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
-    SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const;
-    VkSurfaceFormatKHR      ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const;
-    VkPresentModeKHR        ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const;
-    VkExtent2D              ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const;
-    uint32_t                FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const;
-    VkCommandBuffer         BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
-    void                    EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
-    VkFormat                FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
-    VkFormat                FindDepthFormat() const;
-    VkSampleCountFlagBits   GetMaxUsableSampleCount() const;
-    size_t                  PadUniformBufferSize( size_t anOriginalSize ) const;
+    void                       CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    void                       CheckExtensionSupport() const;
+    bool                       CheckValidationLayerSupport() const;
+    bool                       CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const;
+    bool                       CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
+    Vk_QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
+    Vk_SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const;
+    VkSurfaceFormatKHR         ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const;
+    VkPresentModeKHR           ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const;
+    VkExtent2D                 ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const;
+    uint32_t                   FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const;
+    VkCommandBuffer            BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
+    void                       EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
+    VkFormat                   FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
+    VkFormat                   FindDepthFormat() const;
+    VkSampleCountFlagBits      GetMaxUsableSampleCount() const;
+    size_t                     PadUniformBufferSize( size_t anOriginalSize ) const;
 
-#pragma region View Data Functions
-    Material* CreateMaterial( VkPipeline aPipeline, VkPipelineLayout aLayout, const uint32_t index );
-    Material* GetMaterial( const uint32_t anIndex );
-    Mesh*     CreateMesh( const std::string& aFilename, const uint32_t anIndex );
-    Mesh*     GetMesh( const uint32_t anIndex );
-    Texture*  CreateTexture( const std::string& aFilename, const uint32_t anIndex );
-    Texture*  GetTexture( const uint32_t anIndex );
-#pragma endregion
-
-    // GLFW callback functions: GLFW does not know how to properly call a member funtion with the right "this" pointer.
-    static void HandleInputCallback( GLFWwindow* aWindow, int aKey, int aScanCode, int anAction, int aMode );
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
 public:
-    uint32_t     myFrameNumber = 0;
-    VmaAllocator myAllocator;
+    bool            myVsync       = true;
+    uint32_t        myFrameNumber = 0;
+    Util_FrameStats myFrameStats;
+    VmaAllocator    myAllocator;
 
 #pragma region View Data Functions
-    Gfx_Camera         myCamera;
-    GpuEnvironmentData myEnvironmentData;
-    AllocatedBuffer    myEnvDataBuffer;
+    Vk_Camera           myCamera;
+    Util_CameraSettings myCameraSettings;
+    GpuEnvironmentData  myEnvironmentData;
+    Vk_AllocatedBuffer  myEnvDataBuffer;
 
-    std::unordered_map< uint32_t, Material > myMaterialMap;
-    std::unordered_map< uint32_t, Mesh >     myMeshMap;
-    std::unordered_map< uint32_t, Texture >  myTextureMap;
-    std::vector< RenderObject >              myRenderObjects;
+    Vk_ResourceContext              myResourceContext;
+    Vk_ResourceTables               myResourceTables;
+    std::vector< Gfx_RenderObject > myRenderObjects;
+    Gfx_SceneSoA                    mySceneSoA;
+    Gfx_LodTable                    myLodTable;
+    Gfx_LodState                    myLodState;
+    Vk_FrameDrawPrep                myDrawPrep;
+    bool                            myMaterialBindLoggedOnce = false;
+    uint32_t                        myLodDebugLogicalMeshId  = UINT32_MAX;
+    bool                            myBindlessLoggedOnce     = false;
+    bool                            myM1PerfLoggedOnce       = false;
+    Vk_BindlessCapabilities         myBindlessCaps{};
+    Vk_RenderMaterialPath           myMaterialPath = Vk_RenderMaterialPath::Batch;
+    Gfx_SceneTransformState         mySceneTransformState;
+    Gfx_SceneDesc                   myLoadedScene;
+    Gfx_SceneIdTables               mySceneIdTables;
+    std::string                     myLoadedSceneLogicalPath;
+    bool                            myHasLoadedScene = false;
+    UtilScenePanel::State           myScenePanelState;
+    MultiViewState                  myMultiViewState;
+    UtilRenderDebugPanel::State     myRenderDebugState;  // skip opaque/transparent + debug view (epic §B)
+    std::vector< VkDescriptorSet >  myMaterialDescriptorSets;
 #pragma endregion
 
 private:
-    DeletionQueue         myDeletionQueue;
-    DeletionQueue         mySwapChainDeletionQueue;
-    uint32_t              myWidth, myHeight;
-    GLFWwindow*           myWindow;
-    VkInstance            myInstance;
-    VkPhysicalDevice      myPhysicalDevice;
-    VkDevice              myDevice;
-    VkQueue               myGraphicsQueue;
-    VkQueue               myPresentQueue;
-    VkQueue               myTransferQueue;
-    VkSurfaceKHR          mySurface;
-    VkSwapchainKHR        mySwapChain;
-    VkFormat              mySwapChainImageFormat;
-    VkExtent2D            mySwapChainExtent;
-    VkDescriptorSetLayout myGlobalSetLayout;
-    VkDescriptorPool      myDescriptorPool;
-    VkPipelineLayout      myPipelineLayout;
-    VkRenderPass          myRenderPass;
-    VkPipeline            myBasicPipeline;
-    VkCommandPool         myGraphicsCommandPool;
-    VkCommandPool         myTransferCommandPool;
-    Texture               myDepthTexture;
-    Texture               myColorTexture;
-    VkSampler             myTextureSampler;
-    uint32_t              myTextureImageMipLevels;
-    QueueFamilyIndices    myQueueFamilyIndices;
+    Vk_DeletionQueue                  myDeletionQueue;
+    Vk_DeletionQueue                  mySceneDeletionQueue;
+    Vk_DeletionQueue                  mySwapChainDeletionQueue;
+    uint32_t                          myWidth, myHeight;
+    GLFWwindow*                       myWindow;
+    VkInstance                        myInstance;
+    VkPhysicalDevice                  myPhysicalDevice;
+    VkDevice                          myDevice;
+    VkQueue                           myGraphicsQueue;
+    VkQueue                           myPresentQueue;
+    VkQueue                           myTransferQueue;
+    VkSurfaceKHR                      mySurface;
+    VkSwapchainKHR                    mySwapChain;
+    VkFormat                          mySwapChainImageFormat;
+    VkExtent2D                        mySwapChainExtent;
+    VkDescriptorSetLayout             myGlobalSetLayout;
+    VkDescriptorSetLayout             myMaterialSetLayout;
+    VkDescriptorSetLayout             myBindlessMaterialSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout             myObjectSetLayout;
+    VkDescriptorPool                  myDescriptorPool;
+    VkPipelineLayout                  myPipelineLayout;
+    VkPipelineLayout                  myBindlessPipelineLayout = VK_NULL_HANDLE;
+    VkRenderPass                      myRenderPass;
+    VkPipeline                        myBasicPipeline;
+    VkPipeline                        myTransparentPipeline;
+    VkPipeline                        myBasicPipelineBindless       = VK_NULL_HANDLE;
+    VkPipeline                        myTransparentPipelineBindless = VK_NULL_HANDLE;
+    VkPipelineCache                   myPipelineCache               = VK_NULL_HANDLE;  // device lifetime; see Vk_DevicePipelineCache
+    VkDescriptorSet                   myBindlessDescriptorSet       = VK_NULL_HANDLE;
+    Vk_AllocatedBuffer                myMaterialTableBuffer;
+    std::vector< Vk_AllocatedBuffer > myMaterialParamBuffers;
+    VkCommandPool                     myGraphicsCommandPool;
+    VkCommandPool                     myTransferCommandPool;
+    Gfx_Texture                       myDepthTexture;
+    Gfx_Texture                       myColorTexture;
+    VkSampler                         myTextureSampler;
+    uint32_t                          myTextureImageMipLevels;
+    Vk_QueueFamilyIndices             myQueueFamilyIndices;
 
     mutable VkPhysicalDeviceProperties myPhysicalDeviceProperties;
     mutable VkPhysicalDeviceFeatures   myPhysicalDeviceFeatures;
 
-    std::vector< FrameData >     myFrameDatas;
+    std::vector< Vk_FrameData >  myFrameDatas;
     std::vector< const char* >   myValidationLayers;
     std::vector< const char* >   myDeviceExtensions;
     std::vector< VkImage >       mySwapChainImages;
     std::vector< VkImageView >   mySwapChainImageViews;
     std::vector< VkFramebuffer > mySwapChainFrameBuffers;
-    // std::array< AllocatedBuffer, eVk_BindingCount > myUniformBuffers;  // TODO: this is planned to be an array of constant buffer
+    // std::array< Vk_AllocatedBuffer, eVk_BindingCount > myUniformBuffers;  // TODO: this is planned to be an array of constant buffer
 
-    bool                  myEnableValidationLayers;
-    bool                  myFramebufferResized = false;
-    uint32_t              myCurrentFrame       = 0;
-    VkSampleCountFlagBits myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
+    bool                                           myEnableValidationLayers;
+    bool                                           myFramebufferResized = false;
+    uint32_t                                       myCurrentFrame       = 0;
+    VkSampleCountFlagBits                          myMSAASamples        = VK_SAMPLE_COUNT_1_BIT;
+    Util_ImGuiLayer                                myImGuiLayer;
+    std::chrono::high_resolution_clock::time_point myLastFrameTime;
+    bool                                           myHasLastFrameTime = false;
+    std::chrono::high_resolution_clock::time_point myFrameInputSampleTime;
+    bool                                           myHasFrameInputSampleTime = false;
+    Vk_RenderDoc                                   myRenderDoc;
 };

@@ -362,3 +362,19 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+*.metaproj
+*.metaproj.tmp
+
+# Dear ImGui runtime layout (per-machine)
+imgui.ini
+**/imgui.ini
+
+# Vulkan pipeline cache blobs (regenerated locally)
+/Cache/*.bin
+
+# Cursor IDE local state (track shared rules and skills)
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+!.cursor/skills/
+!.cursor/skills/**

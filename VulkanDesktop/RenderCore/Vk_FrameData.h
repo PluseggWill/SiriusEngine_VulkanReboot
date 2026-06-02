@@ -1,20 +1,25 @@
 #pragma once
+#include <array>
+
+#include "../Gfx/Gfx_RenderView.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Types.h"
 
-struct FrameData {
-    VkSemaphore myPresentSemaphore;
-    VkSemaphore myRenderSemaphore;
+// Per in-flight frame (MAX_FRAMES_IN_FLIGHT): sync objects, command buffer, camera UBO, descriptor set.
+struct Vk_FrameData {
+    VkSemaphore myPresentSemaphore;  // signaled when swapchain image is ready
+    VkSemaphore myRenderSemaphore;   // signaled when GPU finishes this frame's cmd buffer
     VkFence     myRenderFence;
 
-    DeletionQueue myFrameDeletionQueue;
+    Vk_DeletionQueue myFrameDeletionQueue;
 
-    // VkCommandPool   myCommandPool;
     VkCommandBuffer myCommandBuffer;
 
-    AllocatedBuffer myCameraBuffer;
-    VkDescriptorSet myGlobalDescriptor;
+    Vk_AllocatedBuffer myCameraBuffer;  // sizeof(GpuCameraData) * kGfxMaxRenderViews, one slab per frame
+    std::array< VkDescriptorSet, kGfxMaxRenderViews > myGlobalDescriptors{};  // set 0 (Frame): camera + env
 
-    AllocatedBuffer myObjectBuffer;
-    VkDescriptorSet myObjectDescriptor;
+    // Per-frame instance ring UBO (GpuObjectData slices); persistently CPU-mapped for FillInstanceSlab.
+    Vk_AllocatedBuffer myObjectBuffer;
+    void*              myInstanceSlabMapped = nullptr;
+    VkDescriptorSet    myObjectDescriptor;  // set 2 | UNIFORM_BUFFER_DYNAMIC | instance slab
 };

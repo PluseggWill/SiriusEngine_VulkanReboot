@@ -1,16 +1,20 @@
-// Vulkan Initialization helper functions
+// Module: Vk_Initializer — factory helpers for Vulkan *CreateInfo / write structs used at init time.
 
 #pragma once
+#include <array>
 #include <string>
 #include <vector>
 #include <vulkan/vulkan.h>
 
 namespace VkInit {
-// Pipeline
+
+// --- Graphics pipeline (vkCreateGraphicsPipelines) ---
 
 VkPipelineShaderStageCreateInfo Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry );
-VkPipelineShaderStageCreateInfo Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule);
-VkPipelineShaderStageCreateInfo Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule);
+
+// HLSL/dxc entry names (VSMain / PSMain). Active GLSL path uses Pipeline_ShaderStageCreateInfo(..., "main") instead.
+VkPipelineShaderStageCreateInfo Pipeline_VertexShaderStageCreateInfo( VkShaderModule aShaderModule );
+VkPipelineShaderStageCreateInfo Pipeline_PixelShaderStageCreateInfo( VkShaderModule aShaderModule );
 
 VkPipelineVertexInputStateCreateInfo Pipeline_VertexInputStateCreateInfo();
 
@@ -21,21 +25,25 @@ VkPipelineRasterizationStateCreateInfo Pipeline_RasterizationCreateInfo( VkPolyg
 
 VkPipelineMultisampleStateCreateInfo Pipeline_MultisampleCreateInfo( VkSampleCountFlagBits aSampleCount );
 
-VkPipelineDynamicStateCreateInfo Pipeline_DynamicStateCreateInfo();
+// Caller-owned vector + Fill; scene defaults via Vk_PipelineBuilder::SetDefaultDynamicStates().
+void Pipeline_FillDynamicStateCreateInfo( const std::vector< VkDynamicState >& aStorage, VkPipelineDynamicStateCreateInfo& aOut );
 
-VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo();
+VkPipelineDepthStencilStateCreateInfo Pipeline_DepthStencilCreateInfo( VkBool32 aDepthWriteEnable = VK_TRUE );
 
 VkPipelineLayoutCreateInfo Pipeline_LayoutCreateInfo();
 
 VkPipelineColorBlendAttachmentState Pipeline_ColorBlendAttachment( VkBool32 aBlendEnable );
+VkPipelineColorBlendAttachmentState Pipeline_ColorBlendAttachmentAlpha();
 
 VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( VkPipelineColorBlendAttachmentState anAttachment );
 
 VkPipelineColorBlendStateCreateInfo Pipeline_ColorBlendCreateInfo( std::vector< VkPipelineColorBlendAttachmentState >& someAttachments );
 
-// Others
+// --- Viewport (embedded in VkPipelineViewportStateCreateInfo in Vk_PipelineBuilder) ---
 
 VkViewport ViewportCreateInfo( VkExtent2D aSwapchainExtent );
+
+// --- Commands (vkCreateCommandPool / vkAllocateCommandBuffers / vkBeginCommandBuffer) ---
 
 VkCommandPoolCreateInfo CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags = 0 );
 
@@ -43,9 +51,14 @@ VkCommandBufferAllocateInfo CommandBufferAllocInfo( VkCommandPool aPool, uint32_
 
 VkCommandBufferBeginInfo CommandBufferBeginInfo( VkCommandBufferUsageFlags someFlags = 0 );
 
+// --- Images (vkCreateImage / vkCreateImageView) ---
+
 VkImageCreateInfo ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent );
+void FillImageSharingMode( uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily, std::array< uint32_t, 2 >& someQueueFamilyIndices, VkImageCreateInfo& aInOut );
 
 VkImageViewCreateInfo ImageViewCreateInfo( VkFormat aFormat, VkImage anImage, VkImageAspectFlags anAspect, uint32_t aMipLevel );
+
+// --- Descriptors (vkCreateDescriptorSetLayout / vkUpdateDescriptorSets) ---
 
 VkWriteDescriptorSet DescriptorSetWriteCreateInfo( VkDescriptorSet aDstSet, VkDescriptorType aType, VkDescriptorImageInfo* aImageInfo, uint32_t aBinding, uint32_t aCount );
 

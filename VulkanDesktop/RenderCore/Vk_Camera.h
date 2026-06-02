@@ -1,34 +1,51 @@
 #pragma once
+#include "../Util/Util_InputSnapshot.h"
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
-// Keep in mind that Vulkan expects the data to be aligned, see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/chap15.html#interfaces-resources-layout for
-// more details
+// std140 UBO, set 0 / eVk_CameraBinding — view/proj only; per-draw model is Set 2 dynamic UBO (TriangleVertex.vert).
 struct GpuCameraData {
-    alignas( 16 ) glm::mat4 model;
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
 };
 
-class Gfx_Camera {
+// std140 UBO slice in per-frame instance slab (Set 2 / UNIFORM_BUFFER_DYNAMIC — S1 verify task).
+struct GpuObjectData {
+    alignas( 16 ) glm::mat4 model;
+    alignas( 4 ) uint32_t materialIndex = 0;
+    alignas( 4 ) uint32_t _pad0         = 0;
+    alignas( 4 ) uint32_t _pad1         = 0;
+    alignas( 4 ) uint32_t _pad2         = 0;
+};
+
+static_assert( sizeof( GpuObjectData ) == 80, "GpuObjectData must be std140-compatible (80 bytes)" );
+
+// Z-up fly camera: yaw about +Z, pitch about camera right; writes myView/myProj for GpuCameraData.
+class Vk_Camera {
 public:
-    Gfx_Camera();
-    ~Gfx_Camera();
+    Vk_Camera();
+    ~Vk_Camera();
     void SetLens( const float aFov, const float aNear, const float aFar, const float anAspect );
     void LookAt( const glm::vec3& anEye, const glm::vec3& aCenter, const glm::vec3& aLookup );
-    void LookAt( const glm::vec3& anEye );
-    void SetPosition( const glm::vec3& aCenter );
-    void Move( const glm::vec3& aDirection );
-    void Rotate( const glm::vec3& aRotate );
     void SetAspect( const float anAspect );
 
+    void ApplyInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aSettings );
+
+    glm::vec3 GetEye() const {
+        return myPosition;
+    }
+
 private:
-    void UpdateViewProjMatrix();
+    glm::vec3 GetForward() const;
+    glm::vec3 GetRight() const;
+    void      SyncOrientationFromLookDirection( const glm::vec3& aForward );
+    void      UpdateViewProjMatrix();
 
 public:
     glm::mat4 myView;
     glm::mat4 myProj;
 
+    // Derived each UpdateViewProjMatrix(); read-only for lighting / UBO.
     glm::vec3 myEye;
     glm::vec3 myCenter;
     glm::vec3 myLookUp;
@@ -36,4 +53,12 @@ public:
     float     myNear;
     float     myFar;
     float     myAspect;
+
+private:
+    glm::vec3 myPosition;
+    float     myYaw;
+    float     myPitch;
+    glm::vec3 myWorldUp;
+
+    static constexpr float MAX_PITCH_RADIANS = glm::radians( 89.0f );
 };

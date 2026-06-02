@@ -1,0 +1,66 @@
+---
+description: VulkanDesktop 目录/命名/VS 过滤器 + C++/Vulkan 实现要点
+globs: VulkanDesktop/**/*
+alwaysApply: false
+---
+
+# VulkanDesktop — 目录与命名
+
+## 模块划分（三类 + 入口）
+
+| 模块 | 磁盘目录 | 职责 |
+|------|----------|------|
+| **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板 |
+| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制、相机 |
+| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material），与 API 无关 |
+| **入口** | `VulkanDesktop/VulkanDesktop.cpp` | `main`，留在项目根 |
+
+着色器：源 `VulkanDesktop/Shader/`，生成物 `Shader_Generated/`（`.spv`）。VS 过滤器 **Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
+
+## Visual Studio（`.vcxproj.filters`）
+
+与磁盘对齐，不用默认 `Source Files` / `Header Files`。新增/移动源文件时**同时**更新 `.vcxproj` 与 `.vcxproj.filters`。
+
+```
+VulkanDesktop.cpp
+Util/          ← Util_* ；ThirdParty/imgui/
+RenderCore/    ← Vk_*
+Gfx/
+  Shader/              ← *.vert, *.frag, CompileShader*.bat
+  Shader Generated/    ← *.spv（勿手改）
+```
+
+## 命名
+
+- 文件：`{Util|Vk|Gfx}_{Name}.h/.cpp`
+- 类型：与文件名一致（`Vk_Core`, `Gfx_Mesh`）；GPU UBO → `Gpu*`（不加模块前缀）；描述符成员 `eVk_*`
+- Util 自由函数 → `UtilLogger::` 等；RenderCore 初始化辅助 → `VkInit::`
+- 成员 `my*`，参数 `a*`
+
+### 类型归属
+
+- **Util**：Logger、Loader、ImGui/面板、统计
+- **Vk_**：设备、交换链、管线、录制、相机、RAII 缓冲
+- **Gfx_**：mesh/material/场景 SoA；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
+
+### Include
+
+- 同目录：`#include "Vk_Core.h"`
+- 跨模块：`#include "../Util/Util_Logger.h"`
+- 入口：`#include "RenderCore/Vk_Core.h"`
+
+### 反例
+
+- 无前缀类型名；`Gfx_Camera` 放在 `Vk_Camera.h`；改 Vulkan 结构体字段名（保持 `pQueueFamilyIndices`）
+
+## C++ / Vulkan 实现
+
+- **热路径零分配**：录制/每帧更新中禁止隐式堆分配（未 `reserve` 的 `push_back`、`string` 拼接、`new`）
+- **所有权**：`unique_ptr`/`shared_ptr`；裸指针仅非拥有观察
+- **RAII**：`vkCreate*` 对称销毁或 deletion queue；GPU struct 用 `alignas` + std140/std430
+- **安全**：枚举 `switch` 全覆盖或显式 `default`；`VkResult` 等 `[[nodiscard]]`
+- **错误**：Debug 用 `VK_CHECK` 等，不吞 API 失败
+- **Bindless**：优先描述符数组/表，少 per-draw 绑定点抖动
+- **格式化**：仓库根 `.clang-format`（`clang-format -i`）
+
+注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。

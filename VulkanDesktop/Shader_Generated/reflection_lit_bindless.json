@@ -1,0 +1,93 @@
+{
+  "pipelineGroup": "lit_bindless",
+  "schemaVersion": 1,
+  "sets": [
+    {
+      "bindings": [
+        {
+          "binding": 0,
+          "count": 1,
+          "descriptorType": "UNIFORM_BUFFER",
+          "name": "cameraData",
+          "seenIn": [
+            "TriangleVert.spv"
+          ],
+          "stages": [
+            "VERTEX"
+          ]
+        },
+        {
+          "binding": 1,
+          "count": 1,
+          "descriptorType": "UNIFORM_BUFFER",
+          "name": "envData",
+          "seenIn": [
+            "TrianglePix_Bindless.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        }
+      ],
+      "set": 0
+    },
+    {
+      "bindings": [
+        {
+          "binding": 0,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "u_Textures",
+          "seenIn": [
+            "TrianglePix_Bindless.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 1,
+          "count": 1,
+          "descriptorType": "STORAGE_BUFFER",
+          "name": "materials",
+          "seenIn": [
+            "TrianglePix_Bindless.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        }
+      ],
+      "set": 1
+    },
+    {
+      "bindings": [
+        {
+          "binding": 0,
+          "count": 1,
+          "descriptorType": "UNIFORM_BUFFER",
+          "name": "objectData",
+          "seenIn": [
+            "TriangleVert.spv"
+          ],
+          "stages": [
+            "VERTEX"
+          ]
+        }
+      ],
+      "set": 2
+    }
+  ],
+  "shaders": [
+    {
+      "entryPoint": "main",
+      "spv": "D:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TriangleVert.spv",
+      "stage": "vertex"
+    },
+    {
+      "entryPoint": "main",
+      "spv": "D:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TrianglePix_Bindless.spv",
+      "stage": "fragment"
+    }
+  ]
+}

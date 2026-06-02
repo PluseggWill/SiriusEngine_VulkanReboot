@@ -1,0 +1,17 @@
+{
+  "assetRoot": "",
+  "scene": "Data/Scenes/demo.json",
+  "window": {
+    "width": 1600,
+    "height": 1200
+  },
+  "vsync": true,
+  "logLevel": "info",
+  "assetVerify": "strict",
+  "enableValidationLayers": false,
+  "renderPreset": "ForwardLit",
+  "features": {
+    "demoRotate": false,
+    "runtimeMipmap": false
+  }
+}

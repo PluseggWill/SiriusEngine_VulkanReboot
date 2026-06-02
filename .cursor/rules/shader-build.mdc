@@ -1,0 +1,38 @@
+---
+description: GLSL/glslc shader build defaults, VS Custom Build pitfalls, and log paths for VulkanDesktop.
+globs: VulkanDesktop/Shader/**/*,VulkanDesktop/Shader_Generated/**/*
+alwaysApply: false
+---
+
+# Shader build (VulkanDesktop)
+
+## Toolchain
+
+- **Sources** (`Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (developer-edited GLSL).
+- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` / `TrianglePix_Bindless.spv` — glslc output only; do not hand-edit. `reflection_lit.json` / `reflection_lit_bindless.json` — ShaderReflect output (committed; regen on shader compile).
+- **VS build + runtime**: **glslc** only; pipeline entry `"main"` in `Vk_Core::CreateGfxPipeline`.
+- **Custom Build** is on `Shader\TriangleVertex.vert`; **Outputs** go to `Shader_Generated\`.
+
+| Script | Role |
+|--------|------|
+| `CompileShader.bat` | VS entry → `CompileShader_Glslc.bat` |
+| `CompileShader_Glslc.bat` | Compiles GLSL to SPIR-V, then `ReflectShaders_Lit.bat` |
+| `ReflectShaders_Lit.bat` | `ShaderReflect.exe` → `reflection_lit.json` + `DescriptorContract_LitBatch.json` |
+| `ReflectShaders_LitBindless.bat` | `ShaderReflect.exe` → `reflection_lit_bindless.json` + `DescriptorContract_LitBindless.json` |
+| `ShaderBuild_Common.bat` | Shared `init` / `log` |
+| `Tools/ShaderReflect/` | Offline SPIRV-Reflect tool (`BuildShaderReflect.bat`) |
+
+## Logs
+
+- Shader compile: `Logs/shader_compile_log.txt` (repo root).
+- Runtime: `Logs/engine_runtime_log.txt` (`UtilLogger` default).
+
+## MSBuild Custom Build — do not break `.spv` outputs
+
+- **Never `echo` to stdout** in compile `.bat` used as Custom Build commands. MSBuild may write stdout into the **first** listed `Outputs` file (corrupting `Shader_Generated\TriangleVert.spv`).
+- Log to **stderr** (`1>&2`) and/or `shader_compile_log.txt` only.
+
+## Descriptor / UBO contract
+
+- Bindings must match `Vk_Enum.h`, `GpuCameraData` / `GpuEnvironmentData`, and `TriangleFrag_Lit.frag` / `TriangleVertex.vert`.
+- When editing layouts, update C++, GLSL, `Shader/DescriptorContract_LitBatch.json` and/or `DescriptorContract_LitBindless.json`, and comments together (MSBuild fails on drift).

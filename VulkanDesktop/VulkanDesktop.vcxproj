@@ -90,12 +90,15 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.2.182.0\Include;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\include;C:\VulkanSDK\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\VulkanSDK\1.2.182.0\Lib;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -108,6 +111,8 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\VulkanSDK\1.2.182.0\Include;C:\VulkanSDK\glfw-3.3.4.bin.WIN64\include;C:\VulkanSDK\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,25 +124,33 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PreBuildEvent>
+      <Command>call "$(ProjectDir)Scripts\RotateEngineLogs.bat" "$(SolutionDir)"</Command>
+      <Message>Rotating engine logs (PreBuild)...</Message>
+    </PreBuildEvent>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;%(AdditionalLibraryDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;..\lib\imgui;..\lib\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Link>
-    <PreBuildEvent>
-      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PreBuildEvent>
+      <Command>call "$(ProjectDir)Scripts\RotateEngineLogs.bat" "$(SolutionDir)"</Command>
+      <Message>Rotating engine logs (PreBuild)...</Message>
+    </PreBuildEvent>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -145,8 +158,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;%(AdditionalLibraryDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\lib\VulkanSDK\1.2.182.0\Include;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\include;..\lib\VulkanSDK\glm;..\lib;..\lib\tinyobjloader;..\lib\VMA;..\lib\stb-master;..\lib\imgui;..\lib\imgui\backends;%(AdditionalLibraryDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -156,48 +171,160 @@
       <AdditionalLibraryDirectories>..\lib\VulkanSDK\1.2.182.0\Lib;..\lib\VulkanSDK\glfw-3.3.4.bin.WIN64\lib-vc2019;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PreBuildEvent>
-      <Command>$(ProjectDir)Shader\CompileShader.bat</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Graphics\Gfx_ViewData.cpp" />
+    <ClCompile Include="Util\Util_CameraPanel.cpp" />
+    <ClCompile Include="Util\Util_Input.cpp" />
+    <ClCompile Include="Util\Util_LightingPanel.cpp" />
+    <ClCompile Include="Util\Util_RenderDebugPanel.cpp" />
+    <ClCompile Include="Util\Util_ScenePanel.cpp" />
+    <ClCompile Include="Util\Util_StatsOverlay.cpp" />
+    <ClCompile Include="Util\Util_ImGuiLayer.cpp" />
+    <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\lib\imgui\backends\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\lib\imgui\imgui.cpp" />
+    <ClCompile Include="..\lib\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="App\Application.cpp" />
+    <ClCompile Include="App\InputSystem.cpp" />
+    <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
+    <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
+    <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
+    <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
+    <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderPacket.cpp" />
+    <ClCompile Include="Gfx\Gfx_Lod.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneLoader.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
+    <ClCompile Include="Gfx\Gfx_SceneTransform.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderPreset.cpp" />
+    <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
+    <ClCompile Include="Gfx\Gfx_ViewData.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
+    <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Core.cpp" />
+    <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp" />
+    <ClCompile Include="RenderCore\Vk_ShaderEffectMeta.cpp" />
+    <ClCompile Include="RenderCore\Vk_FrameUniformUploader.cpp" />
+    <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp" />
+    <ClCompile Include="RenderCore\Vk_DevicePipelineCache.cpp" />
+    <ClCompile Include="RenderCore\Vk_GfxPipelineCache.cpp" />
+    <ClCompile Include="RenderCore\Vk_PlatformFrame.cpp" />
+    <ClCompile Include="RenderCore\Vk_RenderDoc.cpp" />
+    <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
+    <ClCompile Include="RenderCore\Vk_ResourceTables.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
+    <ClCompile Include="RenderCore\Vk_PipelineDiagnostics.cpp" />
+    <ClCompile Include="RenderCore\Vk_RenderDevice.cpp" />
+    <ClCompile Include="RenderCore\Vk_RenderBackend.cpp" />
+    <ClCompile Include="RenderCore\Vk_SceneHost.cpp" />
+    <ClCompile Include="RenderCore\Vk_ScenePasses.cpp" />
+    <ClCompile Include="RenderCore\Vk_SwapchainHost.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
+    <ClCompile Include="Util\Util_AssetConfig.cpp" />
+    <ClCompile Include="Util\Util_EngineConfig.cpp" />
+    <ClCompile Include="Util\Util_AssetManifest.cpp" />
+    <ClCompile Include="Util\Util_ValidationConfig.cpp" />
+    <ClCompile Include="Util\Util_DebugMessenger.cpp" />
+    <ClCompile Include="Util\Util_ValidationLayers.cpp" />
+    <ClCompile Include="Util\Util_FrameStats.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
+    <ClCompile Include="Util\Util_Logger.cpp" />
+    <ClCompile Include="Util\Util_VulkanResult.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Graphics\Gfx_ViewData.h" />
+    <ClInclude Include="App\Application.h" />
+    <ClInclude Include="App\InputSystem.h" />
+    <ClInclude Include="Util\Util_CameraPanel.h" />
+    <ClInclude Include="Util\Util_Input.h" />
+    <ClInclude Include="Util\Util_InputSnapshot.h" />
+    <ClInclude Include="Util\Util_LightingPanel.h" />
+    <ClInclude Include="Util\Util_RenderDebugPanel.h" />
+    <ClInclude Include="Util\Util_ScenePanel.h" />
+    <ClInclude Include="Util\Util_StatsOverlay.h" />
+    <ClInclude Include="Util\Util_ImGuiLayer.h" />
+    <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />
+    <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
+    <ClInclude Include="Gfx\Gfx_DrawBatch.h" />
+    <ClInclude Include="Gfx\Gfx_DrawExtract.h" />
+    <ClInclude Include="Gfx\Gfx_FrameDrawStream.h" />
+    <ClInclude Include="Gfx\Gfx_RenderPacket.h" />
+    <ClInclude Include="Gfx\Gfx_Lod.h" />
+    <ClInclude Include="Gfx\Gfx_ResourceManifest.h" />
+    <ClInclude Include="Gfx\Gfx_SceneApply.h" />
+    <ClInclude Include="Gfx\Gfx_SceneDesc.h" />
+    <ClInclude Include="Gfx\Gfx_SceneLoader.h" />
+    <ClInclude Include="Gfx\Gfx_SceneSoA.h" />
+    <ClInclude Include="Gfx\Gfx_SceneTransform.h" />
+    <ClInclude Include="Gfx\Gfx_ViewData.h" />
     <ClInclude Include="RenderCore\Vk_Camera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
+    <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
+    <ClInclude Include="RenderCore\Vk_DescriptorSystem.h" />
+    <ClInclude Include="RenderCore\Vk_ShaderEffectMeta.h" />
+    <ClInclude Include="RenderCore\Vk_Bindless.h" />
+    <ClInclude Include="RenderCore\Vk_DevicePipelineCache.h" />
+    <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
+    <ClInclude Include="RenderCore\Vk_PlatformFrame.h" />
+    <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
+    <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
+    <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h" />
+    <ClInclude Include="RenderCore\Vk_ResourceContext.h" />
+    <ClInclude Include="RenderCore\Vk_ResourceTables.h" />
     <ClInclude Include="RenderCore\Vk_Enum.h" />
     <ClInclude Include="RenderCore\Vk_FrameData.h" />
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
+    <ClInclude Include="RenderCore\Vk_PipelineDiagnostics.h" />
+    <ClInclude Include="RenderCore\Vk_RenderDevice.h" />
+    <ClInclude Include="RenderCore\Vk_RenderBackend.h" />
+    <ClInclude Include="RenderCore\Vk_SceneHost.h" />
+    <ClInclude Include="RenderCore\Vk_ScenePasses.h" />
+    <ClInclude Include="RenderCore\Vk_SwapchainHost.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
+    <ClInclude Include="Util\Util_AssetConfig.h" />
+    <ClInclude Include="Util\Util_EngineConfig.h" />
+    <ClInclude Include="Util\Util_AssetManifest.h" />
+    <ClInclude Include="Util\Util_ValidationConfig.h" />
+    <ClInclude Include="Util\Util_DebugMessenger.h" />
+    <ClInclude Include="Util\Util_ValidationLayers.h" />
+    <ClInclude Include="Util\Util_FrameStats.h" />
     <ClInclude Include="Util\Util_Loader.h" />
+    <ClInclude Include="Util\Util_Logger.h" />
+    <ClInclude Include="Util\Util_VulkanResult.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Scripts\LaunchVulkanDesktop.cmd" />
+    <None Include="Scripts\RotateEngineLogs.bat" />
     <None Include="Shader\CompileShader.bat" />
+    <None Include="Shader\CompileShader_Glslc.bat" />
+    <None Include="Shader\ShaderBuild_Common.bat" />
     <None Include="Shader\TriangleFrag.frag" />
     <None Include="Shader\TriangleFrag_Lit.frag" />
-    <None Include="Shader\TriangleVertex.vert" />
   </ItemGroup>
+  <!-- Custom build: recompile SPIR-V when GLSL sources or compile scripts change. -->
   <ItemGroup>
-    <None Include="Shader\TrianglePix.hlsl">
+    <CustomBuild Include="Shader\TriangleVertex.vert">
       <FileType>Document</FileType>
-    </None>
-    <None Include="Shader\TriangleShader.hlsl">
-      <FileType>Document</FileType>
-    </None>
+      <Message>Compiling GLSL shaders to SPIR-V (glslc)</Message>
+      <Command>call "$(ProjectDir)Shader\CompileShader.bat"</Command>
+      <Outputs>$(ProjectDir)Shader_Generated\TriangleVert.spv;$(ProjectDir)Shader_Generated\TrianglePix.spv;$(ProjectDir)Shader_Generated\TrianglePix_AlphaClip.spv;$(ProjectDir)Shader_Generated\TrianglePix_Bindless.spv;$(ProjectDir)Shader_Generated\reflection_lit.json;$(ProjectDir)Shader_Generated\reflection_lit_bindless.json</Outputs>
+      <AdditionalInputs>$(ProjectDir)Shader\CompileShader.bat;$(ProjectDir)Shader\CompileShader_Glslc.bat;$(ProjectDir)Shader\ReflectShaders_Lit.bat;$(ProjectDir)Shader\ReflectShaders_LitBindless.bat;$(ProjectDir)Shader\ShaderBuild_Common.bat;$(ProjectDir)Shader\DescriptorContract_LitBatch.json;$(ProjectDir)Shader\DescriptorContract_LitBindless.json;$(ProjectDir)Shader\TriangleFrag_Lit.frag;$(ProjectDir)Shader\TriangleFrag_Lit_Bindless.frag;$(ProjectDir)Tools\ShaderReflect\main.cpp;$(ProjectDir)Tools\ShaderReflect\BuildShaderReflect.bat;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <None Include="Shader_Generated\TriangleVert.spv" />
+    <None Include="Shader_Generated\TrianglePix.spv" />
+    <None Include="Shader_Generated\TrianglePix_AlphaClip.spv" />
+    <None Include="Shader_Generated\TrianglePix_Bindless.spv" />
+    <None Include="Shader_Generated\reflection_lit.json" />
+    <None Include="Shader_Generated\reflection_lit_bindless.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

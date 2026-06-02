@@ -1,8 +1,32 @@
 #include "Vk_Pipeline.h"
+#include "Vk_Initializer.h"
+#include "Vk_PipelineDiagnostics.h"
+
+#include "../Util/Util_Logger.h"
+#include "../Util/Util_VulkanResult.h"
 
 #include <stdexcept>
+#include <string>
 
-VkPipeline PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass ) {
+namespace {
+// Scene lit pipelines: must stay in sync with Vk_Core::SetGraphicsDynamicState (vkCmdSet* calls).
+const std::initializer_list< VkDynamicState > kDefaultGraphicsDynamicStates = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
+    VK_DYNAMIC_STATE_LINE_WIDTH,
+};
+}  // namespace
+
+void Vk_PipelineBuilder::SetDynamicStates( std::initializer_list< VkDynamicState > aStates ) {
+    myDynamicStatesStorage.assign( aStates.begin(), aStates.end() );
+    VkInit::Pipeline_FillDynamicStateCreateInfo( myDynamicStatesStorage, myDynamicState );
+}
+
+void Vk_PipelineBuilder::SetDefaultDynamicStates() {
+    SetDynamicStates( kDefaultGraphicsDynamicStates );
+}
+
+VkPipeline Vk_PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass, VkPipelineCache aPipelineCache, const Vk_GraphicsPipelineBuildInfo* aDiagnostics ) {
     // Create the viewport state
     VkPipelineViewportStateCreateInfo viewportState{};
 
@@ -38,16 +62,29 @@ VkPipeline PipelineBuilder::BuildPipeline( VkDevice aDevice, VkRenderPass aPass 
     pipelineInfo.pMultisampleState   = &myMultisampling;
     pipelineInfo.pDepthStencilState  = &myDepthStencil;
     pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDynamicState       = nullptr;
+    pipelineInfo.pDynamicState       = ( myDynamicState.dynamicStateCount > 0 ) ? &myDynamicState : nullptr;
     pipelineInfo.layout              = myPipelineLayout;
     pipelineInfo.renderPass          = aPass;
     pipelineInfo.subpass             = 0;
     pipelineInfo.basePipelineHandle  = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex   = -1;
 
-    VkPipeline newPipeline;
-    if ( vkCreateGraphicsPipelines( aDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline ) != VK_SUCCESS ) {
-        throw std::runtime_error( "failed to create render pass!" );
+    if ( aDiagnostics != nullptr ) {
+        VkPipelineDiagnostics::LogGraphicsPipelineSummary( *aDiagnostics, *this, aPass );
+    }
+
+    VkPipeline     newPipeline;
+    const VkResult createResult = vkCreateGraphicsPipelines( aDevice, aPipelineCache, 1, &pipelineInfo, nullptr, &newPipeline );
+    if ( createResult != VK_SUCCESS ) {
+        if ( aDiagnostics != nullptr ) {
+            UtilLogger::Error( "PIPELINE", "vkCreateGraphicsPipelines failed after summary for: " + std::string( aDiagnostics->myLabel ) );
+            VkPipelineDiagnostics::LogGraphicsPipelineSummary( *aDiagnostics, *this, aPass );
+        }
+        UtilVulkanResult::ThrowOnFailure( createResult, "vkCreateGraphicsPipelines" );
+    }
+
+    if ( aDiagnostics != nullptr ) {
+        UtilLogger::Info( "PIPELINE", std::string( aDiagnostics->myLabel ) + " graphics pipeline created (VkResult=VK_SUCCESS)." );
     }
 
     return newPipeline;
