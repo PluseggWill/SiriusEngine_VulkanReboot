@@ -1,4 +1,4 @@
-// Module: Vk_Core — Vulkan device/swapchain, frame orchestration (acquire → prep → record → present).
+// Module: Vk_Core ? Vulkan device/swapchain, frame orchestration (acquire ? prep ? record ? present).
 // Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
 #include "../App/DebugUIState.h"
@@ -68,8 +68,8 @@ Vk_Core::Vk_Core() {}
 Vk_Core::~Vk_Core() {}
 
 Vk_Core& Vk_Core::GetInstance() {
-    static Vk_Core myInstance;
-    return myInstance;
+    static Vk_Core sInstance;
+    return sInstance;
 }
 
 // Called once from Application before scene load / main loop (non-owning; must outlive Vk_Core).
@@ -104,8 +104,8 @@ DebugUIState& Vk_Core::DebugUI() const {
 }
 
 void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
-    myWidth  = aWidth;
-    myHeight = aHeight;
+    myPlatformCtx.myWidth  = aWidth;
+    myPlatformCtx.myHeight = aHeight;
 }
 
 void Vk_Core::SetVsync( bool aVsync ) {
@@ -117,24 +117,24 @@ void Vk_Core::Reset() {
 }
 
 bool Vk_Core::ShouldClose() const {
-    return myWindow != nullptr && glfwWindowShouldClose( myWindow );
+    return myPlatformCtx.myWindow != nullptr && glfwWindowShouldClose( myPlatformCtx.myWindow );
 }
 
 void Vk_Core::ConfigureRenderDoc( bool aEnableRenderDoc ) {
-    myRenderDoc.Configure( aEnableRenderDoc );
+    myPlatformCtx.myRenderDoc.Configure( aEnableRenderDoc );
 }
 
 bool Vk_Core::IsRenderDocEnabled() const {
-    return myRenderDoc.IsEnabled();
+    return myPlatformCtx.myRenderDoc.IsEnabled();
 }
 
 void Vk_Core::TriggerRenderDocCapture() {
-    myRenderDoc.TriggerCaptureRequest();
+    myPlatformCtx.myRenderDoc.TriggerCaptureRequest();
 }
 
 void Vk_Core::Shutdown() {
-    if ( myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( myDevice );
+    if ( myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( myDeviceCtx.myDevice );
     }
     Clear();
 }
@@ -150,28 +150,28 @@ void Vk_Core::Clear() {
 
     ShutdownImGui();
 
-    mySwapChainDeletionQueue.flush();
-    mySceneDeletionQueue.flush();
-    myDeletionQueue.flush();
-    myResourceTables.Clear();
+    mySwapchainCtx.mySwapChainDeletionQueue.flush();
+    mySceneGpuCtx.mySceneDeletionQueue.flush();
+    myDeviceCtx.myDeletionQueue.flush();
+    mySceneGpuCtx.myResourceTables.Clear();
 
-    vkDestroyCommandPool( myDevice, myGraphicsCommandPool, nullptr );
-    vkDestroyCommandPool( myDevice, myTransferCommandPool, nullptr );
+    vkDestroyCommandPool( myDeviceCtx.myDevice, myDeviceCtx.myGraphicsCommandPool, nullptr );
+    vkDestroyCommandPool( myDeviceCtx.myDevice, myDeviceCtx.myTransferCommandPool, nullptr );
 
     // Persist pipeline cache blob while device is still valid.
     Vk_DevicePipelineCache::Destroy( *this );
 
-    vkDestroyDevice( myDevice, nullptr );
+    vkDestroyDevice( myDeviceCtx.myDevice, nullptr );
 
-    vkDestroySurfaceKHR( myInstance, mySurface, nullptr );
+    vkDestroySurfaceKHR( myDeviceCtx.myInstance, myDeviceCtx.mySurface, nullptr );
 
-    UtilDebugMessenger::Destroy( myInstance );
-    vkDestroyInstance( myInstance, nullptr );
+    UtilDebugMessenger::Destroy( myDeviceCtx.myInstance );
+    vkDestroyInstance( myDeviceCtx.myInstance, nullptr );
 
-    glfwDestroyWindow( myWindow );
+    glfwDestroyWindow( myPlatformCtx.myWindow );
 
     glfwTerminate();
-    myRenderDoc.Shutdown();
+    myPlatformCtx.myRenderDoc.Shutdown();
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
@@ -179,9 +179,9 @@ void Vk_Core::Clear() {
 void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
-    myRenderDoc.InitRuntime();
+    myPlatformCtx.myRenderDoc.InitRuntime();
     Vk_RenderDevice::Init( *this );
-    myRenderDoc.BindVulkanHandles( myDevice );
+    myPlatformCtx.myRenderDoc.BindVulkanHandles( myDeviceCtx.myDevice );
 
     Vk_SwapchainHost::Init( *this );
 
@@ -217,16 +217,16 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildResourceManifestFromSceneDesc( World().myLoadedScene, World().mySceneIdTables, manifest );
-        myTextureImageMipLevels           = 1;
-        const VkPipeline       opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
-        const VkPipeline       transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
-        const VkPipelineLayout layout     = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
+        mySceneGpuCtx.myTextureImageMipLevels           = 1;
+        const VkPipeline       opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
+        const VkPipeline       transPipe  = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
+        const VkPipelineLayout layout     = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
         SyncResourceContext();
-        myResourceTables.LoadFromManifest( manifest, myResourceContext, mySceneDeletionQueue, myTextureImageMipLevels, opaquePipe, transPipe, layout );
+        mySceneGpuCtx.myResourceTables.LoadFromManifest( manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue, mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
-    Gfx_SetMaterialTableGenerationForExtract( myResourceTables.GetMaterialTableGeneration() );
+    Gfx_SetMaterialTableGenerationForExtract( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() );
     Vk_SceneHost::InitScenePresentation( *this );
     InitImGui();
     UtilLogger::Info( "SCENE", "LoadSceneResources completed." );
@@ -239,28 +239,28 @@ void Vk_Core::UnloadScene() {
     }
 
     UtilLogger::Info( "SCENE", "UnloadScene: releasing scene CPU + GPU resources." );
-    if ( myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( myDevice );
+    if ( myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( myDeviceCtx.myDevice );
     }
 
     ShutdownImGui();
     Vk_GfxPipelineCache::DestroyScenePipelines( *this );
-    mySceneDeletionQueue.flush();
-    myResourceTables.Clear();
+    mySceneGpuCtx.mySceneDeletionQueue.flush();
+    mySceneGpuCtx.myResourceTables.Clear();
 
-    myDescriptorPool        = VK_NULL_HANDLE;
-    myTextureSampler        = VK_NULL_HANDLE;
-    myBindlessDescriptorSet = VK_NULL_HANDLE;
-    myMaterialTableBuffer   = {};
-    myMaterialDescriptorSets.clear();
-    myMaterialParamBuffers.clear();
-    for ( Vk_FrameData& frame : myFrameDatas ) {
+    mySceneGpuCtx.myDescriptorPool        = VK_NULL_HANDLE;
+    mySceneGpuCtx.myTextureSampler        = VK_NULL_HANDLE;
+    mySceneGpuCtx.myBindlessDescriptorSet = VK_NULL_HANDLE;
+    mySceneGpuCtx.myMaterialTableBuffer   = {};
+    mySceneGpuCtx.myMaterialDescriptorSets.clear();
+    mySceneGpuCtx.myMaterialParamBuffers.clear();
+    for ( Vk_FrameData& frame : myFrameCtx.myFrameDatas ) {
         frame.myGlobalDescriptors.fill( VK_NULL_HANDLE );
         frame.myObjectDescriptor = VK_NULL_HANDLE;
     }
 
-    myDrawPrep.ClearFrameOutputs();
-    myDrawPrep.ResetLogState();
+    mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
+    mySceneGpuCtx.myDrawPrep.ResetLogState();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
     World().ClearCpuSceneState();
@@ -274,27 +274,27 @@ void Vk_Core::UnloadScene() {
 }
 
 void Vk_Core::InitImGui() {
-    const uint32_t imageCount    = static_cast< uint32_t >( mySwapChainImageViews.size() );
+    const uint32_t imageCount    = static_cast< uint32_t >( mySwapchainCtx.mySwapChainImageViews.size() );
     const uint32_t minImageCount = std::max( 2u, imageCount );
 
-    myImGuiLayer.Init( myWindow, myInstance, myPhysicalDevice, myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), myGraphicsQueue, mySwapChainImageFormat,
-                       mySwapChainExtent, mySwapChainImageViews, imageCount, minImageCount );
+    myPlatformCtx.myImGuiLayer.Init( myPlatformCtx.myWindow, myDeviceCtx.myInstance, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myGraphicsQueue, mySwapchainCtx.mySwapChainImageFormat,
+                       mySwapchainCtx.mySwapChainExtent, mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
     UtilLogger::Info( "IMGUI", "ImGui overlay initialized." );
 }
 
 void Vk_Core::ShutdownImGui() {
-    myImGuiLayer.Shutdown();
+    myPlatformCtx.myImGuiLayer.Shutdown();
     UtilLogger::Info( "IMGUI", "ImGui overlay shut down." );
 }
 
 void Vk_Core::CreateInstance() {
     UtilValidationLayers::LogInstanceLayerDiscovery();
 
-    if ( myEnableValidationLayers ) {
+    if ( myDeviceCtx.myEnableValidationLayers ) {
         UtilLogger::Info( "VULKAN", "Validation layers: enabled" );
         if ( !CheckValidationLayerSupport() ) {
             UtilLogger::Warn( "VULKAN", "Validation layers requested but unavailable. Continuing with validation disabled." );
-            myEnableValidationLayers = false;
+            myDeviceCtx.myEnableValidationLayers = false;
         }
     }
     else {
@@ -317,7 +317,7 @@ void Vk_Core::CreateInstance() {
     for ( uint32_t i = 0; i < glfwExtensionCount; ++i ) {
         instanceExtensions.push_back( glfwExtensions[ i ] );
     }
-    if ( ( myEnableValidationLayers || myRenderDoc.WantsDebugUtilsExtension() ) && UtilDebugMessenger::IsExtensionAvailable() ) {
+    if ( ( myDeviceCtx.myEnableValidationLayers || myPlatformCtx.myRenderDoc.WantsDebugUtilsExtension() ) && UtilDebugMessenger::IsExtensionAvailable() ) {
         instanceExtensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
     }
 
@@ -327,9 +327,9 @@ void Vk_Core::CreateInstance() {
     createInfo.enabledExtensionCount   = static_cast< uint32_t >( instanceExtensions.size() );
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    if ( myEnableValidationLayers ) {
-        createInfo.enabledLayerCount   = static_cast< uint32_t >( myValidationLayers.size() );
-        createInfo.ppEnabledLayerNames = myValidationLayers.data();
+    if ( myDeviceCtx.myEnableValidationLayers ) {
+        createInfo.enabledLayerCount   = static_cast< uint32_t >( myDeviceCtx.myValidationLayers.size() );
+        createInfo.ppEnabledLayerNames = myDeviceCtx.myValidationLayers.data();
         UtilDebugMessenger::SetupForInstanceCreate( createInfo );
     }
     else {
@@ -340,49 +340,49 @@ void Vk_Core::CreateInstance() {
     CheckExtensionSupport();
 #endif  // _DEBUG
 
-    if ( vkCreateInstance( &createInfo, nullptr, &myInstance ) != VK_SUCCESS ) {
+    if ( vkCreateInstance( &createInfo, nullptr, &myDeviceCtx.myInstance ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "vkCreateInstance failed." );
         throw std::runtime_error( "failed to create instance!" );
     }
     UtilLogger::Info( "VULKAN", "Vulkan instance created." );
 
-    if ( myEnableValidationLayers ) {
-        UtilDebugMessenger::Create( myInstance );
+    if ( myDeviceCtx.myEnableValidationLayers ) {
+        UtilDebugMessenger::Create( myDeviceCtx.myInstance );
     }
 }
 
 void Vk_Core::PickPhysicalDevice() {
     uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices( myInstance, &deviceCount, nullptr );
+    vkEnumeratePhysicalDevices( myDeviceCtx.myInstance, &deviceCount, nullptr );
 
     if ( deviceCount == 0 )
         throw std::runtime_error( "failed to find GPUs with Vulkan support!" );
 
     std::vector< VkPhysicalDevice > devices( deviceCount );
-    vkEnumeratePhysicalDevices( myInstance, &deviceCount, devices.data() );
+    vkEnumeratePhysicalDevices( myDeviceCtx.myInstance, &deviceCount, devices.data() );
 
     for ( const auto& device : devices ) {
         if ( CheckDeviceSuitable( device ) ) {
-            myPhysicalDevice = device;
+            myDeviceCtx.myPhysicalDevice = device;
             // Keep startup stable across GPUs/drivers first; revisit dynamic MSAA selection later.
-            myMSAASamples = VK_SAMPLE_COUNT_1_BIT;
+            mySwapchainCtx.myMSAASamples = VK_SAMPLE_COUNT_1_BIT;
             break;
         }
     }
 
-    if ( myPhysicalDevice == VK_NULL_HANDLE )
+    if ( myDeviceCtx.myPhysicalDevice == VK_NULL_HANDLE )
         throw std::runtime_error( "failed to find a suitable GPU!" );
 
     VkPhysicalDeviceProperties props{};
-    vkGetPhysicalDeviceProperties( myPhysicalDevice, &props );
+    vkGetPhysicalDeviceProperties( myDeviceCtx.myPhysicalDevice, &props );
     UtilLogger::Info( "GPU", std::string( "Selected physical device: " ) + props.deviceName );
 }
 
 void Vk_Core::CreateLogicalDevice() {
     // Build one queue create-info per unique family (graphics/present/transfer may collapse to fewer families).
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
-    std::set< uint32_t >                   uniqueQueueFamilies = { myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myPresentFamily.value(),
-                                                                   myQueueFamilyIndices.myTransferFamily.value() };
+    std::set< uint32_t >                   uniqueQueueFamilies = { myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value(),
+                                                                   myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value() };
 
     float queuePriority = 1.0f;
     for ( uint32_t queueFamily : uniqueQueueFamilies ) {
@@ -402,7 +402,7 @@ void Vk_Core::CreateLogicalDevice() {
 
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    if ( myBindlessCaps.myDescriptorIndexingExtension ) {
+    if ( myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ) {
         indexingFeatures.runtimeDescriptorArray                    = VK_TRUE;
         indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     }
@@ -410,39 +410,39 @@ void Vk_Core::CreateLogicalDevice() {
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     features2.features = deviceFeatures;
-    features2.pNext    = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &indexingFeatures ) : nullptr;
+    features2.pNext    = myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &indexingFeatures ) : nullptr;
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pNext = myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &features2 ) : nullptr;
+    createInfo.pNext = myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ? static_cast< void* >( &features2 ) : nullptr;
 
     createInfo.pQueueCreateInfos       = queueCreateInfos.data();
     createInfo.queueCreateInfoCount    = static_cast< uint32_t >( queueCreateInfos.size() );
-    createInfo.pEnabledFeatures        = myBindlessCaps.myDescriptorIndexingExtension ? nullptr : &deviceFeatures;
-    createInfo.enabledExtensionCount   = static_cast< uint32_t >( myDeviceExtensions.size() );
-    createInfo.ppEnabledExtensionNames = myDeviceExtensions.data();
+    createInfo.pEnabledFeatures        = myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ? nullptr : &deviceFeatures;
+    createInfo.enabledExtensionCount   = static_cast< uint32_t >( myDeviceCtx.myDeviceExtensions.size() );
+    createInfo.ppEnabledExtensionNames = myDeviceCtx.myDeviceExtensions.data();
 
-    if ( myEnableValidationLayers ) {
-        createInfo.enabledLayerCount   = static_cast< uint32_t >( myValidationLayers.size() );
-        createInfo.ppEnabledLayerNames = myValidationLayers.data();
+    if ( myDeviceCtx.myEnableValidationLayers ) {
+        createInfo.enabledLayerCount   = static_cast< uint32_t >( myDeviceCtx.myValidationLayers.size() );
+        createInfo.ppEnabledLayerNames = myDeviceCtx.myValidationLayers.data();
     }
     else
         createInfo.enabledLayerCount = 0;
 
-    if ( vkCreateDevice( myPhysicalDevice, &createInfo, nullptr, &myDevice ) != VK_SUCCESS ) {
+    if ( vkCreateDevice( myDeviceCtx.myPhysicalDevice, &createInfo, nullptr, &myDeviceCtx.myDevice ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "vkCreateDevice failed." );
         throw std::runtime_error( "failed to create logical device!" );
     }
     UtilLogger::Info( "VULKAN", "Logical device created." );
 
     // Resolve queue handles after logical-device creation.
-    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myGraphicsFamily.value(), 0, &myGraphicsQueue );
-    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myPresentFamily.value(), 0, &myPresentQueue );
-    vkGetDeviceQueue( myDevice, myQueueFamilyIndices.myTransferFamily.value(), 0, &myTransferQueue );
+    vkGetDeviceQueue( myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), 0, &myDeviceCtx.myGraphicsQueue );
+    vkGetDeviceQueue( myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value(), 0, &myDeviceCtx.myPresentQueue );
+    vkGetDeviceQueue( myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value(), 0, &myDeviceCtx.myTransferQueue );
 }
 
 void Vk_Core::CreateSurface() {
-    if ( glfwCreateWindowSurface( myInstance, myWindow, nullptr, &mySurface ) != VK_SUCCESS ) {
+    if ( glfwCreateWindowSurface( myDeviceCtx.myInstance, myPlatformCtx.myWindow, nullptr, &myDeviceCtx.mySurface ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "glfwCreateWindowSurface failed." );
         throw std::runtime_error( "failed to create window surface!" );
     }
@@ -450,37 +450,37 @@ void Vk_Core::CreateSurface() {
 }
 
 void Vk_Core::SyncResourceContext() {
-    myResourceContext.Bind( myDevice, myAllocator, myPhysicalDevice, myGraphicsQueue, myTransferQueue, myGraphicsCommandPool, myTransferCommandPool,
-                            myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
+    myResourceContext.Bind( myDeviceCtx.myDevice, myDeviceCtx.myAllocator, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myGraphicsQueue, myDeviceCtx.myTransferQueue, myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myTransferCommandPool,
+                            myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
 }
 
 void Vk_Core::InitAllocator() {
     VmaAllocatorCreateInfo allocatorInfo{};
-    allocatorInfo.physicalDevice = myPhysicalDevice;
-    allocatorInfo.device         = myDevice;
-    allocatorInfo.instance       = myInstance;
-    vmaCreateAllocator( &allocatorInfo, &myAllocator );
+    allocatorInfo.physicalDevice = myDeviceCtx.myPhysicalDevice;
+    allocatorInfo.device         = myDeviceCtx.myDevice;
+    allocatorInfo.instance       = myDeviceCtx.myInstance;
+    vmaCreateAllocator( &allocatorInfo, &myDeviceCtx.myAllocator );
     SyncResourceContext();
 
     // Lifetime bound to core deletion queue (survives swapchain recreate).
-    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myAllocator ); } );
+    myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myDeviceCtx.myAllocator ); } );
 }
 
 void Vk_Core::CreateFrameData() {
-    myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
+    myFrameCtx.myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         // Per-frame command buffer.
-        const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
+        const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( myDeviceCtx.myGraphicsCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
-        if ( vkAllocateCommandBuffers( myDevice, &allocInfo, &myFrameDatas[ i ].myCommandBuffer ) != VK_SUCCESS ) {
+        if ( vkAllocateCommandBuffers( myDeviceCtx.myDevice, &allocInfo, &myFrameCtx.myFrameDatas[ i ].myCommandBuffer ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to allocate command buffers!" );
         }
 
         // Per-frame camera UBO slab (one slot per render view).
         VkDeviceSize bufferSize = static_cast< VkDeviceSize >( kGfxMaxRenderViews ) * static_cast< VkDeviceSize >( PadUniformBufferSize( sizeof( GpuCameraData ) ) );
 
-        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
+        CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myCameraBuffer, true );
 
         // Per-frame sync primitives (fence starts signaled for first frame).
         VkSemaphoreCreateInfo semaphoreInfo{};
@@ -490,18 +490,18 @@ void Vk_Core::CreateFrameData() {
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        if ( vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myFrameDatas[ i ].myPresentSemaphore ) != VK_SUCCESS
-             || vkCreateSemaphore( myDevice, &semaphoreInfo, nullptr, &myFrameDatas[ i ].myRenderSemaphore ) != VK_SUCCESS
-             || vkCreateFence( myDevice, &fenceInfo, nullptr, &myFrameDatas[ i ].myRenderFence ) != VK_SUCCESS ) {
+        if ( vkCreateSemaphore( myDeviceCtx.myDevice, &semaphoreInfo, nullptr, &myFrameCtx.myFrameDatas[ i ].myPresentSemaphore ) != VK_SUCCESS
+             || vkCreateSemaphore( myDeviceCtx.myDevice, &semaphoreInfo, nullptr, &myFrameCtx.myFrameDatas[ i ].myRenderSemaphore ) != VK_SUCCESS
+             || vkCreateFence( myDeviceCtx.myDevice, &fenceInfo, nullptr, &myFrameCtx.myFrameDatas[ i ].myRenderFence ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to create semaphores/fence!" );
         }
 
         // Core-owned lifetime cleanup.
-        myDeletionQueue.pushFunction( [ = ]() {
-            vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myCameraBuffer.myBuffer, myFrameDatas[ i ].myCameraBuffer.myAllocation );
-            vkDestroySemaphore( myDevice, myFrameDatas[ i ].myPresentSemaphore, nullptr );
-            vkDestroySemaphore( myDevice, myFrameDatas[ i ].myRenderSemaphore, nullptr );
-            vkDestroyFence( myDevice, myFrameDatas[ i ].myRenderFence, nullptr );
+        myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myCameraBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myCameraBuffer.myAllocation );
+            vkDestroySemaphore( myDeviceCtx.myDevice, myFrameCtx.myFrameDatas[ i ].myPresentSemaphore, nullptr );
+            vkDestroySemaphore( myDeviceCtx.myDevice, myFrameCtx.myFrameDatas[ i ].myRenderSemaphore, nullptr );
+            vkDestroyFence( myDeviceCtx.myDevice, myFrameCtx.myFrameDatas[ i ].myRenderFence, nullptr );
         } );
     }
 }
@@ -510,18 +510,18 @@ void Vk_Core::CreateInstanceSlabs() {
     const VkDeviceSize slabSize = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * static_cast< VkDeviceSize >( InstanceSlabStride() );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        CreateBuffer( slabSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myObjectBuffer, true );
+        CreateBuffer( slabSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myObjectBuffer, true );
 
         void* mapped = nullptr;
-        vmaMapMemory( myAllocator, myFrameDatas[ i ].myObjectBuffer.myAllocation, &mapped );
-        myFrameDatas[ i ].myInstanceSlabMapped = mapped;
+        vmaMapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myObjectBuffer.myAllocation, &mapped );
+        myFrameCtx.myFrameDatas[ i ].myInstanceSlabMapped = mapped;
 
-        myDeletionQueue.pushFunction( [ = ]() {
-            if ( myFrameDatas[ i ].myInstanceSlabMapped != nullptr ) {
-                vmaUnmapMemory( myAllocator, myFrameDatas[ i ].myObjectBuffer.myAllocation );
-                myFrameDatas[ i ].myInstanceSlabMapped = nullptr;
+        myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
+            if ( myFrameCtx.myFrameDatas[ i ].myInstanceSlabMapped != nullptr ) {
+                vmaUnmapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myObjectBuffer.myAllocation );
+                myFrameCtx.myFrameDatas[ i ].myInstanceSlabMapped = nullptr;
             }
-            vmaDestroyBuffer( myAllocator, myFrameDatas[ i ].myObjectBuffer.myBuffer, myFrameDatas[ i ].myObjectBuffer.myAllocation );
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myObjectBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myObjectBuffer.myAllocation );
         } );
     }
 
@@ -530,25 +530,25 @@ void Vk_Core::CreateInstanceSlabs() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // Device-scoped env UBO slab (CPU defaults written at scene load — Vk_SceneHost::InitScenePresentation).
+    // Device-scoped env UBO slab (CPU defaults written at scene load ??Vk_SceneHost::InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
-    myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
+    myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myDeviceCtx.myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
 }
 
 void Vk_Core::CreateCommandPool() {
     // Graphics command pool: frame command buffers + graphics-side one-shot commands.
-    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 
-    if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myGraphicsCommandPool ) != VK_SUCCESS ) {
+    if ( vkCreateCommandPool( myDeviceCtx.myDevice, &poolInfo, nullptr, &myDeviceCtx.myGraphicsCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create graphic command pool!" );
     }
 
     // Transfer command pool: staging copy path when transfer queue differs.
-    poolInfo = VkInit::CommandPoolCreateInfo( myQueueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
-    if ( vkCreateCommandPool( myDevice, &poolInfo, nullptr, &myTransferCommandPool ) != VK_SUCCESS ) {
+    poolInfo = VkInit::CommandPoolCreateInfo( myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    if ( vkCreateCommandPool( myDeviceCtx.myDevice, &poolInfo, nullptr, &myDeviceCtx.myTransferCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create transfer command pool!" );
     }
 }
@@ -559,81 +559,18 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
     return std::chrono::duration< float, std::milli >( aEnd - aStart ).count();
 }
 
-glm::vec4 ClampNormalizedViewport( const glm::vec4& aViewport ) {
-    const float x = std::clamp( aViewport.x, 0.0f, 1.0f );
-    const float y = std::clamp( aViewport.y, 0.0f, 1.0f );
-    const float w = std::clamp( aViewport.z, 0.0f, 1.0f - x );
-    const float h = std::clamp( aViewport.w, 0.0f, 1.0f - y );
-    return { x, y, w, h };
-}
-
-VkViewport ToViewport( const VkExtent2D& aExtent, const glm::vec4& aViewportNorm ) {
-    const float x      = aViewportNorm.x * static_cast< float >( aExtent.width );
-    const float y      = aViewportNorm.y * static_cast< float >( aExtent.height );
-    const float width  = std::max( 1.0f, aViewportNorm.z * static_cast< float >( aExtent.width ) );
-    const float height = std::max( 1.0f, aViewportNorm.w * static_cast< float >( aExtent.height ) );
-    return VkViewport{ x, y, width, height, 0.0f, 1.0f };
-}
-
-VkRect2D ToScissor( const VkExtent2D& aExtent, const VkViewport& aViewport ) {
-    VkRect2D scissor{};
-    scissor.offset.x = std::max( 0, static_cast< int32_t >( aViewport.x ) );
-    scissor.offset.y = std::max( 0, static_cast< int32_t >( aViewport.y ) );
-
-    const uint32_t offsetX = static_cast< uint32_t >( scissor.offset.x );
-    const uint32_t offsetY = static_cast< uint32_t >( scissor.offset.y );
-    const uint32_t maxWidthFromOffset  = offsetX < aExtent.width ? ( aExtent.width - offsetX ) : 1u;
-    const uint32_t maxHeightFromOffset = offsetY < aExtent.height ? ( aExtent.height - offsetY ) : 1u;
-    // Clamp extent relative to offset to keep the scissor rectangle inside the swapchain extent.
-    scissor.extent.width  = std::max( 1u, std::min( maxWidthFromOffset, static_cast< uint32_t >( aViewport.width ) ) );
-    scissor.extent.height = std::max( 1u, std::min( maxHeightFromOffset, static_cast< uint32_t >( aViewport.height ) ) );
-    return scissor;
-}
-
 }  // namespace
 
-std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI ) const {
-    std::array< ActiveRenderView, kGfxMaxRenderViews > views{};
-    aOutViewCount = 1;
-
-    views[ 0 ].myView.myCameraSource = Gfx_RenderViewCameraSource::Fly;
-    views[ 0 ].myView.myViewport     = glm::vec4( 0.0f, 0.0f, 1.0f, 1.0f );
-    views[ 0 ].myView.myLayerMask    = 0xFFFFFFFFu;
-    views[ 0 ].myCamera              = myCamera;
-    views[ 0 ].myViewport            = ToViewport( mySwapChainExtent, views[ 0 ].myView.myViewport );
-    views[ 0 ].myScissor             = ToScissor( mySwapChainExtent, views[ 0 ].myViewport );
-
-    if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
-        aOutViewCount = 2;
-        const uint32_t cameraIndex = std::min( aDebugUI.myMultiView.mySecondaryCameraIndex, static_cast< uint32_t >( aWorld.myLoadedScene.myCameras.size() - 1 ) );
-        const Gfx_SceneCameraEntry& sceneCamera = aWorld.myLoadedScene.myCameras[ cameraIndex ];
-        const glm::vec4 viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
-
-        views[ 1 ].myView.myCameraSource   = Gfx_RenderViewCameraSource::SceneCamera;
-        views[ 1 ].myView.mySceneCameraIndex = cameraIndex;
-        views[ 1 ].myView.myViewport       = viewportNorm;
-        views[ 1 ].myView.myLayerMask      = sceneCamera.myLayerMask;
-        views[ 1 ].myViewport              = ToViewport( mySwapChainExtent, viewportNorm );
-        views[ 1 ].myScissor               = ToScissor( mySwapChainExtent, views[ 1 ].myViewport );
-
-        const float aspect = static_cast< float >( views[ 1 ].myScissor.extent.width ) / static_cast< float >( views[ 1 ].myScissor.extent.height );
-        views[ 1 ].myCamera.SetLens( sceneCamera.myFovYDeg, myCamera.myNear, myCamera.myFar, aspect );
-        views[ 1 ].myCamera.LookAt( sceneCamera.myEye, sceneCamera.myCenter, sceneCamera.myUp );
-    }
-
-    return views;
-}
-
-bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aOut ) {
+bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews, uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut ) {
     aOut = Vk_FrameCpuPrepResult{};
 
-    myRenderDoc.BeginFrameCaptureIfRequested();
+    myPlatformCtx.myRenderDoc.BeginFrameCaptureIfRequested();
 
-    Vk_FrameData& frameData = myFrameDatas[ myCurrentFrame ];
+    Vk_FrameData& frameData = myFrameCtx.myFrameDatas[ myFrameCtx.myCurrentFrame ];
     aOut.myFrameData        = &frameData;
 
     const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
-    vkWaitForFences( myDevice, 1, &frameData.myRenderFence, VK_TRUE, UINT64_MAX );
+    vkWaitForFences( myDeviceCtx.myDevice, 1, &frameData.myRenderFence, VK_TRUE, UINT64_MAX );
     aOut.myGpuFenceWaitMs = ElapsedMs( fenceWaitStart, std::chrono::high_resolution_clock::now() );
 
     if ( !Vk_SwapchainHost::AcquireNextImage( *this, frameData, aOut.myImageIndex ) ) {
@@ -642,16 +579,17 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI,
 
     myFrameStats.ResetPerFrameCounters();
 
-    const auto activeViews = BuildActiveRenderViews( aOut.myActiveViewCount, aWorld, aDebugUI );
+    aOut.myActiveViewCount = std::min( aViewCount, kGfxMaxRenderViews );
+    const uint32_t activeViewCount = aOut.myActiveViewCount;
 
     uint32_t totalOpaqueDraws = 0;
     uint32_t totalTransDraws  = 0;
     uint32_t totalOpaqueRuns  = 0;
     uint32_t totalTransRuns   = 0;
-    const uint32_t slabPartitionCount = std::max( 1u, aOut.myActiveViewCount );
+    const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
 
-    for ( uint32_t viewIndex = 0; viewIndex < aOut.myActiveViewCount; ++viewIndex ) {
+    for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         Gfx_LodState  secondaryViewLodState;
         Gfx_LodState* lodStateForView = &aWorld.myLodState;
         if ( viewIndex > 0 ) {
@@ -661,27 +599,27 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI,
 
         Vk_FrameDrawPrepBuildParams prepParams{};
         prepParams.myScene                  = &aWorld.mySceneSoA;
-        prepParams.myCamera                 = &activeViews[ viewIndex ].myCamera;
+        prepParams.myCamera                 = &aViews[ viewIndex ].myCamera;
         prepParams.myLodTable               = &aWorld.myLodTable;
         prepParams.myLodState               = lodStateForView;
         prepParams.myLodDebugLogicalMeshId  = aWorld.myLodDebugLogicalMeshId;
-        prepParams.myCurrentFrame           = myCurrentFrame;
-        prepParams.myFrameDatas             = &myFrameDatas;
+        prepParams.myCurrentFrame           = myFrameCtx.myCurrentFrame;
+        prepParams.myFrameDatas             = &myFrameCtx.myFrameDatas;
         prepParams.myInstanceSlabStride     = InstanceSlabStride();
         prepParams.myInstanceSlabBaseOffset = static_cast< size_t >( viewIndex ) * static_cast< size_t >( perViewMaxEntries ) * InstanceSlabStride();
         prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
 
-        myDrawPrep.ClearFrameOutputs();
-        myDrawPrep.Build( prepParams );
-        aOut.myViewPackets[ viewIndex ]      = myDrawPrep.myFramePacket;
-        aOut.myViewports[ viewIndex ]        = activeViews[ viewIndex ].myViewport;
-        aOut.myScissors[ viewIndex ]         = activeViews[ viewIndex ].myScissor;
-        aOut.myFrameDescriptors[ viewIndex ] = myFrameDatas[ myCurrentFrame ].myGlobalDescriptors[ viewIndex ];
-        totalOpaqueDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() );
-        totalTransDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() );
-        totalOpaqueRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() );
-        totalTransRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
-        Vk_FrameUniformUploader::UpdateForView( *this, myCurrentFrame, viewIndex, activeViews[ viewIndex ].myCamera );
+        mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
+        mySceneGpuCtx.myDrawPrep.Build( prepParams );
+        aOut.myViewPackets[ viewIndex ]      = mySceneGpuCtx.myDrawPrep.myFramePacket;
+        aOut.myViewports[ viewIndex ]        = aViews[ viewIndex ].myViewport;
+        aOut.myScissors[ viewIndex ]         = aViews[ viewIndex ].myScissor;
+        aOut.myFrameDescriptors[ viewIndex ] = myFrameCtx.myFrameDatas[ myFrameCtx.myCurrentFrame ].myGlobalDescriptors[ viewIndex ];
+        totalOpaqueDraws += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() );
+        totalTransDraws += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() );
+        totalOpaqueRuns += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() );
+        totalTransRuns += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
+        Vk_FrameUniformUploader::UpdateForView( *this, myFrameCtx.myCurrentFrame, viewIndex, aViews[ viewIndex ].myCamera );
     }
 
     aOut.myTotalOpaqueDraws      = totalOpaqueDraws;
@@ -689,11 +627,11 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI,
     myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( aWorld.mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
-    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, aOut.myActiveViewCount,
-                              Vk_RenderMaterialPathName( myMaterialPath ) );
+    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameCtx.myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, aOut.myActiveViewCount,
+                              Vk_RenderMaterialPathName( myDeviceCtx.myMaterialPath ) );
 
     if ( !myMaterialBindLoggedOnce ) {
-        if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        if ( myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
             UtilLogger::Info( "DESCRIPTOR", "Set 1 bindless material set (once per pass); per-draw materialIndex in Set 2 slab." );
         }
         else {
@@ -703,8 +641,8 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI,
         myMaterialBindLoggedOnce = true;
     }
 
-    if ( !myBindlessLoggedOnce && myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        UtilLogger::Info( "BINDLESS", "recording with materialTableGeneration=" + std::to_string( myResourceTables.GetMaterialTableGeneration() )
+    if ( !myBindlessLoggedOnce && myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        UtilLogger::Info( "BINDLESS", "recording with materialTableGeneration=" + std::to_string( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() )
                                           + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
         myBindlessLoggedOnce = true;
     }
@@ -722,9 +660,9 @@ void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult&
     Vk_FrameData& frameData = *aPrep.myFrameData;
 
     // Env UBO upload after Application built debug panels (RenderDebug must precede this).
-    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
+    Vk_FrameUniformUploader::Update( *this, myFrameCtx.myCurrentFrame );
 
-    vkResetFences( myDevice, 1, &frameData.myRenderFence );
+    vkResetFences( myDeviceCtx.myDevice, 1, &frameData.myRenderFence );
     vkResetCommandBuffer( frameData.myCommandBuffer, 0 );
 
     const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
@@ -732,8 +670,8 @@ void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult&
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    Vk_ScenePasses::RecordScene( *this, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors, aPrep.myActiveViewCount,
-                                 aPrep.myViewPackets );
+    Vk_ScenePasses::RecordScene( *this, aDebugUI, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
+                                 aPrep.myActiveViewCount, aPrep.myViewPackets );
 
     // Lighting tuning applies next frame (unchanged contract).
     UtilLightingPanel::Build( myEnvironmentData );
@@ -747,27 +685,27 @@ void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult&
 
     Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex );
 
-    if ( myHasFrameInputSampleTime ) {
-        const float inputToPresentMs = ElapsedMs( myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
+    if ( myPlatformCtx.myHasFrameInputSampleTime ) {
+        const float inputToPresentMs = ElapsedMs( myPlatformCtx.myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
         myFrameStats.RecordInputLatency( inputToPresentMs, aPrep.myGpuFenceWaitMs, myVsync, myFrameStats.myFrameMs );
-        myHasFrameInputSampleTime = false;
+        myPlatformCtx.myHasFrameInputSampleTime = false;
     }
 
-    if ( !myM1PerfLoggedOnce && myFrameNumber >= 59 ) {
+    if ( !myM1PerfLoggedOnce && myFrameCtx.myFrameNumber >= 59 ) {
         LogM1PerfSnapshot();
         myM1PerfLoggedOnce = true;
     }
 
-    myFrameNumber++;
-    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
+    myFrameCtx.myFrameNumber++;
+    myFrameCtx.myCurrentFrame = myFrameCtx.myFrameNumber % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Vk_Core::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
-    myRenderDoc.CmdBeginDebugLabel( aCommandBuffer, aLabelName );
+    myPlatformCtx.myRenderDoc.CmdBeginDebugLabel( aCommandBuffer, aLabelName );
 }
 
 void Vk_Core::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
-    myRenderDoc.CmdEndDebugLabel( aCommandBuffer );
+    myPlatformCtx.myRenderDoc.CmdEndDebugLabel( aCommandBuffer );
 }
 
 void Vk_Core::LogM1PerfSnapshot() const {
@@ -778,47 +716,47 @@ void Vk_Core::LogM1PerfSnapshot() const {
                                   + " batchRuns=" + std::to_string( batchRuns ) + " (opaque=" + std::to_string( myFrameStats.myOpaqueBatchRuns ) + " transparent="
                                   + std::to_string( myFrameStats.myTransparentBatchRuns ) + ")" + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds )
                                   + " pipelineBinds=" + std::to_string( myFrameStats.myPipelineBinds ) + " drawCalls=" + std::to_string( myFrameStats.myDrawCalls )
-                                  + " materialPath=" + Vk_RenderMaterialPathName( myMaterialPath ) );
+                                  + " materialPath=" + Vk_RenderMaterialPathName( myDeviceCtx.myMaterialPath ) );
 }
 
 void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
-    const VkPipeline       opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
-    const VkPipeline       transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
-    const VkPipelineLayout layout     = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBindlessPipelineLayout : myPipelineLayout;
-    myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
+    const VkPipeline       opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
+    const VkPipeline       transPipe  = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
+    const VkPipelineLayout layout     = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
+    mySceneGpuCtx.myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
 }
 
 void Vk_Core::InitVk_QueueFamilyIndices() {
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, nullptr );
+    vkGetPhysicalDeviceQueueFamilyProperties( myDeviceCtx.myPhysicalDevice, &queueFamilyCount, nullptr );
 
     std::vector< VkQueueFamilyProperties > queueFamilies( queueFamilyCount );
-    vkGetPhysicalDeviceQueueFamilyProperties( myPhysicalDevice, &queueFamilyCount, queueFamilies.data() );
+    vkGetPhysicalDeviceQueueFamilyProperties( myDeviceCtx.myPhysicalDevice, &queueFamilyCount, queueFamilies.data() );
 
     int i = 0;
     for ( const auto& queueFamily : queueFamilies ) {
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR( myPhysicalDevice, i, mySurface, &presentSupport );
+        vkGetPhysicalDeviceSurfaceSupportKHR( myDeviceCtx.myPhysicalDevice, i, myDeviceCtx.mySurface, &presentSupport );
         if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
-            myQueueFamilyIndices.myPresentFamily  = i;
-            myQueueFamilyIndices.myGraphicsFamily = i;
+            myDeviceCtx.myQueueFamilyIndices.myPresentFamily  = i;
+            myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily = i;
         }
 
         // Prefer a dedicated transfer-only family when available (staging uploads).
         if ( ( queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT ) && !( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
-            myQueueFamilyIndices.myTransferFamily = i;
+            myDeviceCtx.myQueueFamilyIndices.myTransferFamily = i;
         }
 
-        if ( myQueueFamilyIndices.isComplete() )
+        if ( myDeviceCtx.myQueueFamilyIndices.isComplete() )
             break;
 
         i++;
     }
 
-    myQueueFamilyIndices.ApplyTransferFallback();
+    myDeviceCtx.myQueueFamilyIndices.ApplyTransferFallback();
 
-    const uint32_t graphicsFamily = myQueueFamilyIndices.myGraphicsFamily.value_or( 0 );
-    const uint32_t transferFamily = myQueueFamilyIndices.myTransferFamily.value_or( graphicsFamily );
+    const uint32_t graphicsFamily = myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 );
+    const uint32_t transferFamily = myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( graphicsFamily );
     const bool     useConcurrent  = graphicsFamily != transferFamily;
     // Startup signal for queue-family ownership policy used by image/buffer allocations.
     UtilLogger::Info( "VULKAN", "Queue families: graphics=" + std::to_string( graphicsFamily ) + " transfer=" + std::to_string( transferFamily )
@@ -841,22 +779,22 @@ void Vk_Core::CheckExtensionSupport() const {
 }
 
 bool Vk_Core::CheckValidationLayerSupport() const {
-    return UtilValidationLayers::AreLayersAvailable( myValidationLayers );
+    return UtilValidationLayers::AreLayersAvailable( myDeviceCtx.myValidationLayers );
 }
 
 void Vk_Core::SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers ) {
-    myEnableValidationLayers = aEnableValidationLayers;
-    myValidationLayers       = someValidationLayers;
+    myDeviceCtx.myEnableValidationLayers = aEnableValidationLayers;
+    myDeviceCtx.myValidationLayers       = someValidationLayers;
 }
 
 void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensions ) {
-    myDeviceExtensions = someDeviceExtensions;
+    myDeviceCtx.myDeviceExtensions = someDeviceExtensions;
 }
 
 bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
-    vkGetPhysicalDeviceProperties( aPhysicalDevice, &myPhysicalDeviceProperties );
+    vkGetPhysicalDeviceProperties( aPhysicalDevice, &myDeviceCtx.myPhysicalDeviceProperties );
 
-    vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myPhysicalDeviceFeatures );
+    vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myDeviceCtx.myPhysicalDeviceFeatures );
 
     Vk_QueueFamilyIndices indices = FindQueueFamilies( aPhysicalDevice );
 
@@ -870,10 +808,10 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     }
 
 #ifdef _DEBUG
-    UtilLogger::Debug( "GPU", "minUniformBufferOffsetAlignment=" + std::to_string( myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment ) );
+    UtilLogger::Debug( "GPU", "minUniformBufferOffsetAlignment=" + std::to_string( myDeviceCtx.myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment ) );
 #endif  // _DEBUG
 
-    return indices.isComplete() && extensionSupported && swapChainAdequate && myPhysicalDeviceFeatures.samplerAnisotropy;
+    return indices.isComplete() && extensionSupported && swapChainAdequate && myDeviceCtx.myPhysicalDeviceFeatures.samplerAnisotropy;
 }
 
 Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
@@ -888,7 +826,7 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
     for ( const auto& queueFamily : queueFamilies ) {
         // Prefer one family that supports both graphics + present.
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR( aPhysicalDevice, i, mySurface, &presentSupport );
+        vkGetPhysicalDeviceSurfaceSupportKHR( aPhysicalDevice, i, myDeviceCtx.mySurface, &presentSupport );
         if ( presentSupport && ( queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT ) ) {
             indices.myPresentFamily  = i;
             indices.myGraphicsFamily = i;
@@ -913,24 +851,24 @@ Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhy
     Vk_SwapChainSupportDetails details;
 
     // Surface capabilities (extent/image count transform limits).
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, mySurface, &details.myCapabilities );
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR( aPhysicalDevice, myDeviceCtx.mySurface, &details.myCapabilities );
 
     // Supported color formats/colorspaces for present images.
     uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, nullptr );
+    vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, myDeviceCtx.mySurface, &formatCount, nullptr );
 
     if ( formatCount != 0 ) {
         details.myFormats.resize( formatCount );
-        vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, mySurface, &formatCount, details.myFormats.data() );
+        vkGetPhysicalDeviceSurfaceFormatsKHR( aPhysicalDevice, myDeviceCtx.mySurface, &formatCount, details.myFormats.data() );
     }
 
     // Supported present modes (FIFO/MAILBOX/IMMEDIATE).
     uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR( aPhysicalDevice, mySurface, &presentModeCount, nullptr );
+    vkGetPhysicalDeviceSurfacePresentModesKHR( aPhysicalDevice, myDeviceCtx.mySurface, &presentModeCount, nullptr );
 
     if ( presentModeCount != 0 ) {
         details.myPresentModes.resize( presentModeCount );
-        vkGetPhysicalDeviceSurfacePresentModesKHR( aPhysicalDevice, mySurface, &presentModeCount, details.myPresentModes.data() );
+        vkGetPhysicalDeviceSurfacePresentModesKHR( aPhysicalDevice, myDeviceCtx.mySurface, &presentModeCount, details.myPresentModes.data() );
     }
 
     return details;
@@ -943,7 +881,7 @@ bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     std::vector< VkExtensionProperties > availableExtensions( extensionCount );
     vkEnumerateDeviceExtensionProperties( aPhysicalDevice, nullptr, &extensionCount, availableExtensions.data() );
 
-    std::set< std::string > requiredExtensions( myDeviceExtensions.begin(), myDeviceExtensions.end() );
+    std::set< std::string > requiredExtensions( myDeviceCtx.myDeviceExtensions.begin(), myDeviceCtx.myDeviceExtensions.end() );
 
     for ( const auto& extension : availableExtensions ) {
         requiredExtensions.erase( extension.extensionName );
@@ -998,7 +936,7 @@ VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilit
     }
     else {
         int width, height;
-        glfwGetFramebufferSize( myWindow, &width, &height );
+        glfwGetFramebufferSize( myPlatformCtx.myWindow, &width, &height );
 
         VkExtent2D actualExtent = { static_cast< uint32_t >( width ), static_cast< uint32_t >( height ) };
 
@@ -1016,7 +954,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
     createInfo.pCode    = reinterpret_cast< const uint32_t* >( someShaderCode.data() );
 
     VkShaderModule shaderModule;
-    UtilVulkanResult::ThrowOnFailure( vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule ), "vkCreateShaderModule" );
+    UtilVulkanResult::ThrowOnFailure( vkCreateShaderModule( myDeviceCtx.myDevice, &createInfo, nullptr, &shaderModule ), "vkCreateShaderModule" );
 
     return shaderModule;
 }
@@ -1031,7 +969,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
     createInfo.pCode    = reinterpret_cast< const uint32_t* >( shaderCode.data() );
 
     VkShaderModule shaderModule;
-    const VkResult moduleResult = vkCreateShaderModule( myDevice, &createInfo, nullptr, &shaderModule );
+    const VkResult moduleResult = vkCreateShaderModule( myDeviceCtx.myDevice, &createInfo, nullptr, &shaderModule );
     if ( moduleResult != VK_SUCCESS ) {
         UtilLogger::Error( "SHADER", "vkCreateShaderModule " + UtilVulkanResult::Describe( moduleResult ) + " path=" + aShaderPath
                                          + " codeSize=" + std::to_string( shaderCode.size() ) );
@@ -1053,12 +991,12 @@ void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkV
 void Vk_Core::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
     const auto vkCore = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
 
-    vkCore->myFramebufferResized = true;
+    vkCore->mySwapchainCtx.myFramebufferResized = true;
 }
 
 uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties( myPhysicalDevice, &memProperties );
+    vkGetPhysicalDeviceMemoryProperties( myDeviceCtx.myPhysicalDevice, &memProperties );
 
     for ( uint32_t i = 0; i < memProperties.memoryTypeCount; i++ ) {
         if ( ( aTypeFiler & ( 1 << i ) ) && ( memProperties.memoryTypes[ i ].propertyFlags & someProperties ) == someProperties ) {
@@ -1079,8 +1017,8 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage,
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
     else {
-        const uint32_t graphicsFamily = myQueueFamilyIndices.myGraphicsFamily.value();
-        const uint32_t transferFamily = myQueueFamilyIndices.myTransferFamily.value();
+        const uint32_t graphicsFamily = myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value();
+        const uint32_t transferFamily = myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value();
 
         // Same family after ApplyTransferFallback: CONCURRENT with duplicate indices is invalid.
         if ( graphicsFamily == transferFamily ) {
@@ -1098,13 +1036,13 @@ void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage,
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;
 
-    if ( vmaCreateBuffer( myAllocator, &bufferInfo, &vmaAllocInfo, &aBuffer.myBuffer, &aBuffer.myAllocation, nullptr ) != VK_SUCCESS ) {
+    if ( vmaCreateBuffer( myDeviceCtx.myAllocator, &bufferInfo, &vmaAllocInfo, &aBuffer.myBuffer, &aBuffer.myAllocation, nullptr ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create buffer through VMA!" );
     }
 }
 
 void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myDeviceCtx.myTransferCommandPool );
 
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
@@ -1112,11 +1050,11 @@ void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize
     copyRegion.size      = aSize;
     vkCmdCopyBuffer( commandBuffer, aSrcBuffer, aDstBuffer, 1, &copyRegion );
 
-    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
+    EndSingleTimeCommands( commandBuffer, myDeviceCtx.myTransferCommandPool, myDeviceCtx.myTransferQueue );
 }
 
 void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myDeviceCtx.myGraphicsCommandPool );
 
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
@@ -1124,7 +1062,7 @@ void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer,
     copyRegion.size      = aSize;
     vkCmdCopyBuffer( commandBuffer, aSrcBuffer, aDstBuffer, 1, &copyRegion );
 
-    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
+    EndSingleTimeCommands( commandBuffer, myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myGraphicsQueue );
 }
 
 size_t Vk_Core::InstanceSlabStride() const {
@@ -1153,12 +1091,12 @@ void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling 
     imageInfo.samples   = aNumSamples;
     imageInfo.flags     = 0;
     std::array< uint32_t, 2 > queueFamilyIndices{};
-    VkInit::FillImageSharingMode( myQueueFamilyIndices.myGraphicsFamily.value(), myQueueFamilyIndices.myTransferFamily.value(), queueFamilyIndices, imageInfo );
+    VkInit::FillImageSharingMode( myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value(), queueFamilyIndices, imageInfo );
 
     VmaAllocationCreateInfo vmaAllocInfo{};
     vmaAllocInfo.usage = aMemoryUsage;
 
-    if ( vmaCreateImage( myAllocator, &imageInfo, &vmaAllocInfo, &anImage.myImage, &anImage.myAllocation, nullptr ) != VK_SUCCESS ) {
+    if ( vmaCreateImage( myDeviceCtx.myAllocator, &imageInfo, &vmaAllocInfo, &anImage.myImage, &anImage.myAllocation, nullptr ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create image through VMA!" );
     }
 }
@@ -1167,7 +1105,7 @@ VkCommandBuffer Vk_Core::BeginSingleTimeCommands( VkCommandPool aCommandPool ) c
     const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( aCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers( myDevice, &allocInfo, &commandBuffer );
+    vkAllocateCommandBuffers( myDeviceCtx.myDevice, &allocInfo, &commandBuffer );
 
     const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
 
@@ -1187,11 +1125,11 @@ void Vk_Core::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPo
     vkQueueSubmit( aQueue, 1, &submitInfo, VK_NULL_HANDLE );
     vkQueueWaitIdle( aQueue );
 
-    vkFreeCommandBuffers( myDevice, aCommandPool, 1, &aCommandBuffer );
+    vkFreeCommandBuffers( myDeviceCtx.myDevice, aCommandPool, 1, &aCommandBuffer );
 }
 
 void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const {
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myDeviceCtx.myGraphicsCommandPool );
 
     VkImageMemoryBarrier barrier{};
     barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1246,11 +1184,11 @@ void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLa
 
     vkCmdPipelineBarrier( commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 
-    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
+    EndSingleTimeCommands( commandBuffer, myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myGraphicsQueue );
 }
 
 void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
-    VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
+    VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myDeviceCtx.myTransferCommandPool );
     VkBufferImageCopy region{};
     region.bufferOffset      = 0;
     region.bufferRowLength   = 0;
@@ -1266,7 +1204,7 @@ void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWid
 
     vkCmdCopyBufferToImage( commandBuffer, aBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
 
-    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
+    EndSingleTimeCommands( commandBuffer, myDeviceCtx.myTransferCommandPool, myDeviceCtx.myTransferQueue );
 }
 
 VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
@@ -1276,7 +1214,7 @@ VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImage
 VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const {
     for ( const VkFormat format : someCandidates ) {
         VkFormatProperties properties;
-        vkGetPhysicalDeviceFormatProperties( myPhysicalDevice, format, &properties );
+        vkGetPhysicalDeviceFormatProperties( myDeviceCtx.myPhysicalDevice, format, &properties );
         if ( aTiling == VK_IMAGE_TILING_LINEAR && ( properties.linearTilingFeatures & someFeatures ) == someFeatures ) {
             return format;
         }
@@ -1301,12 +1239,12 @@ void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aT
 
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties( myPhysicalDevice, aImageFormat, &formatProperties );
+    vkGetPhysicalDeviceFormatProperties( myDeviceCtx.myPhysicalDevice, aImageFormat, &formatProperties );
     if ( !( formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT ) ) {
         throw std::runtime_error( "texture image does not support linear blitting!" );
     }
 
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myDeviceCtx.myGraphicsCommandPool );
 
     VkImageMemoryBarrier barrier{};
     barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1364,12 +1302,12 @@ void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aT
 
     vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 
-    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
+    EndSingleTimeCommands( commandBuffer, myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myGraphicsQueue );
 }
 
 VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
     VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties( myPhysicalDevice, &physicalDeviceProperties );
+    vkGetPhysicalDeviceProperties( myDeviceCtx.myPhysicalDevice, &physicalDeviceProperties );
 
     VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
     if ( counts & VK_SAMPLE_COUNT_64_BIT )
@@ -1398,13 +1336,13 @@ void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& a
 }
 
 void Vk_Core::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {
-    myFrameInputSampleTime    = aSampleTime;
-    myHasFrameInputSampleTime = true;
+    myPlatformCtx.myFrameInputSampleTime    = aSampleTime;
+    myPlatformCtx.myHasFrameInputSampleTime = true;
 }
 
 size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
     // Slab stride / future UNIFORM_BUFFER_DYNAMIC offsets - multiples of minUniformBufferOffsetAlignment.
-    size_t minUboAlignment = myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
+    size_t minUboAlignment = myDeviceCtx.myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
     size_t alignedSize     = anOriginalSize;
 
     if ( minUboAlignment > 0 )

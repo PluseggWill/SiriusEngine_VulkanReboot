@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "ActiveViewsBuild.h"
 #include "DebugOverlay.h"
 #include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
@@ -115,8 +116,10 @@ void Application::RunMainLoop() {
         Gfx_TickDemoSceneTransforms( myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
 
+        uint32_t                viewCount = 0;
+        const auto              views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
         Vk_FrameCpuPrepResult prep{};
-        if ( core.PrepareFrameCpu( myWorld, myDebugUI, prep ) ) {
+        if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
             UtilRenderDebugPanel::Build( myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
             BuildDebugOverlayPanels( myDebugUI, myWorld, core, prep );
             core.DrawFrameGpu( myDebugUI, prep );

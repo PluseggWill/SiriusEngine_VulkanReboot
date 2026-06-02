@@ -10,19 +10,19 @@
 #include <string>
 
 void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName ) {
-    const VkDescriptorSet  objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout           = aCore.myPipelineLayout;
+    const VkDescriptorSet  objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout           = aCore.mySceneGpuCtx.myPipelineLayout;
 
     for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
         const Gfx_DrawInstance& firstDraw = aPass.myDraws[ batch.myFirstDrawIndex ];
-        const Gfx_Material&     material  = aCore.myResourceTables.GetMaterial( firstDraw.myMaterialId );
+        const Gfx_Material&     material  = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( firstDraw.myMaterialId );
 
         aCore.myFrameStats.myPipelineBinds++;
         vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
 
         const uint32_t materialId = firstDraw.myMaterialId;
-        if ( materialId < aCore.myMaterialDescriptorSets.size() ) {
-            const VkDescriptorSet materialDescriptor = aCore.myMaterialDescriptorSets[ materialId ];
+        if ( materialId < aCore.mySceneGpuCtx.myMaterialDescriptorSets.size() ) {
+            const VkDescriptorSet materialDescriptor = aCore.mySceneGpuCtx.myMaterialDescriptorSets[ materialId ];
             vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, VkDescriptorPolicy::kSetMaterial, 1, &materialDescriptor, 0, nullptr );
             aCore.myFrameStats.myMaterialSetBinds++;
         }
@@ -30,7 +30,7 @@ void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffe
         for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
             const uint32_t          absoluteDrawIndex = batch.myFirstDrawIndex + drawIndex;
             const Gfx_DrawInstance& draw              = aPass.myDraws[ absoluteDrawIndex ];
-            const Gfx_Mesh&         mesh = aCore.myResourceTables.GetMesh( draw.myMeshId );
+            const Gfx_Mesh&         mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
             const std::string drawTag   = std::string( "Pass=" ) + aPassName + " Draw=" + std::to_string( absoluteDrawIndex ) + " Mesh=" + std::to_string( draw.myMeshId )
                                         + " Material=" + std::to_string( draw.myMaterialId ) + " Entity=" + std::to_string( draw.myEntityIndex );
             aCore.CmdBeginDebugLabel( aCommandBuffer, drawTag.c_str() );
@@ -51,8 +51,8 @@ void Vk_ScenePasses::RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffe
 
 void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline,
                                                           const char* aPassName ) {
-    const VkDescriptorSet  objectDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout           = aCore.myBindlessPipelineLayout;
+    const VkDescriptorSet  objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout           = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
 
     if ( aPass.myDraws.empty() ) {
         return;
@@ -63,7 +63,7 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
 
     for ( uint32_t drawIndex = 0; drawIndex < static_cast< uint32_t >( aPass.myDraws.size() ); ++drawIndex ) {
         const Gfx_DrawInstance& draw = aPass.myDraws[ drawIndex ];
-        const Gfx_Mesh& mesh = aCore.myResourceTables.GetMesh( draw.myMeshId );
+        const Gfx_Mesh& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
         const std::string drawTag =
             std::string( "Pass=" ) + aPassName + " Draw=" + std::to_string( drawIndex ) + " Mesh=" + std::to_string( draw.myMeshId ) + " Material="
             + std::to_string( draw.myMaterialId ) + " Entity=" + std::to_string( draw.myEntityIndex );
@@ -83,19 +83,20 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
 }
 
 // CONTRACT (Stage 1 forward): one swapchain render pass, clear color+depth once.
-// Sub-pass A — ForwardOpaque: myOpaquePass, depth write ON, opaque/blend-off pipeline.
-// Sub-pass B — ForwardTransparent: myTransparentPass, depth test ON / write OFF, alpha blend pipeline.
+// Sub-pass A ??ForwardOpaque: myOpaquePass, depth write ON, opaque/blend-off pipeline.
+// Sub-pass B ??ForwardTransparent: myTransparentPass, depth test ON / write OFF, alpha blend pipeline.
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
-void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex, const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
+void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+                                  const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
                                   const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass        = aCore.myRenderPass;
-    renderPassInfo.framebuffer       = aCore.mySwapChainFrameBuffers[ anImageIndex ];
+    renderPassInfo.renderPass        = aCore.mySwapchainCtx.myRenderPass;
+    renderPassInfo.framebuffer       = aCore.mySwapchainCtx.mySwapChainFrameBuffers[ anImageIndex ];
     renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = aCore.mySwapChainExtent;
+    renderPassInfo.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
 
     std::array< VkClearValue, 2 > clearValues{};
     clearValues[ 0 ].color         = { { 0.0f, 0.0f, 0.0f, 1.0f } };
@@ -108,7 +109,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     static bool sPacketPathLoggedOnce = false;
     static bool sPacketSkipLoggedOnce = false;
 
-    const VkPipelineLayout frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
+    const VkPipelineLayout frameBindLayout = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
     for ( uint32_t viewIndex = 0; viewIndex < aViewCount; ++viewIndex ) {
         const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
         aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
@@ -116,19 +117,19 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
                                  nullptr );
 
         const bool usePacketPath = Vk_RenderBackend::ValidateFramePacket( packet );
-        if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
-                                     &aCore.myBindlessDescriptorSet, 0, nullptr );
+        if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
+                                     &aCore.mySceneGpuCtx.myBindlessDescriptorSet, 0, nullptr );
             aCore.myFrameStats.myMaterialSetBinds++;
             if ( usePacketPath ) {
-                if ( !aCore.DebugUI().myRenderDebug.mySkipOpaquePass ) {
+                if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
                     aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
-                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, aCore.myBasicPipelineBindless, "Opaque" );
+                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, aCore.mySceneGpuCtx.myBasicPipelineBindless, "Opaque" );
                     aCore.CmdEndDebugLabel( aCommandBuffer );
                 }
-                if ( !aCore.DebugUI().myRenderDebug.mySkipTransparentPass ) {
+                if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
                     aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
-                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, aCore.myTransparentPipelineBindless, "Transparent" );
+                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, aCore.mySceneGpuCtx.myTransparentPipelineBindless, "Transparent" );
                     aCore.CmdEndDebugLabel( aCommandBuffer );
                 }
             }
@@ -138,12 +139,12 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
             }
         }
         else if ( usePacketPath ) {
-            if ( !aCore.DebugUI().myRenderDebug.mySkipOpaquePass ) {
+            if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
                 RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
-            if ( !aCore.DebugUI().myRenderDebug.mySkipTransparentPass ) {
+            if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
                 RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -164,5 +165,5 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
 }
 
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-    aCore.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapChainExtent );
+    aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );
 }

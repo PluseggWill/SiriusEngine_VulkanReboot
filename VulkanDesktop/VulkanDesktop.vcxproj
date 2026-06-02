@@ -186,6 +186,7 @@
     <ClCompile Include="..\lib\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="App\ActiveViewsBuild.cpp" />
     <ClCompile Include="App\Application.cpp" />
     <ClCompile Include="App\DebugOverlay.cpp" />
     <ClCompile Include="App\InputSystem.cpp" />
@@ -242,7 +243,14 @@
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="App\ActiveViewsBuild.h" />
     <ClInclude Include="App\Application.h" />
+    <ClInclude Include="RenderCore\Vk_ActiveRenderView.h" />
+    <ClInclude Include="RenderCore\Vk_DeviceContext.h" />
+    <ClInclude Include="RenderCore\Vk_FrameContext.h" />
+    <ClInclude Include="RenderCore\Vk_PlatformContext.h" />
+    <ClInclude Include="RenderCore\Vk_SceneGpuContext.h" />
+    <ClInclude Include="RenderCore\Vk_SwapchainContext.h" />
     <ClInclude Include="App\DebugUIState.h" />
     <ClInclude Include="App\DebugOverlay.h" />
     <ClInclude Include="App\WorldState.h" />

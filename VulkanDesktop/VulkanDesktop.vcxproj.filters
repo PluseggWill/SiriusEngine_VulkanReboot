@@ -43,6 +43,9 @@
     <ClCompile Include="App\DebugOverlay.cpp">
       <Filter>App</Filter>
     </ClCompile>
+    <ClCompile Include="App\ActiveViewsBuild.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -266,6 +269,27 @@
     </ClInclude>
     <ClInclude Include="App\DebugOverlay.h">
       <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\ActiveViewsBuild.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ActiveRenderView.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_DeviceContext.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameContext.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_PlatformContext.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_SceneGpuContext.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_SwapchainContext.h">
+      <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="App\InputSystem.h">
       <Filter>App</Filter>

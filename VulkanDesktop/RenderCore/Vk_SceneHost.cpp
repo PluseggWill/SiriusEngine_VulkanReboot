@@ -19,7 +19,7 @@ void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
 
 void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore ) {
     // Demo defaults until scene JSON environment blocks exist (lighting epic).
-    aCore.myCamera.SetLens( 45.0f, 0.1f, 32.0f, static_cast< float >( aCore.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapChainExtent.height ) );
+    aCore.myCamera.SetLens( 45.0f, 0.1f, 32.0f, static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );
     aCore.myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 9.0f ), glm::vec3( 0.0f, 0.5f, -2.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
     aCore.myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };

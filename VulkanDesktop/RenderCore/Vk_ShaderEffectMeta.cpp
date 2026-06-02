@@ -3,6 +3,8 @@
 #include "Vk_Camera.h"
 #include "Vk_Core.h"
 #include "Vk_DataStruct.h"
+#include "Vk_DeviceContext.h"
+#include "Vk_SceneGpuContext.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Enum.h"
 #include "Vk_Initializer.h"
@@ -125,7 +127,7 @@ ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath
         file >> root;
     }
     catch ( const Json::exception& e ) {
-        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta: invalid JSON: " ) + resolvedPath + " ‚Äî " + e.what() );
+        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta: invalid JSON: " ) + resolvedPath + " ù?" + e.what() );
     }
 
     ShaderEffectMeta meta{};
@@ -308,92 +310,6 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevi
     return result;
 }
 
-void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore ) {
-    if ( !UtilEngineConfig::IsValidationEnabled() ) {
-        throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );
-    }
-    if ( !UtilDebugMessenger::HasActiveMessenger() ) {
-        throw std::runtime_error( "layout mismatch test: VK_LAYER_KHRONOS_validation not available (install Vulkan SDK; see Docs/validation-layers.md)" );
-    }
-
-    UtilLogger::Info( "DESCRIPTOR", "layout mismatch test: creating wrong Set 2 layout (COMBINED_IMAGE_SAMPLER vs reflected DYNAMIC UBO)" );
-
-    // Intentionally wrong: TriangleVertex expects UNIFORM_BUFFER_DYNAMIC at Set 2 binding 0.
-    VkDescriptorSetLayoutBinding wrongBinding{};
-    wrongBinding.binding            = eVk_ObjectModelBinding;
-    wrongBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    wrongBinding.descriptorCount    = 1;
-    wrongBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-    wrongBinding.pImmutableSamplers = nullptr;
-
-    VkDescriptorSetLayoutCreateInfo wrongLayoutInfo{};
-    wrongLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    wrongLayoutInfo.bindingCount = 1;
-    wrongLayoutInfo.pBindings    = &wrongBinding;
-
-    VkDescriptorSetLayout wrongLayout = VK_NULL_HANDLE;
-    if ( vkCreateDescriptorSetLayout( aCore.myDevice, &wrongLayoutInfo, nullptr, &wrongLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "layout mismatch test: failed to create wrong descriptor set layout" );
-    }
-
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSize.descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes    = &poolSize;
-    poolInfo.maxSets       = 1;
-
-    VkDescriptorPool pool = VK_NULL_HANDLE;
-    if ( vkCreateDescriptorPool( aCore.myDevice, &poolInfo, nullptr, &pool ) != VK_SUCCESS ) {
-        vkDestroyDescriptorSetLayout( aCore.myDevice, wrongLayout, nullptr );
-        throw std::runtime_error( "layout mismatch test: failed to create descriptor pool" );
-    }
-
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = pool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts        = &wrongLayout;
-
-    VkDescriptorSet wrongSet = VK_NULL_HANDLE;
-    if ( vkAllocateDescriptorSets( aCore.myDevice, &allocInfo, &wrongSet ) != VK_SUCCESS ) {
-        vkDestroyDescriptorPool( aCore.myDevice, pool, nullptr );
-        vkDestroyDescriptorSetLayout( aCore.myDevice, wrongLayout, nullptr );
-        throw std::runtime_error( "layout mismatch test: failed to allocate descriptor set" );
-    }
-
-    Vk_AllocatedBuffer probeBuffer{};
-    aCore.CreateBuffer( sizeof( GpuObjectData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, probeBuffer, true );
-
-    VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = probeBuffer.myBuffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range  = sizeof( GpuObjectData );
-
-    UtilDebugMessenger::BeginValidationErrorCapture();
-    VkWriteDescriptorSet mismatchWrite = VkInit::DescriptorSetWriteCreateInfo( wrongSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &bufferInfo, eVk_ObjectModelBinding, 1 );
-    vkUpdateDescriptorSets( aCore.myDevice, 1, &mismatchWrite, 0, nullptr );
-    UtilDebugMessenger::EndValidationErrorCapture();
-
-    std::string validationMessage;
-    const bool  sawValidationError      = UtilDebugMessenger::TryConsumeCapturedValidationError( validationMessage );
-    const bool  looksLikeDescriptorVuid = validationMessage.find( "VUID" ) != std::string::npos || validationMessage.find( "Descriptor" ) != std::string::npos
-                                         || validationMessage.find( "descriptor" ) != std::string::npos;
-
-    vmaDestroyBuffer( aCore.myAllocator, probeBuffer.myBuffer, probeBuffer.myAllocation );
-    vkDestroyDescriptorPool( aCore.myDevice, pool, nullptr );
-    vkDestroyDescriptorSetLayout( aCore.myDevice, wrongLayout, nullptr );
-
-    if ( !sawValidationError || !looksLikeDescriptorVuid ) {
-        throw std::runtime_error( "layout mismatch test: expected validation ERROR for descriptor type mismatch; captured=" + validationMessage );
-    }
-
-    const size_t logLen = std::min( validationMessage.size(), static_cast< size_t >( 240 ) );
-    UtilLogger::Info( "DESCRIPTOR", "layout mismatch test OK (validation caught): " + validationMessage.substr( 0, logLen ) );
-}
-
 // Runtime guard (2d): hand-written bindless Set 1 in Vk_DescriptorSystem must match reflection_lit_bindless.json + Vk_Enum.h.
 namespace {
 
@@ -436,3 +352,90 @@ void VerifyLitBindlessReflectionContract() {
 }
 
 }  // namespace VkShaderEffectMeta
+
+// Dev-only layout mismatch probe; takes narrow contexts instead of Vk_Core friend (phase 4).
+void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Core& aCoreOps ) {
+    ( void )aScene;
+    if ( !UtilEngineConfig::IsValidationEnabled() ) {
+        throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );
+    }
+    if ( !UtilDebugMessenger::HasActiveMessenger() ) {
+        throw std::runtime_error( "layout mismatch test: VK_LAYER_KHRONOS_validation not available (install Vulkan SDK; see Docs/validation-layers.md)" );
+    }
+
+    UtilLogger::Info( "DESCRIPTOR", "layout mismatch test: creating wrong Set 2 layout (COMBINED_IMAGE_SAMPLER vs reflected DYNAMIC UBO)" );
+
+    VkDescriptorSetLayoutBinding wrongBinding{};
+    wrongBinding.binding            = eVk_ObjectModelBinding;
+    wrongBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    wrongBinding.descriptorCount    = 1;
+    wrongBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
+    wrongBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo wrongLayoutInfo{};
+    wrongLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    wrongLayoutInfo.bindingCount = 1;
+    wrongLayoutInfo.pBindings    = &wrongBinding;
+
+    VkDescriptorSetLayout wrongLayout = VK_NULL_HANDLE;
+    if ( vkCreateDescriptorSetLayout( aDevice.myDevice, &wrongLayoutInfo, nullptr, &wrongLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "layout mismatch test: failed to create wrong descriptor set layout" );
+    }
+
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = 1;
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes    = &poolSize;
+    poolInfo.maxSets       = 1;
+
+    VkDescriptorPool pool = VK_NULL_HANDLE;
+    if ( vkCreateDescriptorPool( aDevice.myDevice, &poolInfo, nullptr, &pool ) != VK_SUCCESS ) {
+        vkDestroyDescriptorSetLayout( aDevice.myDevice, wrongLayout, nullptr );
+        throw std::runtime_error( "layout mismatch test: failed to create descriptor pool" );
+    }
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool     = pool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts        = &wrongLayout;
+
+    VkDescriptorSet wrongSet = VK_NULL_HANDLE;
+    if ( vkAllocateDescriptorSets( aDevice.myDevice, &allocInfo, &wrongSet ) != VK_SUCCESS ) {
+        vkDestroyDescriptorPool( aDevice.myDevice, pool, nullptr );
+        vkDestroyDescriptorSetLayout( aDevice.myDevice, wrongLayout, nullptr );
+        throw std::runtime_error( "layout mismatch test: failed to allocate descriptor set" );
+    }
+
+    Vk_AllocatedBuffer probeBuffer{};
+    aCoreOps.CreateBuffer( sizeof( GpuObjectData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, probeBuffer, true );
+
+    VkDescriptorBufferInfo bufferInfo{};
+    bufferInfo.buffer = probeBuffer.myBuffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range  = sizeof( GpuObjectData );
+
+    UtilDebugMessenger::BeginValidationErrorCapture();
+    VkWriteDescriptorSet mismatchWrite = VkInit::DescriptorSetWriteCreateInfo( wrongSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &bufferInfo, eVk_ObjectModelBinding, 1 );
+    vkUpdateDescriptorSets( aDevice.myDevice, 1, &mismatchWrite, 0, nullptr );
+    UtilDebugMessenger::EndValidationErrorCapture();
+
+    std::string validationMessage;
+    const bool  sawValidationError      = UtilDebugMessenger::TryConsumeCapturedValidationError( validationMessage );
+    const bool  looksLikeDescriptorVuid = validationMessage.find( "VUID" ) != std::string::npos || validationMessage.find( "Descriptor" ) != std::string::npos
+                                         || validationMessage.find( "descriptor" ) != std::string::npos;
+
+    vmaDestroyBuffer( aDevice.myAllocator, probeBuffer.myBuffer, probeBuffer.myAllocation );
+    vkDestroyDescriptorPool( aDevice.myDevice, pool, nullptr );
+    vkDestroyDescriptorSetLayout( aDevice.myDevice, wrongLayout, nullptr );
+
+    if ( !sawValidationError || !looksLikeDescriptorVuid ) {
+        throw std::runtime_error( "layout mismatch test: expected validation ERROR for descriptor type mismatch; captured=" + validationMessage );
+    }
+
+    const size_t logLen = std::min( validationMessage.size(), static_cast< size_t >( 240 ) );
+    UtilLogger::Info( "DESCRIPTOR", "layout mismatch test OK (validation caught): " + validationMessage.substr( 0, logLen ) );
+}

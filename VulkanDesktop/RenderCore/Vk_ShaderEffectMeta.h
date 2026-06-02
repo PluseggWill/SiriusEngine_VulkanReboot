@@ -54,9 +54,13 @@ void             LogMetaDump( const ShaderEffectMeta& aMeta );
 // Creates Set 0/1/2 layouts via hash cache; registers destroy on aDeletionQueue.
 LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevice, Vk_DeletionQueue& aDeletionQueue );
 
-void RunLitBatchLayoutMismatchValidationTest( Vk_Core& aCore );
-
 // S2 phase 2d: compare reflection_lit_bindless.json Set 1 vs hand-written bindless layout (Vk_Enum / Vk_DescriptorPolicy).
 void VerifyLitBindlessReflectionContract();
 
 }  // namespace VkShaderEffectMeta
+
+struct Vk_DeviceContext;
+struct Vk_SceneGpuContext;
+class Vk_Core;
+
+void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Core& aCoreOps );

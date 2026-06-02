@@ -11,11 +11,11 @@ void Vk_RenderDevice::Init( Vk_Core& aCore ) {
     aCore.CreateInstance();
     aCore.CreateSurface();
     aCore.PickPhysicalDevice();
-    aCore.myBindlessCaps = Vk_ProbeBindlessCapabilities( aCore.myPhysicalDevice, aCore.myDeviceExtensions );
+    aCore.myDeviceCtx.myBindlessCaps = Vk_ProbeBindlessCapabilities( aCore.myDeviceCtx.myPhysicalDevice, aCore.myDeviceCtx.myDeviceExtensions );
     aCore.InitVk_QueueFamilyIndices();
     aCore.CreateLogicalDevice();
-    aCore.myMaterialPath = Vk_SelectRenderMaterialPath( aCore.myBindlessCaps );
-    UtilLogger::Info( "BINDLESS", std::string( "materialPath=" ) + Vk_RenderMaterialPathName( aCore.myMaterialPath ) );
+    aCore.myDeviceCtx.myMaterialPath = Vk_SelectRenderMaterialPath( aCore.myDeviceCtx.myBindlessCaps );
+    UtilLogger::Info( "BINDLESS", std::string( "materialPath=" ) + Vk_RenderMaterialPathName( aCore.myDeviceCtx.myMaterialPath ) );
     // After material path is known (bindless frag included in shader fingerprint when applicable).
     Vk_DevicePipelineCache::Create( aCore );
     aCore.CreateCommandPool();
