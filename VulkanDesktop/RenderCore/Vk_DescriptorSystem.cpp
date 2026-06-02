@@ -104,12 +104,30 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
 
+    // Layout binding count is kMaxBindlessTextures; every written array element needs a valid sampler for validation.
     std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
-    for ( size_t textureId = 0; textureId < textureCount && textureId < VkDescriptorPolicy::kMaxBindlessTextures; ++textureId ) {
-        const Gfx_Texture& texture          = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( textureId ) );
-        imageInfos[ textureId ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfos[ textureId ].imageView   = texture.ImageView();
-        imageInfos[ textureId ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
+    VkImageView                          fallbackView = VK_NULL_HANDLE;
+    if ( textureCount > 0 ) {
+        fallbackView = aCore.mySceneGpuCtx.myResourceTables.GetTexture( 0 ).ImageView();
+    }
+    for ( size_t slot = 0; slot < VkDescriptorPolicy::kMaxBindlessTextures; ++slot ) {
+        if ( slot < textureCount ) {
+            const Gfx_Texture& texture   = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( slot ) );
+            imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfos[ slot ].imageView   = texture.ImageView();
+            imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
+        }
+        else if ( fallbackView != VK_NULL_HANDLE ) {
+            // Unused array slots: duplicate texture 0 (shader must not index past loaded texture count).
+            imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfos[ slot ].imageView   = fallbackView;
+            imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
+        }
+        else {
+            imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfos[ slot ].imageView   = VK_NULL_HANDLE;
+            imageInfos[ slot ].sampler     = VK_NULL_HANDLE;
+        }
     }
 
     std::vector< GpuMaterialTableEntry > tableEntries( materialCount );

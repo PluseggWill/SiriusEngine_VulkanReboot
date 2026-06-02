@@ -332,6 +332,8 @@ void Vk_Core::CreateInstance() {
     if ( ( myDeviceCtx.myEnableValidationLayers || myPlatformCtx.myRenderDoc.WantsDebugUtilsExtension() ) && UtilDebugMessenger::IsExtensionAvailable() ) {
         instanceExtensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
     }
+    // Enables vkGetPhysicalDeviceFeatures2 during bindless probe (avoids loader emulation + bogus limits).
+    Vk_AppendRequiredInstanceExtensions( instanceExtensions );
 
     VkInstanceCreateInfo createInfo{};
     createInfo.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -417,6 +419,8 @@ void Vk_Core::CreateLogicalDevice() {
     if ( myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ) {
         indexingFeatures.runtimeDescriptorArray                    = VK_TRUE;
         indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+        // Bindless material set uses VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT on the texture array.
+        indexingFeatures.descriptorBindingPartiallyBound           = VK_TRUE;
     }
 
     VkPhysicalDeviceFeatures2 features2{};

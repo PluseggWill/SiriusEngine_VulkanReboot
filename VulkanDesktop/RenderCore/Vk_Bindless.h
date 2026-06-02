@@ -19,7 +19,10 @@ struct Vk_BindlessCapabilities {
     bool myNonUniformIndexing          = false;
 };
 
-// Query physical device; optionally append VK_EXT_descriptor_indexing to device extensions.
+// Instance extension for Features2 queries when instance apiVersion is 1.0 (call from CreateInstance).
+void Vk_AppendRequiredInstanceExtensions( std::vector< const char* >& aInstanceExtensions );
+
+// Device: append indexing + KHR deps only if enumerated; caps use core apiVersion when extensions are promoted.
 Vk_BindlessCapabilities Vk_ProbeBindlessCapabilities( VkPhysicalDevice aPhysicalDevice, std::vector< const char* >& aDeviceExtensions );
 
 // After device creation: pick bindless vs batch (env FORCE_MATERIAL_BATCH=1 forces batch).
