@@ -51,8 +51,9 @@ Run ≥2 s; read first `[PERF]` in `Logs/engine_runtime_log.txt`.
 | Field | Value (2026-06-02 sample) |
 |-------|---------------------------|
 | GPU | NVIDIA GeForce RTX 4070 Ti SUPER |
-| Resolution | 1600×1200, vsync on |
-| `frameMs` / `fps` | 16.57 / 60.35 |
+| Resolution | 1600×1200 |
+| Vsync | Sample row used **display cap** (`engine.json` default). **`Config/engine.benchmark.json` uses `vsync: false`** for uncapped perf / `--perf-log`. |
+| `frameMs` / `fps` | 16.57 / 60.35 (vsync-on sample) |
 | `visibleDraws` | 9 |
 | `batchRuns` | 9 (opaque 8 + transparent 1) |
 | `materialPath` | Batch |

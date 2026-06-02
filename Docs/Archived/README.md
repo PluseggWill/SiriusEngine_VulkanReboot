@@ -8,6 +8,7 @@ Historical artifacts — **not** the active task queue. Open work: [`../Active-P
 |------|----------|
 | [`plans/`](plans/) | Completed `{TaskName}_Plan.md` + `{TaskName}_Progress.md` (Progress = **Closeout** only after 2026-05-29 hygiene) |
 | [`S1-回顾总结.md`](S1-回顾总结.md) | S1 / M1 中文回顾（2026-05-26） |
+| [`S2-回顾总结.md`](S2-回顾总结.md) | S2 引擎分层 + Stage 1 收口中文回顾（2026-06-02） |
 | [`notes-2026-05-22-shader-debug.md`](notes-2026-05-22-shader-debug.md) | Shader / glslc / MSBuild pitfalls |
 | [`TODOList.md`](TODOList.md) | Pre–sprint-plan backlog (superseded by `Active-Plan.md`) |
 
@@ -24,6 +25,10 @@ Historical artifacts — **not** the active task queue. Open work: [`../Active-P
 ### S2 — engine layering & hygiene
 
 `fps-camera`, `input-abstraction`, `central-config`, `application-lifecycle`, `vk-core-decomposition`, `gfx-vk-decoupling`, `scene-load`, `flat-world-matrices`, `descriptor-layout-verify`, `s2-init-hygiene`, `image-queue-sharing`, `pipeline-dynamic-state-wire`, `shader-reflection`, `shader-layout-from-reflection`, `shader-reflection-bindless-verify`, `permutation-registry`, `pipeline-cache-disk`, `forward-stage1-contracts`, `forward-pass-hardening`, `forward-stage1-validation`, `multi-view`
+
+### P0 — verify & measure
+
+`ci-verification` (2026-06-02)
 
 *(S2 batch archived from `Docs/` root 2026-05-29; vibe-coding skill now archives on **task close**, not sprint close.)*
 

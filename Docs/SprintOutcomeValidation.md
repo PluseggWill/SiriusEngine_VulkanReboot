@@ -11,6 +11,52 @@ Validation runbook for sprint close-out. Use with [`Active-Plan.md`](Active-Plan
 
 ---
 
+<a id="validation-p0"></a>
+## P0 validation (verify & measure)
+
+**Plan:** [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md). **G0 (blocks M2):** Phase 0 + 1 only. **P0 done:** G0 + D1 + this section.
+
+### CI / local G0
+
+- `pwsh -File Scripts/Verify-CI.ps1` from repo root → exit **0** (MSBuild Debug\|x64, shader drift, `GfxTests.exe`).
+- PR workflow green on paths in ci-verification Plan (or Docs-only PR skipped).
+
+### G0-smoke (GPU; soft on default GitHub runner v1)
+
+```powershell
+$Repo = "<repo-root>"
+& "$Repo\x64\Debug\VulkanDesktop.exe" `
+  --asset-root $Repo `
+  --config "$Repo\Config\engine.benchmark.json" `
+  --scene Data/Scenes/smoke.json `
+  --no-validation --smoke-frames 120 --smoke-seconds 6
+pwsh -File "$Repo\Scripts\Assert-SmokeLog.ps1" -RepoRoot $Repo
+```
+
+### Benchmark / perf (P0 done)
+
+- `Config/engine.benchmark.json`: `vsync: false`.
+- Optional: `--perf-log` + `Scripts/Perf-JsonlSummary.ps1` on 300 frames (p50 logged; no threshold v1).
+
+### Adversarial archived claim (#26)
+
+Before moving P0 lines to Archived-Plan:
+
+1. Pick **one** line from [`Archived-Plan.md`](Archived-Plan.md) (or a completed `Archived/plans/*` claim).
+2. Verify in **code or log** (not checkbox): e.g. “batch path uses 9 batch runs” → grep test fixture + smoke `[PERF]` or GfxTests expectation.
+3. Record in PR / `_Progress.md`: claim text, file:line or log snippet, pass/fail.
+
+### Peel / hygiene metrics (#27)
+
+When closing **P1 peel** tasks (not required for P0 CI green): capture **one row** of objective numbers, e.g. `DrawFrame` LOC, `Vk_Core.cpp` LOC, `friend class` count in `RenderCore/`. Do not use task checkbox count as velocity metric.
+
+| Step | Done when |
+|------|-----------|
+| Adversarial row filled | Claim + evidence in PR notes |
+| Peel metrics (P1) | LOC/friend snapshot when peel lands |
+
+---
+
 <a id="validation-s0"></a>
 ## S0 validation
 
@@ -45,7 +91,8 @@ Validation runbook for sprint close-out. Use with [`Active-Plan.md`](Active-Plan
 ### S2 closeout evidence (2026-06-02)
 
 - Build: `MSBuild VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m` -> exit 0.
-- Smoke: `x64\\Debug\\VulkanDesktop.exe --no-validation --smoke-seconds 6` -> exit 0.
+- Smoke (historical): `x64\Debug\VulkanDesktop.exe --no-validation --smoke-seconds 6` -> exit 0 (implicit cwd discovery).
+- **Template for new evidence:** use [P0 smoke command](#validation-p0) (`--asset-root` + `Assert-SmokeLog.ps1`).
 - Log signals checked: `[SCENE] LoadSceneResources completed`, `[APP] Smoke dwell reached`, `[SCENE] UnloadScene: GPU scene resources released`, `[APP] Engine exited run loop normally`.
 
 <a id="validation-s3"></a>

@@ -28,7 +28,8 @@
 | Next work | [Recommended queue](#recommended-queue) |
 | Review item → action | [Hardening index](#hardening-index-32-items) |
 | Big design | Linked `*_Plan.md` |
-| S4+, DDGI, experiments | [Wishlist.md](Wishlist.md) + [gates](#unlock-gates) |
+| **Full S3–S8 sprint checklists** | [Wishlist.md](Wishlist.md) — staged until gates open |
+| S4+, DDGI, experiments | Wishlist + [gates](#unlock-gates) |
 
 ---
 
@@ -36,8 +37,7 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P0** | CI, asset root, tests, perf JSONL |
-| 2 | **P1** | Peel, config instance, bindless decision |
+| 1 | **P1** | Peel, config instance, bindless decision |
 | 3 | **P2** | CPU indirect + record/cull hygiene |
 | 4 | **P3** | M2 GPU cull + automated parity |
 | 5 | **P4** | Vertical slice (objective + restart) |
@@ -45,17 +45,17 @@
 
 ```mermaid
 flowchart TB
-  P0[P0 CI tests perf]
   P1[P1 Peel config shader]
   P2[P2 CPU indirect]
   P3[P3 GPU cull]
   P4[P4 Vertical slice]
+  G0{G0 CI done}
   G1{G1 parity}
   FG[FG v0 / Stage 2]
   WL[Wishlist S4+]
 
-  P0 --> P1
-  P0 --> P2
+  G0 --> P1
+  G0 --> P2
   P1 --> P2
   P2 --> P3
   P3 --> G1
@@ -70,7 +70,7 @@ flowchart TB
 
 | Gate | Criteria | Unlocks |
 |------|----------|---------|
-| **G0** | P0 CI green | M2 merges |
+| **G0** | `Scripts/Verify-CI.ps1` green (build + shader drift + GfxTests) — see [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) | M2 merges |
 | **G1** | Automated CPU vs GPU cull parity | FG v0; [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A |
 | **G2** | P4 complete | S8 sim — [`Wishlist.md`](Wishlist.md) |
 | **G3** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) § A | S4 meshlets |
@@ -85,7 +85,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | # | Landing | Phase | Plan |
 |---|---------|-------|------|
 | 1 | M2 only; FG v0 after G1 | P3 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) |
-| 2 | GHA MSBuild + shader compile | P0 | [`ci-verification_Plan.md`](ci-verification_Plan.md) |
+| 2 | GHA MSBuild + shader compile | P0 ✓ | [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) |
 | 3 | Scene CPU out of `Vk_Core` | P1 | [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) |
 | 4 | S4–S8 frozen in Wishlist | — | [`Wishlist.md`](Wishlist.md) |
 | 5 | Vertical slice = 3 tasks | P4 | § P4 |
@@ -99,36 +99,29 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 13 | CPU `DrawIndexedIndirect` + template SSBO | P2 | render-m2-prep § A |
 | 14 | Bindless: dogfood or defer | P1 | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) |
 | 15 | One record path semantics | P1 | shader-bindless-policy |
-| 16 | Benchmark vsync off | P0 | ci-verification § D |
+| 16 | Benchmark vsync off | P0 ✓ | ci-verification § D (archived) |
 | 17 | Freeze perm until hybrid pass 2 | P1 | shader-bindless-policy |
 | 18 | Bindless layout codegen | Wishlist | shader-bindless-policy |
 | 19 | MeshImport v0 | Wishlist | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
-| 20 | Required `assetRoot` | P0 | ci-verification § B |
+| 20 | Required `assetRoot` | P0 ✓ | ci-verification § B (archived) |
 | 21 | `lodEnabled` false default | P2 | render-m2-prep § E |
-| 22 | Unit tests SoA + cull | P0 | ci-verification § E |
+| 22 | Unit tests SoA + cull | P0 ✓ | ci-verification § E (archived) |
 | 23 | AABB + depth bucket fix | P2 | render-m2-prep § F |
 | 24 | Material hot reload | Wishlist | content-pipeline § B |
-| 25 | CI smoke + tests | P0 | ci-verification |
-| 26 | Adversarial archived-claim verify | P0 | ci-verification § F |
-| 27 | Peel metrics not checkbox count | P0 | ci-verification § F |
+| 25 | CI smoke + tests | P0 ✓ | ci-verification (archived) |
+| 26 | Adversarial archived-claim verify | P0 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) § P0 |
+| 27 | Peel metrics not checkbox count | P0 | SprintOutcomeValidation § P0 |
 | 28 | DDGI etc → Wishlist | — | Wishlist |
 | 29 | Slice = product priority | P4 | § P4 |
 | 30 | Windows-only explicit | P1 | config-platform-hardening |
 | 31 | Recoverable VK errors | P1 | config-platform-hardening § C |
-| 32 | `--perf-log` JSONL | P0 | ci-verification § D |
+| 32 | `--perf-log` JSONL | P0 ✓ | ci-verification § D (archived) |
 
 ---
 
-## P0 — Verify & measure
+## P0 — Verify & measure *(closed 2026-06-02)*
 
-**Plan:** [`ci-verification_Plan.md`](ci-verification_Plan.md)
-
-- [ ] GHA: MSBuild x64 Debug + `CompileShader_Glslc.bat`
-- [ ] CI smoke: `--asset-root` + `--smoke-seconds 6`
-- [ ] `assetRoot` fail fast; dev cwd fallback documented
-- [ ] Tests v0: SoA generation + CPU cull count
-- [ ] `engine.benchmark.json` vsync off; optional `--perf-log` JSONL
-- [ ] Closeout: adversarial archived claim + peel metrics
+Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md). **Next queue:** P1 below.
 
 ---
 
@@ -197,7 +190,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | Doc | Role |
 |-----|------|
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Diagrams + locked policies |
-| [`Wishlist.md`](Wishlist.md) | Deferred milestones |
+| [`Wishlist.md`](Wishlist.md) | **Full S3–S8 + Parallel + Backlog** (staged); promote via gates |
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
@@ -205,4 +198,4 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 
 ---
 
-*Pre-2026-06-02 S3–S8 checklists: git history / restored via Wishlist when gates open.*
+*S3–S8 sprint detail: [`Wishlist.md`](Wishlist.md) (restored from pre-trim Active-Plan). P0–P4 here = near-term execution queue only.*

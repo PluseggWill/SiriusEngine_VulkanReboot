@@ -19,6 +19,7 @@ std::filesystem::path          gAssetRoot;
 std::string                    gConfigPathUsed;
 std::string                    gSceneLogicalPath = kGfxDefaultSceneLogicalPath;
 std::string                    gLogFilePath;
+std::string                    gPerfLogPath;
 uint32_t                       gWindowWidth  = 1600;
 uint32_t                       gWindowHeight = 1200;
 bool                           gVsync        = true;
@@ -194,6 +195,7 @@ struct CliOverrides {
     std::optional< double >                mySmokeSeconds;
     std::optional< std::string >           myShaderPermutation;
     std::optional< std::string >           myRenderPreset;
+    std::optional< std::string >           myPerfLog;
 };
 
 void ResolveActiveShaderPermutation( const CliOverrides& aOverrides ) {
@@ -329,6 +331,13 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             gEnableRenderDoc = true;
             continue;
         }
+        if ( arg == "--perf-log" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --perf-log" );
+            }
+            overrides.myPerfLog = aArgv[ ++i ];
+            continue;
+        }
         if ( arg == "--help" || arg == "-h" || arg == "/?" ) {
             continue;
         }
@@ -367,6 +376,9 @@ void ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.mySmokeSeconds.has_value() ) {
         gSmokeSeconds = *aOverrides.mySmokeSeconds;
+    }
+    if ( aOverrides.myPerfLog.has_value() ) {
+        gPerfLogPath = *aOverrides.myPerfLog;
     }
     ResolveActiveShaderPermutation( aOverrides );
 }
@@ -416,6 +428,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
+              << "  --perf-log <path>      Append per-frame JSONL metrics (schemaVersion 1)\n"
               << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
               << "  --render-preset <name>        Stage 1 preset (ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
@@ -488,6 +501,13 @@ std::string GetLogFilePath() {
         Initialize( 0, nullptr );
     }
     return gLogFilePath;
+}
+
+std::string GetPerfLogPath() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gPerfLogPath;
 }
 
 uint32_t GetWindowWidth() {

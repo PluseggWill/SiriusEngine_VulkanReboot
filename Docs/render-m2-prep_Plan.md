@@ -69,7 +69,7 @@ indexCount, firstIndex, vertexOffset, instanceCount, firstInstance
 Moved to Active-Plan **P3**; depends on draw template SSBO:
 
 - Compute frustum cull → visible indices → fill indirect buffer
-- Parity test vs CPU cull (automated — [`ci-verification_Plan.md`](ci-verification_Plan.md))
+- Parity test vs CPU cull (automated — [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md))
 - Optional compaction pass
 
 **FG v0:** gate until parity job green.

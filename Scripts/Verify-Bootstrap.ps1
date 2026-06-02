@@ -105,36 +105,40 @@ try {
     $helpOk = ($helpExit -eq 0) -and ($helpOut -match "Usage:")
     Add-StepResult "--help" $helpOk $(if ($helpOk) { "exit 0, Usage present" } else { "exit=$LASTEXITCODE" })
 
-    $runDir = Join-Path $repo "x64\$Configuration"
-    Write-Host "Smoke run ($SmokeSeconds s) from $runDir ..."
-    Push-Location $runDir
-    try {
-        $proc = Start-Process -FilePath $exe -PassThru -WindowStyle Minimized
-        Start-Sleep -Seconds $SmokeSeconds
-        if (-not $proc.HasExited) {
-            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    Write-Host "Graceful smoke (ci-verification canonical) ..."
+    $smokeArgs = @(
+        "--asset-root", $repo,
+        "--config", (Join-Path $repo "Config\engine.benchmark.json"),
+        "--scene", "Data/Scenes/smoke.json",
+        "--no-validation",
+        "--smoke-frames", "120",
+        "--smoke-seconds", "$SmokeSeconds"
+    )
+    & $exe @smokeArgs
+    $smokeExit = $LASTEXITCODE
+    $smokeOk = ($smokeExit -eq 0)
+    Add-StepResult "Smoke run" $smokeOk "exit=$smokeExit (--asset-root + smoke.json)"
+
+    $assertScript = Join-Path $repo "Scripts\Assert-SmokeLog.ps1"
+    if ($smokeOk -and (Test-Path $assertScript)) {
+        try {
+            & $assertScript -RepoRoot $repo -ExitCode $smokeExit
+            Add-StepResult "Assert-SmokeLog" $true "tokens OK"
+        } catch {
+            Add-StepResult "Assert-SmokeLog" $false $_.Exception.Message
         }
-        $smokeOk = $true
-        Add-StepResult "Smoke run" $smokeOk "Windowed run ${SmokeSeconds}s (stopped if alive)"
-    } finally {
-        Pop-Location
     }
 
     $logPath = Join-Path $repo "Logs\engine_runtime_log.txt"
     if (-not (Test-Path $logPath)) {
-        Add-StepResult "Runtime log" $false "Missing: $logPath"
-        throw "Log missing"
+        Add-StepResult "Runtime log exists" $false "Missing: $logPath"
+    } else {
+        Add-StepResult "Runtime log exists" $true $logPath
     }
 
-    $logText = Get-Content -Path $logPath -Raw -Encoding UTF8
-    $hasAssetRoot = $logText -match '\[CONFIG\] assetRoot='
+    $logText = if (Test-Path $logPath) { Get-Content -Path $logPath -Raw -Encoding UTF8 } else { "" }
     $hasStartupOk = $logText -match '\[STARTUP\] All required demo assets present\.'
-    $logOk = $hasAssetRoot -and $hasStartupOk
-    $detail = @(
-        $(if ($hasAssetRoot) { "assetRoot= found" } else { "assetRoot= missing" }),
-        $(if ($hasStartupOk) { "startup OK found" } else { "startup OK missing" })
-    ) -join "; "
-    Add-StepResult "Log keywords" $logOk "$detail ($logPath)"
+    Add-StepResult "Startup check" $hasStartupOk $(if ($hasStartupOk) { "startup OK" } else { "optional for smoke.json" })
 }
 catch {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red

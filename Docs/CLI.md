@@ -45,6 +45,7 @@
 | `--no-demo-rotate` | — | 关闭 demo 旋转。 |
 | `--smoke-frames` `<n>` | 正整数 | 渲染 **n** 帧后（与 `--smoke-seconds` 同时设置时需**同时**满足）请求关闭，走完整 `UnloadScene` → `Shutdown`。 |
 | `--smoke-seconds` `<s>` | 正数 | 场景 `LoadSceneResources` 完成、进入主循环后至少运行 **s** 秒再请求关闭（任务收尾冒烟**推荐**）。 |
+| `--perf-log` `<path>` | 文件路径 | 每个完成的 `DrawFrame` 追加一行 JSONL（`schemaVersion` 1：`frameIndex`, `frameMs`, `drawCalls`, `visibleDraws`, `activeViews`, `materialPath`）。`visibleDraws` 为当前帧各视图之和。路径相对 asset root；配合 `engine.benchmark.json`（`vsync: false`）。汇总：`Scripts/Perf-JsonlSummary.ps1`。 |
 | `--descriptor-layout-mismatch-test` | — | 开发用：在 `InitDeviceLayouts` 后对 Set 2 做一次故意的 `vkUpdateDescriptorSets` 类型不匹配，供 validation 报错（**必须**配合 `--validation`）。 |
 | `--renderdoc` | — | 启用 RenderDoc 运行时接入（启动门控）。仅在该参数存在时被动探测已注入进程的 `renderdoc.dll`（`GetModuleHandle`），并启用 draw/pass debug label 输出路径。推荐从 RenderDoc UI 启动程序。 |
 
@@ -105,25 +106,41 @@ main
 
 ## 工作目录与 `--asset-root`
 
-- 从 `x64\Debug` 直接运行：若未设 `--asset-root`，会自动找到仓库根，场景与 `Data/` 路径仍有效。
-- 从任意 cwd 测试时建议显式：`--asset-root <repo根>`。
+| 场景 | 规则 |
+|------|------|
+| **本地开发**（`x64\Debug`） | 未指定时仍可通过 `VulkanDesktop.sln` 向上探测仓库根（S0 行为；P0 起文档标为 deprecated，建议显式 `--asset-root`）。 |
+| **CI / Agent / `Verify-Bootstrap`** | **必须** `--asset-root <repo根>`；见 [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) Phase 2–3。 |
+| **未来可选** | 环境变量 `SIRIUS_STRICT_ASSET_ROOT=1` 时无 CLI/config 则启动失败（计划项，未实现前勿依赖）。 |
+
 - 日志中 `[CONFIG] assetRoot=…` 可确认解析结果。
 
 ---
 
 ## Agent / CI 测试速查
 
-与 `.cursor/rules/vulkan-smoke-test.mdc`、vibe-coding skill 中 smoke-run 一致：
+与 [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) Phase 2、`.cursor/rules/vulkan-smoke-test.mdc` 一致。
+
+**CI / 任务收尾（推荐，任意 cwd）：**
+
+```powershell
+$Repo = "<repo-root>"
+& "$Repo\x64\Debug\VulkanDesktop.exe" `
+  --asset-root $Repo `
+  --config "$Repo\Config\engine.benchmark.json" `
+  --scene Data/Scenes/smoke.json `
+  --no-validation --smoke-frames 120 --smoke-seconds 6
+pwsh -File "$Repo\Scripts\Assert-SmokeLog.ps1" -RepoRoot $Repo
+```
+
+**本地快速（仍建议 `--asset-root`）：**
 
 ```powershell
 Set-Location x64\Debug
-.\VulkanDesktop.exe --no-validation --smoke-seconds 6
-.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
-# 快速 CI（无 6 秒驻留）：
-.\VulkanDesktop.exe --no-validation --smoke-frames 2
+.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-seconds 6
+.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
 ```
 
-任务收尾优先用 **`--smoke-seconds 6`**（默认 demo 场景加载后主循环至少 6 秒，完整 `UnloadScene`）；仅 `Stop-Process` 杀进程不会走卸载路径。
+任务收尾优先 **`--smoke-seconds 6`** + 完整卸载日志；仅 `Stop-Process` 不会走 `UnloadScene`。实现 P0 后本地可用 `pwsh -File Scripts/Verify-CI.ps1` 镜像 G0。
 
 ---
 
@@ -136,7 +153,8 @@ Set-Location x64\Debug
 | [`SceneJSON.md`](SceneJSON.md) / [`SceneJSON.en.md`](SceneJSON.en.md) | 场景 JSON 编写 |
 | [`validation-layers.md`](validation-layers.md) | Validation 层安装与开关 |
 | [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) | 场景加载架构与 Phase D unload |
+| [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) | G0 CI、GfxTests、冒烟断言脚本 |
 
 ---
 
-*Last updated: 2026-05-29 (scene-load Phase D, ImGui Scene panel).*
+*Last updated: 2026-06-02 (P0 CI contract; automation requires `--asset-root`).*

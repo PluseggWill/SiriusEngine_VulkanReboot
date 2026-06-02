@@ -9,6 +9,7 @@
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_PerfLog.h"
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
@@ -679,6 +680,10 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         Vk_FrameUniformUploader::UpdateForView( *this, myCurrentFrame, viewIndex, activeViews[ viewIndex ].myCamera );
     }
     myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
+
+    const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
+    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, activeViewCount,
+                              Vk_RenderMaterialPathName( myMaterialPath ) );
 
     // Forward debug: panel after prep (draw counts) and before env UBO upload so debug view + skip apply this frame.
     // Lighting panel still runs after RecordScene (tuning applies next frame).

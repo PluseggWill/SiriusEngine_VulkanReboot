@@ -29,6 +29,7 @@ std::filesystem::path GetAssetRoot();
 std::string           GetConfigPathUsed();
 std::string           GetSceneLogicalPath();
 std::string           GetLogFilePath();  // Empty => default Logs/engine_runtime_log.txt under repo.
+std::string           GetPerfLogPath();  // Empty => disabled; repo-relative resolved at write time.
 
 uint32_t GetWindowWidth();
 uint32_t GetWindowHeight();

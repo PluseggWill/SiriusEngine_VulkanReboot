@@ -1,0 +1,61 @@
+name: VulkanDesktop CI
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "VulkanDesktop/**"
+      - "Config/**"
+      - "Scripts/**"
+      - ".github/**"
+      - "VulkanDesktop.sln"
+      - "Data/**"
+  pull_request:
+    paths:
+      - "VulkanDesktop/**"
+      - "Config/**"
+      - "Scripts/**"
+      - ".github/**"
+      - "VulkanDesktop.sln"
+      - "Data/**"
+
+jobs:
+  build-and-test:
+    name: G0 build + GfxTests + shader drift
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: G0 Verify-CI
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File Scripts/Verify-CI.ps1 -RepoRoot $env:GITHUB_WORKSPACE
+
+  smoke-gpu:
+    name: G0-smoke (GPU, soft fail v1)
+    runs-on: windows-latest
+    needs: build-and-test
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Debug x64
+        shell: pwsh
+        run: |
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -requires Microsoft.Component.MSBuild `
+            -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          & $msbuild VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m /nologo
+
+      - name: Graceful smoke
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File Scripts/Verify-Smoke.ps1 -RepoRoot $env:GITHUB_WORKSPACE
+
+      - name: Upload runtime log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine_runtime_log
+          path: Logs/engine_runtime_log.txt
+          if-no-files-found: ignore

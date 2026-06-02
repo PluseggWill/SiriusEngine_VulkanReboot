@@ -234,6 +234,8 @@
     <ClCompile Include="Util\Util_FrameStats.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
     <ClCompile Include="Util\Util_Logger.cpp" />
+    <ClCompile Include="Util\Util_PerfLog.cpp" />
+    <ClCompile Include="Util\Util_ResolvePath.cpp" />
     <ClCompile Include="Util\Util_VulkanResult.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
   </ItemGroup>

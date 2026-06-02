@@ -25,7 +25,7 @@ Shader stack (reflection, perm registry, disk cache, bindless verify) is **ahead
 
 **Landing:** No new permutations until **second hybrid pass** needs a branch. Registry stays `lit` + `lit_alpha_clip` only; shadow/IBL/PBR bits stay comments, not glslc builds.
 
-Disk cache: keep as-is; no cold/warm benchmark until [`ci-verification_Plan.md`](ci-verification_Plan.md) JSONL perf exists.
+Disk cache: keep as-is; no cold/warm benchmark until [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) JSONL perf exists.
 
 ### Unify batch vs bindless record semantics (#15)
 

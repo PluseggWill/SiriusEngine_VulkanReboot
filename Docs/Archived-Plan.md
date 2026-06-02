@@ -73,6 +73,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Milestone** | — |
 | **Outcome** | Lifecycle/config/render-backend layering stabilized; scene-load A–D + shader stack landed; multi-view re-landed and stabilized. |
 | **Validation** | [`SprintOutcomeValidation.md`](./SprintOutcomeValidation.md) (S2 section) |
+| **Retrospective (中文)** | [`Archived/S2-回顾总结.md`](Archived/S2-回顾总结.md) |
 
 ## Completed tasks *(S2+ and `[S0]` checklist)*
 
@@ -136,6 +137,24 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 - [x] **[S0]** `UtilLoader::LoadTexture` fail-fast — `Util_Loader.cpp`.
 - [x] **[S0]** Queue family graphics-as-transfer fallback — `Vk_DataStruct.h`, `Vk_Core.cpp`.
 - [x] **[S0]** Comment conventions — `.cursor/rules/cpp-comments.mdc`.
+
+---
+
+## P0 — Verify & measure *(closed 2026-06-02)*
+
+| | |
+|--|--|
+| **Outcome** | G0 CI + GfxTests + smoke scripts + perf JSONL; GitHub Actions `vulkan-desktop.yml` |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1`; [`SprintOutcomeValidation.md`](./SprintOutcomeValidation.md) § P0 |
+| **Plan log** | [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md), [`ci-verification_Progress.md`](Archived/plans/ci-verification_Progress.md) |
+
+- [x] **[P0]** G0 — GHA + `Verify-CI.ps1` (MSBuild Debug\|x64, shader drift, GfxTests) — 2026-06-02
+- [x] **[P0]** G0 — `GfxTests.exe` SoA + CPU cull/batch golden — 2026-06-02
+- [x] **[P0]** CI smoke + `Assert-SmokeLog.ps1`; `Verify-Bootstrap` / `Verify-Smoke` aligned — 2026-06-02
+- [x] **[P0]** Automation contract: CI/agents require `--asset-root`; `CLI.md` / `bootstrap.md` — 2026-06-02
+- [x] **[P0]** `engine.benchmark.json` vsync off; `forward-stage1.md` note — 2026-06-02
+- [x] **[P0]** `--perf-log` JSONL + `Perf-JsonlSummary.ps1` — 2026-06-02
+- [x] **[P0]** Adversarial archived claim (#26) in Progress closeout — 2026-06-02
 
 ---
 

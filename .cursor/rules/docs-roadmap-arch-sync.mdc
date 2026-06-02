@@ -34,7 +34,7 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 | **`Active-Plan.md`** | P0–P4 `[ ]`, gates, queue | Diagrams, policy prose, changelogs |
 | **`EngineArchitecture.md`** | Diagrams, **locked policies**, risks, non-goals | `[ ]` tasks, sprint logs |
 | **`Archived-Plan.md`** | Completed lines; § S1 implementation notes | Open tasks |
-| **`Wishlist.md`** | Deferred S4+ until gate opens | Active `[ ]` |
+| **`Wishlist.md`** | Full **S3–S8 + Parallel + Backlog** staged; promote via Active-Plan gates | Active `[ ]` |
 | **`{name}_Plan.md` (roadmap)** | Cross-cutting design before/during epic | Active-Plan duplicates |
 | **`{name}_Plan.md` + `_Progress` (WIP)** | One task scope, steps, verification | Roadmap queue |
 | **`forward-stage1.md`** | Stage 1 golden / handoff | Sprint queue |

@@ -23,7 +23,7 @@ Replace global config singleton and brittle error handling with **testable, Wind
 
 1. Introduce struct holding all former globals; `Initialize(argc, argv)` returns or fills instance.
 2. Thread instance into `Application` members; deprecate getters one module at a time.
-3. `--run-tests` uses default instance without GLFW.
+3. Optional later: `VulkanDesktop.exe --run-tests` uses config instance without GLFW (P0 uses **`GfxTests.exe`** per [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) Phase 1).
 
 **Done when:** no file-level mutable config globals; tests can construct two configs in one process.
 

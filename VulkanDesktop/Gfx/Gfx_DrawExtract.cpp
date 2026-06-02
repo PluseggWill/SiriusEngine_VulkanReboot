@@ -19,7 +19,8 @@ constexpr float kDepthBucketScale = 256.0f;
 void AppendDraw( Gfx_ExtractResult& aOut, uint32_t aSlot, const Gfx_SceneSoA& aScene, uint16_t aDepthBucket ) {
     const uint32_t meshId     = aScene.GetLogicalMeshId( aSlot );
     const uint32_t materialId = aScene.GetMaterialId( aSlot );
-    const uint16_t shaderPerm = Gfx_ShaderPermutation::GetActiveId();
+    // GfxTests and other CPU-only callers may run extract without full engine init.
+    const uint16_t shaderPerm = Gfx_ShaderPermutation::IsInitialized() ? static_cast< uint16_t >( Gfx_ShaderPermutation::GetActiveId() ) : 0;
     const uint16_t permSlot   = Gfx_ShaderPermutation::EncodeSortKeyPermSlot( shaderPerm, gMaterialTableGeneration );
     const uint64_t sortKey    = Gfx_PackOpaqueSortKey( permSlot, materialId, meshId, aDepthBucket );
 

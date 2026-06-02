@@ -1,6 +1,6 @@
 ---
 description: Canonical VulkanDesktop CLI for build verification and smoke-run. Use before task close or when validating runtime changes.
-globs: VulkanDesktop/**,Config/**,VulkanDesktop.sln
+globs: VulkanDesktop/**,Config/**,VulkanDesktop.sln,Scripts/**
 alwaysApply: false
 ---
 
@@ -14,15 +14,39 @@ Full reference: [`Docs/CLI.md`](../../Docs/CLI.md). Implementation: `VulkanDeskt
 
 ---
 
+## Local verification (preferred)
+
+Run from **repo root**. Use **`powershell`** (Windows PowerShell 5.1); scripts are `#Requires -Version 5.1`.
+
+| Gate | Script | What it checks |
+|------|--------|----------------|
+| **G0** | `Scripts/Verify-CI.ps1` | MSBuild Debug\|x64, `Assert-ShaderDrift.ps1`, `GfxTests.exe` |
+| **G0-smoke** | `Scripts/Verify-Smoke.ps1` | Built exe + `engine.benchmark.json` + `smoke.json` + `Assert-SmokeLog.ps1` |
+
+```powershell
+powershell -File Scripts/Verify-CI.ps1
+powershell -File Scripts/Verify-Smoke.ps1
+```
+
+**G0-smoke** requires a prior G0 build (`Verify-Smoke` does not rebuild). **Task close / vibe Closeout:** at minimum G0; add G0-smoke when VulkanDesktop runtime, scene load, or log assertions changed.
+
+**Optional metrics:** `--perf-log Logs/perf_ci.jsonl` on VulkanDesktop (see `Docs/CLI.md`) then `Scripts/Perf-JsonlSummary.ps1`.
+
+**CI / design:** [`Docs/Archived/plans/ci-verification_Plan.md`](../../Docs/Archived/plans/ci-verification_Plan.md). **GitHub:** `.github/workflows/vulkan-desktop.yml` mirrors G0 + soft GPU smoke.
+
+---
+
 ## Asset root (preferred)
 
 **Agents / CI / odd cwd:** always pass explicit root — do not rely on cwd discovery alone.
+
+`Verify-Smoke.ps1` passes `--asset-root <repo-root>` automatically. Manual runs:
 
 ```powershell
 .\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-seconds 6
 ```
 
-P0 target: fail fast when `assetRoot` unresolved (`ci-verification_Plan.md`). Until then, explicit `--asset-root` is the contract for automated runs.
+Local dev may still auto-discover repo root; automation must use `--asset-root` (`Docs/CLI.md`).
 
 ---
 
@@ -30,17 +54,19 @@ P0 target: fail fast when `assetRoot` unresolved (`ci-verification_Plan.md`). Un
 
 | Goal | Command |
 |------|---------|
+| Full local G0 (agents, task close) | `powershell -File Scripts/Verify-CI.ps1` |
+| GPU graceful smoke + log contract | `powershell -File Scripts/Verify-Smoke.ps1` |
 | CLI parses, no GPU | `.\VulkanDesktop.exe --help` |
-| Full lifecycle (preferred task close) | **Graceful smoke** below |
+| Headless gfx contracts | `x64\Debug\GfxTests.exe` (included in Verify-CI) |
 | Minimal scene | `--scene Data/Scenes/smoke.json` |
 | Scene/manifest/path work | `--scene …` + `--asset-root <repo-root>` |
 | CI/agent without validation layers | `--no-validation` |
 
 ---
 
-## Graceful smoke (task close)
+## Graceful smoke (manual)
 
-From `x64\Debug`:
+From `x64\Debug` (or use `Verify-Smoke.ps1`):
 
 ```powershell
 Set-Location x64\Debug
@@ -56,14 +82,18 @@ Variants: `--scene Data/Scenes/demo.json` · `smoke.json` · `--smoke-frames 2` 
 - `[APP] Smoke dwell reached` · `[SCENE] UnloadScene` · `[APP] Engine exited run loop normally`
 - Exit code **0**; no new `[ERROR]` on init (`--no-validation` OK)
 
+`Verify-Smoke` also runs `Scripts/Assert-SmokeLog.ps1` on `Logs/engine_runtime_log.txt`.
+
 ---
 
-## Build (before smoke)
+## Build only (without GfxTests / drift)
 
 ```powershell
 & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
 & "<MSBuild.exe>" VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m
 ```
+
+Prefer **Verify-CI** for agent/task verification.
 
 ---
 

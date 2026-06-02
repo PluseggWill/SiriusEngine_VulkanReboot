@@ -367,7 +367,7 @@ flowchart TB
   PERM --> PIPES[Pipeline variants]
 ```
 
-Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodology → [`ci-verification_Plan.md`](ci-verification_Plan.md).
+Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodology → [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
 
 ---
 

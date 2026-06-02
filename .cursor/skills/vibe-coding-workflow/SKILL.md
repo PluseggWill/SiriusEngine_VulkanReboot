@@ -33,13 +33,13 @@ Paths relative to **workspace root**.
 
 ## Phase 2 — Plan
 
-`Docs/{TaskName}_Plan.md`: problem, non-goals, touch list, ordered steps, verification (build/smoke commands or N/A), risks.
+`Docs/{TaskName}_Plan.md`: problem, non-goals, touch list, ordered steps, verification (`Verify-CI` / `Verify-Smoke` or N/A), risks.
 
 ## Phase 3 — Implement
 
 - Execute plan; **deviation** → block in Progress; minor = update Plan; major = ask user.
 - **Progress:** ≤3 plan steps → **Closeout only**; larger → checkpoints per step (templates below).
-- **Before close:** MSBuild Debug\|x64 + graceful smoke (`--no-validation --smoke-seconds 6`, prefer `--asset-root <repo>`) unless N/A.
+- **Before close (local G0):** from repo root, `powershell -File Scripts/Verify-CI.ps1` (MSBuild Debug\|x64, shader drift, GfxTests). **G0-smoke** when GPU/runtime changed: `powershell -File Scripts/Verify-Smoke.ps1` after CI build. Manual smoke still OK; agents/CI use scripts — see `vulkan-smoke-test.mdc`, `Docs/CLI.md`. N/A → document in Closeout.
 
 ## Task close
 

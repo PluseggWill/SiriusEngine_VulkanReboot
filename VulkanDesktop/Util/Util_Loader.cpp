@@ -3,6 +3,7 @@
 #include "Util_AssetConfig.h"
 #include "Util_EngineConfig.h"
 #include "Util_Logger.h"
+#include "Util_ResolvePath.h"
 
 #include <stb_image.h>
 
@@ -11,22 +12,7 @@
 #include <vector>
 
 std::string UtilLoader::ResolvePath( const std::string& aFilename ) {
-    const std::filesystem::path inputPath( aFilename );
-
-    if ( inputPath.is_absolute() && std::filesystem::exists( inputPath ) ) {
-        return std::filesystem::weakly_canonical( inputPath ).string();
-    }
-
-    const auto assetRelative = ( UtilAssetConfig::GetAssetRoot() / inputPath ).lexically_normal();
-    if ( std::filesystem::exists( assetRelative ) ) {
-        return std::filesystem::weakly_canonical( assetRelative ).string();
-    }
-
-    if ( std::filesystem::exists( inputPath ) ) {
-        return std::filesystem::weakly_canonical( inputPath ).string();
-    }
-
-    return assetRelative.string();
+    return UtilResolvePath::Resolve( aFilename );
 }
 
 std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {

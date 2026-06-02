@@ -59,20 +59,25 @@ Output binary: `x64\Debug\VulkanDesktop.exe`.
 
 ## 3. Run
 
-From repo root (asset root auto-detected via `VulkanDesktop.sln` walk):
+| Context | Asset root |
+|---------|------------|
+| **Local dev** (from `x64\Debug`) | Optional — auto-detect via `VulkanDesktop.sln` walk (deprecated; prefer explicit flag) |
+| **Scripts / CI / agents** | **Required** `--asset-root <repo-root>` — see [`CLI.md`](CLI.md) |
+
+Local quick start:
 
 ```powershell
-.\x64\Debug\VulkanDesktop.exe
+.\x64\Debug\VulkanDesktop.exe --asset-root (Get-Location)
 ```
 
-Or from the output folder (also resolves repo root upward):
+Or from `x64\Debug` without flag (legacy discovery):
 
 ```powershell
 Set-Location x64\Debug
 .\VulkanDesktop.exe
 ```
 
-**CLI / config:** Full reference — [`CLI.md`](CLI.md) (all flags, `engine.json` keys, priority, examples). Quick: `.\VulkanDesktop.exe --help`.
+**CLI / config:** Full reference — [`CLI.md`](CLI.md). Quick: `.\VulkanDesktop.exe --help`.
 
 At runtime, use the ImGui **Scene** window to switch between `Data/Scenes/*.json` without restarting.
 
@@ -105,17 +110,22 @@ Validation: [`validation-layers.md`](validation-layers.md).
 
 ## 5. Automated verify
 
-From repository root:
+From repository root (PowerShell 5.1+):
+
+| Script | Gate | What it does |
+|--------|------|----------------|
+| [`Scripts/Verify-CI.ps1`](../Scripts/Verify-CI.ps1) | **G0** (blocks M2) | MSBuild Debug\|x64 → shader drift → `GfxTests.exe` |
+| [`Scripts/Verify-Smoke.ps1`](../Scripts/Verify-Smoke.ps1) | G0-smoke | Graceful smoke (`smoke.json` + `engine.benchmark.json`) + `Assert-SmokeLog.ps1` |
+| [`Scripts/Verify-Bootstrap.ps1`](../Scripts/Verify-Bootstrap.ps1) | Bootstrap | Build → `--help` → smoke (same as Verify-Smoke) → startup log checks |
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File Scripts/Verify-Bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File Scripts/Verify-CI.ps1
+powershell -ExecutionPolicy Bypass -File Scripts/Verify-Smoke.ps1
 ```
 
-(PowerShell 7+: `pwsh -File Scripts/Verify-Bootstrap.ps1`.)
+Optional: `-RepoRoot <path>`, `-Configuration Debug`. Perf JSONL sample: [`CLI.md`](CLI.md) (`--perf-log`).
 
-Optional: `-RepoRoot <path>`, `-Configuration Debug`, `-Platform x64`.
-
-The script: locates MSBuild → builds → runs `--help` → short windowed run from `x64\Debug` → checks log keywords. Exit code **0** means all steps passed.
+GitHub Actions mirrors **Verify-CI** on PRs; GPU smoke job is soft-fail v1 — see [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
 
 ## 6. Optional: system Vulkan check
 

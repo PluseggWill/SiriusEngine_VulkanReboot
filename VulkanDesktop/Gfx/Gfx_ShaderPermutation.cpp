@@ -1,7 +1,7 @@
 #include "Gfx_ShaderPermutation.h"
 
 #include "../Util/Util_EngineConfig.h"
-#include "../Util/Util_Loader.h"
+#include "../Util/Util_ResolvePath.h"
 #include "../Util/Util_Logger.h"
 
 #include <nlohmann/json.hpp>
@@ -56,7 +56,7 @@ void Initialize() {
         return;
     }
 
-    const std::string resolvedPath = UtilLoader::ResolvePath( kRegistryLogicalPath );
+    const std::string resolvedPath = UtilResolvePath::Resolve( kRegistryLogicalPath );
     std::ifstream     file( resolvedPath );
     if ( !file.is_open() ) {
         throw std::runtime_error( "Gfx_ShaderPermutation: cannot open registry: " + resolvedPath );
