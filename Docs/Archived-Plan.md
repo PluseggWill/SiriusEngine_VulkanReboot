@@ -140,6 +140,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — vk-core-world-peel *(closed 2026-06-02)*
+
+| | |
+|--|--|
+| **Outcome** | `WorldState` / debug UI in App; `BuildActiveRenderViews`; `PrepareFrameCpu(views)`; `Vk_*Context` slices; 0 `friend` on `Vk_Core` |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1` after each phase |
+| **Plan log** | [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md), [`vk-core-world-peel_Progress.md`](Archived/plans/vk-core-world-peel_Progress.md) |
+| **Hardening** | #3, #6, #8, #9 |
+
+- [x] **[P1]** vk-core-world-peel — scene CPU + debug UI ownership in Application; active views build in App; context injection replaces `friend` — 2026-06-02; commits `24d73b3`, `1392869`, `e341b0e`
+
+---
+
 ## P0 — Verify & measure *(closed 2026-06-02)*
 
 | | |

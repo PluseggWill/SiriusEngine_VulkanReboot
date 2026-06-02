@@ -23,7 +23,7 @@ flowchart TB
   subgraph APP [App/]
     APPLICATION[Application lifecycle]
     INPUT[InputSystem]
-    WORLD[WorldState — target owner of SoA]
+    WORLD[WorldState — App owns SoA CPU]
   end
 
   subgraph GFX [Gfx/ — no Vulkan]
@@ -61,7 +61,7 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
-**Target peel:** `WorldState` + debug UI in **App**; `Vk_Core` reads **packets + GPU contexts** only — [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md).
+**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; per frame App builds active views, runs CPU prep (`PrepareFrameCpu`), then GPU draw. `Vk_Core` holds **non-owning** world/debug pointers and **`Vk_*Context`** slices for peel modules — no `friend` on core. Design log: [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md).
 
 ---
 
@@ -378,7 +378,7 @@ Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodol
 | Risk | Guard |
 |------|-------|
 | Fake data-oriented (maps, smart pointers in hot loop) | Profile extract/sort/record |
-| Monolith `Vk_Core` | WorldState peel + context structs |
+| Monolith `Vk_Core` | Ownership peeled; context slices + smaller orchestrator — further split optional |
 | GPU path without parity | Automated CPU vs GPU compare before drop fallback |
 | Permutation explosion | Preset maps to small offline subset |
 | Sim ↔ render coupling | Sim writes SoA only |

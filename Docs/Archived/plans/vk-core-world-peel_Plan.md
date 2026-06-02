@@ -1,12 +1,12 @@
 # Plan: vk-core-world-peel
 
-**Status:** In progress (2026-06-02)  
+**Status:** Closed (2026-06-02)  
 **Progress:** [`vk-core-world-peel_Progress.md`](vk-core-world-peel_Progress.md)  
-**Parent:** [`Active-Plan.md`](Active-Plan.md) **P1**  
+**Parent:** [`Archived-Plan.md`](../../Archived-Plan.md) **P1** (peel track)  
 **Covers recommendations:** #3, #6, #8, #9  
-**Prerequisite:** P0 closed — use [`Scripts/Verify-CI.ps1`](../Scripts/Verify-CI.ps1) + [`Scripts/Verify-Smoke.ps1`](../Scripts/Verify-Smoke.ps1) each phase.
+**Prerequisite:** P0 closed — use [`Scripts/Verify-CI.ps1`](../../../Scripts/Verify-CI.ps1) + [`Scripts/Verify-Smoke.ps1`](../../../Scripts/Verify-Smoke.ps1) each phase.
 
-**Related:** [`vk-core-decomposition` (archived)](Archived/plans/vk-core-decomposition_Plan.md) (M1–M3 done; **ownership** peel is this plan), [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md), [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md).
+**Related:** [`vk-core-decomposition`](vk-core-decomposition_Plan.md) (M1–M3 done; **ownership** peel is this plan), [`config-platform-hardening_Plan.md`](../../config-platform-hardening_Plan.md), [`shader-bindless-policy_Plan.md`](../../shader-bindless-policy_Plan.md).
 
 ---
 

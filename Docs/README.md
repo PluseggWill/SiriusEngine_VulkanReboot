@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P1** — [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) (WorldState, ImGui peel, contexts) |
-| **Recommended next** | Phase 1 → 2 per plan; parallel: [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) |
-| **Plan / Progress** | [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) + [`vk-core-world-peel_Progress.md`](vk-core-world-peel_Progress.md) |
+| **Task** | *(none — open a vibe task to start next WIP pair)* |
+| **Recommended next** | **P1** — [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) or [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) per [`Active-Plan.md`](Active-Plan.md) |
+| **Plan / Progress** | — |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
@@ -40,7 +40,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 | Plan | Topic |
 |------|--------|
 | [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) | **P0 done** — G0 CI, GfxTests, smoke, perf JSONL |
-| [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) | WorldState, ImGui, context structs |
+| [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md) | **P1 peel done** — WorldState, ImGui, `Vk_*Context` |
 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) | CPU indirect, record hygiene, M2 prep |
 | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless decision, perm freeze |
 | [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) | Config instance, VK recover, Windows scope |

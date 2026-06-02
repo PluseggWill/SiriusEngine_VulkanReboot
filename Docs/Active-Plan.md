@@ -86,13 +86,13 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 |---|---------|-------|------|
 | 1 | M2 only; FG v0 after G1 | P3 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) |
 | 2 | GHA MSBuild + shader compile | P0 ✓ | [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) |
-| 3 | Scene CPU out of `Vk_Core` | P1 | [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) |
+| 3 | Scene CPU out of `Vk_Core` | P1 ✓ | [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md) |
 | 4 | S4–S8 frozen in Wishlist | — | [`Wishlist.md`](Wishlist.md) |
 | 5 | Vertical slice = 3 tasks | P4 | § P4 |
-| 6 | ImGui out of `DrawFrame` | P1 | vk-core-world-peel §2 |
+| 6 | ImGui out of `DrawFrame` | P1 ✓ | vk-core-world-peel §2 (archived) |
 | 7 | Config instance not globals | P1 | [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) |
-| 8 | `Vk_*Context` not `friend` | P1 | vk-core-world-peel |
-| 9 | `WorldState` in Application | P1 | vk-core-world-peel §1 |
+| 8 | `Vk_*Context` not `friend` | P1 ✓ | vk-core-world-peel (archived) |
+| 9 | `WorldState` in Application | P1 ✓ | vk-core-world-peel §1 (archived) |
 | 10 | `demoRotate: false` default | P2 | render-m2-prep § D |
 | 11 | No per-draw `std::string` in record | P2 | render-m2-prep § C |
 | 12 | `myIndexCount` on mesh | P2 | render-m2-prep § B |
@@ -129,11 +129,10 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 | Track | Plan | Task |
 |-------|------|------|
-| Peel | [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) | WorldState; ImGui out; context structs |
 | Config | [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) | Config instance; VK recover |
 | Shader | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless decision; freeze perm |
 
-**Acceptance:** `DrawFrame` ≤ ~250 LOC; `GetSceneSoA()` gone from RenderCore hot path.
+**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md) — WorldState in App; ImGui out of `DrawFrame`; `Vk_*Context`; 0 `friend`. **Remaining P1 acceptance:** config + shader tracks per their plans.
 
 ---
 
@@ -194,7 +193,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
-**Implementation plans:** `ci-verification`, `vk-core-world-peel`, `render-m2-prep`, `shader-bindless-policy`, `config-platform-hardening`, `content-pipeline`.
+**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `render-m2-prep`, `shader-bindless-policy`, `config-platform-hardening`, `content-pipeline`.
 
 ---
 
