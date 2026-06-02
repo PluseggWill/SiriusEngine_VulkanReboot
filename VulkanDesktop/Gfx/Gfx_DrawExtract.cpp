@@ -70,7 +70,7 @@ void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewPar
     const glm::mat4 viewProj = aView.myProj * aView.myView;
 
     for ( const uint32_t slot : activeSlots ) {
-        const glm::mat4& transform   = aScene.GetTransform( slot );
+        const glm::mat4& transform   = aScene.GetWorldTransform( slot );
         const glm::vec3  worldOrigin = glm::vec3( transform[ 3 ] );
         const glm::vec4  clip        = viewProj * glm::vec4( worldOrigin, 1.0f );
         float            ndcZ        = 0.0f;

@@ -216,7 +216,7 @@ void Vk_Core::UnloadScene() {
     myLodState.Clear();
     myDrawPrep.ClearFrameOutputs();
     myDrawPrep.ResetLogState();
-    myDemoBaseTransforms.clear();
+    mySceneTransformState.Clear();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
     myLoadedScene   = Gfx_SceneDesc{};

@@ -261,7 +261,6 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 
 *Design: [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md).*
 
-- [ ] **Flat world matrices** — v1 flat `transform` only; hierarchy deferred ([`SceneJSON.md`](SceneJSON.md) §3.8).
 
 ### Open tasks — multi-view
 

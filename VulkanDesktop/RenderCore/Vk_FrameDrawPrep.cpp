@@ -73,7 +73,7 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
             ++writeIndex;
 
             GpuObjectData objectData{};
-            objectData.model         = aParams.myScene->GetTransform( draw.myEntityIndex );
+            objectData.model         = aParams.myScene->GetWorldTransform( draw.myEntityIndex );
             objectData.materialIndex = draw.myMaterialId;
             memcpy( slabBase + draw.myInstanceDataOffset, &objectData, sizeof( objectData ) );
         }

@@ -6,6 +6,7 @@
 
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "../Gfx/Gfx_SceneTransform.h"
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_InputSnapshot.h"
@@ -90,8 +91,8 @@ public:
     Gfx_SceneSoA& GetSceneSoA() {
         return mySceneSoA;
     }
-    const std::vector< glm::mat4 >& GetDemoBaseTransforms() const {
-        return myDemoBaseTransforms;
+    Gfx_SceneTransformState& GetSceneTransformState() {
+        return mySceneTransformState;
     }
 
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
@@ -189,7 +190,7 @@ public:
     bool                            myM1PerfLoggedOnce       = false;
     Vk_BindlessCapabilities         myBindlessCaps{};
     Vk_RenderMaterialPath           myMaterialPath = Vk_RenderMaterialPath::Batch;
-    std::vector< glm::mat4 >        myDemoBaseTransforms;
+    Gfx_SceneTransformState         mySceneTransformState;
     Gfx_SceneDesc                   myLoadedScene;
     Gfx_SceneIdTables               mySceneIdTables;
     std::string                     myLoadedSceneLogicalPath;

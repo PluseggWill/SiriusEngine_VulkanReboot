@@ -81,12 +81,12 @@
   "shaders": [
     {
       "entryPoint": "main",
-      "spv": "d:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TriangleVert.spv",
+      "spv": "D:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TriangleVert.spv",
       "stage": "vertex"
     },
     {
       "entryPoint": "main",
-      "spv": "d:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TrianglePix.spv",
+      "spv": "D:\\Code\\SiriusEngine_VulkanReboot\\VulkanDesktop\\Shader\\..\\Shader_Generated\\TrianglePix.spv",
       "stage": "fragment"
     }
   ]

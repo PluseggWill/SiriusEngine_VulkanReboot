@@ -43,7 +43,7 @@ public:
         return myActiveSlots;
     }
 
-    const glm::mat4&  GetTransform( uint32_t aSlot ) const;
+    const glm::mat4&  GetWorldTransform( uint32_t aSlot ) const;
     const Gfx_Bounds& GetBounds( uint32_t aSlot ) const;
     uint32_t          GetLogicalMeshId( uint32_t aSlot ) const;
     float             GetLodBias( uint32_t aSlot ) const;
@@ -52,7 +52,7 @@ public:
     Gfx_RenderFlags   GetRenderFlags( uint32_t aSlot ) const;
     uint32_t          GetGeneration( uint32_t aSlot ) const;
 
-    void SetTransform( uint32_t aSlot, const glm::mat4& aWorldTransform );
+    void SetWorldTransform( uint32_t aSlot, const glm::mat4& aWorldTransform );
 
 private:
     void GrowOneSlot();

@@ -103,19 +103,23 @@ void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_Scen
     UtilLogger::Info( "SCENE", "Built LOD table: logicalMeshes=" + std::to_string( aScene.myLogicalMeshes.size() ) );
 }
 
-void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, std::vector< glm::mat4 >& aBaseTransforms ) {
+void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, Gfx_SceneTransformState& aTransformState ) {
     aSceneSoA.Clear();
-    aBaseTransforms.clear();
+    aTransformState.Clear();
 
     for ( const Gfx_SceneEntityEntry& entity : aScene.myEntities ) {
         const uint32_t logicalMeshId = LookupId( aTables.myLogicalMeshIdByName, entity.myLogicalMeshId, "logicalMesh" );
         const uint32_t materialId    = LookupId( aTables.myMaterialIdByName, entity.myMaterialId, "material" );
 
         const Gfx_StableEntityId id = aSceneSoA.AllocEntity( logicalMeshId, materialId, entity.myTransform, entity.myLayerMask, entity.myRenderFlags, entity.myLodBias );
-        if ( id.myIndex >= aBaseTransforms.size() ) {
-            aBaseTransforms.resize( id.myIndex + 1 );
+        if ( id.myIndex >= aTransformState.mySourceWorldTransforms.size() ) {
+            aTransformState.mySourceWorldTransforms.resize( id.myIndex + 1, glm::mat4( 1.0f ) );
         }
-        aBaseTransforms[ id.myIndex ] = entity.myTransform;
+        if ( id.myIndex >= aTransformState.myResolvedWorldTransforms.size() ) {
+            aTransformState.myResolvedWorldTransforms.resize( id.myIndex + 1, glm::mat4( 1.0f ) );
+        }
+        aTransformState.mySourceWorldTransforms[ id.myIndex ]   = entity.myTransform;
+        aTransformState.myResolvedWorldTransforms[ id.myIndex ] = entity.myTransform;
     }
 
     UtilLogger::Info( "SCENE", "Populated SoA from scene: active entities=" + std::to_string( aSceneSoA.GetActiveCount() ) );

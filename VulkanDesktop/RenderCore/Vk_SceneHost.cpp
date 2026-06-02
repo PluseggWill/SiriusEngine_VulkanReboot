@@ -7,7 +7,7 @@
 
 void Vk_SceneHost::LoadCpuState( Vk_Core& aCore ) {
     aCore.mySceneIdTables = Gfx_BuildSceneIdTables( aCore.myLoadedScene );
-    Gfx_PopulateSceneSoAFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.mySceneSoA, aCore.myDemoBaseTransforms );
+    Gfx_PopulateSceneSoAFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.mySceneSoA, aCore.mySceneTransformState );
     Gfx_BuildLodTableFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.myLodTable );
     aCore.myLodState.Clear();
 

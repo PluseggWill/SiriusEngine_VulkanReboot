@@ -1,11 +1,8 @@
 #pragma once
 
-#include <vector>
+#include "Gfx_SceneTransform.h"
 
-#include <glm/glm.hpp>
+// Demo-only simulation step: update resolved world transforms from source transforms.
+// Resolve into SoA is a separate phase.
 
-#include "Gfx_SceneSoA.h"
-
-// Demo-only: optional Z spin on scene base transforms before extract. No Vulkan.
-
-void Gfx_TickDemoSceneTransforms( Gfx_SceneSoA& aScene, const std::vector< glm::mat4 >& aBaseTransforms );
+void Gfx_TickDemoSceneTransforms( Gfx_SceneTransformState& aTransforms );

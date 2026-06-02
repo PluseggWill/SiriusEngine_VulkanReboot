@@ -119,7 +119,7 @@ void Gfx_SortTransparentDrawInstances( Gfx_ExtractResult& aResult, const Gfx_Sce
     std::iota( order.begin(), order.end(), size_t{ 0 } );
 
     auto eyeZForDraw = [ &aScene, &aView ]( const Gfx_DrawInstance& aDraw ) {
-        const glm::mat4& transform   = aScene.GetTransform( aDraw.myEntityIndex );
+        const glm::mat4& transform   = aScene.GetWorldTransform( aDraw.myEntityIndex );
         const glm::vec3  worldOrigin = glm::vec3( transform[ 3 ] );
         return Gfx_ComputeEyeSpaceZ( aView, worldOrigin );
     };

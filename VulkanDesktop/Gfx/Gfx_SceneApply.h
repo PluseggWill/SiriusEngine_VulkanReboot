@@ -4,10 +4,9 @@
 #include "Gfx_ResourceManifest.h"
 #include "Gfx_SceneDesc.h"
 #include "Gfx_SceneSoA.h"
+#include "Gfx_SceneTransform.h"
 
-#include <glm/glm.hpp>
 #include <string>
-#include <vector>
 
 // Hydrate runtime structures from a parsed Gfx_SceneDesc (CPU-only; no Vulkan).
 
@@ -17,4 +16,4 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
 
 void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_LodTable& aOut );
 
-void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, std::vector< glm::mat4 >& aBaseTransforms );
+void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, Gfx_SceneTransformState& aTransformState );

@@ -131,7 +131,7 @@ Editor-facing or tooling code may stay more object-oriented; the **frame-critica
 - **Manifest → tables:** `Gfx_SceneDesc` (disk) → `Gfx_BuildResourceManifestFromSceneDesc` → `Vk_ResourceTables::LoadFromManifest` in **`LoadSceneResources`**. Boot verify: `Util_VerifyManifest` (`strict` / `warn` via `engine.json`). SoA/LOD: `Gfx_PopulateSceneSoAFromSceneDesc` / `Gfx_BuildLodTableFromSceneDesc` (`logicalMeshes` in JSON). Orchestrated by `Application` ([`Archived/plans/application-lifecycle_Plan.md`](Archived/plans/application-lifecycle_Plan.md)).
 - **Scene GPU lifetime (2026-05-29):** scene meshes/textures/descriptors/pipelines register on **`mySceneDeletionQueue`**; **`UnloadScene`** flushes GPU resources. Runtime switch: ImGui **Scene** panel → `Application::TryProcessSceneReload` ([`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) Phase D, [`CLI.md`](CLI.md)).
 - **Record resolve:** `RecordScenePass` maps `Gfx_DrawInstance.myMeshId` / `myMaterialId` to GPU buffers and pipeline handles (see `Docs/Archived/plans/resource-tables_Plan.md`).
-- **Per-draw transform (demo):** optional Z spin applied to **SoA** each frame before extract (`ApplyDemoTransformAnimation`; see [`demo-transform-sync_Plan.md`](demo-transform-sync_Plan.md)). `FillInstanceSlab` copies that matrix into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
+- **Per-draw transform (flat resolve, S2):** `Gfx_SceneTransformState` keeps source/resolved world arrays in **Gfx**; `Application` runs `Gfx_TickDemoSceneTransforms` then `Gfx_ResolveFlatWorldTransforms` before `Render()`. SoA world matrices are consumed by extract/cull and copied by `FillInstanceSlab` into **Set 2** dynamic UBO slices (`GpuObjectData`); `RecordScenePass` binds set 2 with `dynamicOffset` per draw (no model push constant on demo pipeline).
 - **Instance slab overflow:** if visible draw count exceeds `kMaxInstanceSlabEntries`, slab fill fails and scene record is skipped (logged) — [`instance-slab-overflow_Plan.md`](instance-slab-overflow_Plan.md).
 - **Instance slab:** per in-flight frame, CPU-mapped `myObjectBuffer` with stride `PadUniformBufferSize(sizeof(GpuObjectData))`, capacity `VkDescriptorPolicy::kMaxInstanceSlabEntries` — see `Docs/Archived/plans/instance-slab_Plan.md`.
 
@@ -162,7 +162,7 @@ This isolates **game/scene semantics** from **GPU API** and makes unit testing a
 
 Hierarchy complicates pure SoA updates. Practical options:
 
-- **Flat world matrices** in SoA with a separate “dirty propagation” pass in deterministic order (e.g. sorted by hierarchy depth), or
+- **Flat world matrices** (implemented S2): source/resolved world transforms are updated in Gfx, then resolved into SoA in deterministic active-slot order before extract; hierarchy remains deferred. Future hierarchy may extend this to parent-index propagation.
 - **Limited depth** with explicit parent index column + iterative propagation.
 
 Recursive virtual calls per node are a poor fit for the stated data-plane goals.
@@ -551,4 +551,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S0/S1 removed from Active-Plan; 2026-06-02).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (flat-world-matrices resolve contract updated; 2026-06-02).*

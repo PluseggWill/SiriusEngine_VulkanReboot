@@ -2,6 +2,7 @@
 
 #include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
+#include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../Util/Util_AssetManifest.h"
@@ -97,7 +98,10 @@ void Application::RunMainLoop() {
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
-        Gfx_TickDemoSceneTransforms( core.GetSceneSoA(), core.GetDemoBaseTransforms() );
+        // Flat-world update contract: simulation writes resolved transforms first,
+        // then resolve publishes final world matrices to SoA before extract/render.
+        Gfx_TickDemoSceneTransforms( core.GetSceneTransformState() );
+        Gfx_ResolveFlatWorldTransforms( core.GetSceneTransformState(), core.GetSceneSoA() );
         core.Render();
         TryProcessSceneReload();
         ++renderedFrames;

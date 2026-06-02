@@ -136,6 +136,9 @@
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_SceneTransform.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -307,6 +310,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_SceneSoA.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SceneTransform.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_ViewData.h">

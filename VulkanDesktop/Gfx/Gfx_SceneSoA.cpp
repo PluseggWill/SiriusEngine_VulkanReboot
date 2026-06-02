@@ -100,7 +100,7 @@ bool Gfx_SceneSoA::IsSlotActive( uint32_t aSlot ) const {
     return std::find( myActiveSlots.begin(), myActiveSlots.end(), aSlot ) != myActiveSlots.end();
 }
 
-const glm::mat4& Gfx_SceneSoA::GetTransform( uint32_t aSlot ) const {
+const glm::mat4& Gfx_SceneSoA::GetWorldTransform( uint32_t aSlot ) const {
     return myTransforms.at( aSlot );
 }
 
@@ -132,7 +132,7 @@ uint32_t Gfx_SceneSoA::GetGeneration( uint32_t aSlot ) const {
     return myGenerations.at( aSlot );
 }
 
-void Gfx_SceneSoA::SetTransform( uint32_t aSlot, const glm::mat4& aWorldTransform ) {
+void Gfx_SceneSoA::SetWorldTransform( uint32_t aSlot, const glm::mat4& aWorldTransform ) {
     myTransforms.at( aSlot ) = aWorldTransform;
     UpdateBoundsForSlot( aSlot );
 }
