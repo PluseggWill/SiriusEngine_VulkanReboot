@@ -61,7 +61,7 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
-**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; per frame App builds active views, runs CPU prep (`PrepareFrameCpu`), then GPU draw. `Vk_Core` holds **non-owning** world/debug pointers and **`Vk_*Context`** slices for peel modules — no `friend` on core. Design log: [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md).
+**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application` (passed into Util/Gfx/RenderCore, bound on `Vk_Core`). Per frame App builds active views, runs CPU prep (`PrepareFrameCpu`), then GPU draw. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths. Design logs: [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md), [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md).
 
 ---
 
@@ -392,7 +392,7 @@ Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodol
 
 ### Non-goals (v1)
 
-Windows + MSVC + MSBuild only · no editor/networking/streaming · no navmesh/full BT · no Task shader until needed · DDGI until Stage 2 gate · audio deferred — full list: [`Wishlist.md`](Wishlist.md)
+**Supported platform (locked):** Windows 10+ x64, MSVC, MSBuild only — inventory: [`Platform.md`](Platform.md). No editor/networking/streaming · no navmesh/full BT · no Task shader until needed · DDGI until Stage 2 gate · audio deferred — full list: [`Wishlist.md`](Wishlist.md)
 
 ---
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Util_EngineConfig.h"
+
 #include <string>
 #include <vector>
 
@@ -16,8 +18,8 @@ struct State {
 };
 
 // Scan <assetRoot>/Data/Scenes/*.json; paths are repo-relative (e.g. Data/Scenes/demo.json).
-void RefreshSceneList( State& aState );
+void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState );
 
-void Build( State& aState );
+void Build( const Util_EngineConfig& aConfig, State& aState );
 
 }  // namespace UtilScenePanel

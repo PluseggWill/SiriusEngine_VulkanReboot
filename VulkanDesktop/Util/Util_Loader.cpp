@@ -1,6 +1,5 @@
 #include "Util_Loader.h"
 #include "../RenderCore/Vk_ResourceContext.h"
-#include "Util_AssetConfig.h"
 #include "Util_EngineConfig.h"
 #include "Util_Logger.h"
 #include "Util_ResolvePath.h"
@@ -11,12 +10,12 @@
 #include <fstream>
 #include <vector>
 
-std::string UtilLoader::ResolvePath( const std::string& aFilename ) {
-    return UtilResolvePath::Resolve( aFilename );
+std::string UtilLoader::ResolvePath( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
+    return UtilResolvePath::Resolve( aConfig, aFilename );
 }
 
-std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
-    const std::string resolvedPath = ResolvePath( aFilename );
+std::vector< char > UtilLoader::ReadFile( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
+    const std::string resolvedPath = ResolvePath( aConfig, aFilename );
     UtilLogger::Debug( "LOADER", "Reading file: " + resolvedPath );
     std::ifstream file( resolvedPath, std::ios::ate | std::ios::binary );
 
@@ -35,8 +34,8 @@ std::vector< char > UtilLoader::ReadFile( const std::string& aFilename ) {
     return buffer;
 }
 
-bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
-    const std::string resolvedPath = ResolvePath( aFilename );
+bool UtilLoader::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
+    const std::string resolvedPath = ResolvePath( aConfig, aFilename );
     UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
     int      texWidth    = 0;
     int      texHeight   = 0;
@@ -52,7 +51,7 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceCon
     const VkDeviceSize imageSize = static_cast< VkDeviceSize >( texWidth ) * static_cast< VkDeviceSize >( texHeight ) * 4;
     const VmaAllocator allocator = aContext.myAllocator;
 
-    const bool useRuntimeMipmap = UtilEngineConfig::GetFeatures().myRuntimeMipmap;
+    const bool useRuntimeMipmap = aConfig.GetFeatures().myRuntimeMipmap;
     aTextureMipLevel            = useRuntimeMipmap ? static_cast< uint32_t >( std::floor( std::log2( std::max( texWidth, texHeight ) ) ) ) + 1 : 1;
 
     Vk_AllocatedBuffer stagingBuffer;
@@ -64,7 +63,6 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceCon
     memcpy( data, pixels, static_cast< size_t >( imageSize ) );
     vmaUnmapMemory( allocator, stagingBuffer.myAllocation );
 
-    // Clean up the pixel array
     stbi_image_free( pixels );
 
     const VkExtent3D texExtent = { static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ), 1 };
@@ -76,7 +74,6 @@ bool UtilLoader::LoadTexture( const std::string& aFilename, const Vk_ResourceCon
     aContext.TransitionImageLayout( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aTextureMipLevel );
     aContext.CopyBufferToImage( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( texWidth ), static_cast< uint32_t >( texHeight ) );
 
-    // Final layout: SHADER_READ_ONLY (GenerateMipmaps leaves mips ready when enabled).
     if ( useRuntimeMipmap ) {
         aContext.GenerateMipmaps( aTextureOut.Image(), VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, aTextureMipLevel );
     }

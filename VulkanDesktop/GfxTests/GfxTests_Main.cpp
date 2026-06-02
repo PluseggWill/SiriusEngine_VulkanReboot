@@ -13,6 +13,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -56,7 +57,13 @@ std::filesystem::path FindRepoRootFromExe() {
     return {};
 }
 
-void InitTestConfig( const std::filesystem::path& aRepoRoot ) {
+Util_EngineConfig LoadConfigFromArgv( int aArgc, char** aArgv ) {
+    Util_EngineConfig config;
+    config.LoadFromArgv( aArgc, aArgv );
+    return config;
+}
+
+void InitTestConfig( const std::filesystem::path& aRepoRoot, Util_EngineConfig& aOutConfig ) {
     static std::vector< char > rootArgStorage;
     const std::string          rootStr = aRepoRoot.string();
     rootArgStorage.assign( rootStr.begin(), rootStr.end() );
@@ -67,8 +74,57 @@ void InitTestConfig( const std::filesystem::path& aRepoRoot ) {
     char*       arg2   = rootArgStorage.data();
 
     char* argv[] = { arg0, arg1, arg2 };
-    UtilEngineConfig::Initialize( 3, argv );
-    Gfx_ShaderPermutation::Initialize();
+    aOutConfig.LoadFromArgv( 3, argv );
+    Gfx_ShaderPermutation::Initialize( aOutConfig );
+}
+
+void TestConfigPrecedence( const std::filesystem::path& aRepoRoot ) {
+    const std::filesystem::path jsonPath = aRepoRoot / "Config" / "engine.gfxtests_precedence.json";
+    {
+        std::ofstream out( jsonPath );
+        if ( !out.is_open() ) {
+            Expect( false, "config precedence: write temp json" );
+            return;
+        }
+        out << R"({ "vsync": true, "assetRoot": "" })";
+    }
+
+    static std::vector< char > configPathStorage;
+    const std::string          configStr = jsonPath.string();
+    configPathStorage.assign( configStr.begin(), configStr.end() );
+    configPathStorage.push_back( '\0' );
+
+    static std::vector< char > rootArgStorage;
+    const std::string          rootStr = aRepoRoot.string();
+    rootArgStorage.assign( rootStr.begin(), rootStr.end() );
+    rootArgStorage.push_back( '\0' );
+
+    static char arg0[]           = "GfxTests";
+    static char argConfigFlag[]  = "--config";
+    static char argNoVsync[]     = "--no-vsync";
+    static char argAssetFlag[]   = "--asset-root";
+
+    {
+        char* argv[] = { arg0, argConfigFlag, configPathStorage.data() };
+        Util_EngineConfig fromJson = LoadConfigFromArgv( 3, argv );
+        Expect( fromJson.GetVsync(), "config precedence: json vsync true" );
+    }
+
+    {
+        char* argv[] = { arg0, argConfigFlag, configPathStorage.data(), argNoVsync };
+        Util_EngineConfig cliVsync = LoadConfigFromArgv( 4, argv );
+        Expect( !cliVsync.GetVsync(), "config precedence: CLI --no-vsync wins" );
+    }
+
+    {
+        char* argAsset = rootArgStorage.data();
+        char* argv[]   = { arg0, argConfigFlag, configPathStorage.data(), argAssetFlag, argAsset };
+        Util_EngineConfig cliRoot = LoadConfigFromArgv( 5, argv );
+        Expect( cliRoot.GetAssetRoot() == std::filesystem::weakly_canonical( aRepoRoot ), "config precedence: CLI --asset-root wins" );
+    }
+
+    std::error_code ec;
+    std::filesystem::remove( jsonPath, ec );
 }
 
 glm::mat4 Mat4FromColumnMajor( const float ( &aValues )[ 16 ] ) {
@@ -171,8 +227,9 @@ int main() {
         return 1;
     }
 
+    Util_EngineConfig config;
     try {
-        InitTestConfig( repoRoot );
+        InitTestConfig( repoRoot, config );
     }
     catch ( const std::exception& e ) {
         std::cerr << "GfxTests init failed: " << e.what() << '\n';
@@ -181,6 +238,7 @@ int main() {
 
     Gfx_SetMaterialTableGenerationForExtract( 1 );
 
+    TestConfigPrecedence( repoRoot );
     TestSoAGeneration();
     TestDemoCullAndBatch();
 

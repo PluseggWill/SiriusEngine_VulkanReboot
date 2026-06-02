@@ -11,9 +11,9 @@
 #include "WorldState.h"
 #include <imgui.h>
 
-void BuildDebugOverlayPanels( DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Core& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
+void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Core& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
     UtilCameraPanel::Build( aDebugUI.myCameraSettings );
-    UtilScenePanel::Build( aDebugUI.myScenePanel );
+    UtilScenePanel::Build( aConfig, aDebugUI.myScenePanel );
 
     if ( ImGui::Begin( "Multi-view", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) {
         ImGui::Checkbox( "Enable PiP", &aDebugUI.myMultiView.myEnablePiP );

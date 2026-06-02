@@ -31,16 +31,16 @@ int FindIndex( const std::vector< std::string >& aPaths, const std::string& aTar
 
 namespace UtilScenePanel {
 
-void RefreshSceneList( State& aState ) {
+void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState ) {
     aState.myAvailableScenes.clear();
 
-    const std::filesystem::path scenesDir = UtilEngineConfig::GetAssetRoot() / "Data" / "Scenes";
+    const std::filesystem::path scenesDir = aConfig.GetAssetRoot() / "Data" / "Scenes";
     if ( !std::filesystem::exists( scenesDir ) || !std::filesystem::is_directory( scenesDir ) ) {
         aState.myLastError = "Scene directory missing: " + scenesDir.string();
         return;
     }
 
-    const std::filesystem::path assetRoot = UtilEngineConfig::GetAssetRoot();
+    const std::filesystem::path assetRoot = aConfig.GetAssetRoot();
     for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( scenesDir ) ) {
         if ( !entry.is_regular_file() ) {
             continue;
@@ -56,7 +56,7 @@ void RefreshSceneList( State& aState ) {
     aState.myLastError.clear();
 }
 
-void Build( State& aState ) {
+void Build( const Util_EngineConfig& aConfig, State& aState ) {
     ImGui::SetNextWindowPos( ImVec2( 10.f, 520.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.9f );
     ImGui::Begin( "Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
@@ -64,7 +64,7 @@ void Build( State& aState ) {
     ImGui::Text( "Current: %s", aState.myCurrentScenePath.empty() ? "(none)" : aState.myCurrentScenePath.c_str() );
 
     if ( ImGui::Button( "Refresh list" ) ) {
-        RefreshSceneList( aState );
+        RefreshSceneList( aConfig, aState );
     }
 
     if ( !aState.myLastError.empty() ) {
@@ -111,7 +111,7 @@ void Build( State& aState ) {
     }
 
     ImGui::Separator();
-    ImGui::TextDisabled( "assetVerify=%s (engine.json / startup)", UtilEngineConfig::GetAssetVerifyPolicy() == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" );
+    ImGui::TextDisabled( "assetVerify=%s (engine.json / startup)", aConfig.GetAssetVerifyPolicy() == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" );
     ImGui::TextDisabled( "CLI reference: Docs/CLI.md" );
 
     ImGui::End();

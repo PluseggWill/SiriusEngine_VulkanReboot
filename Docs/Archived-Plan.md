@@ -140,6 +140,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — config-platform-hardening *(closed 2026-06-02)*
+
+| | |
+|--|--|
+| **Outcome** | `Util_EngineConfig` instance on `Application`; `Docs/Platform.md`; `Vk_FrameResult` recoverable acquire/submit/present; device lost → graceful shutdown |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1`; GfxTests config precedence |
+| **Plan log** | [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md), [`config-platform-hardening_Progress.md`](Archived/plans/config-platform-hardening_Progress.md) |
+| **Hardening** | #7, #30, #31 |
+
+- [x] **[P1]** config-platform-hardening — config instance (no file-static globals); platform inventory; recoverable VK frame errors — 2026-06-02
+
+---
+
 ## P1 — vk-core-world-peel *(closed 2026-06-02)*
 
 | | |

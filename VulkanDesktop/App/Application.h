@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "../Util/Util_EngineConfig.h"
 #include "DebugUIState.h"
 #include "InputSystem.h"
 #include "WorldState.h"
@@ -22,6 +23,7 @@ private:
     std::string TakePendingSceneReloadPath();
 
     std::vector< const char* > myDeviceExtensions;
+    Util_EngineConfig myConfig;  // Single source of truth; bound on Vk_Core in InitApp.
     WorldState                 myWorld;
     DebugUIState               myDebugUI;
     Gfx_SceneDesc              mySceneDesc;

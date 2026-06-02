@@ -115,8 +115,8 @@ VkDescriptorSetLayout CreateOneSetLayout( VkDevice aDevice, const DescriptorSetL
 
 namespace VkShaderEffectMeta {
 
-ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath ) {
-    const std::string resolvedPath = UtilLoader::ResolvePath( aLogicalPath );
+ShaderEffectMeta LoadLitBatchFromReflectionJson( const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
+    const std::string resolvedPath = UtilLoader::ResolvePath( aConfig, aLogicalPath );
     std::ifstream     file( resolvedPath );
     if ( !file.is_open() ) {
         throw std::runtime_error( "Vk_ShaderEffectMeta: cannot open reflection JSON: " + resolvedPath );
@@ -127,7 +127,7 @@ ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath
         file >> root;
     }
     catch ( const Json::exception& e ) {
-        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta: invalid JSON: " ) + resolvedPath + " ù?" + e.what() );
+        throw std::runtime_error( std::string( "Vk_ShaderEffectMeta: invalid JSON: " ) + resolvedPath + " ?" + e.what() );
     }
 
     ShaderEffectMeta meta{};
@@ -156,8 +156,8 @@ ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath
 }
 
 // Reuses lit_batch JSON parser; pipelineGroup must be lit_bindless (see DescriptorContract_LitBindless.json).
-ShaderEffectMeta LoadLitBindlessFromReflectionJson( const std::string& aLogicalPath ) {
-    ShaderEffectMeta meta = LoadLitBatchFromReflectionJson( aLogicalPath );
+ShaderEffectMeta LoadLitBindlessFromReflectionJson( const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
+    ShaderEffectMeta meta = LoadLitBatchFromReflectionJson( aConfig, aLogicalPath );
     if ( meta.myPipelineGroup != "lit_bindless" ) {
         throw std::runtime_error( "Vk_ShaderEffectMeta: expected pipelineGroup lit_bindless, got " + meta.myPipelineGroup );
     }
@@ -259,8 +259,8 @@ void LogMetaDump( const ShaderEffectMeta& aMeta ) {
     }
 }
 
-LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevice, Vk_DeletionQueue& aDeletionQueue ) {
-    ShaderEffectMeta meta = LoadLitBatchFromReflectionJson();
+LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Core& aCore ) {
+    ShaderEffectMeta meta = LoadLitBatchFromReflectionJson( aCore.EngineConfig() );
     if ( meta.myPipelineGroup != "lit_batch" ) {
         throw std::runtime_error( "Vk_ShaderEffectMeta: expected pipelineGroup lit_batch, got " + meta.myPipelineGroup );
     }
@@ -285,6 +285,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevi
         }
     }
 
+    const VkDevice aDevice = aCore.myDeviceCtx.myDevice;
     VkDescriptorSetLayout layouts[ 3 ] = {};
     for ( uint32_t setIndex = 0; setIndex < 3; ++setIndex ) {
         layouts[ setIndex ] = CreateOneSetLayout( aDevice, meta.mySets.at( setIndex ) );
@@ -302,7 +303,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevi
     const VkDescriptorSetLayout globalLayout   = layouts[ 0 ];
     const VkDescriptorSetLayout materialLayout = layouts[ 1 ];
     const VkDescriptorSetLayout objectLayout   = layouts[ 2 ];
-    aDeletionQueue.pushFunction( [ aDevice, globalLayout, materialLayout, objectLayout ]() {
+    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ aDevice, globalLayout, materialLayout, objectLayout ]() {
         vkDestroyDescriptorSetLayout( aDevice, globalLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, materialLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, objectLayout, nullptr );
@@ -337,8 +338,8 @@ namespace {
 
 }  // namespace
 
-void VerifyLitBindlessReflectionContract() {
-    const ShaderEffectMeta meta = LoadLitBindlessFromReflectionJson();
+void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig ) {
+    const ShaderEffectMeta meta = LoadLitBindlessFromReflectionJson( aConfig );
 
     const ShaderResource* textureArray  = FindBinding( meta, eVk_SetMaterial, eVk_BindlessTextureArrayBinding );
     const ShaderResource* materialTable = FindBinding( meta, eVk_SetMaterial, eVk_BindlessMaterialTableBinding );
@@ -356,7 +357,7 @@ void VerifyLitBindlessReflectionContract() {
 // Dev-only layout mismatch probe; takes narrow contexts instead of Vk_Core friend (phase 4).
 void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Core& aCoreOps ) {
     ( void )aScene;
-    if ( !UtilEngineConfig::IsValidationEnabled() ) {
+    if ( !aCoreOps.EngineConfig().IsValidationEnabled() ) {
         throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );
     }
     if ( !UtilDebugMessenger::HasActiveMessenger() ) {

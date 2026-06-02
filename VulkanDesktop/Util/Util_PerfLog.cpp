@@ -13,15 +13,15 @@ std::mutex    gPerfLogMutex;
 std::ofstream gPerfLogStream;
 bool          gPerfLogOpened = false;
 
-void EnsurePerfLogOpen() {
+void EnsurePerfLogOpen( const Util_EngineConfig& aConfig ) {
     if ( gPerfLogOpened ) {
         return;
     }
-    const std::string logical = UtilEngineConfig::GetPerfLogPath();
+    const std::string logical = aConfig.GetPerfLogPath();
     if ( logical.empty() ) {
         return;
     }
-    const std::string resolved = UtilResolvePath::Resolve( logical );
+    const std::string resolved = UtilResolvePath::Resolve( aConfig, logical );
     gPerfLogStream.open( resolved, std::ios::out | std::ios::trunc );
     if ( !gPerfLogStream.is_open() ) {
         throw std::runtime_error( "UtilPerfLog: cannot open " + resolved );
@@ -33,13 +33,14 @@ void EnsurePerfLogOpen() {
 
 namespace UtilPerfLog {
 
-void AppendFrame( uint64_t aFrameIndex, float aFrameMs, uint32_t aDrawCalls, uint32_t aVisibleDraws, uint32_t aActiveViews, const char* aMaterialPath ) {
-    if ( UtilEngineConfig::GetPerfLogPath().empty() ) {
+void AppendFrame( const Util_EngineConfig& aConfig, uint64_t aFrameIndex, float aFrameMs, uint32_t aDrawCalls, uint32_t aVisibleDraws, uint32_t aActiveViews,
+                  const char* aMaterialPath ) {
+    if ( aConfig.GetPerfLogPath().empty() ) {
         return;
     }
 
     std::lock_guard< std::mutex > lock( gPerfLogMutex );
-    EnsurePerfLogOpen();
+    EnsurePerfLogOpen( aConfig );
 
     const char* pathName = ( aMaterialPath != nullptr && aMaterialPath[ 0 ] != '\0' ) ? aMaterialPath : "Unknown";
     gPerfLogStream << "{\"schemaVersion\":1,\"frameIndex\":" << aFrameIndex << ",\"frameMs\":" << aFrameMs << ",\"drawCalls\":" << aDrawCalls

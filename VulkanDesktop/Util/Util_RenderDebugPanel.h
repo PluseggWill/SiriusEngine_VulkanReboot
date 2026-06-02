@@ -1,8 +1,9 @@
 #pragma once
 
-// Util_RenderDebugPanel — Stage 1 forward parity hooks (epic §B): skip sub-passes, depth/normal debug view.
+// Util_RenderDebugPanel - Stage 1 forward parity hooks: skip sub-passes, depth/normal debug view.
 
 #include "../RenderCore/Vk_Types.h"
+#include "Util_EngineConfig.h"
 
 struct GpuEnvironmentData;
 
@@ -17,6 +18,6 @@ struct State {
 
 // ImGui panel; patches myFogDistance.w for GpuEnvironmentData (see Gfx_DebugViewMode). Must run after
 // Gfx_FrameDrawPrep::Build and before Vk_FrameUniformUploader::Update in Vk_Core::DrawFrame.
-void Build( State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws );
+void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws );
 
 }  // namespace UtilRenderDebugPanel

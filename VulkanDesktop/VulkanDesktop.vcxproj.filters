@@ -46,16 +46,10 @@
     <ClCompile Include="App\ActiveViewsBuild.cpp">
       <Filter>App</Filter>
     </ClCompile>
-    <ClCompile Include="Util\Util_AssetConfig.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="Util\Util_EngineConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Util\Util_AssetManifest.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
-    <ClCompile Include="Util\Util_ValidationConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Util\Util_DebugMessenger.cpp">
@@ -228,16 +222,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Util\Util_AssetConfig.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="Util\Util_EngineConfig.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_AssetManifest.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="Util\Util_ValidationConfig.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_DebugMessenger.h">

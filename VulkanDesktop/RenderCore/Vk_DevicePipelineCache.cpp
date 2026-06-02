@@ -1,4 +1,4 @@
-// Module: Vk_DevicePipelineCache â€?load/save VkPipelineCache blob for faster pipeline creation on restart.
+// Module: Vk_DevicePipelineCache ??load/save VkPipelineCache blob for faster pipeline creation on restart.
 // Disk format: PipelineDiskCacheHeaderV1 + vkGetPipelineCacheData bytes (see anonymous helpers below).
 #include "Vk_DevicePipelineCache.h"
 
@@ -19,7 +19,7 @@
 
 namespace {
 
-constexpr uint32_t kMagic   = 0x31435053u;  // 'SPC1' â€?Sirius pipeline cache v1
+constexpr uint32_t kMagic   = 0x31435053u;  // 'SPC1' ??Sirius pipeline cache v1
 constexpr uint32_t kVersion = 1u;
 
 // CONTRACT: entire header must match at load time; any GPU/driver/shader change invalidates the blob.
@@ -64,17 +64,17 @@ uint32_t HashFileMtime( uint32_t aHash, const std::filesystem::path& aPath ) {
 }
 
 // FNV-1a over PermutationRegistry.json + active perm SPIR-V mtimes (bindless frag when bindless path).
-uint32_t ComputeShaderFingerprint( bool aIncludeBindlessFrag ) {
+uint32_t ComputeShaderFingerprint( const Util_EngineConfig& aConfig, bool aIncludeBindlessFrag ) {
     uint32_t hash = 2166136261u;
 
-    hash = HashFileMtime( hash, UtilLoader::ResolvePath( Gfx_ShaderPermutation::kRegistryLogicalPath ) );
+    hash = HashFileMtime( hash, UtilLoader::ResolvePath( aConfig, Gfx_ShaderPermutation::kRegistryLogicalPath ) );
 
     const Gfx_ShaderPermutationDef& active = Gfx_ShaderPermutation::GetActiveDefinition();
-    hash                                   = HashFileMtime( hash, UtilLoader::ResolvePath( active.myVertSpvLogicalPath ) );
-    hash                                   = HashFileMtime( hash, UtilLoader::ResolvePath( active.myFragSpvLogicalPath ) );
+    hash                                   = HashFileMtime( hash, UtilLoader::ResolvePath( aConfig, active.myVertSpvLogicalPath ) );
+    hash                                   = HashFileMtime( hash, UtilLoader::ResolvePath( aConfig, active.myFragSpvLogicalPath ) );
 
     if ( aIncludeBindlessFrag ) {
-        hash = HashFileMtime( hash, UtilLoader::ResolvePath( "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv" ) );
+        hash = HashFileMtime( hash, UtilLoader::ResolvePath( aConfig, "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv" ) );
     }
 
     return hash;
@@ -98,12 +98,12 @@ bool HeaderMatchesCurrent( const PipelineDiskCacheHeaderV1& aDisk, const Pipelin
     return std::memcmp( &aDisk, &aCurrent, sizeof( PipelineDiskCacheHeaderV1 ) ) == 0;
 }
 
-std::filesystem::path DiskCachePath() {
-    return UtilEngineConfig::GetAssetRoot() / "Cache" / "pipeline_cache_v1.bin";
+std::filesystem::path DiskCachePath( const Util_EngineConfig& aConfig ) {
+    return aConfig.GetAssetRoot() / "Cache" / "pipeline_cache_v1.bin";
 }
 
-bool TryLoadBlob( const PipelineDiskCacheHeaderV1& aExpectedHeader, std::vector< uint8_t >& aOutBlob ) {
-    const std::filesystem::path path = DiskCachePath();
+bool TryLoadBlob( const Util_EngineConfig& aConfig, const PipelineDiskCacheHeaderV1& aExpectedHeader, std::vector< uint8_t >& aOutBlob ) {
+    const std::filesystem::path path = DiskCachePath( aConfig );
     std::ifstream               file( path, std::ios::binary );
     if ( !file.is_open() ) {
         UtilLogger::Info( "PIPELINE-CACHE", "disk miss (no file): " + path.string() );
@@ -144,7 +144,7 @@ bool TryLoadBlob( const PipelineDiskCacheHeaderV1& aExpectedHeader, std::vector<
     return true;
 }
 
-void SaveBlob( VkDevice aDevice, VkPipelineCache aCache, const PipelineDiskCacheHeaderV1& aHeader ) {
+void SaveBlob( const Util_EngineConfig& aConfig, VkDevice aDevice, VkPipelineCache aCache, const PipelineDiskCacheHeaderV1& aHeader ) {
     if ( aCache == VK_NULL_HANDLE ) {
         return;
     }
@@ -164,7 +164,7 @@ void SaveBlob( VkDevice aDevice, VkPipelineCache aCache, const PipelineDiskCache
     }
     blob.resize( dataSize );
 
-    const std::filesystem::path path = DiskCachePath();
+    const std::filesystem::path path = DiskCachePath( aConfig );
     std::error_code             ec;
     std::filesystem::create_directories( path.parent_path(), ec );
 
@@ -199,11 +199,12 @@ void Vk_DevicePipelineCache::Create( Vk_Core& aCore ) {
     }
 
     const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
-    const uint32_t                  shaderFp        = ComputeShaderFingerprint( includeBindless );
+    const Util_EngineConfig&          cfg             = aCore.EngineConfig();
+    const uint32_t                    shaderFp        = ComputeShaderFingerprint( cfg, includeBindless );
     const PipelineDiskCacheHeaderV1 header          = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, shaderFp, includeBindless );
 
     std::vector< uint8_t > initialBlob;
-    const bool             loaded = TryLoadBlob( header, initialBlob );
+    const bool             loaded = TryLoadBlob( cfg, header, initialBlob );
 
     VkPipelineCacheCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -235,8 +236,9 @@ void Vk_DevicePipelineCache::Destroy( Vk_Core& aCore ) {
     }
 
     const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
-    const PipelineDiskCacheHeaderV1 header          = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, ComputeShaderFingerprint( includeBindless ), includeBindless );
-    SaveBlob( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, header );
+    const Util_EngineConfig&          cfg    = aCore.EngineConfig();
+    const PipelineDiskCacheHeaderV1 header = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, ComputeShaderFingerprint( cfg, includeBindless ), includeBindless );
+    SaveBlob( cfg, aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, header );
 
     vkDestroyPipelineCache( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, nullptr );
     aCore.myDeviceCtx.myPipelineCache = VK_NULL_HANDLE;

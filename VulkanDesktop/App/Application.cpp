@@ -8,7 +8,6 @@
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../Util/Util_AssetManifest.h"
-#include "../Util/Util_EngineConfig.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_RenderDebugPanel.h"
@@ -28,14 +27,12 @@ int Application::Run( int argc, char** argv ) {
         LoadAndVerifyScene();
 
         Vk_Core& core = Vk_Core::GetInstance();
-        core.BindWorldState( &myWorld );
-        core.BindDebugUI( &myDebugUI );
         UtilLogger::Info( "APP", "InitWindow." );
         core.InitWindow();
         UtilLogger::Info( "APP", "InitRenderDevice." );
         core.InitRenderDevice();
         UtilLogger::Info( "APP", "LoadSceneResources." );
-        myLastLoadedScenePath = UtilEngineConfig::GetSceneLogicalPath();
+        myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
         core.LoadSceneResources( std::move( mySceneDesc ), myLastLoadedScenePath );
 
         RunMainLoop();
@@ -55,43 +52,44 @@ int Application::Run( int argc, char** argv ) {
 }
 
 void Application::InitApp( int argc, char** argv ) {
-    UtilEngineConfig::Initialize( argc, argv );
-    UtilLogger::Init( UtilEngineConfig::GetLogFilePath() );
-    UtilLogger::SetMinLogLevel( UtilEngineConfig::GetMinLogLevel() );
-    Gfx_ShaderPermutation::Initialize();
+    myConfig.LoadFromArgv( argc, argv );
+    UtilLogger::Init( myConfig.GetLogFilePath() );
+    UtilLogger::SetMinLogLevel( myConfig.GetMinLogLevel() );
+
+    Vk_Core& core = Vk_Core::GetInstance();
+    core.BindEngineConfig( &myConfig );
+    Gfx_ShaderPermutation::Initialize( myConfig );
 
     UtilLogger::Info( "APP", "InitApp." );
 
-    Vk_Core& core = Vk_Core::GetInstance();
     core.BindWorldState( &myWorld );
     core.BindDebugUI( &myDebugUI );
-    core.SetSize( UtilEngineConfig::GetWindowWidth(), UtilEngineConfig::GetWindowHeight() );
-    core.SetVsync( UtilEngineConfig::GetVsync() );
+    core.SetSize( myConfig.GetWindowWidth(), myConfig.GetWindowHeight() );
+    core.SetVsync( myConfig.GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
-    core.ConfigureRenderDoc( UtilEngineConfig::GetEnableRenderDoc() );
+    core.ConfigureRenderDoc( myConfig.GetEnableRenderDoc() );
 
 #ifdef NDEBUG
     const bool buildDefaultValidation = false;
 #else
     const bool buildDefaultValidation = true;
 #endif
-    const bool validationEnabled =
-        UtilEngineConfig::ResolveValidationEnabled( buildDefaultValidation );
-    core.SetEnableValidationLayers( validationEnabled, UtilEngineConfig::GetValidationLayerNames() );
-    UtilEngineConfig::LogResolvedSummary();
+    const bool validationEnabled = myConfig.ResolveValidationEnabled( buildDefaultValidation );
+    core.SetEnableValidationLayers( validationEnabled, myConfig.GetValidationLayerNames() );
+    myConfig.LogResolvedSummary();
 }
 
 void Application::LoadAndVerifyScene() {
     UtilLogger::Info( "APP", "LoadSceneDesc." );
-    mySceneDesc = Gfx_LoadSceneDesc( UtilEngineConfig::GetSceneLogicalPath() );
+    mySceneDesc = Gfx_LoadSceneDesc( myConfig, myConfig.GetSceneLogicalPath() );
     UtilLogger::Info( "APP", "VerifyManifest." );
-    Util_VerifyManifest( Util_CollectDependencies( mySceneDesc ), UtilEngineConfig::GetAssetVerifyPolicy() );
+    Util_VerifyManifest( myConfig, Util_CollectDependencies( mySceneDesc ), myConfig.GetAssetVerifyPolicy() );
 }
 
 void Application::RunMainLoop() {
     Vk_Core& core = Vk_Core::GetInstance();
-    const int    smokeFrameLimit = UtilEngineConfig::GetSmokeFrameLimit();
-    const double smokeSeconds    = UtilEngineConfig::GetSmokeSeconds();
+    const int    smokeFrameLimit = myConfig.GetSmokeFrameLimit();
+    const double smokeSeconds    = myConfig.GetSmokeSeconds();
     int          renderedFrames  = 0;
     const auto   smokeStart =
         ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
@@ -112,17 +110,18 @@ void Application::RunMainLoop() {
             core.TriggerRenderDocCapture();
         }
         myRenderDocCaptureKeyDown = f12Pressed;
-        // Flat-world: sim → resolve into Application WorldState, then render (Vk_Core reads World() only).
-        Gfx_TickDemoSceneTransforms( myWorld.mySceneTransformState );
+        Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
 
         uint32_t                viewCount = 0;
         const auto              views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
         Vk_FrameCpuPrepResult prep{};
         if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
-            UtilRenderDebugPanel::Build( myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
-            BuildDebugOverlayPanels( myDebugUI, myWorld, core, prep );
-            core.DrawFrameGpu( myDebugUI, prep );
+            UtilRenderDebugPanel::Build( myConfig, myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
+            BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, core, prep );
+            if ( core.DrawFrameGpu( myDebugUI, prep ) == Vk_FrameResult::RequestShutdown ) {
+                glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
+            }
         }
 
         TryProcessSceneReload();
@@ -165,8 +164,8 @@ void Application::TryProcessSceneReload() {
     UtilLogger::Info( "APP", "Scene reload requested: " + reloadPath );
 
     auto loadScene = [ & ]( const std::string& aPath ) {
-        Gfx_SceneDesc desc = Gfx_LoadSceneDesc( aPath );
-        Util_VerifyManifest( Util_CollectDependencies( desc ), UtilEngineConfig::GetAssetVerifyPolicy() );
+        Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig, aPath );
+        Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
         core.LoadSceneResources( std::move( desc ), aPath );
         myLastLoadedScenePath = aPath;
     };

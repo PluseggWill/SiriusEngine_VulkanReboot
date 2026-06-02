@@ -16,7 +16,7 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
         CreateBindlessMaterialSetLayout( aCore );
         CreateBindlessPipelineLayout( aCore );
         // S2 2d: SPIR-V/contract already checked at build; catch hand-written layout drift at runtime on bindless GPUs.
-        VkShaderEffectMeta::VerifyLitBindlessReflectionContract();
+        VkShaderEffectMeta::VerifyLitBindlessReflectionContract( aCore.EngineConfig() );
     }
     LogLayoutContract( aCore );
 }
@@ -45,12 +45,12 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
 
 void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
     // Lit batch Set 0/1/2 from reflection_lit.json + layout hash cache (S2 phase 2b).
-    const LitBatchDescriptorSetLayouts layouts = VkShaderEffectMeta::AcquireLitBatchDescriptorSetLayouts( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myDeletionQueue );
+    const LitBatchDescriptorSetLayouts layouts = VkShaderEffectMeta::AcquireLitBatchDescriptorSetLayouts( aCore );
     aCore.mySceneGpuCtx.myGlobalSetLayout                    = layouts.myGlobalSetLayout;
     aCore.mySceneGpuCtx.myMaterialSetLayout                  = layouts.myMaterialSetLayout;
     aCore.mySceneGpuCtx.myObjectSetLayout                    = layouts.myObjectSetLayout;
 
-    if ( UtilEngineConfig::GetDescriptorLayoutMismatchTest() ) {
+    if ( aCore.EngineConfig().GetDescriptorLayoutMismatchTest() ) {
         VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( aCore.myDeviceCtx, aCore.mySceneGpuCtx, aCore );
     }
 }

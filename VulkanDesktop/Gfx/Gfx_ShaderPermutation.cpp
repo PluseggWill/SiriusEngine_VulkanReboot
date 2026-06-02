@@ -51,12 +51,12 @@ uint16_t EncodeSortKeyPermSlot( uint16_t aShaderPermutationId, uint16_t aMateria
     return static_cast< uint16_t >( ( ( aShaderPermutationId & 0xFFu ) << 8 ) | ( aMaterialTableGeneration & 0xFFu ) );
 }
 
-void Initialize() {
+void Initialize( const Util_EngineConfig& aConfig ) {
     if ( gInitialized ) {
         return;
     }
 
-    const std::string resolvedPath = UtilResolvePath::Resolve( kRegistryLogicalPath );
+    const std::string resolvedPath = UtilResolvePath::Resolve( aConfig, kRegistryLogicalPath );
     std::ifstream     file( resolvedPath );
     if ( !file.is_open() ) {
         throw std::runtime_error( "Gfx_ShaderPermutation: cannot open registry: " + resolvedPath );
@@ -67,7 +67,7 @@ void Initialize() {
         file >> root;
     }
     catch ( const Json::exception& e ) {
-        throw std::runtime_error( std::string( "Gfx_ShaderPermutation: invalid JSON: " ) + resolvedPath + " — " + e.what() );
+        throw std::runtime_error( std::string( "Gfx_ShaderPermutation: invalid JSON: " ) + resolvedPath + " - " + e.what() );
     }
 
     if ( !root.contains( "permutations" ) || !root[ "permutations" ].is_array() ) {
@@ -102,7 +102,7 @@ void Initialize() {
     }
 
     gInitialized = true;
-    SetActiveByName( UtilEngineConfig::GetShaderPermutationName() );
+    SetActiveByName( aConfig.GetShaderPermutationName() );
 
     UtilLogger::Info( "SHADER-PERM", "registry loaded: " + std::to_string( gDefinitions.size() ) + " permutation(s) from " + kRegistryLogicalPath );
 }

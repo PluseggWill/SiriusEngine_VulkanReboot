@@ -1,44 +1,39 @@
 #include "Util_EngineConfig.h"
 
+#include "Util_AssetManifest.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include <nlohmann/json.hpp>
 
 #include <cctype>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 
 namespace {
 
-constexpr const char* kDefaultValidationLayer = "VK_LAYER_KHRONOS_validation";
-
-bool                           gInitialized = false;
-std::filesystem::path          gAssetRoot;
-std::string                    gConfigPathUsed;
-std::string                    gSceneLogicalPath = kGfxDefaultSceneLogicalPath;
-std::string                    gLogFilePath;
-std::string                    gPerfLogPath;
-uint32_t                       gWindowWidth  = 1600;
-uint32_t                       gWindowHeight = 1200;
-bool                           gVsync        = true;
-UtilLogger::LogLevel           gMinLogLevel  = UtilLogger::LogLevel::Info;
-UtilEngineConfig::FeatureFlags gFeatures{};
-Util_AssetVerifyPolicy         gAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;
-int                            gSmokeFrameLimit              = 0;
-double                         gSmokeSeconds                 = 0.0;
-bool                           gDescriptorLayoutMismatchTest = false;
-bool                           gEnableRenderDoc              = false;
-std::string                    gShaderPermutationName        = "lit";
-std::string                    gRenderPresetName;
-std::optional< std::string >   gConfigShaderPermutation;
-std::optional< std::string >   gConfigRenderPreset;
-std::optional< bool >          gCliValidationOverride;
-std::optional< bool >          gConfigValidation;
-bool                           gValidationResolved = false;
-bool                           gValidationEnabled  = false;
-std::vector< const char* >     gValidationLayers   = { kDefaultValidationLayer };
+UtilLogger::LogLevel ParseLogLevel( const std::string& aValue ) {
+    auto toLower = []( std::string aValue ) {
+        for ( char& c : aValue ) {
+            c = static_cast< char >( std::tolower( static_cast< unsigned char >( c ) ) );
+        }
+        return aValue;
+    };
+    const std::string v = toLower( aValue );
+    if ( v == "debug" ) {
+        return UtilLogger::LogLevel::Debug;
+    }
+    if ( v == "info" ) {
+        return UtilLogger::LogLevel::Info;
+    }
+    if ( v == "warn" || v == "warning" ) {
+        return UtilLogger::LogLevel::Warning;
+    }
+    if ( v == "error" ) {
+        return UtilLogger::LogLevel::Error;
+    }
+    throw std::runtime_error( "Invalid logLevel in config (expected debug|info|warn|error): " + aValue );
+}
 
 std::filesystem::path FindRepoRoot() {
     std::filesystem::path dir = std::filesystem::current_path();
@@ -65,30 +60,6 @@ std::filesystem::path ResolvePathArgument( const std::string& aPath ) {
     return std::filesystem::weakly_canonical( std::filesystem::current_path() / input );
 }
 
-std::string ToLower( std::string aValue ) {
-    for ( char& c : aValue ) {
-        c = static_cast< char >( std::tolower( static_cast< unsigned char >( c ) ) );
-    }
-    return aValue;
-}
-
-UtilLogger::LogLevel ParseLogLevel( const std::string& aValue ) {
-    const std::string v = ToLower( aValue );
-    if ( v == "debug" ) {
-        return UtilLogger::LogLevel::Debug;
-    }
-    if ( v == "info" ) {
-        return UtilLogger::LogLevel::Info;
-    }
-    if ( v == "warn" || v == "warning" ) {
-        return UtilLogger::LogLevel::Warning;
-    }
-    if ( v == "error" ) {
-        return UtilLogger::LogLevel::Error;
-    }
-    throw std::runtime_error( "Invalid logLevel in config (expected debug|info|warn|error): " + aValue );
-}
-
 std::filesystem::path DefaultConfigPath() {
     return FindRepoRoot() / "Config" / "engine.json";
 }
@@ -99,7 +70,24 @@ void RequireDirectory( const std::filesystem::path& aPath, const char* aLabel ) 
     }
 }
 
-void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
+const char* LogLevelName( UtilLogger::LogLevel aLevel ) {
+    switch ( aLevel ) {
+    case UtilLogger::LogLevel::Debug:
+        return "debug";
+    case UtilLogger::LogLevel::Info:
+        return "info";
+    case UtilLogger::LogLevel::Warning:
+        return "warn";
+    case UtilLogger::LogLevel::Error:
+        return "error";
+    default:
+        return "unknown";
+    }
+}
+
+}  // namespace
+
+void Util_EngineConfig::ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
     std::ifstream file( aConfigPath );
     if ( !file.is_open() ) {
         throw std::runtime_error( "Could not open config file: " + aConfigPath.string() );
@@ -116,57 +104,63 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
     if ( root.contains( "assetRoot" ) && root[ "assetRoot" ].is_string() ) {
         const std::string assetRoot = root[ "assetRoot" ].get< std::string >();
         if ( !assetRoot.empty() ) {
-            gAssetRoot = ResolvePathArgument( assetRoot );
+            myAssetRoot = ResolvePathArgument( assetRoot );
         }
     }
 
     if ( root.contains( "scene" ) && root[ "scene" ].is_string() ) {
-        gSceneLogicalPath = root[ "scene" ].get< std::string >();
+        mySceneLogicalPath = root[ "scene" ].get< std::string >();
     }
 
     if ( root.contains( "window" ) && root[ "window" ].is_object() ) {
         const auto& window = root[ "window" ];
         if ( window.contains( "width" ) && window[ "width" ].is_number_unsigned() ) {
-            gWindowWidth = window[ "width" ].get< uint32_t >();
+            myWindowWidth = window[ "width" ].get< uint32_t >();
         }
         if ( window.contains( "height" ) && window[ "height" ].is_number_unsigned() ) {
-            gWindowHeight = window[ "height" ].get< uint32_t >();
+            myWindowHeight = window[ "height" ].get< uint32_t >();
         }
     }
 
     if ( root.contains( "vsync" ) && root[ "vsync" ].is_boolean() ) {
-        gVsync = root[ "vsync" ].get< bool >();
+        myVsync = root[ "vsync" ].get< bool >();
     }
 
     if ( root.contains( "logLevel" ) && root[ "logLevel" ].is_string() ) {
-        gMinLogLevel = ParseLogLevel( root[ "logLevel" ].get< std::string >() );
+        myMinLogLevel = ParseLogLevel( root[ "logLevel" ].get< std::string >() );
     }
 
     if ( root.contains( "logFile" ) && root[ "logFile" ].is_string() ) {
-        gLogFilePath = root[ "logFile" ].get< std::string >();
+        myLogFilePath = root[ "logFile" ].get< std::string >();
     }
 
     if ( root.contains( "enableValidationLayers" ) && root[ "enableValidationLayers" ].is_boolean() ) {
-        gConfigValidation = root[ "enableValidationLayers" ].get< bool >();
+        myConfigValidation = root[ "enableValidationLayers" ].get< bool >();
     }
 
     if ( root.contains( "features" ) && root[ "features" ].is_object() ) {
         const auto& features = root[ "features" ];
         if ( features.contains( "demoRotate" ) && features[ "demoRotate" ].is_boolean() ) {
-            gFeatures.myDemoRotate = features[ "demoRotate" ].get< bool >();
+            myFeatures.myDemoRotate = features[ "demoRotate" ].get< bool >();
         }
         if ( features.contains( "runtimeMipmap" ) && features[ "runtimeMipmap" ].is_boolean() ) {
-            gFeatures.myRuntimeMipmap = features[ "runtimeMipmap" ].get< bool >();
+            myFeatures.myRuntimeMipmap = features[ "runtimeMipmap" ].get< bool >();
         }
     }
 
     if ( root.contains( "assetVerify" ) && root[ "assetVerify" ].is_string() ) {
-        const std::string policy = ToLower( root[ "assetVerify" ].get< std::string >() );
+        auto toLower = []( std::string aValue ) {
+            for ( char& c : aValue ) {
+                c = static_cast< char >( std::tolower( static_cast< unsigned char >( c ) ) );
+            }
+            return aValue;
+        };
+        const std::string policy = toLower( root[ "assetVerify" ].get< std::string >() );
         if ( policy == "strict" ) {
-            gAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
+            myAssetVerifyPolicy = Util_AssetVerifyPolicy::Strict;
         }
         else if ( policy == "warn" ) {
-            gAssetVerifyPolicy = Util_AssetVerifyPolicy::Warn;
+            myAssetVerifyPolicy = Util_AssetVerifyPolicy::Warn;
         }
         else {
             throw std::runtime_error( "Invalid assetVerify in config (expected strict|warn): " + policy );
@@ -174,52 +168,35 @@ void ApplyJsonFile( const std::filesystem::path& aConfigPath ) {
     }
 
     if ( root.contains( "shaderPermutation" ) && root[ "shaderPermutation" ].is_string() ) {
-        gConfigShaderPermutation = root[ "shaderPermutation" ].get< std::string >();
+        myConfigShaderPermutation = root[ "shaderPermutation" ].get< std::string >();
     }
     if ( root.contains( "renderPreset" ) && root[ "renderPreset" ].is_string() ) {
-        gConfigRenderPreset = root[ "renderPreset" ].get< std::string >();
+        myConfigRenderPreset = root[ "renderPreset" ].get< std::string >();
     }
 }
 
-struct CliOverrides {
-    std::optional< std::string >           myAssetRoot;
-    std::optional< std::filesystem::path > myConfigPath;
-    std::optional< std::string >           myScene;
-    std::optional< std::string >           myLogLevel;
-    std::optional< bool >                  myVsync;
-    std::optional< uint32_t >              myWindowWidth;
-    std::optional< uint32_t >              myWindowHeight;
-    std::optional< bool >                  myDemoRotate;
-    std::optional< bool >                  myRuntimeMipmap;
-    std::optional< int >                   mySmokeFrames;
-    std::optional< double >                mySmokeSeconds;
-    std::optional< std::string >           myShaderPermutation;
-    std::optional< std::string >           myRenderPreset;
-    std::optional< std::string >           myPerfLog;
-};
-
-void ResolveActiveShaderPermutation( const CliOverrides& aOverrides ) {
+void Util_EngineConfig::ResolveActiveShaderPermutation( const CliOverrides& aOverrides ) {
     if ( aOverrides.myShaderPermutation.has_value() ) {
-        gShaderPermutationName = *aOverrides.myShaderPermutation;
+        myShaderPermutationName = *aOverrides.myShaderPermutation;
         return;
     }
     if ( aOverrides.myRenderPreset.has_value() ) {
-        gRenderPresetName      = *aOverrides.myRenderPreset;
-        gShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( gRenderPresetName );
+        myRenderPresetName      = *aOverrides.myRenderPreset;
+        myShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( myRenderPresetName );
         return;
     }
-    if ( gConfigShaderPermutation.has_value() ) {
-        gShaderPermutationName = *gConfigShaderPermutation;
+    if ( myConfigShaderPermutation.has_value() ) {
+        myShaderPermutationName = *myConfigShaderPermutation;
         return;
     }
-    if ( gConfigRenderPreset.has_value() ) {
-        gRenderPresetName      = *gConfigRenderPreset;
-        gShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( gRenderPresetName );
+    if ( myConfigRenderPreset.has_value() ) {
+        myRenderPresetName      = *myConfigRenderPreset;
+        myShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( myRenderPresetName );
         return;
     }
 }
 
-CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
+Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc, char** aArgv ) {
     CliOverrides overrides;
     for ( int i = 1; i < aArgc; ++i ) {
         const std::string arg = aArgv[ i ];
@@ -302,11 +279,11 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             continue;
         }
         if ( arg == "--validation" || arg == "--enable-validation" ) {
-            gCliValidationOverride = true;
+            myCliValidationOverride = true;
             continue;
         }
         if ( arg == "--no-validation" || arg == "--disable-validation" ) {
-            gCliValidationOverride = false;
+            myCliValidationOverride = false;
             continue;
         }
         if ( arg == "--shader-permutation" ) {
@@ -324,11 +301,11 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             continue;
         }
         if ( arg == "--descriptor-layout-mismatch-test" ) {
-            gDescriptorLayoutMismatchTest = true;
+            myDescriptorLayoutMismatchTest = true;
             continue;
         }
         if ( arg == "--renderdoc" ) {
-            gEnableRenderDoc = true;
+            myEnableRenderDoc = true;
             continue;
         }
         if ( arg == "--perf-log" ) {
@@ -346,59 +323,193 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
     return overrides;
 }
 
-void ApplyCliOverrides( const CliOverrides& aOverrides ) {
+void Util_EngineConfig::ApplyCliOverrides( const CliOverrides& aOverrides ) {
     if ( aOverrides.myAssetRoot.has_value() ) {
-        gAssetRoot = ResolvePathArgument( *aOverrides.myAssetRoot );
+        myAssetRoot = ResolvePathArgument( *aOverrides.myAssetRoot );
     }
     if ( aOverrides.myScene.has_value() ) {
-        gSceneLogicalPath = *aOverrides.myScene;
+        mySceneLogicalPath = *aOverrides.myScene;
     }
     if ( aOverrides.myLogLevel.has_value() ) {
-        gMinLogLevel = ParseLogLevel( *aOverrides.myLogLevel );
+        myMinLogLevel = ParseLogLevel( *aOverrides.myLogLevel );
     }
     if ( aOverrides.myVsync.has_value() ) {
-        gVsync = *aOverrides.myVsync;
+        myVsync = *aOverrides.myVsync;
     }
     if ( aOverrides.myWindowWidth.has_value() ) {
-        gWindowWidth = *aOverrides.myWindowWidth;
+        myWindowWidth = *aOverrides.myWindowWidth;
     }
     if ( aOverrides.myWindowHeight.has_value() ) {
-        gWindowHeight = *aOverrides.myWindowHeight;
+        myWindowHeight = *aOverrides.myWindowHeight;
     }
     if ( aOverrides.myDemoRotate.has_value() ) {
-        gFeatures.myDemoRotate = *aOverrides.myDemoRotate;
+        myFeatures.myDemoRotate = *aOverrides.myDemoRotate;
     }
     if ( aOverrides.myRuntimeMipmap.has_value() ) {
-        gFeatures.myRuntimeMipmap = *aOverrides.myRuntimeMipmap;
+        myFeatures.myRuntimeMipmap = *aOverrides.myRuntimeMipmap;
     }
     if ( aOverrides.mySmokeFrames.has_value() ) {
-        gSmokeFrameLimit = *aOverrides.mySmokeFrames;
+        mySmokeFrameLimit = *aOverrides.mySmokeFrames;
     }
     if ( aOverrides.mySmokeSeconds.has_value() ) {
-        gSmokeSeconds = *aOverrides.mySmokeSeconds;
+        mySmokeSeconds = *aOverrides.mySmokeSeconds;
     }
     if ( aOverrides.myPerfLog.has_value() ) {
-        gPerfLogPath = *aOverrides.myPerfLog;
+        myPerfLogPath = *aOverrides.myPerfLog;
     }
     ResolveActiveShaderPermutation( aOverrides );
 }
 
-const char* LogLevelName( UtilLogger::LogLevel aLevel ) {
-    switch ( aLevel ) {
-    case UtilLogger::LogLevel::Debug:
-        return "debug";
-    case UtilLogger::LogLevel::Info:
-        return "info";
-    case UtilLogger::LogLevel::Warning:
-        return "warn";
-    case UtilLogger::LogLevel::Error:
-        return "error";
-    default:
-        return "unknown";
+void Util_EngineConfig::LoadFromArgv( int aArgc, char** aArgv ) {
+    mySceneLogicalPath = kGfxDefaultSceneLogicalPath;
+    myAssetRoot        = FindRepoRoot();
+
+    CliOverrides overrides = ParseCliOverrides( aArgc, aArgv );
+
+    const std::filesystem::path configPath = overrides.myConfigPath ? ResolvePathArgument( overrides.myConfigPath->string() ) : DefaultConfigPath();
+    myConfigPathUsed                       = configPath.string();
+
+    if ( std::filesystem::exists( configPath ) ) {
+        ApplyJsonFile( configPath );
+    }
+    else if ( overrides.myConfigPath.has_value() ) {
+        throw std::runtime_error( "Config file not found: " + myConfigPathUsed );
+    }
+
+    ApplyCliOverrides( overrides );
+
+    if ( !overrides.myAssetRoot.has_value() && myAssetRoot.empty() ) {
+        myAssetRoot = FindRepoRoot();
+    }
+
+    RequireDirectory( myAssetRoot, "asset root" );
+
+    if ( myWindowWidth == 0 || myWindowHeight == 0 ) {
+        throw std::runtime_error( "window width/height must be > 0" );
     }
 }
 
-}  // namespace
+std::filesystem::path Util_EngineConfig::GetAssetRoot() const {
+    return myAssetRoot;
+}
+
+std::string Util_EngineConfig::GetConfigPathUsed() const {
+    return myConfigPathUsed;
+}
+
+std::string Util_EngineConfig::GetSceneLogicalPath() const {
+    return mySceneLogicalPath;
+}
+
+std::string Util_EngineConfig::GetLogFilePath() const {
+    return myLogFilePath;
+}
+
+std::string Util_EngineConfig::GetPerfLogPath() const {
+    return myPerfLogPath;
+}
+
+uint32_t Util_EngineConfig::GetWindowWidth() const {
+    return myWindowWidth;
+}
+
+uint32_t Util_EngineConfig::GetWindowHeight() const {
+    return myWindowHeight;
+}
+
+bool Util_EngineConfig::GetVsync() const {
+    return myVsync;
+}
+
+UtilLogger::LogLevel Util_EngineConfig::GetMinLogLevel() const {
+    return myMinLogLevel;
+}
+
+const Util_EngineConfig::FeatureFlags& Util_EngineConfig::GetFeatures() const {
+    return myFeatures;
+}
+
+Util_AssetVerifyPolicy Util_EngineConfig::GetAssetVerifyPolicy() const {
+    return myAssetVerifyPolicy;
+}
+
+int Util_EngineConfig::GetSmokeFrameLimit() const {
+    return mySmokeFrameLimit;
+}
+
+double Util_EngineConfig::GetSmokeSeconds() const {
+    return mySmokeSeconds;
+}
+
+bool Util_EngineConfig::GetDescriptorLayoutMismatchTest() const {
+    return myDescriptorLayoutMismatchTest;
+}
+
+bool Util_EngineConfig::GetEnableRenderDoc() const {
+    return myEnableRenderDoc;
+}
+
+bool Util_EngineConfig::ResolveValidationEnabled( bool aBuildDefault ) const {
+    if ( myCliValidationOverride.has_value() ) {
+        myValidationEnabled = *myCliValidationOverride;
+    }
+    else if ( myConfigValidation.has_value() ) {
+        myValidationEnabled = *myConfigValidation;
+    }
+    else {
+        myValidationEnabled = aBuildDefault;
+    }
+
+    myValidationResolved = true;
+    return myValidationEnabled;
+}
+
+bool Util_EngineConfig::IsValidationEnabled() const {
+    if ( !myValidationResolved ) {
+        return ResolveValidationEnabled( false );
+    }
+    return myValidationEnabled;
+}
+
+const std::vector< const char* >& Util_EngineConfig::GetValidationLayerNames() const {
+    return myValidationLayers;
+}
+
+const std::string& Util_EngineConfig::GetShaderPermutationName() const {
+    return myShaderPermutationName;
+}
+
+const std::string& Util_EngineConfig::GetRenderPresetName() const {
+    return myRenderPresetName;
+}
+
+void Util_EngineConfig::LogResolvedSummary() const {
+    UtilLogger::Info( "CONFIG", "cwd=" + std::filesystem::current_path().string() );
+    UtilLogger::Info( "CONFIG", "config=" + myConfigPathUsed );
+    UtilLogger::Info( "CONFIG", "assetRoot=" + std::filesystem::weakly_canonical( myAssetRoot ).string() );
+    UtilLogger::Info( "CONFIG", "scene=" + mySceneLogicalPath );
+    UtilLogger::Info( "CONFIG", "window=" + std::to_string( myWindowWidth ) + "x" + std::to_string( myWindowHeight ) + " vsync=" + ( myVsync ? "on" : "off" ) );
+    UtilLogger::Info( "CONFIG", std::string( "logLevel=" ) + LogLevelName( myMinLogLevel ) );
+    UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( myFeatures.myDemoRotate ? "true" : "false" )
+                                    + " runtimeMipmap=" + ( myFeatures.myRuntimeMipmap ? "true" : "false" ) );
+    UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( myAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
+    if ( !myRenderPresetName.empty() ) {
+        UtilLogger::Info( "CONFIG", "renderPreset=" + myRenderPresetName );
+    }
+    UtilLogger::Info( "CONFIG", "shaderPermutation=" + myShaderPermutationName );
+    UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( myEnableRenderDoc ? "enabled" : "disabled" ) );
+
+    if ( myValidationResolved ) {
+        const char* source = "build default";
+        if ( myCliValidationOverride.has_value() ) {
+            source = "CLI";
+        }
+        else if ( myConfigValidation.has_value() ) {
+            source = "config";
+        }
+        UtilLogger::Info( "CONFIG", std::string( "validationLayers=" ) + ( myValidationEnabled ? "enabled" : "disabled" ) + " (" + source + ")" );
+    }
+}
 
 namespace UtilEngineConfig {
 
@@ -435,225 +546,6 @@ void PrintUsage( const char* aProgramName ) {
               << "  --renderdoc            Enable RenderDoc runtime integration (startup-gated)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
-}
-
-void Initialize( int aArgc, char** aArgv ) {
-    if ( gInitialized ) {
-        return;
-    }
-
-    gAssetRoot = FindRepoRoot();
-
-    CliOverrides overrides = ParseCliOverrides( aArgc, aArgv );
-
-    const std::filesystem::path configPath = overrides.myConfigPath ? ResolvePathArgument( overrides.myConfigPath->string() ) : DefaultConfigPath();
-    gConfigPathUsed                        = configPath.string();
-
-    if ( std::filesystem::exists( configPath ) ) {
-        ApplyJsonFile( configPath );
-    }
-    else if ( overrides.myConfigPath.has_value() ) {
-        throw std::runtime_error( "Config file not found: " + gConfigPathUsed );
-    }
-
-    ApplyCliOverrides( overrides );
-
-    if ( !overrides.myAssetRoot.has_value() && gAssetRoot.empty() ) {
-        gAssetRoot = FindRepoRoot();
-    }
-
-    RequireDirectory( gAssetRoot, "asset root" );
-
-    if ( gWindowWidth == 0 || gWindowHeight == 0 ) {
-        throw std::runtime_error( "window width/height must be > 0" );
-    }
-
-    gInitialized = true;
-}
-
-bool IsInitialized() {
-    return gInitialized;
-}
-
-std::filesystem::path GetAssetRoot() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gAssetRoot;
-}
-
-std::string GetConfigPathUsed() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gConfigPathUsed;
-}
-
-std::string GetSceneLogicalPath() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gSceneLogicalPath;
-}
-
-std::string GetLogFilePath() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gLogFilePath;
-}
-
-std::string GetPerfLogPath() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gPerfLogPath;
-}
-
-uint32_t GetWindowWidth() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gWindowWidth;
-}
-
-uint32_t GetWindowHeight() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gWindowHeight;
-}
-
-bool GetVsync() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gVsync;
-}
-
-UtilLogger::LogLevel GetMinLogLevel() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gMinLogLevel;
-}
-
-const FeatureFlags& GetFeatures() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gFeatures;
-}
-
-Util_AssetVerifyPolicy GetAssetVerifyPolicy() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gAssetVerifyPolicy;
-}
-
-int GetSmokeFrameLimit() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gSmokeFrameLimit;
-}
-
-double GetSmokeSeconds() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gSmokeSeconds;
-}
-
-bool GetDescriptorLayoutMismatchTest() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gDescriptorLayoutMismatchTest;
-}
-
-bool GetEnableRenderDoc() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gEnableRenderDoc;
-}
-
-bool ResolveValidationEnabled( bool aBuildDefault ) {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-
-    if ( gCliValidationOverride.has_value() ) {
-        gValidationEnabled = *gCliValidationOverride;
-    }
-    else if ( gConfigValidation.has_value() ) {
-        gValidationEnabled = *gConfigValidation;
-    }
-    else {
-        gValidationEnabled = aBuildDefault;
-    }
-
-    gValidationResolved = true;
-    return gValidationEnabled;
-}
-
-bool IsValidationEnabled() {
-    if ( !gValidationResolved ) {
-        return ResolveValidationEnabled( false );
-    }
-    return gValidationEnabled;
-}
-
-const std::vector< const char* >& GetValidationLayerNames() {
-    return gValidationLayers;
-}
-
-const std::string& GetShaderPermutationName() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gShaderPermutationName;
-}
-
-const std::string& GetRenderPresetName() {
-    if ( !gInitialized ) {
-        Initialize( 0, nullptr );
-    }
-    return gRenderPresetName;
-}
-
-void LogResolvedSummary() {
-    if ( !gInitialized ) {
-        return;
-    }
-
-    UtilLogger::Info( "CONFIG", "cwd=" + std::filesystem::current_path().string() );
-    UtilLogger::Info( "CONFIG", "config=" + gConfigPathUsed );
-    UtilLogger::Info( "CONFIG", "assetRoot=" + std::filesystem::weakly_canonical( gAssetRoot ).string() );
-    UtilLogger::Info( "CONFIG", "scene=" + gSceneLogicalPath );
-    UtilLogger::Info( "CONFIG", "window=" + std::to_string( gWindowWidth ) + "x" + std::to_string( gWindowHeight ) + " vsync=" + ( gVsync ? "on" : "off" ) );
-    UtilLogger::Info( "CONFIG", std::string( "logLevel=" ) + LogLevelName( gMinLogLevel ) );
-    UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( gFeatures.myDemoRotate ? "true" : "false" )
-                                    + " runtimeMipmap=" + ( gFeatures.myRuntimeMipmap ? "true" : "false" ) );
-    UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( gAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
-    if ( !gRenderPresetName.empty() ) {
-        UtilLogger::Info( "CONFIG", "renderPreset=" + gRenderPresetName );
-    }
-    UtilLogger::Info( "CONFIG", "shaderPermutation=" + gShaderPermutationName );
-    UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( gEnableRenderDoc ? "enabled" : "disabled" ) );
-
-    if ( gValidationResolved ) {
-        const char* source = "build default";
-        if ( gCliValidationOverride.has_value() ) {
-            source = "CLI";
-        }
-        else if ( gConfigValidation.has_value() ) {
-            source = "config";
-        }
-        UtilLogger::Info( "CONFIG", std::string( "validationLayers=" ) + ( gValidationEnabled ? "enabled" : "disabled" ) + " (" + source + ")" );
-    }
 }
 
 }  // namespace UtilEngineConfig

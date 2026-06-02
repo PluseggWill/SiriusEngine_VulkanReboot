@@ -26,6 +26,8 @@
 
 #include "Vk_FrameCpuPrepResult.h"
 
+#include "Vk_FrameResult.h"
+
 #include "Vk_FrameDrawPrep.h"
 
 #include "Vk_PlatformContext.h"
@@ -64,6 +66,8 @@ struct DebugUIState;
 
 struct Gfx_SceneDesc;
 
+struct Util_EngineConfig;
+
 class Vk_Core;
 
 // RHI-shaped Vulkan backend: device, swapchain, pipelines, descriptors, frame sync, command record/submit.
@@ -83,6 +87,11 @@ public:
     void BindWorldState( WorldState* aWorld );
 
     void BindDebugUI( DebugUIState* aDebugUI );
+
+    // Non-owning; must outlive Vk_Core (Application::myConfig). Call from InitApp before RenderCore reads config.
+    void BindEngineConfig( const Util_EngineConfig* aConfig );
+
+    const Util_EngineConfig& EngineConfig() const;
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
 
@@ -120,7 +129,7 @@ public:
 
     bool PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews, uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut );
 
-    void DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep );
+    Vk_FrameResult DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep );
 
     GpuEnvironmentData& GetEnvironmentData() {
 
@@ -309,6 +318,8 @@ private:
     WorldState*   myWorld   = nullptr;
 
     DebugUIState* myDebugUI = nullptr;
+
+    const Util_EngineConfig* myEngineConfig = nullptr;
 
 };
 

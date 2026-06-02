@@ -9,58 +9,91 @@
 #include <string>
 #include <vector>
 
-// Central engine config: Config/engine.json + CLI overrides (CLI wins).
-namespace UtilEngineConfig {
+// Instance-based engine config: Config/engine.json + CLI overrides (CLI wins).
+// Owned by Application; pass const Util_EngineConfig& (or BindEngineConfig on Vk_Core).
 
-struct FeatureFlags {
-    bool myDemoRotate    = true;
-    bool myRuntimeMipmap = false;
+struct Util_EngineConfig {
+    struct FeatureFlags {
+        bool myDemoRotate    = true;
+        bool myRuntimeMipmap = false;
+    };
+
+    // Load config file + CLI; throws std::runtime_error on invalid input.
+    void LoadFromArgv( int aArgc, char** aArgv );
+
+    std::filesystem::path        GetAssetRoot() const;
+    std::string                  GetConfigPathUsed() const;
+    std::string                  GetSceneLogicalPath() const;
+    std::string                  GetLogFilePath() const;
+    std::string                  GetPerfLogPath() const;
+    uint32_t                     GetWindowWidth() const;
+    uint32_t                     GetWindowHeight() const;
+    bool                         GetVsync() const;
+    UtilLogger::LogLevel         GetMinLogLevel() const;
+    const FeatureFlags&          GetFeatures() const;
+    Util_AssetVerifyPolicy       GetAssetVerifyPolicy() const;
+    int                          GetSmokeFrameLimit() const;
+    double                       GetSmokeSeconds() const;
+    bool                         GetDescriptorLayoutMismatchTest() const;
+    bool                         GetEnableRenderDoc() const;
+    const std::string&           GetShaderPermutationName() const;
+    const std::string&           GetRenderPresetName() const;
+    bool                         ResolveValidationEnabled( bool aBuildDefault ) const;
+    bool                         IsValidationEnabled() const;
+    const std::vector< const char* >& GetValidationLayerNames() const;
+    void LogResolvedSummary() const;
+
+private:
+    struct CliOverrides {
+        std::optional< std::string >           myAssetRoot;
+        std::optional< std::filesystem::path > myConfigPath;
+        std::optional< std::string >           myScene;
+        std::optional< std::string >           myLogLevel;
+        std::optional< bool >                  myVsync;
+        std::optional< uint32_t >              myWindowWidth;
+        std::optional< uint32_t >              myWindowHeight;
+        std::optional< bool >                  myDemoRotate;
+        std::optional< bool >                  myRuntimeMipmap;
+        std::optional< int >                   mySmokeFrames;
+        std::optional< double >                mySmokeSeconds;
+        std::optional< std::string >           myShaderPermutation;
+        std::optional< std::string >           myRenderPreset;
+        std::optional< std::string >           myPerfLog;
+    };
+
+    CliOverrides ParseCliOverrides( int aArgc, char** aArgv );
+    void         ApplyJsonFile( const std::filesystem::path& aConfigPath );
+    void         ApplyCliOverrides( const CliOverrides& aOverrides );
+    void         ResolveActiveShaderPermutation( const CliOverrides& aOverrides );
+
+    std::filesystem::path myAssetRoot;
+    std::string                    myConfigPathUsed;
+    std::string                    mySceneLogicalPath;
+    std::string                    myLogFilePath;
+    std::string                    myPerfLogPath;
+    uint32_t                       myWindowWidth  = 1600;
+    uint32_t                       myWindowHeight   = 1200;
+    bool                           myVsync         = true;
+    UtilLogger::LogLevel           myMinLogLevel    = UtilLogger::LogLevel::Info;
+    FeatureFlags                   myFeatures{};
+    Util_AssetVerifyPolicy         myAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;
+    int                            mySmokeFrameLimit              = 0;
+    double                         mySmokeSeconds                 = 0.0;
+    bool                           myDescriptorLayoutMismatchTest = false;
+    bool                           myEnableRenderDoc              = false;
+    std::string                    myShaderPermutationName        = "lit";
+    std::string                    myRenderPresetName;
+    std::optional< std::string >   myConfigShaderPermutation;
+    std::optional< std::string >   myConfigRenderPreset;
+    std::optional< bool >          myCliValidationOverride;
+    std::optional< bool >          myConfigValidation;
+    mutable bool                   myValidationResolved = false;
+    mutable bool                   myValidationEnabled  = false;
+    std::vector< const char* >     myValidationLayers{ "VK_LAYER_KHRONOS_validation" };
 };
 
-// Parse argv for --help / unknown flags only (no logger). Returns true if process should exit (help printed).
+// Early CLI (--help) without constructing config.
+namespace UtilEngineConfig {
 bool TryEarlyExitFromCli( int aArgc, char** aArgv );
-
-// Load config file + CLI; must run once before UtilLogger::Init in Application::InitApp.
-void Initialize( int aArgc, char** aArgv );
-
-bool IsInitialized();
-
-std::filesystem::path GetAssetRoot();
-std::string           GetConfigPathUsed();
-std::string           GetSceneLogicalPath();
-std::string           GetLogFilePath();  // Empty => default Logs/engine_runtime_log.txt under repo.
-std::string           GetPerfLogPath();  // Empty => disabled; repo-relative resolved at write time.
-
-uint32_t GetWindowWidth();
-uint32_t GetWindowHeight();
-bool     GetVsync();
-
-UtilLogger::LogLevel   GetMinLogLevel();
-const FeatureFlags&    GetFeatures();
-Util_AssetVerifyPolicy GetAssetVerifyPolicy();
-
-// When > 0, main loop requests window close after this many rendered frames (dev smoke / CI).
-int GetSmokeFrameLimit();
-
-// When > 0, main loop also requires this many seconds after scene load (RunMainLoop start) before smoke exit.
-// If both frame limit and seconds are set, both thresholds must be met.
-double GetSmokeSeconds();
-
-// Dev (S2 shader-layout 2b M4): intentional descriptor type mismatch; requires validation layers.
-bool GetDescriptorLayoutMismatchTest();
-bool GetEnableRenderDoc();
-
-// Active entry in Shader/PermutationRegistry.json (default "lit").
-const std::string& GetShaderPermutationName();
-
-// Resolved render preset label (empty when CLI/config only set shaderPermutation).
-const std::string& GetRenderPresetName();
-
-bool                              ResolveValidationEnabled( bool aBuildDefault );
-bool                              IsValidationEnabled();
-const std::vector< const char* >& GetValidationLayerNames();
-
-void LogResolvedSummary();
 void PrintUsage( const char* aProgramName );
-
 }  // namespace UtilEngineConfig

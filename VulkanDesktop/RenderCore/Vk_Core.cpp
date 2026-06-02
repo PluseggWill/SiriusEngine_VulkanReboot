@@ -81,6 +81,17 @@ void Vk_Core::BindDebugUI( DebugUIState* aDebugUI ) {
     myDebugUI = aDebugUI;
 }
 
+void Vk_Core::BindEngineConfig( const Util_EngineConfig* aConfig ) {
+    myEngineConfig = aConfig;
+}
+
+const Util_EngineConfig& Vk_Core::EngineConfig() const {
+    if ( myEngineConfig == nullptr ) {
+        throw std::runtime_error( "Vk_Core: Util_EngineConfig not bound (call BindEngineConfig from Application)" );
+    }
+    return *myEngineConfig;
+}
+
 WorldState& Vk_Core::World() const {
     if ( myWorld == nullptr ) {
         throw std::runtime_error( "Vk_Core: WorldState not bound (call BindWorldState from Application)" );
@@ -204,7 +215,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     World().myHasLoadedScene = true;
 
     DebugUI().myScenePanel.myCurrentScenePath = World().myLogicalPath;
-    UtilScenePanel::RefreshSceneList( DebugUI().myScenePanel );
+    UtilScenePanel::RefreshSceneList( EngineConfig(), DebugUI().myScenePanel );
 
     ( void )Gfx_GetSceneShader( World().myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
@@ -222,7 +233,8 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
         const VkPipeline       transPipe  = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
         const VkPipelineLayout layout     = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
         SyncResourceContext();
-        mySceneGpuCtx.myResourceTables.LoadFromManifest( manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue, mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
+        mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue, mySceneGpuCtx.myTextureImageMipLevels,
+                                                         opaquePipe, transPipe, layout );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
@@ -627,8 +639,8 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( aWorld.mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
-    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameCtx.myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, aOut.myActiveViewCount,
-                              Vk_RenderMaterialPathName( myDeviceCtx.myMaterialPath ) );
+    UtilPerfLog::AppendFrame( EngineConfig(), static_cast< uint64_t >( myFrameCtx.myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf,
+                              aOut.myActiveViewCount, Vk_RenderMaterialPathName( myDeviceCtx.myMaterialPath ) );
 
     if ( !myMaterialBindLoggedOnce ) {
         if ( myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
@@ -651,10 +663,10 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     return true;
 }
 
-void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep ) {
+Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep ) {
     ( void )aDebugUI;
     if ( !aPrep.myOk || aPrep.myFrameData == nullptr ) {
-        return;
+        return Vk_FrameResult::SkipFrame;
     }
 
     Vk_FrameData& frameData = *aPrep.myFrameData;
@@ -683,7 +695,7 @@ void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult&
         throw std::runtime_error( "failed to record command buffer!" );
     }
 
-    Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex );
+    const Vk_FrameResult frameResult = Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex );
 
     if ( myPlatformCtx.myHasFrameInputSampleTime ) {
         const float inputToPresentMs = ElapsedMs( myPlatformCtx.myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
@@ -698,6 +710,7 @@ void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult&
 
     myFrameCtx.myFrameNumber++;
     myFrameCtx.myCurrentFrame = myFrameCtx.myFrameNumber % MAX_FRAMES_IN_FLIGHT;
+    return frameResult;
 }
 
 void Vk_Core::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
@@ -961,7 +974,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
 
 VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) const {
     UtilLogger::Info( "SHADER", "Loading shader module: " + aShaderPath );
-    const auto shaderCode = UtilLoader::ReadFile( aShaderPath );
+    const auto shaderCode = UtilLoader::ReadFile( EngineConfig(), aShaderPath );
 
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

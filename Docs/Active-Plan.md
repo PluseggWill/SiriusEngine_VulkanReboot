@@ -90,7 +90,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 4 | S4–S8 frozen in Wishlist | — | [`Wishlist.md`](Wishlist.md) |
 | 5 | Vertical slice = 3 tasks | P4 | § P4 |
 | 6 | ImGui out of `DrawFrame` | P1 ✓ | vk-core-world-peel §2 (archived) |
-| 7 | Config instance not globals | P1 | [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) |
+| 7 | Config instance not globals | P1 ✓ | [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md) |
 | 8 | `Vk_*Context` not `friend` | P1 ✓ | vk-core-world-peel (archived) |
 | 9 | `WorldState` in Application | P1 ✓ | vk-core-world-peel §1 (archived) |
 | 10 | `demoRotate: false` default | P2 | render-m2-prep § D |
@@ -113,8 +113,8 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 27 | Peel metrics not checkbox count | P0 | SprintOutcomeValidation § P0 |
 | 28 | DDGI etc → Wishlist | — | Wishlist |
 | 29 | Slice = product priority | P4 | § P4 |
-| 30 | Windows-only explicit | P1 | config-platform-hardening |
-| 31 | Recoverable VK errors | P1 | config-platform-hardening § C |
+| 30 | Windows-only explicit | P1 ✓ | config-platform-hardening (archived) |
+| 31 | Recoverable VK errors | P1 ✓ | config-platform-hardening (archived) |
 | 32 | `--perf-log` JSONL | P0 ✓ | ci-verification § D (archived) |
 
 ---
@@ -129,10 +129,9 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 | Track | Plan | Task |
 |-------|------|------|
-| Config | [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) | Config instance; VK recover |
 | Shader | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless decision; freeze perm |
 
-**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md) — WorldState in App; ImGui out of `DrawFrame`; `Vk_*Context`; 0 `friend`. **Remaining P1 acceptance:** config + shader tracks per their plans.
+**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Remaining P1:** shader-bindless-policy per its plan.
 
 ---
 
@@ -193,7 +192,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
-**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `render-m2-prep`, `shader-bindless-policy`, `config-platform-hardening`, `content-pipeline`.
+**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `render-m2-prep`, `shader-bindless-policy`, `content-pipeline`.
 
 ---
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Util/Util_EngineConfig.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -27,7 +29,7 @@ namespace Gfx_ShaderPermutation {
 
 inline constexpr const char* kRegistryLogicalPath = "VulkanDesktop/Shader/PermutationRegistry.json";
 
-void Initialize();
+void Initialize( const Util_EngineConfig& aConfig );
 bool IsInitialized();
 
 const std::vector< Gfx_ShaderPermutationDef >& GetDefinitions();

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DataStruct.h"
@@ -16,8 +17,9 @@ void Vk_ResourceTables::Clear() {
     myMaterialTableGeneration = 0;
 }
 
-void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
-                                          uint32_t& aTextureMipLevels, VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout ) {
+void Vk_ResourceTables::LoadFromManifest( const Util_EngineConfig& aConfig, const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext,
+                                          Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aTextureMipLevels, VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline,
+                                          VkPipelineLayout aLayout ) {
     Clear();
 
     myMeshes.reserve( aManifest.myMeshes.size() );
@@ -27,12 +29,12 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
 
     for ( const Gfx_TextureManifestEntry& entry : aManifest.myTextures ) {
         uint32_t textureMipLevels = 1;
-        LoadTexture( entry.myPath, entry.myId, aContext, aSceneDeletionQueue, textureMipLevels );
+        LoadTexture( aConfig, entry.myPath, entry.myId, aContext, aSceneDeletionQueue, textureMipLevels );
         aTextureMipLevels = std::max( aTextureMipLevels, textureMipLevels );
     }
 
     for ( const Gfx_MeshManifestEntry& entry : aManifest.myMeshes ) {
-        LoadMesh( entry.myPath, entry.myId, aContext, aSceneDeletionQueue );
+        LoadMesh( aConfig, entry.myPath, entry.myId, aContext, aSceneDeletionQueue );
     }
 
     for ( const Gfx_MaterialManifestEntry& entry : aManifest.myMaterials ) {
@@ -46,8 +48,9 @@ void Vk_ResourceTables::LoadFromManifest( const Gfx_ResourceManifest& aManifest,
                                             + " textures=" + std::to_string( myTextures.size() ) + " materialTableGeneration=" + std::to_string( myMaterialTableGeneration ) );
 }
 
-Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue ) {
-    const std::string resolvedPath = UtilLoader::ResolvePath( aPath );
+Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
+                                       Vk_DeletionQueue& aSceneDeletionQueue ) {
+    const std::string resolvedPath = UtilLoader::ResolvePath( aConfig, aPath );
     UtilLogger::Info( "RESOURCE", "Loading mesh id=" + std::to_string( aMeshId ) + " path=" + resolvedPath );
 
     if ( aMeshId >= myMeshes.size() ) {
@@ -71,9 +74,9 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const std::string& aPath, uint32_t aMeshI
     return &mesh;
 }
 
-Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
-                                             uint32_t& aMipLevels ) {
-    const std::string resolvedPath = UtilLoader::ResolvePath( aPath );
+Gfx_Texture* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
+                                             Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels ) {
+    const std::string resolvedPath = UtilLoader::ResolvePath( aConfig, aPath );
     UtilLogger::Info( "RESOURCE", "Loading texture id=" + std::to_string( aTextureId ) + " path=" + resolvedPath );
 
     if ( aTextureId >= myTextures.size() ) {
@@ -81,7 +84,7 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const std::string& aPath, uint32_t 
     }
 
     Gfx_Texture& texture = myTextures[ aTextureId ];
-    if ( UtilLoader::LoadTexture( resolvedPath, aContext, texture, aMipLevels ) != true ) {
+    if ( UtilLoader::LoadTexture( aConfig, aPath, aContext, texture, aMipLevels ) != true ) {
         throw std::runtime_error( "failed to load texture!" );
     }
     texture.ImageView() = aContext.CreateImageView( texture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, aMipLevels );

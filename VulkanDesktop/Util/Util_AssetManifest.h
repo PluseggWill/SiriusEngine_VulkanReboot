@@ -2,6 +2,8 @@
 
 #include "../Gfx/Gfx_SceneDesc.h"
 
+struct Util_EngineConfig;
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -37,4 +39,4 @@ enum class Util_AssetVerifyPolicy : uint8_t {
 };
 
 // File existence check before Vulkan init. Strict fails fast; Warn logs and continues.
-void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy = Util_AssetVerifyPolicy::Strict );
+void Util_VerifyManifest( const Util_EngineConfig& aConfig, const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy = Util_AssetVerifyPolicy::Strict );

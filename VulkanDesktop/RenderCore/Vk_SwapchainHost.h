@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "Vk_FrameResult.h"
+
 class Vk_Core;
 struct Vk_FrameData;
 
@@ -12,7 +14,7 @@ public:
     static void Init( Vk_Core& aCore );
     static void Recreate( Vk_Core& aCore );
     static bool AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex );
-    static void SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex );
+    static Vk_FrameResult SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex );
     static void CreateSwapChain( Vk_Core& aCore );
     static void CreateRenderPass( Vk_Core& aCore );
     static void CreateFrameBuffers( Vk_Core& aCore );

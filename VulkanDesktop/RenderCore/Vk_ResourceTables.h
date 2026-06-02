@@ -7,6 +7,7 @@
 #include "../Gfx/Gfx_ResourceManifest.h"
 #include "Vk_Types.h"
 
+struct Util_EngineConfig;
 struct Vk_ResourceContext;
 struct Vk_DeletionQueue;
 
@@ -17,8 +18,8 @@ public:
     void Clear();
 
     // Loads unique paths once; registers GPU teardown on aDeletionQueue. Pipeline/layout applied to all materials v0.
-    void LoadFromManifest( const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aTextureMipLevels,
-                           VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
+    void LoadFromManifest( const Util_EngineConfig& aConfig, const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
+                           uint32_t& aTextureMipLevels, VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
     const Gfx_Mesh&     GetMesh( uint32_t aMeshId ) const;
     const Gfx_Material& GetMaterial( uint32_t aMaterialId ) const;
@@ -43,8 +44,9 @@ public:
     void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
 private:
-    Gfx_Mesh*    LoadMesh( const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue );
-    Gfx_Texture* LoadTexture( const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
+    Gfx_Mesh*    LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue );
+    Gfx_Texture* LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
+                              uint32_t& aMipLevels );
     Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, const Gfx_MaterialManifestEntry& aSurface );
 
     std::vector< Gfx_Mesh >     myMeshes;

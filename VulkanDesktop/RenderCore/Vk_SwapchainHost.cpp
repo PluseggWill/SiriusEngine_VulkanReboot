@@ -4,10 +4,28 @@
 #include "Vk_Core.h"
 #include "Vk_GfxPipelineCache.h"
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 #include <algorithm>
 #include <array>
 #include <vector>
+
+namespace {
+
+// Maps queue results for per-frame submit/present/acquire; OUT_OF_DATE is handled by callers via Recreate.
+Vk_FrameResult ClassifyQueueResult( VkResult aResult, const char* aOperation ) {
+    if ( aResult == VK_SUCCESS ) {
+        return Vk_FrameResult::Ok;
+    }
+    if ( aResult == VK_ERROR_DEVICE_LOST ) {
+        UtilLogger::Error( "VK", std::string( aOperation ) + " returned VK_ERROR_DEVICE_LOST." );
+        return Vk_FrameResult::RequestShutdown;
+    }
+    UtilLogger::Error( "VK", std::string( aOperation ) + " failed (VkResult=" + std::to_string( static_cast< int >( aResult ) ) + ")." );
+    return Vk_FrameResult::SkipFrame;
+}
+
+}  // namespace
 
 void Vk_SwapchainHost::Init( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Vk_SwapchainHost::Init." );
@@ -60,8 +78,8 @@ bool Vk_SwapchainHost::AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFr
         return false;
     }
     if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
-        UtilLogger::Error( "FRAME", "vkAcquireNextImageKHR failed." );
-        throw std::runtime_error( "failed to acquire swap chain image!" );
+        ( void )ClassifyQueueResult( result, "vkAcquireNextImageKHR" );
+        return false;
     }
     if ( !sAcquirePathLogged ) {
         UtilLogger::Info( "SWAPCHAIN", "Acquire path delegated to Vk_SwapchainHost." );
@@ -70,7 +88,7 @@ bool Vk_SwapchainHost::AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFr
     return true;
 }
 
-void Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex ) {
+Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex ) {
     static bool  sPresentPathLogged = false;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -87,9 +105,9 @@ void Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFr
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = signalSemaphores;
 
-    if ( vkQueueSubmit( aCore.myDeviceCtx.myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence ) != VK_SUCCESS ) {
-        UtilLogger::Error( "FRAME", "vkQueueSubmit failed." );
-        throw std::runtime_error( "failed to submit draw command buffer!" );
+    const VkResult submitResult = vkQueueSubmit( aCore.myDeviceCtx.myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence );
+    if ( submitResult != VK_SUCCESS ) {
+        return ClassifyQueueResult( submitResult, "vkQueueSubmit" );
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -108,16 +126,16 @@ void Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFr
         aCore.mySwapchainCtx.myFramebufferResized = false;
         UtilLogger::Warn( "SWAPCHAIN", "Present reported outdated/suboptimal framebuffer. Recreating swapchain." );
         Recreate( aCore );
-        return;
+        return Vk_FrameResult::SkipFrame;
     }
     if ( result != VK_SUCCESS ) {
-        UtilLogger::Error( "FRAME", "vkQueuePresentKHR failed." );
-        throw std::runtime_error( "failed to present swap chain image!" );
+        return ClassifyQueueResult( result, "vkQueuePresentKHR" );
     }
     if ( !sPresentPathLogged ) {
         UtilLogger::Info( "SWAPCHAIN", "Present path delegated to Vk_SwapchainHost." );
         sPresentPathLogged = true;
     }
+    return Vk_FrameResult::Ok;
 }
 
 void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore ) {

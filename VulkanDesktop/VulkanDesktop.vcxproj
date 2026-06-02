@@ -228,10 +228,8 @@
     <ClCompile Include="RenderCore\Vk_SwapchainHost.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
     <ClCompile Include="RenderCore\Vk_Window.cpp" />
-    <ClCompile Include="Util\Util_AssetConfig.cpp" />
     <ClCompile Include="Util\Util_EngineConfig.cpp" />
     <ClCompile Include="Util\Util_AssetManifest.cpp" />
-    <ClCompile Include="Util\Util_ValidationConfig.cpp" />
     <ClCompile Include="Util\Util_DebugMessenger.cpp" />
     <ClCompile Include="Util\Util_ValidationLayers.cpp" />
     <ClCompile Include="Util\Util_FrameStats.cpp" />
@@ -290,6 +288,7 @@
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
     <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h" />
+    <ClInclude Include="RenderCore\Vk_FrameResult.h" />
     <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h" />
     <ClInclude Include="RenderCore\Vk_ResourceContext.h" />
     <ClInclude Include="RenderCore\Vk_ResourceTables.h" />
@@ -306,10 +305,8 @@
     <ClInclude Include="RenderCore\Vk_Texture.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
-    <ClInclude Include="Util\Util_AssetConfig.h" />
     <ClInclude Include="Util\Util_EngineConfig.h" />
     <ClInclude Include="Util\Util_AssetManifest.h" />
-    <ClInclude Include="Util\Util_ValidationConfig.h" />
     <ClInclude Include="Util\Util_DebugMessenger.h" />
     <ClInclude Include="Util\Util_ValidationLayers.h" />
     <ClInclude Include="Util\Util_FrameStats.h" />

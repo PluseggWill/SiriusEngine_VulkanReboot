@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Util/Util_EngineConfig.h"
+
 #include <vulkan/vulkan.h>
 
 #include <cstddef>
@@ -45,17 +47,19 @@ inline constexpr const char* kLitBatchReflectionLogicalPath = "VulkanDesktop/Sha
 // S2 phase 2d: bindless frag SPIR-V contract (Set 1 texture array + material SSBO). MSBuild validates; runtime checks types when Bindless path is active.
 inline constexpr const char* kLitBindlessReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit_bindless.json";
 
-ShaderEffectMeta LoadLitBatchFromReflectionJson( const std::string& aLogicalPath = kLitBatchReflectionLogicalPath );
-ShaderEffectMeta LoadLitBindlessFromReflectionJson( const std::string& aLogicalPath = kLitBindlessReflectionLogicalPath );
+ShaderEffectMeta LoadLitBatchFromReflectionJson( const Util_EngineConfig& aConfig,
+                                                 const std::string&         aLogicalPath = kLitBatchReflectionLogicalPath );
+ShaderEffectMeta LoadLitBindlessFromReflectionJson( const Util_EngineConfig& aConfig,
+                                                    const std::string&         aLogicalPath = kLitBindlessReflectionLogicalPath );
 void             ApplyLitBatchLayoutOverrides( ShaderEffectMeta& aMeta );
 size_t           HashLayout( const ShaderEffectMeta& aMeta );
 void             LogMetaDump( const ShaderEffectMeta& aMeta );
 
 // Creates Set 0/1/2 layouts via hash cache; registers destroy on aDeletionQueue.
-LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( VkDevice aDevice, Vk_DeletionQueue& aDeletionQueue );
+LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Core& aCore );
 
 // S2 phase 2d: compare reflection_lit_bindless.json Set 1 vs hand-written bindless layout (Vk_Enum / Vk_DescriptorPolicy).
-void VerifyLitBindlessReflectionContract();
+void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig );
 
 }  // namespace VkShaderEffectMeta
 

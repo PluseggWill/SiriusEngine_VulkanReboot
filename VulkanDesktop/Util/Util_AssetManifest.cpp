@@ -87,14 +87,14 @@ std::vector< std::string > Util_CollectDependencyPaths( const Gfx_SceneDesc& aSc
     return paths;
 }
 
-void Util_VerifyManifest( const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy ) {
+void Util_VerifyManifest( const Util_EngineConfig& aConfig, const Util_AssetManifest& aManifest, Util_AssetVerifyPolicy aPolicy ) {
     const char* policyLabel = aPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn";
     UtilLogger::Info( "STARTUP", "Verifying scene asset manifest (" + std::to_string( aManifest.myEntries.size() ) + " path(s), policy=" + policyLabel + ")." );
 
     std::vector< std::string > missing;
     for ( const Util_AssetManifestEntry& entry : aManifest.myEntries ) {
         const std::string&          logical  = entry.myLogicalPath;
-        const std::string           resolved = UtilLoader::ResolvePath( logical );
+        const std::string           resolved = UtilLoader::ResolvePath( aConfig, logical );
         const std::filesystem::path path     = resolved;
         if ( !std::filesystem::exists( path ) || !std::filesystem::is_regular_file( path ) ) {
             missing.push_back( logical + " (resolved: " + resolved + ")" );

@@ -7,7 +7,7 @@
 
 namespace UtilRenderDebugPanel {
 
-void Build( State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws ) {
+void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws ) {
     ImGui::SetNextWindowPos( ImVec2( 10.f, 420.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.9f );
     ImGui::Begin( "Render Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
@@ -23,9 +23,9 @@ void Build( State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleO
     ImGui::Checkbox( "Skip transparent pass", &aState.mySkipTransparentPass );
 
     ImGui::Separator();
-    const std::string& preset = UtilEngineConfig::GetRenderPresetName();
+    const std::string& preset = aConfig.GetRenderPresetName();
     ImGui::Text( "Render preset: %s", preset.empty() ? "(none)" : preset.c_str() );
-    ImGui::Text( "Shader permutation: %s", UtilEngineConfig::GetShaderPermutationName().c_str() );
+    ImGui::Text( "Shader permutation: %s", aConfig.GetShaderPermutationName().c_str() );
     ImGui::TextDisabled( "Preset switch requires restart (CLI / engine.json)." );
 
     ImGui::Separator();

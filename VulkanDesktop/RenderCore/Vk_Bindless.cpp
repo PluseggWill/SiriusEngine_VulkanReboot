@@ -1,3 +1,4 @@
+// Windows-only dev override: FORCE_MATERIAL_BATCH via _dupenv_s (see Docs/Platform.md).
 #include "Vk_Bindless.h"
 
 #include "../Util/Util_Logger.h"

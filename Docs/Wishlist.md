@@ -413,7 +413,7 @@ flowchart TB
 ### Parking lot
 
 - In-engine property editor (post slice; benefits from shader reflection).
-- Cross-platform windowing / CMake — [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md).
+- Cross-platform windowing / CMake — [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md).
 - Navmesh / full behavior trees (post S8 AI v0).
 - Material hot reload at runtime — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) § B.
 - MeshImport v0 — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) § A (gate **G3**).
