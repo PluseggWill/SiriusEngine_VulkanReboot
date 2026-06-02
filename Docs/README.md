@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | `renderdoc-drawcall-tags` |
-| **Recommended next** | Complete RenderDoc startup gating + F12 capture + per-draw labels |
-| **Plan / Progress** | [`renderdoc-drawcall-tags_Plan.md`](renderdoc-drawcall-tags_Plan.md) / [`renderdoc-drawcall-tags_Progress.md`](renderdoc-drawcall-tags_Progress.md) |
+| **Task** | *(none — no active vibe task in Docs root)* |
+| **Recommended next** | Continue S2 queue from [`Active-Plan.md`](Active-Plan.md) (`Multi-view` first, then `Flat world matrices`) |
+| **Plan / Progress** | *(none in Docs root; closed tasks archived under [`Archived/plans/`](Archived/plans/))* |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*

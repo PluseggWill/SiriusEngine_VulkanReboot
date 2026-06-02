@@ -39,6 +39,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | Instance slab | Done — overflow fail-closed | — |
 | Set 0 / Set 1 | Done — batch + bindless | S7 preset toggle |
 | Draw submission | Done — set 0 once/pass; set 1/batch; set 2/draw | — |
+| RenderDoc capture path | Done — passive attach (`GetModuleHandle`) + draw/pass labels; injected sessions force Batch path for stability | If bindless+RenderDoc stability improves, revisit fallback in S7 lab |
 | Transparency | Done — opaque + transparent lists | — |
 | LOD v0 (CPU) | Done — `Gfx_LodTable` → resolved `meshId` | GPU LOD parity (**S3**) |
 
@@ -113,6 +114,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 - [x] **[S2]** `Vk_PlatformFrame`: GLFW window init + per-frame poll/delta/ImGui orchestration peeled to `Vk_PlatformFrame` from `InitWindow`/`BeginPlatformFrame` — 2026-05-28; `Archived/plans/vk-core-decomposition_Plan.md`, `Archived/plans/vk-core-decomposition_Progress.md`.
 - [x] **[S2]** `gfx-vk-decoupling`: render packet contract + `Vk_RenderBackend` boundary landed; `RenderCore` runtime consume path is packet-only and direct `Gfx_ExtractResult` dependency removed from `RenderCore/` — 2026-05-28; `Archived/plans/gfx-vk-decoupling_Plan.md`, `Archived/plans/gfx-vk-decoupling_Progress.md`.
 - [x] **[S2]** Flat world matrices — flat transform source/resolved state in Gfx, explicit resolve before extract/render, `GetWorldTransform`/`SetWorldTransform` API, RenderCore base-transform ownership removed — 2026-06-02; `flat-world-matrices_Plan.md`, `flat-world-matrices_Progress.md`.
+- [x] **[S2]** RenderDoc integration and drawcall tags — startup gate `--renderdoc`, passive `renderdoc.dll` attach, F12 capture trigger, pass/per-draw debug labels (`Pass/Draw/Mesh/Material/Entity`), and capture-stability Batch fallback when injected — 2026-06-02; `Archived/plans/renderdoc-drawcall-tags_Plan.md`, `Archived/plans/renderdoc-drawcall-tags_Progress.md`.
 - [x] **[S2]** Thin scheduler: `Vk_Core::Update` vs `Render` driven by `Application` main loop — 2026-05-27; with application-lifecycle.
 - [x] **[S2]** Scene JSON author guide [`SceneJSON.md`](SceneJSON.md) + handoff pause notes — 2026-05-27; `Archived/plans/scene-load_Plan.md` Handoff.
 - [x] **[S2]** Scene-load Phase C: scene-driven SoA/LOD/manifest + `Vk_ResourceTables::LoadFromManifest`; `SetLoadedScene` before `Run()` — 2026-05-27; `Archived/plans/scene-load_Plan.md` Phase C.
