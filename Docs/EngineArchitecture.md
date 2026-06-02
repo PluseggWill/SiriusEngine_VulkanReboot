@@ -551,4 +551,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 forward epic closed; 2026-06-02).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (S0/S1 removed from Active-Plan; 2026-06-02).*

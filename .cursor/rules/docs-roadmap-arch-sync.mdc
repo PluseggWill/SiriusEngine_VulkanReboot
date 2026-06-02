@@ -20,7 +20,7 @@ Editing **Active-Plan** or **EngineArchitecture** in the same change set (or PR)
 | Completed sprint lines | `Archived-Plan.md` | Optional one-line in Architecture §2 when milestone closes |
 | Task dependency graph / epic ordering | `Active-Plan.md` § Task dependency graph | §3 system map, §5.4 phase graph if boundaries shift |
 | Layer boundaries, Extract vs Vulkan, SoA rules | `EngineArchitecture.md` §3–4 | Matching S1/S2 tasks or acceptance bullets in `Active-Plan.md` |
-| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S1/S2/S5/S6 tasks + bindless decision; update **Active-Plan § S1 — implementation notes** when desktop path changes |
+| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S2/S5/S6 tasks + bindless decision; update **Archived-Plan § S1 — implementation notes** when closed desktop path changes |
 | Frame graph, multi-view, transparency, LOD policy | `EngineArchitecture.md` §5–7 | Active-Plan S1/S2/S7 tasks + dependency table row |
 | Shader reflection / permutation / cache | `EngineArchitecture.md` § tooling or §5 | Active-Plan S2 shader systems + S7 presets |
 | Physics / Animation / AI | `EngineArchitecture.md` §3 layer map | `Active-Plan.md` S8 + dependency graph |

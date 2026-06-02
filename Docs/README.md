@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md))* |
-| **Recommended next** | Stage 2 `hybrid-deferred-epic` or S2 `multi-view` / flat world matrices |
+| **Recommended next** | **S2:** `multi-view` or flat world matrices — *not* Lighting Stage 2 (Hybrid → **S3–S7**) |
 | **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

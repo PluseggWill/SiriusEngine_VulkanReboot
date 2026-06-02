@@ -234,9 +234,9 @@ Apply when a task touches **draw stream**, **descriptors**, or **multi-entity de
 | Per-draw data written into a **shared frame UBO** between draws | Push constants or `UNIFORM_BUFFER_DYNAMIC` + offset (§5.3) |
 | Demo meshes overlap | Fix transform path first; then adjust SoA spacing |
 | Plan task done + **descriptor policy fix** in same session | Prefer **two commits** (implementation vs policy/shader); one Progress entry can cover both |
-| Shader/UBO layout or §5.3 policy changes | Update `EngineArchitecture.md` + `Active-Plan.md` § S1 implementation notes in the **same** change set (`docs-roadmap-arch-sync.mdc`) |
+| Shader/UBO layout or §5.3 policy changes | Update `EngineArchitecture.md` + `Archived-Plan.md` § S1 implementation notes in the **same** change set (`docs-roadmap-arch-sync.mdc`) |
 
-After closing a render/data-plane task, skim `Docs/Active-Plan.md` **§ S1 — implementation notes** and trim or extend the table if debt shifted.
+After closing a render/data-plane task, skim `Docs/Archived-Plan.md` **§ S1 — implementation notes** and trim or extend the table if debt shifted.
 
 ## Invocation
 

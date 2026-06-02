@@ -12,4 +12,4 @@ alwaysApply: true
 3. 任务收尾：**build + smoke-run**（`vulkan-smoke-test.mdc` / `Docs/CLI.md`；默认 `--no-validation --smoke-seconds 6`）除非文档标明 N/A。
 4. P4 项目：改动已 checkout 文件时提醒用户。
 5. 文档：`Active-Plan.md`、`Archived-Plan.md`、`EngineArchitecture.md`；里程碑变更同步 `docs-roadmap-arch-sync.mdc`。收尾：`_Progress.md` → Closeout，Plan/Progress → `Archived/plans/`，sprint 行 Active → Archived；`Docs/` 根最多一对 WIP。
-6. `VulkanDesktop/`：**`vulkan-desktop-layout.mdc`**（目录/命名/C++）；**`cpp-comments.mdc`**（注释/契约）。描述符录制：**`vulkan-descriptor-per-draw.mdc`**；S1 任务后按需更新 Active-Plan § S1 implementation notes。
+6. `VulkanDesktop/`：**`vulkan-desktop-layout.mdc`**（目录/命名/C++）；**`cpp-comments.mdc`**（注释/契约）。描述符录制：**`vulkan-descriptor-per-draw.mdc`**；涉及 S1 桌面路径契约时更新 **Archived-Plan § S1 implementation notes**。
