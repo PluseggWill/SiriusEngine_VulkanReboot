@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md))* |
-| **Recommended next** | **S2:** `multi-view` or flat world matrices — *not* Lighting Stage 2 (Hybrid → **S3–S7**) |
-| **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
+| **Task** | `renderdoc-drawcall-tags` |
+| **Recommended next** | Complete RenderDoc startup gating + F12 capture + per-draw labels |
+| **Plan / Progress** | [`renderdoc-drawcall-tags_Plan.md`](renderdoc-drawcall-tags_Plan.md) / [`renderdoc-drawcall-tags_Progress.md`](renderdoc-drawcall-tags_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*

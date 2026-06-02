@@ -2,6 +2,11 @@
 
 #include "../Util/Util_Logger.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -76,6 +81,13 @@ Vk_RenderMaterialPath Vk_SelectRenderMaterialPath( const Vk_BindlessCapabilities
 #endif
     if ( forceBatch ) {
         UtilLogger::Info( "BINDLESS", "FORCE_MATERIAL_BATCH set — using Batch material path." );
+        return Vk_RenderMaterialPath::Batch;
+    }
+
+    // RenderDoc + bindless has shown startup instability on some driver stacks.
+    // Prefer deterministic captures by forcing the simpler Batch material path.
+    if ( GetModuleHandleA( "renderdoc.dll" ) != nullptr ) {
+        UtilLogger::Info( "BINDLESS", "RenderDoc module detected — forcing Batch material path for capture stability." );
         return Vk_RenderMaterialPath::Batch;
     }
 

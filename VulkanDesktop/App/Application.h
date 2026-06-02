@@ -22,4 +22,5 @@ private:
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
+    bool                       myRenderDocCaptureKeyDown = false;
 };

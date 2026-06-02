@@ -18,6 +18,7 @@
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
 #include "Vk_FrameDrawPrep.h"
+#include "Vk_RenderDoc.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_ResourceTables.h"
 
@@ -83,6 +84,11 @@ public:
     void        ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
     void        SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
     void        Render();
+    void        ConfigureRenderDoc( bool aEnableRenderDoc );
+    void        TriggerRenderDocCapture();
+    bool        IsRenderDocEnabled() const;
+    void        CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const;
+    void        CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
     bool        ShouldClose() const;
     GLFWwindow* GetWindow() const {
         return myWindow;
@@ -260,4 +266,5 @@ private:
     bool                                           myHasLastFrameTime = false;
     std::chrono::high_resolution_clock::time_point myFrameInputSampleTime;
     bool                                           myHasFrameInputSampleTime = false;
+    Vk_RenderDoc                                   myRenderDoc;
 };

@@ -28,6 +28,7 @@ Util_AssetVerifyPolicy         gAssetVerifyPolicy            = Util_AssetVerifyP
 int                            gSmokeFrameLimit              = 0;
 double                         gSmokeSeconds                 = 0.0;
 bool                           gDescriptorLayoutMismatchTest = false;
+bool                           gEnableRenderDoc              = false;
 std::string                    gShaderPermutationName        = "lit";
 std::string                    gRenderPresetName;
 std::optional< std::string >   gConfigShaderPermutation;
@@ -324,6 +325,10 @@ CliOverrides ParseCliOverrides( int aArgc, char** aArgv ) {
             gDescriptorLayoutMismatchTest = true;
             continue;
         }
+        if ( arg == "--renderdoc" ) {
+            gEnableRenderDoc = true;
+            continue;
+        }
         if ( arg == "--help" || arg == "-h" || arg == "/?" ) {
             continue;
         }
@@ -414,6 +419,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
               << "  --render-preset <name>        Stage 1 preset (ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
+              << "  --renderdoc            Enable RenderDoc runtime integration (startup-gated)\n"
               << "  --help                 Show this message\n"
               << "\nFull reference: Docs/CLI.md (engine.json keys, priority, examples).\n";
 }
@@ -547,6 +553,13 @@ bool GetDescriptorLayoutMismatchTest() {
     return gDescriptorLayoutMismatchTest;
 }
 
+bool GetEnableRenderDoc() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gEnableRenderDoc;
+}
+
 bool ResolveValidationEnabled( bool aBuildDefault ) {
     if ( !gInitialized ) {
         Initialize( 0, nullptr );
@@ -609,6 +622,7 @@ void LogResolvedSummary() {
         UtilLogger::Info( "CONFIG", "renderPreset=" + gRenderPresetName );
     }
     UtilLogger::Info( "CONFIG", "shaderPermutation=" + gShaderPermutationName );
+    UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( gEnableRenderDoc ? "enabled" : "disabled" ) );
 
     if ( gValidationResolved ) {
         const char* source = "build default";

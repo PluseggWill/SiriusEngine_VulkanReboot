@@ -60,6 +60,7 @@ void Application::InitApp( int argc, char** argv ) {
     core.SetSize( UtilEngineConfig::GetWindowWidth(), UtilEngineConfig::GetWindowHeight() );
     core.SetVsync( UtilEngineConfig::GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
+    core.ConfigureRenderDoc( UtilEngineConfig::GetEnableRenderDoc() );
 
 #ifdef NDEBUG
     const bool buildDefaultValidation = false;
@@ -98,6 +99,11 @@ void Application::RunMainLoop() {
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
+        const bool f12Pressed = glfwGetKey( core.GetWindow(), GLFW_KEY_F12 ) == GLFW_PRESS;
+        if ( f12Pressed && !myRenderDocCaptureKeyDown ) {
+            core.TriggerRenderDocCapture();
+        }
+        myRenderDocCaptureKeyDown = f12Pressed;
         // Flat-world update contract: simulation writes resolved transforms first,
         // then resolve publishes final world matrices to SoA before extract/render.
         Gfx_TickDemoSceneTransforms( core.GetSceneTransformState() );

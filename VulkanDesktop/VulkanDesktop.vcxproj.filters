@@ -175,6 +175,9 @@
     <ClCompile Include="RenderCore\Vk_PlatformFrame.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_RenderDoc.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -337,6 +340,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_PlatformFrame.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_RenderDoc.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Bindless.h">

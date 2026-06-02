@@ -212,6 +212,7 @@
     <ClCompile Include="RenderCore\Vk_DevicePipelineCache.cpp" />
     <ClCompile Include="RenderCore\Vk_GfxPipelineCache.cpp" />
     <ClCompile Include="RenderCore\Vk_PlatformFrame.cpp" />
+    <ClCompile Include="RenderCore\Vk_RenderDoc.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceTables.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
@@ -270,6 +271,7 @@
     <ClInclude Include="RenderCore\Vk_DevicePipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_PlatformFrame.h" />
+    <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
     <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h" />

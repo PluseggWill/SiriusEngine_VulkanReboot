@@ -28,12 +28,16 @@
 
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_RenderDoc.h"
 #include "Vk_Types.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <imgui.h>
 #include <limits>
 #include <optional>
@@ -88,6 +92,18 @@ void Vk_Core::Render() {
     myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Vk_Core::ConfigureRenderDoc( bool aEnableRenderDoc ) {
+    myRenderDoc.Configure( aEnableRenderDoc );
+}
+
+bool Vk_Core::IsRenderDocEnabled() const {
+    return myRenderDoc.IsEnabled();
+}
+
+void Vk_Core::TriggerRenderDocCapture() {
+    myRenderDoc.TriggerCaptureRequest();
+}
+
 void Vk_Core::Shutdown() {
     if ( myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( myDevice );
@@ -127,13 +143,17 @@ void Vk_Core::Clear() {
     glfwDestroyWindow( myWindow );
 
     glfwTerminate();
+    myRenderDoc.Shutdown();
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
 
 // Render device bootstrap entry point (instance/device/queues/swapchain host orchestration).
 void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
+    // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
+    myRenderDoc.InitRuntime();
     Vk_RenderDevice::Init( *this );
+    myRenderDoc.BindVulkanHandles( myDevice );
 
     Vk_SwapchainHost::Init( *this );
 
@@ -286,7 +306,7 @@ void Vk_Core::CreateInstance() {
     for ( uint32_t i = 0; i < glfwExtensionCount; ++i ) {
         instanceExtensions.push_back( glfwExtensions[ i ] );
     }
-    if ( myEnableValidationLayers && UtilDebugMessenger::IsExtensionAvailable() ) {
+    if ( ( myEnableValidationLayers || myRenderDoc.WantsDebugUtilsExtension() ) && UtilDebugMessenger::IsExtensionAvailable() ) {
         instanceExtensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
     }
 
@@ -531,6 +551,8 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
 }  // namespace
 
 void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
+    myRenderDoc.BeginFrameCaptureIfRequested();
+
     // --- Sync: wait for this frame slot, acquire swapchain image ---
     const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
     vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
@@ -624,6 +646,14 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         LogM1PerfSnapshot();
         myM1PerfLoggedOnce = true;
     }
+}
+
+void Vk_Core::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
+    myRenderDoc.CmdBeginDebugLabel( aCommandBuffer, aLabelName );
+}
+
+void Vk_Core::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
+    myRenderDoc.CmdEndDebugLabel( aCommandBuffer );
 }
 
 void Vk_Core::LogM1PerfSnapshot() const {
