@@ -38,4 +38,4 @@ alwaysApply: false
 
 - 改函数时修正注释错别字；删矛盾注释；`TODO` 带 scope
 
-架构/路线图：`Docs/EngineArchitecture.md`、`Docs/Active-Plan.md`、`Docs/Archived-Plan.md`
+文档分工：**任务** → `Active-Plan.md` · **架构/策略图** → `EngineArchitecture.md` · **历史** → `Archived-Plan.md` · **defer** → `Wishlist.md`（见 `docs-roadmap-arch-sync.mdc`）

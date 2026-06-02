@@ -1,6 +1,6 @@
 ---
-description: Canonical VulkanDesktop CLI for build verification, smoke-run, and agent testing. Use before task close or when validating render/scene/config changes.
-globs: VulkanDesktop/**,Docs/**,Config/**
+description: Canonical VulkanDesktop CLI for build verification and smoke-run. Use before task close or when validating runtime changes.
+globs: VulkanDesktop/**,Config/**,VulkanDesktop.sln
 alwaysApply: false
 ---
 
@@ -14,84 +14,51 @@ Full reference: [`Docs/CLI.md`](Docs/CLI.md). Implementation: `VulkanDesktop/Uti
 
 ---
 
+## Asset root (preferred)
+
+**Agents / CI / odd cwd:** always pass explicit root — do not rely on cwd discovery alone.
+
+```powershell
+.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-seconds 6
+```
+
+P0 target: fail fast when `assetRoot` unresolved (`ci-verification_Plan.md`). Until then, explicit `--asset-root` is the contract for automated runs.
+
+---
+
 ## When to use which command
 
 | Goal | Command |
 |------|---------|
 | CLI parses, no GPU | `.\VulkanDesktop.exe --help` |
-| Default demo scene, quick visual (~4s then kill) | See **Background smoke** below |
-| Full lifecycle (UnloadScene + Shutdown), automated exit | **Graceful smoke** (preferred for task close) |
-| Minimal asset closure | `--scene Data/Scenes/smoke.json` |
-| Scene-load / manifest / asset path work | `--scene …` + optional `--asset-root <repo-root>` from non-root cwd |
-| Avoid validation-layer install failures on CI/agent | add `--no-validation` |
-| ImGui Scene panel / in-process reload | Run default; switch scenes in **Scene** window (no extra CLI) |
+| Full lifecycle (preferred task close) | **Graceful smoke** below |
+| Minimal scene | `--scene Data/Scenes/smoke.json` |
+| Scene/manifest/path work | `--scene …` + `--asset-root <repo-root>` |
+| CI/agent without validation layers | `--no-validation` |
 
 ---
 
-## Graceful smoke (preferred for vibe-coding verification)
+## Graceful smoke (task close)
 
-After **`LoadSceneResources`**, runs the main loop for at least **6 seconds** (default scene from config), then closes and executes `UnloadScene` → `Shutdown`. Record exit code **0** and log lines in `_Progress.md`.
-
-From `x64\Debug` (asset root auto-detected; default `Data/Scenes/demo.json`):
+From `x64\Debug`:
 
 ```powershell
 Set-Location x64\Debug
-.\VulkanDesktop.exe --no-validation --smoke-seconds 6
+.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-seconds 6
 ```
 
-**Demo scene** (9 entities, explicit path):
+Variants: `--scene Data/Scenes/demo.json` · `smoke.json` · `--smoke-frames 2` (fast; both thresholds apply if combined with `--smoke-seconds`).
 
-```powershell
-.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/demo.json
-```
-
-**Smoke scene** (1 entity, faster load; still dwell 6s):
-
-```powershell
-.\VulkanDesktop.exe --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
-```
-
-**Explicit asset root** (any cwd):
-
-```powershell
-.\VulkanDesktop.exe --asset-root D:\Code\SiriusEngine_VulkanReboot --no-validation --smoke-seconds 6 --scene Data/Scenes/smoke.json
-```
-
-**Fast CI path** (minimal dwell; exits after **n** frames — use only when 6s wait is unnecessary):
-
-```powershell
-.\VulkanDesktop.exe --no-validation --smoke-frames 2
-```
-
-If both `--smoke-seconds` and `--smoke-frames` are set, **both** thresholds must be met before exit.
-
-### Success signals (tail `Logs/engine_runtime_log.txt`)
+### Success signals (tail log)
 
 - `[CONFIG] assetRoot=…` under repo
 - `[SCENE] LoadSceneResources completed`
-- `[EXTRACT]` / `[RESOURCE-TABLE]` / `FillInstanceSlab` (counts match scene)
-- `[APP] Smoke dwell:` / `[APP] Smoke dwell reached (6s)`
-- `[SCENE] UnloadScene: GPU scene resources released`
-- `[APP] Engine exited run loop normally`
-- No crash/assert after `Shutdown`; process exit code **0**
-- No new `[ERROR]` on init path (validation missing is OK if `--no-validation`)
+- `[APP] Smoke dwell reached` · `[SCENE] UnloadScene` · `[APP] Engine exited run loop normally`
+- Exit code **0**; no new `[ERROR]` on init (`--no-validation` OK)
 
 ---
 
-## Background smoke (legacy quick check)
-
-Does **not** run `UnloadScene` if the process is killed. Use only as a supplement, not sole verification.
-
-```powershell
-Set-Location x64\Debug
-$p = Start-Process -FilePath ".\VulkanDesktop.exe" -ArgumentList "--no-validation" -PassThru -WindowStyle Minimized
-Start-Sleep -Seconds 6
-if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-```
-
----
-
-## Build (always before smoke)
+## Build (before smoke)
 
 ```powershell
 & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
@@ -100,6 +67,8 @@ if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 
 ---
 
-## Plan / Progress logging
+## Progress logging
 
-In `{TaskName}_Progress.md` **Verification**, paste the exact smoke command(s) run and exit code; note 2–3 log lines checked. If smoke is N/A, state why.
+Paste exact command + exit code + 2–3 log lines in `_Progress.md` **Verification**, or N/A with reason.
+
+**Non-vibe:** `vulkan-desktop-quick.mdc`. **Vibe close:** `vibe-coding-workflow` SKILL.

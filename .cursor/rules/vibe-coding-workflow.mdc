@@ -1,18 +1,13 @@
 ---
-description: Enforces strict vibe-coding artifact discipline inside Docs/ (plans, progress, roadmap).
+description: Vibe-coding artifact discipline when Docs/ files are edited.
 globs: Docs/**
 alwaysApply: false
 ---
 
-# Vibe Coding
+# Vibe Coding (Docs/)
 
-When this rule applies (files under `Docs/` are in context):
-
-1. Follow the project skill **vibe-coding-workflow** (`.cursor/skills/vibe-coding-workflow/SKILL.md`): Clarify + confirm landing details → write/update `{TaskName}_Plan.md` → implement while appending `{TaskName}_Progress.md`.
-2. Cross-task roadmap: **`Docs/Active-Plan.md`** (open tasks). Completed sprint lines: **`Docs/Archived-Plan.md`**. Architecture: **`Docs/EngineArchitecture.md`**. Keep aligned per **`docs-roadmap-arch-sync.mdc`** when policy/milestones change.
-3. **Roadmap hygiene:** `Active-Plan.md` lists only `[ ]` tasks. On complete, **move the line** to `Archived-Plan.md` with sprint tag. **Task close:** collapse `_Progress.md` to **Closeout**, move Plan+Progress to **`Archived/plans/`**; update `Docs/README.md` **Active now**; at most **one** WIP pair at `Docs/` root.
-4. **Context discipline:** `@` only the active task Plan + relevant `Active-Plan.md` section. Do not read full `Active-Plan.md` by default. Do not `@` `Archived-Plan.md` or `Archived/plans/` unless debugging history.
-5. Do not skip clarification for new tasks unless the user explicitly waives it.
-6. Implementation changes must remain traceable in `_Progress.md` via **checkpoint** entries after each completed plan step or coherent batch (verbose only for deviations).
-7. Before closing a task: run **build / smoke-run** per the skill (or document N/A in plan + progress). Smoke commands: **`vulkan-smoke-test.mdc`**, **`Docs/CLI.md`**.
-8. If implementation deviates from `{TaskName}_Plan.md`, apply the deviation handling protocol in the skill before continuing.
+1. **Skill:** `.cursor/skills/vibe-coding-workflow/SKILL.md`
+2. **Doc boundaries:** `.cursor/rules/docs-roadmap-arch-sync.mdc` (canonical — no duplicate maps)
+3. **Hygiene:** Active-Plan = `[ ]` only; done → Archived-Plan; one **WIP** Plan+Progress pair at Docs root (roadmap plans without Progress are OK — see sync rule)
+4. **`@`:** WIP Plan + one Active-Plan P section; Architecture for policy only
+5. **Close:** build/smoke or documented N/A; deviation protocol in skill

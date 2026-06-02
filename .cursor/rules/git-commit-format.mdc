@@ -1,58 +1,38 @@
----
-description: Git commit message format for this repository (subject + body style).
-alwaysApply: true
----
-
-# Git commit message format
-
-Follow this style for every commit (see recent history on `Docs`). **Still require user confirmation before committing** (`submit-rule.mdc`).
-
-## Subject line (first line)
-
-- **Imperative mood**, concise, ≤ ~72 characters when possible.
-- State **what changed** and, if obvious in one phrase, **why** (`Fix …`, `Add …`, `Move …`, `Clarify …`).
-- Optional **scope prefix** in brackets for multi-module or tooling work:
-  - `[VulkanDesktop]` — engine / `VulkanDesktop/` code or shaders
-  - `[Cursor]` — `.cursor/rules`, skills, agent workflow
-  - `[Docs]` — plans, progress, `Active-Plan.md` / `Archived-Plan.md`, `EngineArchitecture.md`
-  - `[Lighting]` / `[Gfx]` — feature-specific when scope is narrow
-- Small focused fixes may omit the prefix (repo uses both styles).
-
-### Good subjects
-
-```
-Fix OBJ mesh load crash when UV coordinates are missing.
-[VulkanDesktop] Add FPS fly camera with input snapshot and ImGui tuning
-Move completed line to Docs/Archived-Plan.md and sync Active-Plan / EngineArchitecture.
-```
-
-### Avoid
-
-```
-fixed stuff
-WIP
-Update files
-```
-
-## Body (optional but preferred)
-
-- Leave **one blank line** after the subject.
-- **1–3 short sentences**: motivation, key mechanism, or verification note.
-- Use bullets only when listing several independent changes.
-- Do **not** paste `Co-authored-by` unless the user or tooling explicitly requires it.
-
-### Example (full message)
-
-```
-[VulkanDesktop] Clarify contract comments and add comment rule.
-
-Document UBO/descriptor bindings, queue-family fallback, and UV load guards.
-Add cpp-comments.mdc; link from layout and vibe-coding-entry rules.
-```
-
-## When closing Docs workflow tasks
-
-- Mention plan/progress or `Active-Plan.md` / `Archived-Plan.md` in the body if the commit completes a tracked item.
-- **Move the completed line** from `Docs/Active-Plan.md` to `Docs/Archived-Plan.md` (tag sprint, e.g. `[S1]`); Active-Plan must not keep `[x]` items.
-- Prefer one logical change per commit (matches recent maintenance commits).
-- If a session delivers **both** a sprint plan task **and** a separate policy/shader fix (e.g. resource tables + push-constant `model`), use **two commits** when history clarity matters; reference both in `_Progress.md`.
+---
+description: Git commit gate and message format for this repository.
+alwaysApply: true
+---
+
+# Git commit
+
+## Gate
+
+**Never `git commit` without explicit user confirmation.**
+
+## Message format
+
+### Subject (line 1)
+
+- **Imperative**, concise, ≤ ~72 chars when possible.
+- Optional scope: `[VulkanDesktop]`, `[Cursor]`, `[Docs]`, `[Lighting]`, `[Gfx]`.
+
+Good:
+
+```
+Fix OBJ mesh load crash when UV coordinates are missing.
+[VulkanDesktop] Add FPS fly camera with input snapshot and ImGui tuning
+Move completed P0 line to Docs/Archived-Plan.md (task-only).
+```
+
+Avoid: `fixed stuff`, `WIP`, `Update files`.
+
+### Body (optional)
+
+Blank line after subject; 1–3 sentences on motivation / verification.
+
+## Docs task close (in commit body if relevant)
+
+- Move completed line Active-Plan → Archived-Plan (`[P0]`…`[P4]` or legacy `[Sx]`).
+- Update `EngineArchitecture.md` **only** on locked policy change (`docs-roadmap-arch-sync.mdc`).
+- Prefer one logical change per commit; split implementation vs policy when both land.
+

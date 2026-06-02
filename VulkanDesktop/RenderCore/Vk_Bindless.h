@@ -6,7 +6,7 @@
 
 #include <vulkan/vulkan.h>
 
-// S1 bindless v0: probe + render path selection. Full policy: Docs/EngineArchitecture.md §5.3.
+// S1 bindless v0: probe + render path selection. Policy: EngineArchitecture.md §6; decision: Docs/shader-bindless-policy_Plan.md
 
 enum class Vk_RenderMaterialPath : uint8_t {
     Batch    = 0,

@@ -1,0 +1,23 @@
+---
+description: Default workflow for VulkanDesktop code changes without a vibe Docs/ task.
+globs: VulkanDesktop/**/*
+alwaysApply: false
+---
+
+# VulkanDesktop — quick path (non-vibe)
+
+Use when changing **`VulkanDesktop/`** (or shaders) **without** a WIP `{TaskName}_Plan.md` / Progress pair.
+
+**Not this path:** tracked P0–P4 work with Plan+Progress → `vibe-coding-workflow` SKILL.
+
+---
+
+## Steps
+
+1. **Read contracts** if touching draw/descriptors/shaders: `vulkan-descriptor-per-draw.mdc`, `shader-build.mdc`, `cpp-comments.mdc`.
+2. **Layout/naming:** `vulkan-desktop-layout.mdc` (`App/`, `Gfx/`, `RenderCore/`, `Util/`).
+3. **Build** Debug\|x64 — see `vulkan-smoke-test.mdc`.
+4. **Smoke** if runtime behavior changed: graceful `--no-validation --smoke-seconds 6`; prefer `--asset-root <repo-root>`.
+5. **Commit:** only after user confirms — `git-commit-format.mdc`.
+
+**Policy / layer change** while coding → stop; update `EngineArchitecture.md` + Active-Plan per `docs-roadmap-arch-sync.mdc`.

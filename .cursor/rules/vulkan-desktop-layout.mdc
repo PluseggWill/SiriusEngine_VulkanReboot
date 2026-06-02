@@ -10,6 +10,7 @@ alwaysApply: false
 
 | 模块 | 磁盘目录 | 职责 |
 |------|----------|------|
+| **App** | `VulkanDesktop/App/` | Application lifecycle, input, **WorldState (target)**, debug overlay |
 | **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板 |
 | **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制、相机 |
 | **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material），与 API 无关 |
@@ -23,6 +24,7 @@ alwaysApply: false
 
 ```
 VulkanDesktop.cpp
+App/           ← Application, InputSystem, WorldState (peel target)
 Util/          ← Util_* ；ThirdParty/imgui/
 RenderCore/    ← Vk_*
 Gfx/
@@ -60,7 +62,7 @@ Gfx/
 - **RAII**：`vkCreate*` 对称销毁或 deletion queue；GPU struct 用 `alignas` + std140/std430
 - **安全**：枚举 `switch` 全覆盖或显式 `default`；`VkResult` 等 `[[nodiscard]]`
 - **错误**：Debug 用 `VK_CHECK` 等，不吞 API 失败
-- **Bindless**：优先描述符数组/表，少 per-draw 绑定点抖动
+- **Bindless vs batch:** follow [`shader-bindless-policy_Plan.md`](../../Docs/shader-bindless-policy_Plan.md) — not “always bindless”; batch fallback required
 - **格式化**：仓库根 `.clang-format`（`clang-format -i`）
 
-注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。
+注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。非 vibe 改动见 **`vulkan-desktop-quick.mdc`**。

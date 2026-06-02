@@ -6,7 +6,7 @@ alwaysApply: false
 
 # VulkanDesktop — per-draw data & descriptors
 
-Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Docs/Archived/plans/descriptor-strategy_Plan.md`.
+Locked policy: `Docs/EngineArchitecture.md` §6, `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Docs/Archived/plans/descriptor-strategy_Plan.md`.
 
 ## Per-draw `mat4` model (and similar)
 
@@ -18,14 +18,14 @@ Locked policy: `Docs/EngineArchitecture.md` §5.3, `VulkanDesktop/RenderCore/Vk_
 
 ## Record path boundaries
 
-- **Target:** `RecordScenePass` consumes **`Gfx_DrawInstance` only** (+ resource table resolve). Per-instance data via `myInstanceDataOffset` into an instance slab (§4.4).
+- **Target:** `RecordScenePass` consumes **`Gfx_DrawInstance` only** (+ resource table resolve). Per-instance data via `myInstanceDataOffset` into an instance slab (EngineArchitecture §4).
 - **Today:** transforms written in `FillInstanceSlab` from SoA; record binds Set 2 with `myInstanceDataOffset` only.
 
 ## Multi-mesh / batching
 
-- Prefer **bind Set 0 / Set 1 once per material batch**; per draw: push constants + VB/IB only (§5.2).
+- Prefer **bind Set 0 / Set 1 once per material batch**; per draw: push constants + VB/IB only (EngineArchitecture §5).
 - Set 0 texture bound only to **material 0** at init is demo-only — wire **Set 1** before claiming multi-material done.
 
 ## Shader / C++ contract
 
-- Changing UBO layout or push ranges requires **same change set**: `GpuCameraData`, `TriangleVertex.vert`, `CreateGfxPipeline` layout, SPIR-V rebuild, and `EngineArchitecture.md` §5.3 note (see `docs-roadmap-arch-sync.mdc`).
+- Changing UBO layout or push ranges requires **same change set**: `GpuCameraData`, `TriangleVertex.vert`, `CreateGfxPipeline` layout, SPIR-V rebuild; update `EngineArchitecture.md` §6 **only if policy narrative changes** (`docs-roadmap-arch-sync.mdc`); always update `Archived-Plan.md` § S1 notes when desktop path changes.

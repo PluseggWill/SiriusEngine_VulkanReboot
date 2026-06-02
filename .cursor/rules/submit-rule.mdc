@@ -1,8 +1,0 @@
----
-description: Require user confirmation before git commit; use git-commit-format for message style.
-alwaysApply: true
----
-
-在任何情况下提交代码需要得到 **user 确认** 后再执行 `git commit`。
-
-提交时遵循 **`git-commit-format.mdc`**（subject 祈使句 + 可选 `[Scope]` 前缀 + 简短 body 说明动机/要点）。

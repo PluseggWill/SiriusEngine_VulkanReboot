@@ -1,47 +1,88 @@
 ---
-description: Keep Docs/Active-Plan.md, Docs/Archived-Plan.md, and Docs/EngineArchitecture.md aligned when roadmap or policy changes.
-globs: Docs/Active-Plan.md, Docs/Archived-Plan.md, Docs/EngineArchitecture.md
+description: Canonical doc map — what each Docs/ file owns; when to sync Architecture vs Active-Plan.
+globs: Docs/Active-Plan.md, Docs/Archived-Plan.md, Docs/EngineArchitecture.md, Docs/Wishlist.md, Docs/README.md, Docs/*_Plan.md
 alwaysApply: false
 ---
 
-# Active-Plan ↔ Archived-Plan ↔ EngineArchitecture sync
+# Docs — division of truth (canonical)
 
-`Docs/Active-Plan.md` = **open roadmap** (sprints, `[ ]` tasks, dependencies, backlog).
-`Docs/Archived-Plan.md` = **completed sprint lines** (`[x]` with sprint tags).
-`Docs/EngineArchitecture.md` = **intent & invariants** (layering, data plane, render policy, risks, tradeoffs).
+**Single source for doc boundaries.** Other rules/skills link here; do not duplicate the tables below.
 
-Editing **Active-Plan** or **EngineArchitecture** in the same change set (or PR) requires updating the **other** when intent shifts. Do not finish with only one file updated unless the user explicitly waives sync for that change.
+Index: [`Docs/README.md`](Docs/README.md). Workflow: [`vibe-coding-workflow` SKILL](../skills/vibe-coding-workflow/SKILL.md).
 
-## Division of truth
+**Editing `Docs/Archived/plans/`** — history only; sync checklist **N/A** unless fixing broken links.
 
-| Topic | Primary home | Mirror in the other |
-|-------|----------------|---------------------|
-| Sprint order, milestones M1–M6, open task checklists | `Active-Plan.md` | `EngineArchitecture.md` §2 north star, §5.6 milestones (summary only) |
-| Completed sprint lines | `Archived-Plan.md` | Optional one-line in Architecture §2 when milestone closes |
-| Task dependency graph / epic ordering | `Active-Plan.md` § Task dependency graph | §3 system map, §5.4 phase graph if boundaries shift |
-| Layer boundaries, Extract vs Vulkan, SoA rules | `EngineArchitecture.md` §3–4 | Matching S1/S2 tasks or acceptance bullets in `Active-Plan.md` |
-| Descriptor / bindless / sort-key policy | `EngineArchitecture.md` §5.3+ | S2/S5/S6 tasks + bindless decision; update **Archived-Plan § S1 — implementation notes** when closed desktop path changes |
-| Frame graph, multi-view, transparency, LOD policy | `EngineArchitecture.md` §5–7 | Active-Plan S1/S2/S7 tasks + dependency table row |
-| Shader reflection / permutation / cache | `EngineArchitecture.md` § tooling or §5 | Active-Plan S2 shader systems + S7 presets |
-| Physics / Animation / AI | `EngineArchitecture.md` §3 layer map | `Active-Plan.md` S8 + dependency graph |
-| Risks, anti-patterns, non-goals | `EngineArchitecture.md` §8 | Active-Plan backlog / parking lot (no duplicate prose) |
-| New sprint (e.g. S8) or renamed milestone | `Active-Plan.md` sprint map first | §2 table + footer “Last aligned with …” |
+---
 
-## Sync checklist (run before marking doc work done)
+## Plan file types
 
-1. **Scan the diff** — list decisions that appear in only one file (new epic, deferred item, policy lock, sprint tag).
-2. **Active-Plan → Architecture** — update north star (§2), system map (§3), render/subsystem sections (§5–7), risks (§8) as needed; keep Architecture **free of task checkboxes**.
-3. **Architecture → Active-Plan** — add/move/adjust open tasks, dependency graph, sprint map row, acceptance criteria.
-4. **Task complete** — move line from `Active-Plan.md` to `Archived-Plan.md` (do not leave `[x]` in Active-Plan).
-5. **Cross-links** — preserve mutual links at top of each file; bump Architecture footer: *Last aligned with `Docs/Active-Plan.md` (…)*.
-6. **Hygiene** — `Active-Plan.md` lists only `[ ]`; completed items live in `Archived-Plan.md` with `[Sx]` tag.
+| Type | Example | `_Progress.md` | Count at `Docs/` root |
+|------|---------|----------------|------------------------|
+| **Roadmap plan** | `ci-verification_Plan.md` | No — design reference until kickoff | **Multiple OK** (listed in README) |
+| **Task WIP** | Same filename after kickoff | **Required** `{name}_Progress.md` | **One pair max** |
 
-## Minimal vs full sync
+**Kickoff:** user/agent starts implementation → add `_Progress.md`, set README **Active now**. Roadmap plan is the task Plan (no copy/rename required).
 
-- **Minimal (required):** any change to milestone order, north star pillars, locked render/descriptor policy, or new top-level subsystem → at least one matching bullet/row in the other file + footer date.
-- **Full (preferred):** dependency graph, epic table, and related §5–§8 subsections updated in the same session.
+**Close:** Closeout → move Plan+Progress to `Archived/plans/`; clear Active now.
 
-## When editing related docs
+---
 
-- `{TaskName}_Plan.md` / `_Progress.md`: no mandatory Architecture rewrite unless the plan **changes** a locked policy or sprint boundary — then run this checklist.
-- `Active-Plan.md` only (task wording): Architecture sync can be a short §2/§5 bullet if intent unchanged.
+## Primary home
+
+| Document | Owns | Must NOT own |
+|----------|------|--------------|
+| **`Active-Plan.md`** | P0–P4 `[ ]`, gates, queue | Diagrams, policy prose, changelogs |
+| **`EngineArchitecture.md`** | Diagrams, **locked policies**, risks, non-goals | `[ ]` tasks, sprint logs |
+| **`Archived-Plan.md`** | Completed lines; § S1 implementation notes | Open tasks |
+| **`Wishlist.md`** | Deferred S4+ until gate opens | Active `[ ]` |
+| **`{name}_Plan.md` (roadmap)** | Cross-cutting design before/during epic | Active-Plan duplicates |
+| **`{name}_Plan.md` + `_Progress` (WIP)** | One task scope, steps, verification | Roadmap queue |
+| **`forward-stage1.md`** | Stage 1 golden / handoff | Sprint queue |
+| **Epic plans** (`hybrid-deferred`, `ddgi`) | Stage 2–3 breakdown | P0–P4 checklists |
+| **Code** (`Vk_DescriptorPolicy.h`, shaders) | Field layouts, bindings | Scheduling |
+
+---
+
+## When to edit which file
+
+| Change | Edit |
+|--------|------|
+| Task wording, phase order, gates | `Active-Plan.md` only |
+| Task / phase line done | Move → `Archived-Plan.md` |
+| **Locked policy** changed (see tree below) | `EngineArchitecture.md` + Active-Plan task (or Wishlist) + code contracts |
+| Structure diagram only | `EngineArchitecture.md` only |
+| Deferred milestone | `Wishlist.md` |
+| UBO field layout only | Code + shader + JSON contract; Architecture **only if policy narrative changes** |
+
+---
+
+## Locked policy? (decision tree)
+
+1. **Layer boundary moved?** (e.g. Gfx may call Vulkan; WorldState owner) → **yes, policy**
+2. **Descriptor model changed?** (set roles, dynamic vs push rules) → **yes, policy**
+3. **Extract / record contract changed?** (what RecordScenePass may read) → **yes, policy**
+4. **Transparent / Stage 2 depth rule changed?** → **yes, policy**
+5. **Only struct fields / bindings / shader layout** → **code + MSBuild**; Architecture if (2) narrative shifts
+6. **Task done, no 1–4** → Active-Plan → Archived-Plan only
+
+---
+
+## Agent `@`
+
+| Goal | `@` |
+|------|-----|
+| Next task | `Active-Plan.md` (one P section; grep) |
+| Layer / policy | `EngineArchitecture.md` |
+| Active WIP steps | `{TaskName}_Plan.md` + `_Progress.md` |
+| Roadmap design (pre-kickoff) | e.g. `ci-verification_Plan.md` |
+| History | `Archived-Plan.md` / `Archived/plans/` (debug) |
+
+---
+
+## Anti-patterns
+
+- Same table in Active-Plan and Architecture
+- Changelog / S2 peel notes in Architecture
+- `[ ]` in Architecture
+- Architecture edit on every task close
+- Second WIP Plan+Progress pair at Docs root

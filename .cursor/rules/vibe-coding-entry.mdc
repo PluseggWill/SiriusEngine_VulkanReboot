@@ -1,15 +1,17 @@
 ---
-description: Always-on trigger rule for vibe coding sessions.
-alwaysApply: true
+description: Triggers vibe-coding workflow when working under Docs/ or user asks for vibe coding.
+globs: Docs/**
+alwaysApply: false
 ---
 
 # Vibe Coding Entry
 
-用户说 vibe coding、三阶段流程、或引用 `Docs/` 产物时：
+When **`Docs/` is in context** or the user says **vibe coding / 三阶段流程**:
 
-1. 加载 **vibe-coding-workflow**（`.cursor/skills/vibe-coding-workflow/SKILL.md`）。
-2. 阶段门控：Clarify + **用户确认落地细节** → Plan → Implement；偏离 `{TaskName}_Plan.md` 先走 deviation protocol。
-3. 任务收尾：**build + smoke-run**（`vulkan-smoke-test.mdc` / `Docs/CLI.md`；默认 `--no-validation --smoke-seconds 6`）除非文档标明 N/A。
-4. P4 项目：改动已 checkout 文件时提醒用户。
-5. 文档：`Active-Plan.md`、`Archived-Plan.md`、`EngineArchitecture.md`；里程碑变更同步 `docs-roadmap-arch-sync.mdc`。收尾：`_Progress.md` → Closeout，Plan/Progress → `Archived/plans/`，sprint 行 Active → Archived；`Docs/` 根最多一对 WIP。
-6. `VulkanDesktop/`：**`vulkan-desktop-layout.mdc`**（目录/命名/C++）；**`cpp-comments.mdc`**（注释/契约）。描述符录制：**`vulkan-descriptor-per-draw.mdc`**；涉及 S1 桌面路径契约时更新 **Archived-Plan § S1 implementation notes**。
+1. Follow **`.cursor/skills/vibe-coding-workflow/SKILL.md`** (Phase 1–3, fast path, task close).
+2. **Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc` only — do not restate tables in chat or Progress.
+3. **Verify:** build + graceful smoke — `vulkan-smoke-test.mdc` / `Docs/CLI.md` — unless plan says N/A.
+4. **VulkanDesktop code:** `vulkan-desktop-layout.mdc`, `cpp-comments.mdc`, `vulkan-descriptor-per-draw.mdc`.
+5. **Commits:** user confirmation required — `git-commit-format.mdc`.
+
+**Not vibe:** code-only fixes → `vulkan-desktop-quick.mdc`.
