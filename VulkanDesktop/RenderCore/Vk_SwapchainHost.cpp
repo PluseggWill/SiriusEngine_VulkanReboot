@@ -29,14 +29,14 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
 
     vkDeviceWaitIdle( aCore.myDevice );
     aCore.myImGuiLayer.DestroySwapchainResources();
-    if ( aCore.myHasLoadedScene ) {
+    if ( aCore.HasLoadedScene() ) {
         Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
     }
     aCore.mySwapChainDeletionQueue.flush();
 
     CreateSwapChain( aCore );
     CreateRenderPass( aCore );
-    if ( aCore.myHasLoadedScene ) {
+    if ( aCore.HasLoadedScene() ) {
         Vk_GfxPipelineCache::InitScenePipelines( aCore );
     }
     CreateColorResources( aCore );

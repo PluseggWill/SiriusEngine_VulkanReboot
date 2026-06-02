@@ -1,7 +1,9 @@
 // Module: Vk_Core — Vulkan device/swapchain, frame orchestration (acquire → prep → record → present).
 // Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
+#include "../App/WorldState.h"
 #include "../Gfx/Gfx_SceneApply.h"
+#include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_DebugMessenger.h"
@@ -67,6 +69,26 @@ Vk_Core::~Vk_Core() {}
 Vk_Core& Vk_Core::GetInstance() {
     static Vk_Core myInstance;
     return myInstance;
+}
+
+// Called once from Application before scene load / main loop (non-owning; must outlive Vk_Core).
+void Vk_Core::BindWorldState( WorldState* aWorld ) {
+    myWorld = aWorld;
+}
+
+WorldState& Vk_Core::World() const {
+    if ( myWorld == nullptr ) {
+        throw std::runtime_error( "Vk_Core: WorldState not bound (call BindWorldState from Application)" );
+    }
+    return *myWorld;
+}
+
+const std::string& Vk_Core::GetLoadedSceneLogicalPath() const {
+    return World().myLogicalPath;
+}
+
+bool Vk_Core::HasLoadedScene() const {
+    return World().myHasLoadedScene;
 }
 
 void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
@@ -167,29 +189,29 @@ void Vk_Core::InitRenderDevice() {
 
 // Scene-load orchestration: scene description -> CPU scene state -> pipelines -> GPU resource tables -> descriptors.
 void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath ) {
-    if ( myHasLoadedScene ) {
+    if ( World().myHasLoadedScene ) {
         throw std::runtime_error( "LoadSceneResources: scene already loaded; call UnloadScene first." );
     }
 
     UtilLogger::Info( "SCENE", "LoadSceneResources." );
-    myLoadedScene            = std::move( aScene );
-    myLoadedSceneLogicalPath = std::move( aLogicalScenePath );
-    myHasLoadedScene         = true;
+    World().myLoadedScene    = std::move( aScene );
+    World().myLogicalPath    = std::move( aLogicalScenePath );
+    World().myHasLoadedScene = true;
 
-    myScenePanelState.myCurrentScenePath = myLoadedSceneLogicalPath;
+    myScenePanelState.myCurrentScenePath = World().myLogicalPath;
     UtilScenePanel::RefreshSceneList( myScenePanelState );
 
-    ( void )Gfx_GetSceneShader( myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
+    ( void )Gfx_GetSceneShader( World().myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
     vertShaderPath                             = activePerm.myVertSpvLogicalPath;
     fragShaderPath                             = activePerm.myFragSpvLogicalPath;
-    Vk_SceneHost::LoadCpuState( *this );
+    Vk_SceneHost::LoadCpuState( World(), *this );
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     {
         Gfx_ResourceManifest manifest{};
-        Gfx_BuildResourceManifestFromSceneDesc( myLoadedScene, mySceneIdTables, manifest );
+        Gfx_BuildResourceManifestFromSceneDesc( World().myLoadedScene, World().mySceneIdTables, manifest );
         myTextureImageMipLevels           = 1;
         const VkPipeline       opaquePipe = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myBasicPipelineBindless : myBasicPipeline;
         const VkPipeline       transPipe  = myMaterialPath == Vk_RenderMaterialPath::Bindless ? myTransparentPipelineBindless : myTransparentPipeline;
@@ -206,7 +228,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
 }
 
 void Vk_Core::UnloadScene() {
-    if ( !myHasLoadedScene ) {
+    if ( !World().myHasLoadedScene ) {
         UtilLogger::Info( "SCENE", "UnloadScene: no scene loaded (skipped)." );
         return;
     }
@@ -232,18 +254,11 @@ void Vk_Core::UnloadScene() {
         frame.myObjectDescriptor = VK_NULL_HANDLE;
     }
 
-    mySceneSoA.Clear();
-    myLodTable = Gfx_LodTable{};
-    myLodState.Clear();
     myDrawPrep.ClearFrameOutputs();
     myDrawPrep.ResetLogState();
-    mySceneTransformState.Clear();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
-    myLoadedScene   = Gfx_SceneDesc{};
-    mySceneIdTables = Gfx_SceneIdTables{};
-    myLoadedSceneLogicalPath.clear();
-    myHasLoadedScene = false;
+    World().ClearCpuSceneState();
     myScenePanelState.myCurrentScenePath.clear();
 
     myMaterialBindLoggedOnce = false;
@@ -593,10 +608,10 @@ std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActive
     views[ 0 ].myViewport            = ToViewport( mySwapChainExtent, views[ 0 ].myView.myViewport );
     views[ 0 ].myScissor             = ToScissor( mySwapChainExtent, views[ 0 ].myViewport );
 
-    if ( myMultiViewState.myEnablePiP && !myLoadedScene.myCameras.empty() ) {
+    if ( myMultiViewState.myEnablePiP && !World().myLoadedScene.myCameras.empty() ) {
         aOutViewCount = 2;
-        const uint32_t cameraIndex = std::min( myMultiViewState.mySecondaryCameraIndex, static_cast< uint32_t >( myLoadedScene.myCameras.size() - 1 ) );
-        const Gfx_SceneCameraEntry& sceneCamera = myLoadedScene.myCameras[ cameraIndex ];
+        const uint32_t cameraIndex = std::min( myMultiViewState.mySecondaryCameraIndex, static_cast< uint32_t >( World().myLoadedScene.myCameras.size() - 1 ) );
+        const Gfx_SceneCameraEntry& sceneCamera = World().myLoadedScene.myCameras[ cameraIndex ];
         const glm::vec4 viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
 
         views[ 1 ].myView.myCameraSource   = Gfx_RenderViewCameraSource::SceneCamera;
@@ -649,18 +664,18 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         // Keep LOD hysteresis stable in the gameplay/fly view. If we update the shared
         // state with PiP camera distance every frame, some entities can oscillate and flicker.
         Gfx_LodState  secondaryViewLodState;
-        Gfx_LodState* lodStateForView = &myLodState;
+        Gfx_LodState* lodStateForView = &World().myLodState;
         if ( viewIndex > 0 ) {
-            secondaryViewLodState = myLodState;
+            secondaryViewLodState = World().myLodState;
             lodStateForView       = &secondaryViewLodState;
         }
 
         Vk_FrameDrawPrepBuildParams prepParams{};
-        prepParams.myScene                 = &mySceneSoA;
+        prepParams.myScene                 = &World().mySceneSoA;
         prepParams.myCamera                = &activeViews[ viewIndex ].myCamera;
-        prepParams.myLodTable              = &myLodTable;
+        prepParams.myLodTable              = &World().myLodTable;
         prepParams.myLodState              = lodStateForView;
-        prepParams.myLodDebugLogicalMeshId = myLodDebugLogicalMeshId;
+        prepParams.myLodDebugLogicalMeshId = World().myLodDebugLogicalMeshId;
         prepParams.myCurrentFrame          = myCurrentFrame;
         prepParams.myFrameDatas            = &myFrameDatas;
         prepParams.myInstanceSlabStride    = InstanceSlabStride();
@@ -679,7 +694,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         totalTransRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
         Vk_FrameUniformUploader::UpdateForView( *this, myCurrentFrame, viewIndex, activeViews[ viewIndex ].myCamera );
     }
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( World().mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
     UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, activeViewCount,
@@ -723,19 +738,19 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     UtilScenePanel::Build( myScenePanelState );
     if ( ImGui::Begin( "Multi-view", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) {
         ImGui::Checkbox( "Enable PiP", &myMultiViewState.myEnablePiP );
-        const bool hasSceneCameras = !myLoadedScene.myCameras.empty();
+        const bool hasSceneCameras = !World().myLoadedScene.myCameras.empty();
         if ( !hasSceneCameras ) {
             ImGui::TextUnformatted( "No scene cameras in scene JSON." );
         }
         else {
-            if ( myMultiViewState.mySecondaryCameraIndex >= myLoadedScene.myCameras.size() ) {
+            if ( myMultiViewState.mySecondaryCameraIndex >= World().myLoadedScene.myCameras.size() ) {
                 myMultiViewState.mySecondaryCameraIndex = 0;
             }
-            const Gfx_SceneCameraEntry& selected = myLoadedScene.myCameras[ myMultiViewState.mySecondaryCameraIndex ];
+            const Gfx_SceneCameraEntry& selected = World().myLoadedScene.myCameras[ myMultiViewState.mySecondaryCameraIndex ];
             if ( ImGui::BeginCombo( "Secondary camera", selected.myId.c_str() ) ) {
-                for ( uint32_t i = 0; i < static_cast< uint32_t >( myLoadedScene.myCameras.size() ); ++i ) {
+                for ( uint32_t i = 0; i < static_cast< uint32_t >( World().myLoadedScene.myCameras.size() ); ++i ) {
                     const bool isSelected = i == myMultiViewState.mySecondaryCameraIndex;
-                    if ( ImGui::Selectable( myLoadedScene.myCameras[ i ].myId.c_str(), isSelected ) ) {
+                    if ( ImGui::Selectable( World().myLoadedScene.myCameras[ i ].myId.c_str(), isSelected ) ) {
                         myMultiViewState.mySecondaryCameraIndex = i;
                     }
                     if ( isSelected ) {

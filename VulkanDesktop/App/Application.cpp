@@ -24,6 +24,7 @@ int Application::Run( int argc, char** argv ) {
         LoadAndVerifyScene();
 
         Vk_Core& core = Vk_Core::GetInstance();
+        core.BindWorldState( &myWorld );  // InitApp also binds; ensures path before InitWindow.
         UtilLogger::Info( "APP", "InitWindow." );
         core.InitWindow();
         UtilLogger::Info( "APP", "InitRenderDevice." );
@@ -57,6 +58,7 @@ void Application::InitApp( int argc, char** argv ) {
     UtilLogger::Info( "APP", "InitApp." );
 
     Vk_Core& core = Vk_Core::GetInstance();
+    core.BindWorldState( &myWorld );
     core.SetSize( UtilEngineConfig::GetWindowWidth(), UtilEngineConfig::GetWindowHeight() );
     core.SetVsync( UtilEngineConfig::GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
@@ -104,10 +106,9 @@ void Application::RunMainLoop() {
             core.TriggerRenderDocCapture();
         }
         myRenderDocCaptureKeyDown = f12Pressed;
-        // Flat-world update contract: simulation writes resolved transforms first,
-        // then resolve publishes final world matrices to SoA before extract/render.
-        Gfx_TickDemoSceneTransforms( core.GetSceneTransformState() );
-        Gfx_ResolveFlatWorldTransforms( core.GetSceneTransformState(), core.GetSceneSoA() );
+        // Flat-world: sim → resolve into Application WorldState, then render (Vk_Core reads World() only).
+        Gfx_TickDemoSceneTransforms( myWorld.mySceneTransformState );
+        Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
         core.Render();
         TryProcessSceneReload();
         ++renderedFrames;

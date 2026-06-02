@@ -1,18 +1,20 @@
 #include "Vk_SceneHost.h"
 
+#include "../App/WorldState.h"
 #include "Vk_Core.h"
 
 #include "../Gfx/Gfx_SceneApply.h"
 #include <glm/glm.hpp>
 
-void Vk_SceneHost::LoadCpuState( Vk_Core& aCore ) {
-    aCore.mySceneIdTables = Gfx_BuildSceneIdTables( aCore.myLoadedScene );
-    Gfx_PopulateSceneSoAFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.mySceneSoA, aCore.mySceneTransformState );
-    Gfx_BuildLodTableFromSceneDesc( aCore.myLoadedScene, aCore.mySceneIdTables, aCore.myLodTable );
-    aCore.myLodState.Clear();
+void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
+    ( void )aCore;  // InitScenePresentation still needs swapchain extent on core (Phase 1).
+    aWorld.mySceneIdTables = Gfx_BuildSceneIdTables( aWorld.myLoadedScene );
+    Gfx_PopulateSceneSoAFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, aWorld.mySceneSoA, aWorld.mySceneTransformState );
+    Gfx_BuildLodTableFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, aWorld.myLodTable );
+    aWorld.myLodState.Clear();
 
-    const auto treeIt             = aCore.mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
-    aCore.myLodDebugLogicalMeshId = treeIt != aCore.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
+    const auto treeIt            = aWorld.mySceneIdTables.myLogicalMeshIdByName.find( "tree" );
+    aWorld.myLodDebugLogicalMeshId = treeIt != aWorld.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
 void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore ) {

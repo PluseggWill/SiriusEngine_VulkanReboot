@@ -4,10 +4,7 @@
 #include <string>
 #include <vk_mem_alloc.h>
 
-#include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderView.h"
-#include "../Gfx/Gfx_SceneDesc.h"
-#include "../Gfx/Gfx_SceneTransform.h"
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_InputSnapshot.h"
@@ -35,6 +32,8 @@ class Gfx_Vertex;
 class Gfx_Mesh;
 class Gfx_RenderObject;
 struct GLFWwindow;
+struct WorldState;
+struct Gfx_SceneDesc;
 
 class Vk_Core;
 
@@ -74,6 +73,9 @@ public:
     Vk_Core( const Vk_Core& )            = delete;
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
+    // Application-owned scene CPU (non-owning); required before LoadSceneResources / main loop.
+    void BindWorldState( WorldState* aWorld );
+
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
     void SetVsync( bool aVsync );
     void Reset();
@@ -84,9 +86,8 @@ public:
     void LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath = {} );
     void UnloadScene();
 
-    const std::string& GetLoadedSceneLogicalPath() const {
-        return myLoadedSceneLogicalPath;
-    }
+    const std::string& GetLoadedSceneLogicalPath() const;
+    bool               HasLoadedScene() const;
     std::string TakePendingSceneReloadPath();
 
     // Scene-scoped GPU teardown queue (meshes, textures, descriptor pool, material buffers). Flushed in UnloadScene.
@@ -106,13 +107,6 @@ public:
     bool        ShouldClose() const;
     GLFWwindow* GetWindow() const {
         return myWindow;
-    }
-
-    Gfx_SceneSoA& GetSceneSoA() {
-        return mySceneSoA;
-    }
-    Gfx_SceneTransformState& GetSceneTransformState() {
-        return mySceneTransformState;
     }
 
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
@@ -158,6 +152,7 @@ private:
     void ShutdownImGui();
 
     void   DrawFrame( const Vk_FrameData aFrameData );
+    WorldState& World() const;
     void   RefreshMaterialPipelinesAfterSwapchainRecreate();
     void   LogM1PerfSnapshot() const;
     size_t InstanceSlabStride() const;
@@ -201,21 +196,12 @@ public:
     Vk_ResourceContext              myResourceContext;
     Vk_ResourceTables               myResourceTables;
     std::vector< Gfx_RenderObject > myRenderObjects;
-    Gfx_SceneSoA                    mySceneSoA;
-    Gfx_LodTable                    myLodTable;
-    Gfx_LodState                    myLodState;
     Vk_FrameDrawPrep                myDrawPrep;
     bool                            myMaterialBindLoggedOnce = false;
-    uint32_t                        myLodDebugLogicalMeshId  = UINT32_MAX;
     bool                            myBindlessLoggedOnce     = false;
     bool                            myM1PerfLoggedOnce       = false;
     Vk_BindlessCapabilities         myBindlessCaps{};
     Vk_RenderMaterialPath           myMaterialPath = Vk_RenderMaterialPath::Batch;
-    Gfx_SceneTransformState         mySceneTransformState;
-    Gfx_SceneDesc                   myLoadedScene;
-    Gfx_SceneIdTables               mySceneIdTables;
-    std::string                     myLoadedSceneLogicalPath;
-    bool                            myHasLoadedScene = false;
     UtilScenePanel::State           myScenePanelState;
     MultiViewState                  myMultiViewState;
     UtilRenderDebugPanel::State     myRenderDebugState;  // skip opaque/transparent + debug view (epic §B)
@@ -223,6 +209,7 @@ public:
 #pragma endregion
 
 private:
+    WorldState*                       myWorld = nullptr;
     Vk_DeletionQueue                  myDeletionQueue;
     Vk_DeletionQueue                  mySceneDeletionQueue;
     Vk_DeletionQueue                  mySwapChainDeletionQueue;

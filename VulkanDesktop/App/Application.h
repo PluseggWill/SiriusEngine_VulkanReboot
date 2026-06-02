@@ -2,6 +2,7 @@
 
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "InputSystem.h"
+#include "WorldState.h"
 #include <vector>
 
 // Application lifecycle: config → scene verify → render device → load resources → loop → unload.
@@ -19,6 +20,7 @@ private:
     void TryProcessSceneReload();
 
     std::vector< const char* > myDeviceExtensions;
+    WorldState                 myWorld;
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;

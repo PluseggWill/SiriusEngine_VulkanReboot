@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | *(none — no WIP Plan+Progress at Docs root)* |
-| **Recommended next** | [`Active-Plan.md`](Active-Plan.md) **P1** (peel / config / bindless) |
-| **Plan / Progress** | Roadmap plans at `Docs/*_Plan.md`; completed WIP → [`Archived/plans/`](Archived/plans/) |
+| **Task** | **P1** — [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) (WorldState, ImGui peel, contexts) |
+| **Recommended next** | Phase 1 → 2 per plan; parallel: [`config-platform-hardening_Plan.md`](config-platform-hardening_Plan.md) |
+| **Plan / Progress** | [`vk-core-world-peel_Plan.md`](vk-core-world-peel_Plan.md) + [`vk-core-world-peel_Progress.md`](vk-core-world-peel_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
