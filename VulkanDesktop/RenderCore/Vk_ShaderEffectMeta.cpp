@@ -346,10 +346,13 @@ void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig ) {
     ExpectBinding( textureArray, eVk_SetMaterial, eVk_BindlessTextureArrayBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, "u_Textures" );
     ExpectBinding( materialTable, eVk_SetMaterial, eVk_BindlessMaterialTableBinding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, "MaterialTable SSBO" );
 
-    // SPIR-V reports runtime-array count=1; Vk layout uses kMaxBindlessTextures (partially bound). Types/stages must match.
+    if ( textureArray->myCount != VkDescriptorPolicy::kMaxBindlessTextures ) {
+        throw std::runtime_error( "Vk_ShaderEffectMeta bindless verify: u_Textures SPIR-V count " + std::to_string( textureArray->myCount ) + " != engine kMaxBindlessTextures "
+                                  + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures ) + " (rebuild shaders / sync TriangleFrag_Lit_Bindless.frag)" );
+    }
+
     UtilLogger::Info( "DESCRIPTOR", "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName
-                                        + " (engine descriptorCount=" + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures )
-                                        + ", SPIR-V count=" + std::to_string( textureArray->myCount ) + "); binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
+                                        + " descriptorCount=" + std::to_string( textureArray->myCount ) + "; binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
 }
 
 }  // namespace VkShaderEffectMeta

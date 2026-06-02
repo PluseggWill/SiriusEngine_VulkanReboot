@@ -3,14 +3,73 @@
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
+#include "Vk_ResourceContext.h"
 #include "Vk_ShaderEffectMeta.h"
 
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include <array>
+#include <cstring>
+
+namespace {
+
+constexpr VkFormat kBindlessDefaultTextureFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+}  // namespace
+
+void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Core& aCore ) {
+    if ( aCore.myDeviceCtx.myBindlessDefaultTexture.ImageView() != VK_NULL_HANDLE ) {
+        return;
+    }
+    if ( !aCore.myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ) {
+        return;
+    }
+
+    Vk_ResourceContext context{};
+    context.Bind( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myAllocator, aCore.myDeviceCtx.myPhysicalDevice, aCore.myDeviceCtx.myGraphicsQueue, aCore.myDeviceCtx.myTransferQueue,
+                  aCore.myDeviceCtx.myGraphicsCommandPool, aCore.myDeviceCtx.myTransferCommandPool, aCore.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ),
+                  aCore.myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
+
+    static constexpr uint8_t kWhiteRgba[ 4 ] = { 255, 255, 255, 255 };
+    static constexpr uint32_t kWidth         = 1;
+    static constexpr uint32_t kHeight        = 1;
+    static constexpr VkDeviceSize kImageSize = 4;
+
+    Vk_AllocatedBuffer stagingBuffer{};
+    context.CreateBuffer( kImageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, true );
+
+    void* mapped = nullptr;
+    vmaMapMemory( aCore.myDeviceCtx.myAllocator, stagingBuffer.myAllocation, &mapped );
+    std::memcpy( mapped, kWhiteRgba, sizeof( kWhiteRgba ) );
+    vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, stagingBuffer.myAllocation );
+
+    const VkExtent3D extent{ kWidth, kHeight, 1 };
+    Gfx_Texture&     texture = aCore.myDeviceCtx.myBindlessDefaultTexture;
+    context.CreateImage( extent, kBindlessDefaultTextureFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
+                         VK_SAMPLE_COUNT_1_BIT, texture.AllocImage() );
+    context.TransitionImageLayout( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
+    context.CopyBufferToImage( stagingBuffer.myBuffer, texture.Image(), kWidth, kHeight );
+    context.TransitionImageLayout( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    texture.ImageView() = context.CreateImageView( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
+
+    vmaDestroyBuffer( aCore.myDeviceCtx.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+
+    const VmaAllocator  allocator = aCore.myDeviceCtx.myAllocator;
+    const VkDevice      device    = aCore.myDeviceCtx.myDevice;
+    const VkImage       image     = texture.Image();
+    const VmaAllocation allocation = texture.Allocation();
+    const VkImageView   imageView = texture.ImageView();
+    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, device, image, allocation, imageView ]() {
+        vkDestroyImageView( device, imageView, nullptr );
+        vmaDestroyImage( allocator, image, allocation );
+    } );
+
+    UtilLogger::Info( "BINDLESS", "Created 1x1 engine default texture for bindless array padding." );
+}
 
 void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
+    EnsureBindlessDefaultTexture( aCore );
     CreateDescriptorSetLayout( aCore );
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessMaterialSetLayout( aCore );
@@ -104,37 +163,37 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
     const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
 
-    // Layout binding count is kMaxBindlessTextures; every written array element needs a valid sampler for validation.
-    std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
-    VkImageView                          fallbackView = VK_NULL_HANDLE;
-    if ( textureCount > 0 ) {
-        fallbackView = aCore.mySceneGpuCtx.myResourceTables.GetTexture( 0 ).ImageView();
+    const VkImageView paddingView = aCore.myDeviceCtx.myBindlessDefaultTexture.ImageView();
+    if ( paddingView == VK_NULL_HANDLE ) {
+        throw std::runtime_error( "CreateBindlessDescriptorResources: engine 1x1 default texture missing (call EnsureBindlessDefaultTexture at device init)" );
     }
+
+    // Sized array [kMaxBindlessTextures] + PARTIALLY_BOUND on binding 0.
+    // Slots [textureCount, max): engine 1x1 default (validation rejects null sampler writes on SDK 1.3.x).
+    std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
     for ( size_t slot = 0; slot < VkDescriptorPolicy::kMaxBindlessTextures; ++slot ) {
         if ( slot < textureCount ) {
-            const Gfx_Texture& texture   = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( slot ) );
+            const Gfx_Texture& texture     = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( slot ) );
             imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfos[ slot ].imageView   = texture.ImageView();
             imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
         }
-        else if ( fallbackView != VK_NULL_HANDLE ) {
-            // Unused array slots: duplicate texture 0 (shader must not index past loaded texture count).
-            imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[ slot ].imageView   = fallbackView;
-            imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
-        }
         else {
             imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[ slot ].imageView   = VK_NULL_HANDLE;
-            imageInfos[ slot ].sampler     = VK_NULL_HANDLE;
+            imageInfos[ slot ].imageView   = paddingView;
+            imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
         }
     }
 
     std::vector< GpuMaterialTableEntry > tableEntries( materialCount );
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t      textureId             = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Material& material              = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
-        tableEntries[ materialId ].myTextureIndex    = textureId;
+        const uint32_t      textureId = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Gfx_Material& material  = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        if ( textureId >= textureCount ) {
+            throw std::runtime_error( "bindless material " + std::to_string( materialId ) + " textureId " + std::to_string( textureId ) + " >= textureCount "
+                                      + std::to_string( textureCount ) );
+        }
+        tableEntries[ materialId ].myTextureIndex = textureId;
         tableEntries[ materialId ].myRoughness       = material.myRoughness;
         tableEntries[ materialId ].myMetallic        = material.myMetallic;
         tableEntries[ materialId ].myAlpha           = material.myAlpha;

@@ -6,6 +6,7 @@
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
+#include "../RenderCore/Vk_DescriptorPolicy.h"
 #include "../Util/Util_EngineConfig.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -241,6 +242,9 @@ int main() {
     TestConfigPrecedence( repoRoot );
     TestSoAGeneration();
     TestDemoCullAndBatch();
+
+    // GpuMaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.
+    Expect( VkDescriptorPolicy::kMaxBindlessTextures == 64, "kMaxBindlessTextures must match TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES" );
 
     if ( gFailures > 0 ) {
         std::cerr << "GfxTests: " << gFailures << " failure(s)\n";

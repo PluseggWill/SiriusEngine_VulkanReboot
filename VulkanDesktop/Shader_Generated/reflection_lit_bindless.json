@@ -35,7 +35,7 @@
       "bindings": [
         {
           "binding": 0,
-          "count": 1,
+          "count": 64,
           "descriptorType": "COMBINED_IMAGE_SAMPLER",
           "name": "u_Textures",
           "seenIn": [

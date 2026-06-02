@@ -27,6 +27,7 @@ inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
 inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 
 // Bindless Set 1 texture array capacity (S1 bindless v0).
+// CONTRACT: TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES + layout descriptorCount must match.
 inline constexpr uint32_t kMaxBindlessTextures = 64;
 
 // --- Material / descriptor rebuild (S2 layout verify) ---

@@ -15,6 +15,7 @@ public:
     static void CreateDescriptorSets( Vk_Core& aCore );
     static void CreateMaterialDescriptorSets( Vk_Core& aCore );
     static void CreateTextureSampler( Vk_Core& aCore );
+    static void EnsureBindlessDefaultTexture( Vk_Core& aCore );
 
     // One-shot log: pipeline set order + bindings vs shaders (descriptor-layout-verify).
     static void LogLayoutContract( const Vk_Core& aCore );

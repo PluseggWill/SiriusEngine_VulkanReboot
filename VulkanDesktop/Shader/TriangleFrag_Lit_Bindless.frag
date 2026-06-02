@@ -10,7 +10,9 @@ layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 viewWorldPos;
 } envData;
 
-layout(set = 1, binding = 0) uniform sampler2D u_Textures[];
+// Must match VkDescriptorPolicy::kMaxBindlessTextures (keep in sync with C++ / reflection_lit_bindless.json).
+#define VK_MAX_BINDLESS_TEXTURES 64
+layout(set = 1, binding = 0) uniform sampler2D u_Textures[VK_MAX_BINDLESS_TEXTURES];
 
 // std430 — must match GpuMaterialTableEntry in Vk_Types.h
 struct GpuMaterialEntry {
@@ -19,7 +21,7 @@ struct GpuMaterialEntry {
     float metallic;
     float alpha;
     uint alphaMode;
-    vec4 baseColorFactor;
+    vec4 baseColorFactor;  // offset 32 (implicit std430 padding after alphaMode)
 };
 
 layout(set = 1, binding = 1) readonly buffer MaterialTable {

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <string>
 #include <vk_mem_alloc.h>
 
@@ -94,8 +95,11 @@ struct GpuMaterialTableEntry {
     float     myMetallic     = 0.0f;
     float     myAlpha        = 1.0f;
     uint32_t  myAlphaMode    = Gfx_MaterialAlphaMode_Opaque;
+    uint32_t  _padStd430[ 3 ]{};  // std430: vec4 baseColorFactor starts at byte 32
     glm::vec4 myBaseColorFactor{ 1.0f };
 };
+static_assert( sizeof( GpuMaterialTableEntry ) == 48, "GpuMaterialTableEntry std430 size" );
+static_assert( offsetof( GpuMaterialTableEntry, myBaseColorFactor ) == 32, "GpuMaterialTableEntry std430 vec4 offset" );
 
 inline GpuMaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
     GpuMaterialParams params{};
