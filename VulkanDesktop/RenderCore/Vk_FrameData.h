@@ -1,4 +1,7 @@
 #pragma once
+#include <array>
+
+#include "../Gfx/Gfx_RenderView.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Types.h"
 
@@ -12,8 +15,8 @@ struct Vk_FrameData {
 
     VkCommandBuffer myCommandBuffer;
 
-    Vk_AllocatedBuffer myCameraBuffer;      // sizeof(GpuCameraData), one per frame
-    VkDescriptorSet    myGlobalDescriptor;  // set 0 (Frame): camera + env + texture - see Vk_DescriptorPolicy.h
+    Vk_AllocatedBuffer myCameraBuffer;  // sizeof(GpuCameraData) * kGfxMaxRenderViews, one slab per frame
+    std::array< VkDescriptorSet, kGfxMaxRenderViews > myGlobalDescriptors{};  // set 0 (Frame): camera + env
 
     // Per-frame instance ring UBO (GpuObjectData slices); persistently CPU-mapped for FillInstanceSlab.
     Vk_AllocatedBuffer myObjectBuffer;

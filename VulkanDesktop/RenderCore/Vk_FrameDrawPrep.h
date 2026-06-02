@@ -22,6 +22,8 @@ struct Vk_FrameDrawPrepBuildParams {
     uint32_t                     myCurrentFrame          = 0;
     std::vector< Vk_FrameData >* myFrameDatas            = nullptr;
     size_t                       myInstanceSlabStride    = 0;
+    size_t                       myInstanceSlabBaseOffset = 0;
+    uint32_t                     myInstanceSlabMaxEntries = 0;
 };
 
 class Vk_FrameDrawPrep {

@@ -57,6 +57,17 @@ struct Gfx_SceneEntityEntry {
     float           myLodBias     = 0.0f;
 };
 
+struct Gfx_SceneCameraEntry {
+    std::string myId;
+    glm::vec3   myEye{ 0.0f, 0.0f, 0.0f };
+    glm::vec3   myCenter{ 0.0f, 0.0f, -1.0f };
+    glm::vec3   myUp{ 0.0f, 0.0f, 1.0f };
+    float       myFovYDeg = 45.0f;
+    // Normalized viewport (x, y, width, height) in [0, 1].
+    glm::vec4 myViewport{ 0.0f, 0.0f, 1.0f, 1.0f };
+    uint32_t  myLayerMask = 0xFFFFFFFFu;
+};
+
 struct Gfx_SceneDesc {
     uint32_t                                               myVersion = 0;
     std::string                                            myName;
@@ -66,6 +77,7 @@ struct Gfx_SceneDesc {
     std::vector< Gfx_SceneTextureEntry >                   myTextures;
     std::vector< Gfx_SceneMaterialEntry >                  myMaterials;
     std::vector< Gfx_SceneEntityEntry >                    myEntities;
+    std::vector< Gfx_SceneCameraEntry >                    myCameras;
 };
 
 // Stable string-id → dense table index maps (array order in scene JSON).

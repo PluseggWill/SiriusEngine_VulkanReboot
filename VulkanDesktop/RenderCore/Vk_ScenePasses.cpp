@@ -85,7 +85,10 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
 // Sub-pass A — ForwardOpaque: myOpaquePass, depth write ON, opaque/blend-off pipeline.
 // Sub-pass B — ForwardTransparent: myTransparentPass, depth test ON / write OFF, alpha blend pipeline.
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
-void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
+void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex, const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
+                                  const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
+                                  const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
+                                  const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass        = aCore.myRenderPass;
@@ -100,30 +103,48 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
     renderPassInfo.pClearValues    = clearValues.data();
 
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
-    aCore.SetGraphicsDynamicState( aCommandBuffer );
-
-    const VkDescriptorSet  frameDescriptor = aCore.myFrameDatas[ aCore.myCurrentFrame ].myGlobalDescriptor;
-    const VkPipelineLayout frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &frameDescriptor, 0, nullptr );
 
     static bool sPacketPathLoggedOnce = false;
     static bool sPacketSkipLoggedOnce = false;
-    const bool  usePacketPath         = Vk_RenderBackend::ValidateFramePacket( aCore.myDrawPrep.myFramePacket );
 
-    if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
-                                 &aCore.myBindlessDescriptorSet, 0, nullptr );
-        aCore.myFrameStats.myMaterialSetBinds++;
-        if ( usePacketPath ) {
+    const VkPipelineLayout frameBindLayout = aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ? aCore.myBindlessPipelineLayout : aCore.myPipelineLayout;
+    for ( uint32_t viewIndex = 0; viewIndex < aViewCount; ++viewIndex ) {
+        const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
+        aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptors[ viewIndex ], 0,
+                                 nullptr );
+
+        const bool usePacketPath = Vk_RenderBackend::ValidateFramePacket( packet );
+        if ( aCore.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
+                                     &aCore.myBindlessDescriptorSet, 0, nullptr );
+            aCore.myFrameStats.myMaterialSetBinds++;
+            if ( usePacketPath ) {
+                if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
+                    aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
+                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, aCore.myBasicPipelineBindless, "Opaque" );
+                    aCore.CmdEndDebugLabel( aCommandBuffer );
+                }
+                if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
+                    aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
+                    RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, aCore.myTransparentPipelineBindless, "Transparent" );
+                    aCore.CmdEndDebugLabel( aCommandBuffer );
+                }
+            }
+            else if ( !sPacketSkipLoggedOnce ) {
+                UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
+                sPacketSkipLoggedOnce = true;
+            }
+        }
+        else if ( usePacketPath ) {
             if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
-                RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, aCore.myBasicPipelineBindless, "Opaque" );
+                RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
             if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
-                RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, aCore.myTransparentPipelineBindless,
-                                                     "Transparent" );
+                RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
         }
@@ -132,24 +153,8 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
             sPacketSkipLoggedOnce = true;
         }
     }
-    else if ( usePacketPath ) {
-        if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
-            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, "Opaque" );
-            aCore.CmdEndDebugLabel( aCommandBuffer );
-        }
-        if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
-            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, "Transparent" );
-            aCore.CmdEndDebugLabel( aCommandBuffer );
-        }
-    }
-    else if ( !sPacketSkipLoggedOnce ) {
-        UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
-        sPacketSkipLoggedOnce = true;
-    }
 
-    if ( usePacketPath && !sPacketPathLoggedOnce ) {
+    if ( aViewCount > 0 && !sPacketPathLoggedOnce ) {
         UtilLogger::Info( "RENDER", "Scene record switched to packet consume path." );
         sPacketPathLoggedOnce = true;
     }

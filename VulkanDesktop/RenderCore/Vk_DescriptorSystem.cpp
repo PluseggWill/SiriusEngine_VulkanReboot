@@ -216,31 +216,32 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
 
 void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = aCore.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts        = &aCore.myGlobalSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDevice, &allocInfo, &aCore.myFrameDatas[ i ].myGlobalDescriptor ) != VK_SUCCESS ) {
-            throw std::runtime_error( "failed to allocate descriptor sets!" );
-        }
-
-        std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
-        VkDescriptorBufferInfo                camBufferInfo{};
-        camBufferInfo.buffer = aCore.myFrameDatas[ i ].myCameraBuffer.myBuffer;
-        camBufferInfo.offset = 0;
-        camBufferInfo.range  = sizeof( GpuCameraData );
-
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = aCore.myEnvDataBuffer.myBuffer;
         envBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
         envBufferInfo.range  = sizeof( GpuEnvironmentData );
 
-        descriptorWrites[ 0 ] =
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
-        descriptorWrites[ 1 ] =
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptor, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
-        vkUpdateDescriptorSets( aCore.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
+        for ( uint32_t viewIndex = 0; viewIndex < kGfxMaxRenderViews; ++viewIndex ) {
+            VkDescriptorSetAllocateInfo allocInfo{};
+            allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            allocInfo.descriptorPool     = aCore.myDescriptorPool;
+            allocInfo.descriptorSetCount = 1;
+            allocInfo.pSetLayouts        = &aCore.myGlobalSetLayout;
+            if ( vkAllocateDescriptorSets( aCore.myDevice, &allocInfo, &aCore.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ] ) != VK_SUCCESS ) {
+                throw std::runtime_error( "failed to allocate descriptor sets!" );
+            }
+
+            std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
+            VkDescriptorBufferInfo                camBufferInfo{};
+            camBufferInfo.buffer = aCore.myFrameDatas[ i ].myCameraBuffer.myBuffer;
+            camBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) ) * viewIndex;
+            camBufferInfo.range  = sizeof( GpuCameraData );
+            descriptorWrites[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                                          &camBufferInfo, eVk_CameraBinding, 1 );
+            descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                                                          &envBufferInfo, eVk_EnvBinding, 1 );
+            vkUpdateDescriptorSets( aCore.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
+        }
 
         VkDescriptorSetAllocateInfo objectAllocInfo{};
         objectAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

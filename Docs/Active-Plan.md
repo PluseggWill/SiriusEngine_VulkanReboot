@@ -41,8 +41,8 @@ Open sprint work: **[ ] tasks only**. Completed lines: [Archived-Plan.md](Archiv
 
 | Priority | Task | Sprint | Why now |
 |----------|------|--------|---------|
-| 1 | **Multi-view** (`Gfx_RenderView`, `cameras[]`, per-view record, ImGui PiP) | **S2** | Unblocks S7 frame graph; prior branch work in [`Archived/plans/multi-view_Plan.md`](Archived/plans/multi-view_Plan.md). |
-| 2 | **Flat world matrices** (v1 flat `transform` only) | **S2** | Smaller scene/SoA follow-up; does not block S3. |
+| 1 | **S3 GPU cull + indexed indirect** (`VkDrawIndexedIndirectCommand`) | **S3** | Primary M2 milestone; geometry path for later meshlets and Stage 2 spikes. |
+| 2 | **FG v0 spike** (`GBufferOpaque -> ClusterBuild -> DeferredLighting`) | **S3** | De-risks S7 full frame graph and Stage 2 lighting topology. |
 | — | **Lighting Stage 2 (Hybrid Deferred)** | **S3–S7** | Start after S2 multi-view (or in parallel with S3 M2 only for isolated spikes). **Not** an S2 sprint deliverable. |
 
 ---
@@ -266,11 +266,6 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 
 *Deps: M1 draw stream, dynamic viewport (wired 2026-06-01). Unblocks **S7** frame graph. Prior work reverted 2026-06-01 — [`Archived/plans/multi-view_Plan.md`](Archived/plans/multi-view_Plan.md).*
 
-- [ ] **`Gfx_RenderView`** — camera source (fly vs scene), normalized viewport, layer mask; v1 → swapchain only.
-- [ ] Scene JSON **`cameras[]`** — parse eye/center/up/fov/viewport; demo overview PiP camera.
-- [ ] **Per-view extract + record** — draw stream + instance slab + `UpdateForView` per view; dynamic viewport/scissor.
-- [ ] ImGui **Multi-view** panel — PiP toggle + secondary camera index.
-
 ### Cleared in S2 *(no `[ ]` here)*
 
 - `Vk_Core` decomposition phase 2, gfx–vk decoupling, scene-load A–D, shader reflection/permutation/cache, Stage 1 forward epic (Lighting **Stage 1**), input/config/lifecycle — [Archived-Plan.md](Archived-Plan.md).
@@ -290,6 +285,15 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 - [ ] Optional GPU compaction pass for dense visible list.
 - [ ] **Parity test:** GPU path vs CPU cull on fixed camera — `EngineArchitecture.md` §5.5.
 - [ ] **LOD GPU:** cull/indirect uses S1 LOD table; subset parity vs CPU — *deps: S1 LOD v0*.
+
+### Open tasks — engineering hygiene & CI *(moved from backlog)*
+
+- [ ] GitHub Actions: `CompileShader_Glslc.bat` CI.
+- [ ] CI smoke: init + one frame headless/offscreen.
+- [ ] Document or eliminate runtime **working-directory** dependency.
+- [ ] `LNK4098` linker warning; safe `size_t`→`uint32_t` casts.
+- [ ] **[S1+] Cull/sort depth metric:** opaque `depthBucket` from bounds eye-space Z; tighter world AABB.
+- [ ] **Multi-threading v1:** thread model + frame SoA double-buffer — *deps: S1 SoA (archived), S2 scheduler*.
 
 ### Open tasks — Lighting Stage 2 entry *(cross-sprint; epic §A spike)*
 
@@ -349,6 +353,7 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 - [ ] `vkCmdDrawMeshTasksIndirectEXT`; mesh shader consumes compact list + instance table.
 - [ ] **Fallback preset:** S3 VS + indirect when mesh shader unsupported; bindless-off → S1 batch path.
 - [ ] Preset enum: `Traditional` / `GpuIndirect` / `MeshShader` / `FullGpuMesh`.
+- [ ] **Multi-threading v2:** job system parallel cull/LOD/transform — *deps: MT v1, S1 LOD v0 (archived)*.
 
 ### M5 acceptance
 
@@ -383,6 +388,9 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 - [ ] Screenshot capture keyed to preset + pose.
 - [ ] RenderDoc expectations per preset; preset changelog.
 - [ ] Benchmark: cold vs warm pipeline cache load (S2 cache, done).
+- [ ] Shader reflection-driven **layout codegen** — follow-up to closed 2b JSON path.
+- [ ] `VK_KHR_pipeline_binary` disk cache research — *deps: S2 pipeline cache (done)*.
+- [ ] **[Multi-view] Instance slab dynamic partition:** replace static per-view split (`kMaxInstanceSlabEntries / viewCount`) with per-frame pre-count + prefix-sum offsets; keep overlap/overflow guards for each view.
 
 ### Open tasks — feature experiments *(prefer after FG)*
 
@@ -392,6 +400,8 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 - [ ] Tonemap / exposure modes.
 - [ ] Bloom (optional).
 - [ ] Validation-friendly toggles; graceful GPU feature degradation.
+- [ ] GPU occlusion / hierarchical Z — *post-M5*.
+- [ ] **Task shader** for mesh amplification — *post-M5*.
 
 ### Open tasks — documentation
 
@@ -399,6 +409,8 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 - [ ] “How to add a rendering experiment” checklist.
 - [ ] Troubleshooting matrix (seed: `Docs/Archived/notes-2026-05-22-shader-debug.md`).
 - [ ] Third-party / SDK license inventory.
+- [ ] Log rotation; domain-split logs; crash summary on failure.
+- [ ] DDGI production tuning after **Lighting Stage 3** acceptance.
 
 ### M6 acceptance
 
@@ -434,6 +446,7 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 ### S8 acceptance
 
 - [ ] Dynamic props (physics); one skinned clip; one agent chases player in play scene.
+- [ ] **Multi-threading v3 (optional):** render thread + command stream — *deps: S7 FG*.
 
 ---
 
@@ -473,20 +486,6 @@ Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](
 
 ## Backlog (deferred / unscheduled)
 
-- [ ] GitHub Actions: `CompileShader_Glslc.bat` CI.
-- [ ] CI smoke: init + one frame headless/offscreen.
-- [ ] Document or eliminate runtime **working-directory** dependency.
-- [ ] Log rotation; domain-split logs; crash summary on failure.
-- [ ] `LNK4098` linker warning; safe `size_t`→`uint32_t` casts.
-- [ ] **Task shader** for mesh amplification (post-M5).
-- [ ] GPU occlusion / hierarchical Z (post-M5).
-- [ ] DDGI production tuning after **Lighting Stage 3** acceptance.
-- [ ] **Multi-threading v1:** thread model + frame SoA double-buffer — *deps: S1 SoA (archived), S2 scheduler*.
-- [ ] **Multi-threading v2:** job system parallel cull/LOD/transform — *deps: MT v1, S1 LOD v0 (archived)*.
-- [ ] **Multi-threading v3 (optional):** render thread + command stream — *deps: S7 FG*.
-- [ ] **[S1+] Cull/sort depth metric:** opaque `depthBucket` from bounds eye-space Z; tighter world AABB.
-- [ ] Shader reflection-driven **layout codegen** — follow-up to closed 2b JSON path.
-- [ ] `VK_KHR_pipeline_binary` disk cache research — *deps: S2 pipeline cache (done)*.
 - [ ] Editor, networking, non-Windows — see parking lot.
 
 ### Parking lot

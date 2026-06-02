@@ -267,6 +267,25 @@ glm::vec3 ParseVec3Field( const Json& aJson, const char* aField, const char* aCo
     return out;
 }
 
+glm::vec4 ParseVec4Field( const Json& aJson, const char* aField, const char* aContext ) {
+    if ( !aJson.contains( aField ) ) {
+        throw std::runtime_error( std::string( "[SCENE] Missing " ) + aField + " in " + aContext );
+    }
+    const Json& arr = aJson[ aField ];
+    RequireArray( arr, aContext );
+    if ( arr.size() != 4 ) {
+        throw std::runtime_error( std::string( "[SCENE] " ) + aField + " must have 4 floats in " + aContext );
+    }
+    glm::vec4 out{};
+    for ( size_t i = 0; i < 4; ++i ) {
+        if ( !arr[ i ].is_number() ) {
+            throw std::runtime_error( std::string( "[SCENE] " ) + aField + " entries must be numeric in " + aContext );
+        }
+        out[ static_cast< int >( i ) ] = arr[ i ].get< float >();
+    }
+    return out;
+}
+
 void ParseEntities( const Json& aRoot, Gfx_SceneDesc& aOut ) {
     if ( !aRoot.contains( "entities" ) ) {
         return;
@@ -298,6 +317,40 @@ void ParseEntities( const Json& aRoot, Gfx_SceneDesc& aOut ) {
             entity.myLodBias = entry[ "lodBias" ].get< float >();
         }
         aOut.myEntities.push_back( std::move( entity ) );
+    }
+}
+
+void ParseCameras( const Json& aRoot, Gfx_SceneDesc& aOut ) {
+    if ( !aRoot.contains( "cameras" ) ) {
+        return;
+    }
+    RequireArray( aRoot[ "cameras" ], "cameras" );
+    std::unordered_set< std::string > seenIds;
+    for ( size_t i = 0; i < aRoot[ "cameras" ].size(); ++i ) {
+        const Json& entry = aRoot[ "cameras" ][ i ];
+        RequireObject( entry, "cameras[]" );
+        const std::string context = "cameras[" + std::to_string( i ) + "]";
+
+        Gfx_SceneCameraEntry camera{};
+        camera.myId       = RequireString( entry, "id", context.c_str() );
+        camera.myEye      = ParseVec3Field( entry, "eye", context.c_str() );
+        camera.myCenter   = ParseVec3Field( entry, "center", context.c_str() );
+        camera.myUp       = ParseVec3Field( entry, "up", context.c_str() );
+        camera.myViewport = ParseVec4Field( entry, "viewport", context.c_str() );
+        RequireUniqueId( seenIds, camera.myId, "cameras" );
+        if ( entry.contains( "fovDeg" ) ) {
+            if ( !entry[ "fovDeg" ].is_number() ) {
+                throw std::runtime_error( "[SCENE] cameras[].fovDeg must be numeric" );
+            }
+            camera.myFovYDeg = entry[ "fovDeg" ].get< float >();
+        }
+        if ( entry.contains( "layerMask" ) ) {
+            if ( !entry[ "layerMask" ].is_number_unsigned() ) {
+                throw std::runtime_error( "[SCENE] cameras[].layerMask must be unsigned integer" );
+            }
+            camera.myLayerMask = entry[ "layerMask" ].get< uint32_t >();
+        }
+        aOut.myCameras.push_back( std::move( camera ) );
     }
 }
 
@@ -342,10 +395,11 @@ Gfx_SceneDesc Gfx_LoadSceneDesc( const std::string& aLogicalPath ) {
     ParseTextures( root, scene );
     ParseMaterials( root, scene );
     ParseEntities( root, scene );
+    ParseCameras( root, scene );
 
     UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName
                                    + "' logicalMeshes=" + std::to_string( scene.myLogicalMeshes.size() ) + " meshes=" + std::to_string( scene.myMeshes.size() )
                                    + " textures=" + std::to_string( scene.myTextures.size() ) + " materials=" + std::to_string( scene.myMaterials.size() )
-                                   + " entities=" + std::to_string( scene.myEntities.size() ) );
+                                   + " entities=" + std::to_string( scene.myEntities.size() ) + " cameras=" + std::to_string( scene.myCameras.size() ) );
     return scene;
 }

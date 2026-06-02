@@ -5,6 +5,7 @@
 #include <vk_mem_alloc.h>
 
 #include "../Gfx/Gfx_Lod.h"
+#include "../Gfx/Gfx_RenderView.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Util/Util_FrameStats.h"
@@ -21,6 +22,7 @@
 #include "Vk_RenderDoc.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_ResourceTables.h"
+#include <optional>
 
 constexpr int  MAX_FRAMES_IN_FLIGHT = 2;      // swapchain frames in flight; also env UBO slice count
 constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
@@ -56,6 +58,18 @@ class Vk_Core {
     friend class Vk_PlatformFrame;
 
 public:
+    struct MultiViewState {
+        bool     myEnablePiP            = true;
+        uint32_t mySecondaryCameraIndex = 0;
+    };
+
+    struct ActiveRenderView {
+        Gfx_RenderView myView;
+        Vk_Camera      myCamera;
+        VkViewport     myViewport{};
+        VkRect2D       myScissor{};
+    };
+
     static Vk_Core& GetInstance();
     Vk_Core( const Vk_Core& )            = delete;
     Vk_Core& operator=( const Vk_Core& ) = delete;
@@ -148,7 +162,8 @@ private:
     void   LogM1PerfSnapshot() const;
     size_t InstanceSlabStride() const;
     // vkCmdSetViewport/Scissor/LineWidth for scene pipelines; call once per scene render pass after BeginRenderPass.
-    void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const;
+    void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const;
+    std::array< ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount ) const;
 
     // Helper functions:
     void                       CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -202,6 +217,7 @@ public:
     std::string                     myLoadedSceneLogicalPath;
     bool                            myHasLoadedScene = false;
     UtilScenePanel::State           myScenePanelState;
+    MultiViewState                  myMultiViewState;
     UtilRenderDebugPanel::State     myRenderDebugState;  // skip opaque/transparent + debug view (epic §B)
     std::vector< VkDescriptorSet >  myMaterialDescriptorSets;
 #pragma endregion

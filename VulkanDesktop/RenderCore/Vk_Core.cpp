@@ -227,7 +227,7 @@ void Vk_Core::UnloadScene() {
     myMaterialDescriptorSets.clear();
     myMaterialParamBuffers.clear();
     for ( Vk_FrameData& frame : myFrameDatas ) {
-        frame.myGlobalDescriptor = VK_NULL_HANDLE;
+        frame.myGlobalDescriptors.fill( VK_NULL_HANDLE );
         frame.myObjectDescriptor = VK_NULL_HANDLE;
     }
 
@@ -466,8 +466,8 @@ void Vk_Core::CreateFrameData() {
             throw std::runtime_error( "failed to allocate command buffers!" );
         }
 
-        // Per-frame camera UBO.
-        VkDeviceSize bufferSize = sizeof( GpuCameraData );
+        // Per-frame camera UBO slab (one slot per render view).
+        VkDeviceSize bufferSize = static_cast< VkDeviceSize >( kGfxMaxRenderViews ) * static_cast< VkDeviceSize >( PadUniformBufferSize( sizeof( GpuCameraData ) ) );
 
         CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameDatas[ i ].myCameraBuffer, true );
 
@@ -548,7 +548,70 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
     return std::chrono::duration< float, std::milli >( aEnd - aStart ).count();
 }
 
+glm::vec4 ClampNormalizedViewport( const glm::vec4& aViewport ) {
+    const float x = std::clamp( aViewport.x, 0.0f, 1.0f );
+    const float y = std::clamp( aViewport.y, 0.0f, 1.0f );
+    const float w = std::clamp( aViewport.z, 0.0f, 1.0f - x );
+    const float h = std::clamp( aViewport.w, 0.0f, 1.0f - y );
+    return { x, y, w, h };
+}
+
+VkViewport ToViewport( const VkExtent2D& aExtent, const glm::vec4& aViewportNorm ) {
+    const float x      = aViewportNorm.x * static_cast< float >( aExtent.width );
+    const float y      = aViewportNorm.y * static_cast< float >( aExtent.height );
+    const float width  = std::max( 1.0f, aViewportNorm.z * static_cast< float >( aExtent.width ) );
+    const float height = std::max( 1.0f, aViewportNorm.w * static_cast< float >( aExtent.height ) );
+    return VkViewport{ x, y, width, height, 0.0f, 1.0f };
+}
+
+VkRect2D ToScissor( const VkExtent2D& aExtent, const VkViewport& aViewport ) {
+    VkRect2D scissor{};
+    scissor.offset.x = std::max( 0, static_cast< int32_t >( aViewport.x ) );
+    scissor.offset.y = std::max( 0, static_cast< int32_t >( aViewport.y ) );
+
+    const uint32_t offsetX = static_cast< uint32_t >( scissor.offset.x );
+    const uint32_t offsetY = static_cast< uint32_t >( scissor.offset.y );
+    const uint32_t maxWidthFromOffset  = offsetX < aExtent.width ? ( aExtent.width - offsetX ) : 1u;
+    const uint32_t maxHeightFromOffset = offsetY < aExtent.height ? ( aExtent.height - offsetY ) : 1u;
+    // Clamp extent relative to offset to keep the scissor rectangle inside the swapchain extent.
+    scissor.extent.width  = std::max( 1u, std::min( maxWidthFromOffset, static_cast< uint32_t >( aViewport.width ) ) );
+    scissor.extent.height = std::max( 1u, std::min( maxHeightFromOffset, static_cast< uint32_t >( aViewport.height ) ) );
+    return scissor;
+}
+
 }  // namespace
+
+std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActiveRenderViews( uint32_t& aOutViewCount ) const {
+    std::array< ActiveRenderView, kGfxMaxRenderViews > views{};
+    aOutViewCount = 1;
+
+    views[ 0 ].myView.myCameraSource = Gfx_RenderViewCameraSource::Fly;
+    views[ 0 ].myView.myViewport     = glm::vec4( 0.0f, 0.0f, 1.0f, 1.0f );
+    views[ 0 ].myView.myLayerMask    = 0xFFFFFFFFu;
+    views[ 0 ].myCamera              = myCamera;
+    views[ 0 ].myViewport            = ToViewport( mySwapChainExtent, views[ 0 ].myView.myViewport );
+    views[ 0 ].myScissor             = ToScissor( mySwapChainExtent, views[ 0 ].myViewport );
+
+    if ( myMultiViewState.myEnablePiP && !myLoadedScene.myCameras.empty() ) {
+        aOutViewCount = 2;
+        const uint32_t cameraIndex = std::min( myMultiViewState.mySecondaryCameraIndex, static_cast< uint32_t >( myLoadedScene.myCameras.size() - 1 ) );
+        const Gfx_SceneCameraEntry& sceneCamera = myLoadedScene.myCameras[ cameraIndex ];
+        const glm::vec4 viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
+
+        views[ 1 ].myView.myCameraSource   = Gfx_RenderViewCameraSource::SceneCamera;
+        views[ 1 ].myView.mySceneCameraIndex = cameraIndex;
+        views[ 1 ].myView.myViewport       = viewportNorm;
+        views[ 1 ].myView.myLayerMask      = sceneCamera.myLayerMask;
+        views[ 1 ].myViewport              = ToViewport( mySwapChainExtent, viewportNorm );
+        views[ 1 ].myScissor               = ToScissor( mySwapChainExtent, views[ 1 ].myViewport );
+
+        const float aspect = static_cast< float >( views[ 1 ].myScissor.extent.width ) / static_cast< float >( views[ 1 ].myScissor.extent.height );
+        views[ 1 ].myCamera.SetLens( sceneCamera.myFovYDeg, myCamera.myNear, myCamera.myFar, aspect );
+        views[ 1 ].myCamera.LookAt( sceneCamera.myEye, sceneCamera.myCenter, sceneCamera.myUp );
+    }
+
+    return views;
+}
 
 void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
     myRenderDoc.BeginFrameCaptureIfRequested();
@@ -563,32 +626,63 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         return;
     }
 
-    // --- CPU prep: extract/cull/sort + instance slab; env UBO after debug panel ---
+    // --- CPU prep: build active views + per-view extract/cull/sort + instance slab ---
     myFrameStats.ResetPerFrameCounters();
 
-    Vk_FrameDrawPrepBuildParams prepParams{};
-    prepParams.myScene                 = &mySceneSoA;
-    prepParams.myCamera                = &myCamera;
-    prepParams.myLodTable              = &myLodTable;
-    prepParams.myLodState              = &myLodState;
-    prepParams.myLodDebugLogicalMeshId = myLodDebugLogicalMeshId;
-    prepParams.myCurrentFrame          = myCurrentFrame;
-    prepParams.myFrameDatas            = &myFrameDatas;
-    prepParams.myInstanceSlabStride    = InstanceSlabStride();
+    uint32_t activeViewCount = 0;
+    const auto activeViews   = BuildActiveRenderViews( activeViewCount );
 
-    myDrawPrep.ClearFrameOutputs();
-    myDrawPrep.Build( prepParams );
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ),
-                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() ),
-                                       static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) );
+    std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews > viewPackets{};
+    std::array< VkViewport, kGfxMaxRenderViews >            viewports{};
+    std::array< VkRect2D, kGfxMaxRenderViews >              scissors{};
+    std::array< VkDescriptorSet, kGfxMaxRenderViews >       frameDescriptors{};
+    uint32_t totalOpaqueDraws = 0;
+    uint32_t totalTransDraws  = 0;
+    uint32_t totalOpaqueRuns  = 0;
+    uint32_t totalTransRuns   = 0;
+    // Keep full slab capacity for single-view mode; split only when PiP is active.
+    const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
+    const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
+
+    for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
+        // Keep LOD hysteresis stable in the gameplay/fly view. If we update the shared
+        // state with PiP camera distance every frame, some entities can oscillate and flicker.
+        Gfx_LodState  secondaryViewLodState;
+        Gfx_LodState* lodStateForView = &myLodState;
+        if ( viewIndex > 0 ) {
+            secondaryViewLodState = myLodState;
+            lodStateForView       = &secondaryViewLodState;
+        }
+
+        Vk_FrameDrawPrepBuildParams prepParams{};
+        prepParams.myScene                 = &mySceneSoA;
+        prepParams.myCamera                = &activeViews[ viewIndex ].myCamera;
+        prepParams.myLodTable              = &myLodTable;
+        prepParams.myLodState              = lodStateForView;
+        prepParams.myLodDebugLogicalMeshId = myLodDebugLogicalMeshId;
+        prepParams.myCurrentFrame          = myCurrentFrame;
+        prepParams.myFrameDatas            = &myFrameDatas;
+        prepParams.myInstanceSlabStride    = InstanceSlabStride();
+        prepParams.myInstanceSlabBaseOffset = static_cast< size_t >( viewIndex ) * static_cast< size_t >( perViewMaxEntries ) * InstanceSlabStride();
+        prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
+
+        myDrawPrep.ClearFrameOutputs();
+        myDrawPrep.Build( prepParams );
+        viewPackets[ viewIndex ] = myDrawPrep.myFramePacket;
+        viewports[ viewIndex ]   = activeViews[ viewIndex ].myViewport;
+        scissors[ viewIndex ]    = activeViews[ viewIndex ].myScissor;
+        frameDescriptors[ viewIndex ] = myFrameDatas[ myCurrentFrame ].myGlobalDescriptors[ viewIndex ];
+        totalOpaqueDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() );
+        totalTransDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() );
+        totalOpaqueRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() );
+        totalTransRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
+        Vk_FrameUniformUploader::UpdateForView( *this, myCurrentFrame, viewIndex, activeViews[ viewIndex ].myCamera );
+    }
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     // Forward debug: panel after prep (draw counts) and before env UBO upload so debug view + skip apply this frame.
     // Lighting panel still runs after RecordScene (tuning applies next frame).
-    UtilRenderDebugPanel::Build( myRenderDebugState, myEnvironmentData,
-                                 static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
-                                 static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ) );
+    UtilRenderDebugPanel::Build( myRenderDebugState, myEnvironmentData, totalOpaqueDraws, totalTransDraws );
     Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
     if ( !myMaterialBindLoggedOnce ) {
@@ -597,9 +691,7 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         }
         else {
             UtilLogger::Info( "DESCRIPTOR",
-                              "Set 1 material binds this frame will be <= batch runs ("
-                                  + std::to_string( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() + myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() )
-                                  + ")" );
+                              "Set 1 material binds this frame will be <= batch runs (" + std::to_string( totalOpaqueRuns + totalTransRuns ) + ")" );
         }
         myMaterialBindLoggedOnce = true;
     }
@@ -619,11 +711,38 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex );
+    Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex, viewports, scissors, frameDescriptors, activeViewCount, viewPackets );
 
     UtilLightingPanel::Build( myEnvironmentData );
     UtilCameraPanel::Build( myCameraSettings );
     UtilScenePanel::Build( myScenePanelState );
+    if ( ImGui::Begin( "Multi-view", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) {
+        ImGui::Checkbox( "Enable PiP", &myMultiViewState.myEnablePiP );
+        const bool hasSceneCameras = !myLoadedScene.myCameras.empty();
+        if ( !hasSceneCameras ) {
+            ImGui::TextUnformatted( "No scene cameras in scene JSON." );
+        }
+        else {
+            if ( myMultiViewState.mySecondaryCameraIndex >= myLoadedScene.myCameras.size() ) {
+                myMultiViewState.mySecondaryCameraIndex = 0;
+            }
+            const Gfx_SceneCameraEntry& selected = myLoadedScene.myCameras[ myMultiViewState.mySecondaryCameraIndex ];
+            if ( ImGui::BeginCombo( "Secondary camera", selected.myId.c_str() ) ) {
+                for ( uint32_t i = 0; i < static_cast< uint32_t >( myLoadedScene.myCameras.size() ); ++i ) {
+                    const bool isSelected = i == myMultiViewState.mySecondaryCameraIndex;
+                    if ( ImGui::Selectable( myLoadedScene.myCameras[ i ].myId.c_str(), isSelected ) ) {
+                        myMultiViewState.mySecondaryCameraIndex = i;
+                    }
+                    if ( isSelected ) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+        ImGui::Text( "Active views: %u", activeViewCount );
+    }
+    ImGui::End();
     UtilStatsOverlay::Build( myFrameStats );
     ImGui::Render();
     Vk_ScenePasses::RecordImGui( *this, aFrameData.myCommandBuffer, imageIndex );
@@ -928,18 +1047,10 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 }
 
 // Required when bound pipeline declares dynamic viewport/scissor/line width (SetDefaultDynamicStates).
-void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer ) const {
+void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const {
     // CONTRACT: VkDynamicState list must match Vk_PipelineBuilder::SetDefaultDynamicStates().
-    const VkViewport viewport{ 0.0f,
-                               0.0f,
-                               static_cast< float >( mySwapChainExtent.width ),
-                               static_cast< float >( mySwapChainExtent.height ),
-                               0.0f,
-                               1.0f };
-    vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
-
-    const VkRect2D scissor{ { 0, 0 }, mySwapChainExtent };
-    vkCmdSetScissor( aCommandBuffer, 0, 1, &scissor );
+    vkCmdSetViewport( aCommandBuffer, 0, 1, &aViewport );
+    vkCmdSetScissor( aCommandBuffer, 0, 1, &aScissor );
 
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }

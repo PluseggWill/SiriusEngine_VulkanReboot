@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — no active vibe task in Docs root)* |
-| **Recommended next** | Continue S2 queue from [`Active-Plan.md`](Active-Plan.md) (`Multi-view` first, then `Flat world matrices`) |
+| **Recommended next** | Continue S3 queue from [`Active-Plan.md`](Active-Plan.md) (`GPU cull + indexed indirect` first) |
 | **Plan / Progress** | *(none in Docs root; closed tasks archived under [`Archived/plans/`](Archived/plans/))* |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

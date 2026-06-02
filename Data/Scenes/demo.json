@@ -47,6 +47,16 @@
     { "id": "mat_metal", "shader": "lit", "texture": "tex_metal" },
     { "id": "mat_wood", "shader": "lit", "texture": "tex_wood" }
   ],
+  "cameras": [
+    {
+      "id": "overview",
+      "eye": [10.0, 8.0, 10.0],
+      "center": [0.0, 0.0, -4.0],
+      "up": [0.0, 0.0, 1.0],
+      "fovDeg": 50.0,
+      "viewport": [0.66, 0.66, 0.32, 0.32]
+    }
+  ],
   "entities": [
     {
       "logicalMesh": "viking",

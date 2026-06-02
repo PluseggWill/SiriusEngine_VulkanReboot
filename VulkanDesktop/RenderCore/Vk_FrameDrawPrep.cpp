@@ -57,19 +57,27 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
     }
 
     const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
-    if ( drawCount > VkDescriptorPolicy::kMaxInstanceSlabEntries ) {
+    const uint32_t maxEntries = aParams.myInstanceSlabMaxEntries > 0 ? aParams.myInstanceSlabMaxEntries : VkDescriptorPolicy::kMaxInstanceSlabEntries;
+    if ( drawCount > maxEntries ) {
         UtilLogger::Error( "RESOURCE",
-                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries ) );
+                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
         return false;
     }
 
     char* const  slabBase   = static_cast< char* >( frame.myInstanceSlabMapped );
     const size_t stride     = aParams.myInstanceSlabStride;
     size_t       writeIndex = 0;
+    const size_t slabCapacityBytes = static_cast< size_t >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * stride;
+    const size_t slabWriteEnd = aParams.myInstanceSlabBaseOffset + drawCount * stride;
+    if ( slabWriteEnd > slabCapacityBytes ) {
+        UtilLogger::Error( "RESOURCE", "Instance slab partition overflow: writeEnd=" + std::to_string( slabWriteEnd )
+                                           + " capacity=" + std::to_string( slabCapacityBytes ) );
+        return false;
+    }
 
     auto writeDrawList = [ & ]( std::vector< Gfx_DrawInstance >& someDraws ) {
         for ( Gfx_DrawInstance& draw : someDraws ) {
-            draw.myInstanceDataOffset = static_cast< uint32_t >( writeIndex * stride );
+            draw.myInstanceDataOffset = static_cast< uint32_t >( aParams.myInstanceSlabBaseOffset + writeIndex * stride );
             ++writeIndex;
 
             GpuObjectData objectData{};

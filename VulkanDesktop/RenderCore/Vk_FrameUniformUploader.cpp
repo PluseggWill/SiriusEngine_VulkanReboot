@@ -6,15 +6,20 @@
 
 #include <glm/glm.hpp>
 
-void Vk_FrameUniformUploader::Update( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
+void Vk_FrameUniformUploader::UpdateForView( const Vk_Core& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera ) {
     GpuCameraData cam{};
-    cam.view = aCore.myCamera.myView;
-    cam.proj = aCore.myCamera.myProj;
+    cam.view = aCamera.myView;
+    cam.proj = aCamera.myProj;
 
     void* data = nullptr;
     vmaMapMemory( aCore.myAllocator, aCore.myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation, &data );
-    memcpy( data, &cam, sizeof( cam ) );
+    const size_t cameraStride = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) );
+    memcpy( static_cast< char* >( data ) + cameraStride * aViewIndex, &cam, sizeof( cam ) );
     vmaUnmapMemory( aCore.myAllocator, aCore.myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
+}
+
+void Vk_FrameUniformUploader::Update( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
+    UpdateForView( aCore, aCurrentFrame, 0, aCore.myCamera );
 
     GpuEnvironmentData env    = aCore.myEnvironmentData;
     const glm::vec3    sunDir = glm::vec3( env.mySunlightDirection );
