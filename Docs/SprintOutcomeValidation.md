@@ -42,6 +42,12 @@ Validation runbook for sprint close-out. Use with [`Active-Plan.md`](Active-Plan
 - Scene-load phase gates (A/B/C/D as applicable) match current sprint state.
 - `Vk_Core` peel milestones compile/smoke pass without behavior regression.
 
+### S2 closeout evidence (2026-06-02)
+
+- Build: `MSBuild VulkanDesktop.sln /p:Configuration=Debug /p:Platform=x64 /v:m` -> exit 0.
+- Smoke: `x64\\Debug\\VulkanDesktop.exe --no-validation --smoke-seconds 6` -> exit 0.
+- Log signals checked: `[SCENE] LoadSceneResources completed`, `[APP] Smoke dwell reached`, `[SCENE] UnloadScene: GPU scene resources released`, `[APP] Engine exited run loop normally`.
+
 <a id="validation-s3"></a>
 ## S3 validation (M2)
 

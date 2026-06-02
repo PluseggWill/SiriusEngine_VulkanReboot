@@ -66,6 +66,14 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S2 — Engine layering & hygiene *(closed 2026-06-02)*
+
+| | |
+|--|--|
+| **Milestone** | — |
+| **Outcome** | Lifecycle/config/render-backend layering stabilized; scene-load A–D + shader stack landed; multi-view re-landed and stabilized. |
+| **Validation** | [`SprintOutcomeValidation.md`](./SprintOutcomeValidation.md) (S2 section) |
+
 ## Completed tasks *(S2+ and `[S0]` checklist)*
 
 ### Toolchain & stability *(S0)*

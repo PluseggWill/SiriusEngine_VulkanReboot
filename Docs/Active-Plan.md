@@ -4,7 +4,7 @@ Open sprint work: **[ ] tasks only**. Completed lines: [Archived-Plan.md](Archiv
 
 **Hygiene:** On task complete, **move the line** to [Archived-Plan.md](Archived-Plan.md) (sprint tag + note). No [x] here.
 
-**Scope:** Open sprint sections **S2–S8** only. **S0** / **S1 (M1)** closed — see [Archived-Plan.md](Archived-Plan.md) § S0 / § S1.
+**Scope:** Open sprint sections **S3–S8** only. **S0** / **S1 (M1)** / **S2** closed — see [Archived-Plan.md](Archived-Plan.md) § S0 / § S1 / S2 lines.
 
 ---
 
@@ -25,7 +25,7 @@ Open sprint work: **[ ] tasks only**. Completed lines: [Archived-Plan.md](Archiv
 |--------|-----------|----------------------|---------|
 | **S0** | — | *(closed — [Archived-Plan](Archived-Plan.md) § S0)* | — |
 | **S1** | M1 | *(closed — [Archived-Plan](Archived-Plan.md) § S1)* | — |
-| **S2** | — | Flat world matrices; **multi-view** (4 items) | [S2](#s2--engine-layering--hygiene) |
+| **S2** | — | *(closed — [Archived-Plan](Archived-Plan.md) S2 lines)* | — |
 | **S3** | M2 | GPU cull/indirect (6) + **Lighting Stage 2** FG v0 (1); M2 acceptance | [S3](#s3--gpu-driven-indirect-milestone-m2) |
 | **S4** | M3 | Meshlet pipeline (5); M3 acceptance | [S4](#s4--meshlet-geometry-milestone-m3) |
 | **S5** | M4 | Mesh shader path (5); M4 acceptance | [S5](#s5--mesh-shader-pipeline-milestone-m4) |
@@ -37,7 +37,7 @@ Open sprint work: **[ ] tasks only**. Completed lines: [Archived-Plan.md](Archiv
 
 **Lighting epics** do not have their own `[ ]` checklist here — open work is filed under the sprint rows above. Epic breakdown: [§ Lighting evolution](#lighting-evolution-cross-sprint).
 
-### Recommended next *(sprint S2 queue)*
+### Recommended next *(current queue)*
 
 | Priority | Task | Sprint | Why now |
 |----------|------|--------|---------|
@@ -247,28 +247,6 @@ flowchart TB
 | **Multi-threading** | M1 SoA, S2 scheduler | Parallel cull/LOD | Backlog |
 
 **Parallel track:** [Vertical slice](#parallel--vertical-slice) — gameplay; **S8 AI** enhances enemies; does not block S3–S6.
-
----
-
-## S2 — Engine layering & hygiene
-
-*Lifecycle, config, `Vk_Core` peel, scene JSON, shader stack, **multi-view**. Does **not** include Lighting Stage 2 (hybrid deferred) — see [Lighting evolution](#lighting-evolution-cross-sprint).*
-**Validation:** [`SprintOutcomeValidation.md`](./SprintOutcomeValidation.md) (S2 section)
-
-Completed S2 logs: [`Archived/plans/`](Archived/plans/) · [`Archived-Plan.md`](Archived-Plan.md) `[S2]` lines.
-
-### Open tasks — scene
-
-*Design: [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md).*
-
-
-### Open tasks — multi-view
-
-*Deps: M1 draw stream, dynamic viewport (wired 2026-06-01). Unblocks **S7** frame graph. Prior work reverted 2026-06-01 — [`Archived/plans/multi-view_Plan.md`](Archived/plans/multi-view_Plan.md).*
-
-### Cleared in S2 *(no `[ ]` here)*
-
-- `Vk_Core` decomposition phase 2, gfx–vk decoupling, scene-load A–D, shader reflection/permutation/cache, Stage 1 forward epic (Lighting **Stage 1**), input/config/lifecycle — [Archived-Plan.md](Archived-Plan.md).
 
 ---
 
