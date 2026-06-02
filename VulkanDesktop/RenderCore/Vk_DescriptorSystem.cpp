@@ -120,6 +120,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
         tableEntries[ materialId ].myRoughness       = material.myRoughness;
         tableEntries[ materialId ].myMetallic        = material.myMetallic;
         tableEntries[ materialId ].myAlpha           = material.myAlpha;
+        tableEntries[ materialId ].myAlphaMode = material.myAlphaMode;  // bindless frag mask discard
         tableEntries[ materialId ].myBaseColorFactor = material.myBaseColorFactor;
     }
 

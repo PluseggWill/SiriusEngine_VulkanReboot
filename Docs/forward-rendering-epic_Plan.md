@@ -61,9 +61,9 @@ flowchart LR
 
 **Deps:** A complete; requires current transparent policy from S1 and descriptor contracts (`Set 0/1/2`) locked in docs.
 
-- [ ] Separate forward opaque and forward transparent record flow clearly in pass-level docs.
-- [ ] Ensure transparent pass policy stays compatible with later deferred depth consumption.
-- [ ] Add debug views/preset switches required for future parity checks.
+- [x] Separate forward opaque and forward transparent record flow clearly in pass-level docs — 2026-06-02 `forward-pass-hardening`.
+- [x] Ensure transparent pass policy stays compatible with later deferred depth consumption — `EngineArchitecture.md` §5.8 Stage 2 depth contract.
+- [x] Add debug views/preset switches required for future parity checks — `Util_RenderDebugPanel`, depth/normal modes, skip-pass toggles.
 
 ### C. Validation and migration gates
 

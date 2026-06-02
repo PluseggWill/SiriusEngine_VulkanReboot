@@ -584,6 +584,13 @@ const std::string& GetShaderPermutationName() {
     return gShaderPermutationName;
 }
 
+const std::string& GetRenderPresetName() {
+    if ( !gInitialized ) {
+        Initialize( 0, nullptr );
+    }
+    return gRenderPresetName;
+}
+
 void LogResolvedSummary() {
     if ( !gInitialized ) {
         return;

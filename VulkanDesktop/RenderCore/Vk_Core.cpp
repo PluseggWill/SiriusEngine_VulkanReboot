@@ -9,6 +9,7 @@
 #include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
 #include "../Util/Util_ValidationLayers.h"
@@ -540,9 +541,8 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         return;
     }
 
-    // --- CPU prep: extract/cull/sort + instance slab + frame UBO ---
+    // --- CPU prep: extract/cull/sort + instance slab; env UBO after debug panel ---
     myFrameStats.ResetPerFrameCounters();
-    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
     Vk_FrameDrawPrepBuildParams prepParams{};
     prepParams.myScene                 = &mySceneSoA;
@@ -561,6 +561,13 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() ),
                                        static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() ) );
+
+    // Forward debug: panel after prep (draw counts) and before env UBO upload so debug view + skip apply this frame.
+    // Lighting panel still runs after RecordScene (tuning applies next frame).
+    UtilRenderDebugPanel::Build( myRenderDebugState, myEnvironmentData,
+                                 static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() ),
+                                 static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() ) );
+    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
     if ( !myMaterialBindLoggedOnce ) {
         if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {

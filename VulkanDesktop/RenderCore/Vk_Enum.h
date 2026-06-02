@@ -12,7 +12,7 @@ enum eDescriptorSet : uint32_t {
 // Set 0 (Frame) - TriangleVertex.vert set 0; TriangleFrag_Lit.frag env only (no albedo).
 enum eDescriptorBinding {
     eVk_CameraBinding     = 0,  // VERTEX | GpuCameraData (view, proj)
-    eVk_EnvBinding        = 1,  // FRAGMENT | GpuEnvironmentData (see myFogDistance packing)
+    eVk_EnvBinding        = 1,  // FRAGMENT | GpuEnvironmentData (myFogDistance: xyz lighting, w debug view)
     eVk_FrameBindingCount = 2,
 };
 

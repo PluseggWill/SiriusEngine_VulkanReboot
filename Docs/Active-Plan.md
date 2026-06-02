@@ -294,7 +294,7 @@ flowchart TB
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 
-- [ ] Stage 1 gate (epic B–C): forward pass hardening + migration validation from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) (§A done — `Archived/plans/forward-stage1-contracts_*`).
+- [ ] Stage 1 gate (epic §C): migration validation (golden, handoff checklist) from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) — §A/B done (`forward-stage1-contracts`, `forward-pass-hardening`).
 
 ---
 

@@ -3,7 +3,7 @@
 
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
-    vec4 fogDistances;
+    vec4 fogDistances;  // xyz lighting; w = Gfx_DebugViewMode (see TriangleFrag_Lit.frag)
     vec4 ambientColor;
     vec4 sunlightDirection;
     vec4 sunlightColor;
@@ -12,12 +12,13 @@ layout(set = 0, binding = 1) uniform EnvironmentData {
 
 layout(set = 1, binding = 0) uniform sampler2D u_Textures[];
 
+// std430 — must match GpuMaterialTableEntry in Vk_Types.h
 struct GpuMaterialEntry {
     uint textureIndex;
     float roughness;
     float metallic;
     float alpha;
-    float _pad;
+    uint alphaMode;
     vec4 baseColorFactor;
 };
 
@@ -32,6 +33,22 @@ layout(location = 3) in vec3 inWorldPos;
 layout(location = 4) flat in uint inMaterialIndex;
 
 layout(location = 0) out vec4 outColor;
+
+const uint kAlphaModeMask = 1u;
+const uint kDebugViewDepth = 1u;
+const uint kDebugViewWorldNormal = 2u;
+
+vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
+{
+    const uint viewMode = uint(envData.fogDistances.w + 0.5);
+    if (viewMode == kDebugViewDepth) {
+        return vec4(vec3(gl_FragCoord.z), 1.0);
+    }
+    if (viewMode == kDebugViewWorldNormal) {
+        return vec4(normalize(aWorldNormal) * 0.5 + 0.5, 1.0);
+    }
+    return aLitColor;
+}
 
 void main()
 {
@@ -59,4 +76,10 @@ void main()
     const vec3 specular = envData.sunlightColor.rgb * spec;
 
     outColor = vec4(ambient + diffuse + specular, clamp(alpha, 0.0, 1.0));
+
+    if (mat.alphaMode == kAlphaModeMask && outColor.a < 0.5) {  // per-material mask
+        discard;
+    }
+
+    outColor = applyDebugView(outColor, N);
 }

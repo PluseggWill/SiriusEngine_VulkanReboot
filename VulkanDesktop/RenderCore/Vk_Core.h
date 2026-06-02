@@ -9,6 +9,7 @@
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_InputSnapshot.h"
+#include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "Vk_Bindless.h"
 #include "Vk_Camera.h"
@@ -194,6 +195,7 @@ public:
     std::string                     myLoadedSceneLogicalPath;
     bool                            myHasLoadedScene = false;
     UtilScenePanel::State           myScenePanelState;
+    UtilRenderDebugPanel::State     myRenderDebugState;  // skip opaque/transparent + debug view (epic §B)
     std::vector< VkDescriptorSet >  myMaterialDescriptorSets;
 #pragma endregion
 

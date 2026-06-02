@@ -68,6 +68,10 @@ void Vk_ScenePasses::RecordDrawBatchesBindlessFromPacket( Vk_Core& aCore, VkComm
     }
 }
 
+// CONTRACT (Stage 1 forward): one swapchain render pass, clear color+depth once.
+// Sub-pass A — ForwardOpaque: myOpaquePass, depth write ON, opaque/blend-off pipeline.
+// Sub-pass B — ForwardTransparent: myTransparentPass, depth test ON / write OFF, alpha blend pipeline.
+// Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
 void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -98,8 +102,12 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
                                  &aCore.myBindlessDescriptorSet, 0, nullptr );
         aCore.myFrameStats.myMaterialSetBinds++;
         if ( usePacketPath ) {
-            RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, aCore.myBasicPipelineBindless );
-            RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, aCore.myTransparentPipelineBindless );
+            if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
+                RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass, aCore.myBasicPipelineBindless );
+            }
+            if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
+                RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass, aCore.myTransparentPipelineBindless );
+            }
         }
         else if ( !sPacketSkipLoggedOnce ) {
             UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );
@@ -107,8 +115,12 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
         }
     }
     else if ( usePacketPath ) {
-        RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass );
-        RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass );
+        if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
+            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myOpaquePass );
+        }
+        if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
+            RecordDrawBatchesFromPacket( aCore, aCommandBuffer, aCore.myDrawPrep.myFramePacket.myTransparentPass );
+        }
     }
     else if ( !sPacketSkipLoggedOnce ) {
         UtilLogger::Warn( "RENDER", "Packet invalid; scene draw record skipped." );

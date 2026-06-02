@@ -304,7 +304,8 @@ Feature experiments (shadows, IBL, MSAA) add permutations and **frame-graph pass
 - **Flags:** `Gfx_RenderFlags` on SoA entity (`Gfx_RenderOpaque` / `Gfx_RenderTransparent`); material manifest `myIsTransparent` + `myAlpha` selects pipeline and shader alpha.
 - **Extract:** `Gfx_FrameExtract` — separate opaque and transparent `Gfx_ExtractResult` lists (no Vulkan in Gfx).
 - **Transparent sort:** back-to-front by ascending **eye-space Z** (`Gfx_ComputeEyeSpaceZ`); tie-break: lower `materialId`, then lower `entityIndex`.
-- **Record (demo):** same render pass — opaque batches (`myBasicPipeline`, depth write on) then transparent (`myTransparentPipeline`, alpha blend, depth write off).
+- **Record (Stage 1):** one swapchain render pass (`Vk_ScenePasses::RecordScene`); **ForwardOpaque** then **ForwardTransparent** sub-stages from `Gfx_FrameRenderPacket` (`myOpaquePass` → `myTransparentPass`). Opaque: `myBasicPipeline`, depth write ON. Transparent: `myTransparentPipeline`, depth test ON, depth write OFF, alpha blend ON. ImGui **Render Debug** can skip either sub-stage or show depth/world-normal (`GpuEnvironmentData.myFogDistance.w`).
+- **Stage 2 depth contract:** `ForwardTransparent` FG node must **import** depth from opaque pass (GBuffer or forward opaque depth); same compare/write policy as Stage 1 transparent (test ON, write OFF). Color may read deferred HDR or swapchain per hybrid plan.
 - **Frame graph (S7):** transparent pass becomes a separate FG node that **reads** depth from opaque pass.
 
 ### 5.9 Multi-view and frame graph
@@ -348,7 +349,9 @@ Lighting roadmap is staged to reduce risk while keeping GPU-driven geometry work
 
 **Parity rule:** keep `ForwardLit` as a baseline preset for A/B validation while Stage 2 lands, then preserve non-DDGI hybrid behavior when Stage 3 is enabled.
 
-**Stage 1 material contract (2026-06-01):** `GpuMaterialParams` (Set 1 UBO, std140) and `GpuMaterialTableEntry` (bindless SSBO, std430) carry `baseColorFactor`, `roughness`, `metallic`, `alpha`, `alphaMode` (0=opaque, 1=mask, 2=blend). Lit shaders upload all fields; shading remains Blinn-Phong until a `PBR` permutation lands. Scene JSON optional fields mirror the struct. `Config/engine.json` `renderPreset` (`ForwardLit` → permutation `lit`) resolves before `shaderPermutation` when the latter is unset; CLI `--render-preset` / `--shader-permutation` follow the same priority as config.
+**Stage 1 material contract (2026-06-01):** `GpuMaterialParams` (Set 1 UBO, std140) and `GpuMaterialTableEntry` (bindless SSBO, std430) carry `baseColorFactor`, `roughness`, `metallic`, `alpha`, `alphaMode` (0=opaque, 1=mask, 2=blend). Lit shaders upload all fields; `alphaMode==mask` discards fragments with alpha &lt; 0.5; global `ForwardLitAlphaClip` permutation still applies `ALPHA_CLIP` to all draws. Shading remains Blinn-Phong until a `PBR` permutation lands; `roughness`/`metallic` are not consumed in lit frags yet. Scene JSON optional fields mirror the struct. `Config/engine.json` `renderPreset` (`ForwardLit` → permutation `lit`) resolves before `shaderPermutation` when the latter is unset; CLI `--render-preset` / `--shader-permutation` follow the same priority as config.
+
+**Stage 1 gaps (post pass-hardening):** golden screenshots, perf baseline, and deferred migration checklist → epic §C task `forward-stage1-validation`. `HybridDeferred` preset, GBuffer, clustered deferred, and `Gfx_ShaderFeature_Pbr` shading → Stage 2. Runtime render-preset hot-reload not required for parity (restart / CLI).
 
 #### 5.10.1 Lighting dependency graph
 
@@ -548,4 +551,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 material contract; multi-view deferred; 2026-06-01).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 forward pass hardening; 2026-06-02).*

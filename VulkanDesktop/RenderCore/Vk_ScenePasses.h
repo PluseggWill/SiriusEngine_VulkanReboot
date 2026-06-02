@@ -10,9 +10,10 @@ struct VkPipeline_T;
 using VkPipeline = VkPipeline_T*;
 class Vk_Core;
 
-// Vk_ScenePasses: owns scene pass record orchestration slice (phase-2 #6).
+// Vk_ScenePasses: scene forward pass record (opaque then transparent in one render pass).
 class Vk_ScenePasses {
 public:
+    // CONTRACT: see RecordScene in Vk_ScenePasses.cpp (Stage 1 forward sub-passes).
     static void RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     static void RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
     static void RecordDrawBatchesFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass );

@@ -51,6 +51,9 @@ bool GetDescriptorLayoutMismatchTest();
 // Active entry in Shader/PermutationRegistry.json (default "lit").
 const std::string& GetShaderPermutationName();
 
+// Resolved render preset label (empty when CLI/config only set shaderPermutation).
+const std::string& GetRenderPresetName();
+
 bool                              ResolveValidationEnabled( bool aBuildDefault );
 bool                              IsValidationEnabled();
 const std::vector< const char* >& GetValidationLayerNames();

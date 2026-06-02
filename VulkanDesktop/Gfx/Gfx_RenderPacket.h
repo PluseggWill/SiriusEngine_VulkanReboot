@@ -11,12 +11,13 @@
 // RenderCore should consume this packet instead of owning Gfx-side prep semantics.
 
 struct Gfx_PassDrawPacket {
-    // Draw order is already finalized by Gfx (opaque/transparent pass semantics preserved).
+    // One forward sub-pass worth of draws (opaque or transparent). Sort/batch finalized in Gfx.
     std::vector< Gfx_DrawInstance > myDraws;
     // Batch runs are optional for bindless path but always populated by current stream builder.
     std::vector< Gfx_BatchRun > myBatchRuns;
 };
 
+// CONTRACT: Vk_ScenePasses records myOpaquePass then myTransparentPass in one render pass (Stage 1 forward).
 struct Gfx_FrameRenderPacket {
     Gfx_PassDrawPacket myOpaquePass;
     Gfx_PassDrawPacket myTransparentPass;

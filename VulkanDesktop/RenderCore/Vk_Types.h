@@ -56,6 +56,17 @@ enum Gfx_MaterialAlphaMode : uint32_t {
     Gfx_MaterialAlphaMode_Blend  = 2,
 };
 
+// Forward debug visualization (packed in GpuEnvironmentData.myFogDistance.w for lit shaders).
+enum Gfx_DebugViewMode : uint32_t {
+    Gfx_DebugViewMode_Lit          = 0,
+    Gfx_DebugViewMode_Depth        = 1,
+    Gfx_DebugViewMode_WorldNormal  = 2,
+};
+
+inline float Gfx_DebugViewModeToShaderPacked( Gfx_DebugViewMode aMode ) {
+    return static_cast< float >( aMode );
+}
+
 struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
@@ -76,13 +87,13 @@ struct GpuMaterialParams {
     alignas( 4 ) uint32_t   myAlphaMode = Gfx_MaterialAlphaMode_Opaque;
 };
 
-// std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag.
+// std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag (vec4 @ 32).
 struct GpuMaterialTableEntry {
-    uint32_t  myTextureIndex    = 0;
-    float     myRoughness       = 0.5f;
-    float     myMetallic        = 0.0f;
-    float     myAlpha           = 1.0f;
-    float     myPadding         = 0.0f;
+    uint32_t  myTextureIndex = 0;
+    float     myRoughness    = 0.5f;
+    float     myMetallic     = 0.0f;
+    float     myAlpha        = 1.0f;
+    uint32_t  myAlphaMode    = Gfx_MaterialAlphaMode_Opaque;
     glm::vec4 myBaseColorFactor{ 1.0f };
 };
 
@@ -147,7 +158,7 @@ public:
 // std140 UBO, binding eVk_EnvBinding - field order must match EnvironmentData in TriangleFrag_Lit.frag.
 struct GpuEnvironmentData {
     glm::vec4 myFogColor;     // reserved (fog not implemented in shader)
-    glm::vec4 myFogDistance;  // REPURPOSED: x=specularStrength, y=shininess, z=textureBlend, w unused
+    glm::vec4 myFogDistance;  // x=specularStrength, y=shininess, z=textureBlend, w=Gfx_DebugViewMode (as float)
     glm::vec4 myAmbientColor;
     glm::vec4 mySunlightDirection;  // xyz = direction from surface toward sun (normalized each frame)
     glm::vec4 mySunlightColor;
