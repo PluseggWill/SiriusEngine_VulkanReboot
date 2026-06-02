@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "DebugUIState.h"
 #include "InputSystem.h"
 #include "WorldState.h"
 #include <vector>
@@ -18,9 +19,11 @@ private:
     void LoadAndVerifyScene();
     void RunMainLoop();
     void TryProcessSceneReload();
+    std::string TakePendingSceneReloadPath();
 
     std::vector< const char* > myDeviceExtensions;
     WorldState                 myWorld;
+    DebugUIState               myDebugUI;
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;

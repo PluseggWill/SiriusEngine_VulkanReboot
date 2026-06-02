@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "DebugOverlay.h"
 #include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
@@ -7,7 +8,9 @@
 #include "../RenderCore/Vk_Core.h"
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_EngineConfig.h"
+#include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_RenderDebugPanel.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdlib>
@@ -24,7 +27,8 @@ int Application::Run( int argc, char** argv ) {
         LoadAndVerifyScene();
 
         Vk_Core& core = Vk_Core::GetInstance();
-        core.BindWorldState( &myWorld );  // InitApp also binds; ensures path before InitWindow.
+        core.BindWorldState( &myWorld );
+        core.BindDebugUI( &myDebugUI );
         UtilLogger::Info( "APP", "InitWindow." );
         core.InitWindow();
         UtilLogger::Info( "APP", "InitRenderDevice." );
@@ -59,6 +63,7 @@ void Application::InitApp( int argc, char** argv ) {
 
     Vk_Core& core = Vk_Core::GetInstance();
     core.BindWorldState( &myWorld );
+    core.BindDebugUI( &myDebugUI );
     core.SetSize( UtilEngineConfig::GetWindowWidth(), UtilEngineConfig::GetWindowHeight() );
     core.SetVsync( UtilEngineConfig::GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
@@ -109,7 +114,14 @@ void Application::RunMainLoop() {
         // Flat-world: sim → resolve into Application WorldState, then render (Vk_Core reads World() only).
         Gfx_TickDemoSceneTransforms( myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
-        core.Render();
+
+        Vk_FrameCpuPrepResult prep{};
+        if ( core.PrepareFrameCpu( myWorld, myDebugUI, prep ) ) {
+            UtilRenderDebugPanel::Build( myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
+            BuildDebugOverlayPanels( myDebugUI, myWorld, core, prep );
+            core.DrawFrameGpu( myDebugUI, prep );
+        }
+
         TryProcessSceneReload();
         ++renderedFrames;
 
@@ -130,9 +142,19 @@ void Application::RunMainLoop() {
     UtilLogger::Info( "APP", "Main loop ended." );
 }
 
+std::string Application::TakePendingSceneReloadPath() {
+    if ( !myDebugUI.myScenePanel.myReloadRequested ) {
+        return {};
+    }
+    std::string path                           = std::move( myDebugUI.myScenePanel.myReloadTargetPath );
+    myDebugUI.myScenePanel.myReloadRequested   = false;
+    myDebugUI.myScenePanel.myReloadTargetPath.clear();
+    return path;
+}
+
 void Application::TryProcessSceneReload() {
     Vk_Core& core = Vk_Core::GetInstance();
-    const std::string reloadPath = core.TakePendingSceneReloadPath();
+    const std::string reloadPath = TakePendingSceneReloadPath();
     if ( reloadPath.empty() ) {
         return;
     }

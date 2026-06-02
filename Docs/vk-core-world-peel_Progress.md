@@ -25,4 +25,11 @@
 - **Files:** `App/WorldState.{h,cpp}`, `Application.{h,cpp}`, `Vk_Core.{h,cpp}`, `Vk_SceneHost.{h,cpp}`, `Vk_SwapchainHost.cpp`, `VulkanDesktop.vcxproj` (+ filters)
 - **Landing:** Application owns `WorldState`; `BindWorldState` + `HasLoadedScene()` on core; scene CPU moved off `Vk_Core`; `Vk_SceneHost::LoadCpuState(WorldState&, Vk_Core&)`; getters removed; `Vk_Core.h` drops `Gfx_Lod` / `Gfx_SceneTransform` / `Gfx_SceneDesc` includes (forward declare `Gfx_SceneDesc` only)
 - **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1` exit 0; log `[SCENE] LoadSceneResources completed`, `[APP] Engine exited run loop normally`
-- **Next:** Phase 2 — `DebugUIState`, `PrepareFrameCpu` / `DrawFrameGpu`, panels out of `DrawFrame`
+---
+
+## 2026-06-02 — Phase 2 (Debug UI peel) ✓ local, not pushed
+
+- **Files:** `App/DebugUIState.h`, `App/DebugOverlay.{h,cpp}`, `RenderCore/Vk_FrameCpuPrepResult.h`, `Vk_Core.*`, `Vk_ScenePasses.cpp`, `Application.*`
+- **Landing:** `PrepareFrameCpu` + App panels + `DrawFrameGpu`; scene reload via `Application::TakePendingSceneReloadPath`; `Vk_Core` no `ImGui::Begin` / no pre-record `Util*Panel::Build` (lighting panel still after `RecordScene`)
+- **Verification:** `Verify-CI.ps1` + `Verify-Smoke.ps1` exit 0
+- **Next:** Phase 3 — `BuildActiveRenderViews` helper; Phase 4 — `Vk_*Context` / friend removal

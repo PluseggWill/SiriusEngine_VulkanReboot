@@ -1,5 +1,6 @@
 #include "Vk_ScenePasses.h"
 
+#include "../App/DebugUIState.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
@@ -120,12 +121,12 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
                                      &aCore.myBindlessDescriptorSet, 0, nullptr );
             aCore.myFrameStats.myMaterialSetBinds++;
             if ( usePacketPath ) {
-                if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
+                if ( !aCore.DebugUI().myRenderDebug.mySkipOpaquePass ) {
                     aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
                     RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, aCore.myBasicPipelineBindless, "Opaque" );
                     aCore.CmdEndDebugLabel( aCommandBuffer );
                 }
-                if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
+                if ( !aCore.DebugUI().myRenderDebug.mySkipTransparentPass ) {
                     aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
                     RecordDrawBatchesBindlessFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, aCore.myTransparentPipelineBindless, "Transparent" );
                     aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -137,12 +138,12 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, VkCommandBuffer aCommandBuffer
             }
         }
         else if ( usePacketPath ) {
-            if ( !aCore.myRenderDebugState.mySkipOpaquePass ) {
+            if ( !aCore.DebugUI().myRenderDebug.mySkipOpaquePass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
                 RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
-            if ( !aCore.myRenderDebugState.mySkipTransparentPass ) {
+            if ( !aCore.DebugUI().myRenderDebug.mySkipTransparentPass ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
                 RecordDrawBatchesFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent" );
                 aCore.CmdEndDebugLabel( aCommandBuffer );

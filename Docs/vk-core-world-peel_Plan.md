@@ -256,3 +256,4 @@ Move `VkShaderEffectMeta::RunLitBatchLayoutMismatchValidationTest` to **GfxTests
 - [x] Phase 0 baseline logged
 - [ ] Land config instance (`config-platform-hardening`) before further App wiring
 - [x] Phase 1 — WorldState + Application ownership (PR 1A+1B landed in tree)
+- [x] Phase 2 — DebugUIState, PrepareFrameCpu / DrawFrameGpu (local)

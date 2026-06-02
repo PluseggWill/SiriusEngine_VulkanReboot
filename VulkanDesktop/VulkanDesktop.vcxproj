@@ -187,6 +187,7 @@
     <ClCompile Include="..\lib\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="App\Application.cpp" />
+    <ClCompile Include="App\DebugOverlay.cpp" />
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="App\WorldState.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
@@ -242,6 +243,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App\Application.h" />
+    <ClInclude Include="App\DebugUIState.h" />
+    <ClInclude Include="App\DebugOverlay.h" />
     <ClInclude Include="App\WorldState.h" />
     <ClInclude Include="App\InputSystem.h" />
     <ClInclude Include="Util\Util_CameraPanel.h" />
@@ -278,6 +281,7 @@
     <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
     <ClInclude Include="RenderCore\Vk_Core.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
+    <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h" />
     <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h" />
     <ClInclude Include="RenderCore\Vk_ResourceContext.h" />
     <ClInclude Include="RenderCore\Vk_ResourceTables.h" />

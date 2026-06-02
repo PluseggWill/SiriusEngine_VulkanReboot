@@ -8,13 +8,12 @@
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_ImGuiLayer.h"
 #include "../Util/Util_InputSnapshot.h"
-#include "../Util/Util_RenderDebugPanel.h"
-#include "../Util/Util_ScenePanel.h"
 #include "Vk_Bindless.h"
 #include "Vk_Camera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_Enum.h"
 #include "Vk_FrameData.h"
+#include "Vk_FrameCpuPrepResult.h"
 #include "Vk_FrameDrawPrep.h"
 #include "Vk_RenderDoc.h"
 #include "Vk_ResourceContext.h"
@@ -33,6 +32,7 @@ class Gfx_Mesh;
 class Gfx_RenderObject;
 struct GLFWwindow;
 struct WorldState;
+struct DebugUIState;
 struct Gfx_SceneDesc;
 
 class Vk_Core;
@@ -57,11 +57,6 @@ class Vk_Core {
     friend class Vk_PlatformFrame;
 
 public:
-    struct MultiViewState {
-        bool     myEnablePiP            = true;
-        uint32_t mySecondaryCameraIndex = 0;
-    };
-
     struct ActiveRenderView {
         Gfx_RenderView myView;
         Vk_Camera      myCamera;
@@ -75,6 +70,8 @@ public:
 
     // Application-owned scene CPU (non-owning); required before LoadSceneResources / main loop.
     void BindWorldState( WorldState* aWorld );
+    // Application-owned ImGui / debug toggles (non-owning); required before LoadSceneResources / main loop.
+    void BindDebugUI( DebugUIState* aDebugUI );
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
     void SetVsync( bool aVsync );
@@ -88,7 +85,6 @@ public:
 
     const std::string& GetLoadedSceneLogicalPath() const;
     bool               HasLoadedScene() const;
-    std::string TakePendingSceneReloadPath();
 
     // Scene-scoped GPU teardown queue (meshes, textures, descriptor pool, material buffers). Flushed in UnloadScene.
     Vk_DeletionQueue& GetSceneDeletionQueue() {
@@ -98,7 +94,13 @@ public:
     void        BeginPlatformFrame( float& aOutDeltaSeconds );
     void        ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
     void        SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
-    void        Render();
+    // Frame path (P1 peel phase 2): prep → Application ImGui Build → GPU record/present.
+    bool PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aOut );
+    void DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep );
+
+    GpuEnvironmentData& GetEnvironmentData() {
+        return myEnvironmentData;
+    }
     void        ConfigureRenderDoc( bool aEnableRenderDoc );
     void        TriggerRenderDocCapture();
     bool        IsRenderDocEnabled() const;
@@ -151,14 +153,14 @@ private:
     void InitImGui();
     void ShutdownImGui();
 
-    void   DrawFrame( const Vk_FrameData aFrameData );
     WorldState& World() const;
+    DebugUIState& DebugUI() const;
     void   RefreshMaterialPipelinesAfterSwapchainRecreate();
     void   LogM1PerfSnapshot() const;
     size_t InstanceSlabStride() const;
     // vkCmdSetViewport/Scissor/LineWidth for scene pipelines; call once per scene render pass after BeginRenderPass.
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const;
-    std::array< ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount ) const;
+    std::array< ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI ) const;  // aWorld read-only for PiP cameras
 
     // Helper functions:
     void                       CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -188,9 +190,8 @@ public:
     VmaAllocator    myAllocator;
 
 #pragma region View Data Functions
-    Vk_Camera           myCamera;
-    Util_CameraSettings myCameraSettings;
-    GpuEnvironmentData  myEnvironmentData;
+    Vk_Camera          myCamera;
+    GpuEnvironmentData myEnvironmentData;
     Vk_AllocatedBuffer  myEnvDataBuffer;
 
     Vk_ResourceContext              myResourceContext;
@@ -201,15 +202,13 @@ public:
     bool                            myBindlessLoggedOnce     = false;
     bool                            myM1PerfLoggedOnce       = false;
     Vk_BindlessCapabilities         myBindlessCaps{};
-    Vk_RenderMaterialPath           myMaterialPath = Vk_RenderMaterialPath::Batch;
-    UtilScenePanel::State           myScenePanelState;
-    MultiViewState                  myMultiViewState;
-    UtilRenderDebugPanel::State     myRenderDebugState;  // skip opaque/transparent + debug view (epic §B)
-    std::vector< VkDescriptorSet >  myMaterialDescriptorSets;
+    Vk_RenderMaterialPath          myMaterialPath = Vk_RenderMaterialPath::Batch;
+    std::vector< VkDescriptorSet > myMaterialDescriptorSets;
 #pragma endregion
 
 private:
-    WorldState*                       myWorld = nullptr;
+    WorldState*   myWorld    = nullptr;
+    DebugUIState* myDebugUI  = nullptr;
     Vk_DeletionQueue                  myDeletionQueue;
     Vk_DeletionQueue                  mySceneDeletionQueue;
     Vk_DeletionQueue                  mySwapChainDeletionQueue;

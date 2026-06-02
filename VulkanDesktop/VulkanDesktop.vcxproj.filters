@@ -40,6 +40,9 @@
     <ClCompile Include="App\WorldState.cpp">
       <Filter>App</Filter>
     </ClCompile>
+    <ClCompile Include="App\DebugOverlay.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -258,6 +261,12 @@
     <ClInclude Include="App\WorldState.h">
       <Filter>App</Filter>
     </ClInclude>
+    <ClInclude Include="App\DebugUIState.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\DebugOverlay.h">
+      <Filter>App</Filter>
+    </ClInclude>
     <ClInclude Include="App\InputSystem.h">
       <Filter>App</Filter>
     </ClInclude>
@@ -358,6 +367,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h">

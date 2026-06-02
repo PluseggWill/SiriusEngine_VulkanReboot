@@ -1,6 +1,7 @@
 // Module: Vk_Core — Vulkan device/swapchain, frame orchestration (acquire → prep → record → present).
 // Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
+#include "../App/DebugUIState.h"
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
@@ -76,6 +77,10 @@ void Vk_Core::BindWorldState( WorldState* aWorld ) {
     myWorld = aWorld;
 }
 
+void Vk_Core::BindDebugUI( DebugUIState* aDebugUI ) {
+    myDebugUI = aDebugUI;
+}
+
 WorldState& Vk_Core::World() const {
     if ( myWorld == nullptr ) {
         throw std::runtime_error( "Vk_Core: WorldState not bound (call BindWorldState from Application)" );
@@ -89,6 +94,13 @@ const std::string& Vk_Core::GetLoadedSceneLogicalPath() const {
 
 bool Vk_Core::HasLoadedScene() const {
     return World().myHasLoadedScene;
+}
+
+DebugUIState& Vk_Core::DebugUI() const {
+    if ( myDebugUI == nullptr ) {
+        throw std::runtime_error( "Vk_Core: DebugUIState not bound (call BindDebugUI from Application)" );
+    }
+    return *myDebugUI;
 }
 
 void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
@@ -106,13 +118,6 @@ void Vk_Core::Reset() {
 
 bool Vk_Core::ShouldClose() const {
     return myWindow != nullptr && glfwWindowShouldClose( myWindow );
-}
-
-void Vk_Core::Render() {
-    // Uses myCurrentFrame slot (frame-in-flight ring); increment/rotate after submission.
-    DrawFrame( myFrameDatas[ myCurrentFrame ] );
-    myFrameNumber++;
-    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Vk_Core::ConfigureRenderDoc( bool aEnableRenderDoc ) {
@@ -198,8 +203,8 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     World().myLogicalPath    = std::move( aLogicalScenePath );
     World().myHasLoadedScene = true;
 
-    myScenePanelState.myCurrentScenePath = World().myLogicalPath;
-    UtilScenePanel::RefreshSceneList( myScenePanelState );
+    DebugUI().myScenePanel.myCurrentScenePath = World().myLogicalPath;
+    UtilScenePanel::RefreshSceneList( DebugUI().myScenePanel );
 
     ( void )Gfx_GetSceneShader( World().myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
@@ -259,23 +264,13 @@ void Vk_Core::UnloadScene() {
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
     World().ClearCpuSceneState();
-    myScenePanelState.myCurrentScenePath.clear();
+    DebugUI().myScenePanel.myCurrentScenePath.clear();
 
     myMaterialBindLoggedOnce = false;
     myBindlessLoggedOnce     = false;
     myM1PerfLoggedOnce       = false;
 
     UtilLogger::Info( "SCENE", "UnloadScene: GPU scene resources released." );
-}
-
-std::string Vk_Core::TakePendingSceneReloadPath() {
-    if ( !myScenePanelState.myReloadRequested ) {
-        return {};
-    }
-    std::string path                    = std::move( myScenePanelState.myReloadTargetPath );
-    myScenePanelState.myReloadRequested = false;
-    myScenePanelState.myReloadTargetPath.clear();
-    return path;
 }
 
 void Vk_Core::InitImGui() {
@@ -597,7 +592,7 @@ VkRect2D ToScissor( const VkExtent2D& aExtent, const VkViewport& aViewport ) {
 
 }  // namespace
 
-std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActiveRenderViews( uint32_t& aOutViewCount ) const {
+std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI ) const {
     std::array< ActiveRenderView, kGfxMaxRenderViews > views{};
     aOutViewCount = 1;
 
@@ -608,10 +603,10 @@ std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActive
     views[ 0 ].myViewport            = ToViewport( mySwapChainExtent, views[ 0 ].myView.myViewport );
     views[ 0 ].myScissor             = ToScissor( mySwapChainExtent, views[ 0 ].myViewport );
 
-    if ( myMultiViewState.myEnablePiP && !World().myLoadedScene.myCameras.empty() ) {
+    if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
         aOutViewCount = 2;
-        const uint32_t cameraIndex = std::min( myMultiViewState.mySecondaryCameraIndex, static_cast< uint32_t >( World().myLoadedScene.myCameras.size() - 1 ) );
-        const Gfx_SceneCameraEntry& sceneCamera = World().myLoadedScene.myCameras[ cameraIndex ];
+        const uint32_t cameraIndex = std::min( aDebugUI.myMultiView.mySecondaryCameraIndex, static_cast< uint32_t >( aWorld.myLoadedScene.myCameras.size() - 1 ) );
+        const Gfx_SceneCameraEntry& sceneCamera = aWorld.myLoadedScene.myCameras[ cameraIndex ];
         const glm::vec4 viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
 
         views[ 1 ].myView.myCameraSource   = Gfx_RenderViewCameraSource::SceneCamera;
@@ -629,81 +624,73 @@ std::array< Vk_Core::ActiveRenderView, kGfxMaxRenderViews > Vk_Core::BuildActive
     return views;
 }
 
-void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
+bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aOut ) {
+    aOut = Vk_FrameCpuPrepResult{};
+
     myRenderDoc.BeginFrameCaptureIfRequested();
 
-    // --- Sync: wait for this frame slot, acquire swapchain image ---
-    const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
-    vkWaitForFences( myDevice, 1, &aFrameData.myRenderFence, VK_TRUE, UINT64_MAX );
-    const float gpuFenceWaitMs = ElapsedMs( fenceWaitStart, std::chrono::high_resolution_clock::now() );
+    Vk_FrameData& frameData = myFrameDatas[ myCurrentFrame ];
+    aOut.myFrameData        = &frameData;
 
-    uint32_t imageIndex = 0;
-    if ( !Vk_SwapchainHost::AcquireNextImage( *this, aFrameData, imageIndex ) ) {
-        return;
+    const auto fenceWaitStart = std::chrono::high_resolution_clock::now();
+    vkWaitForFences( myDevice, 1, &frameData.myRenderFence, VK_TRUE, UINT64_MAX );
+    aOut.myGpuFenceWaitMs = ElapsedMs( fenceWaitStart, std::chrono::high_resolution_clock::now() );
+
+    if ( !Vk_SwapchainHost::AcquireNextImage( *this, frameData, aOut.myImageIndex ) ) {
+        return false;
     }
 
-    // --- CPU prep: build active views + per-view extract/cull/sort + instance slab ---
     myFrameStats.ResetPerFrameCounters();
 
-    uint32_t activeViewCount = 0;
-    const auto activeViews   = BuildActiveRenderViews( activeViewCount );
+    const auto activeViews = BuildActiveRenderViews( aOut.myActiveViewCount, aWorld, aDebugUI );
 
-    std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews > viewPackets{};
-    std::array< VkViewport, kGfxMaxRenderViews >            viewports{};
-    std::array< VkRect2D, kGfxMaxRenderViews >              scissors{};
-    std::array< VkDescriptorSet, kGfxMaxRenderViews >       frameDescriptors{};
     uint32_t totalOpaqueDraws = 0;
     uint32_t totalTransDraws  = 0;
     uint32_t totalOpaqueRuns  = 0;
     uint32_t totalTransRuns   = 0;
-    // Keep full slab capacity for single-view mode; split only when PiP is active.
-    const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
+    const uint32_t slabPartitionCount = std::max( 1u, aOut.myActiveViewCount );
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
 
-    for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
-        // Keep LOD hysteresis stable in the gameplay/fly view. If we update the shared
-        // state with PiP camera distance every frame, some entities can oscillate and flicker.
+    for ( uint32_t viewIndex = 0; viewIndex < aOut.myActiveViewCount; ++viewIndex ) {
         Gfx_LodState  secondaryViewLodState;
-        Gfx_LodState* lodStateForView = &World().myLodState;
+        Gfx_LodState* lodStateForView = &aWorld.myLodState;
         if ( viewIndex > 0 ) {
-            secondaryViewLodState = World().myLodState;
+            secondaryViewLodState = aWorld.myLodState;
             lodStateForView       = &secondaryViewLodState;
         }
 
         Vk_FrameDrawPrepBuildParams prepParams{};
-        prepParams.myScene                 = &World().mySceneSoA;
-        prepParams.myCamera                = &activeViews[ viewIndex ].myCamera;
-        prepParams.myLodTable              = &World().myLodTable;
-        prepParams.myLodState              = lodStateForView;
-        prepParams.myLodDebugLogicalMeshId = World().myLodDebugLogicalMeshId;
-        prepParams.myCurrentFrame          = myCurrentFrame;
-        prepParams.myFrameDatas            = &myFrameDatas;
-        prepParams.myInstanceSlabStride    = InstanceSlabStride();
+        prepParams.myScene                  = &aWorld.mySceneSoA;
+        prepParams.myCamera                 = &activeViews[ viewIndex ].myCamera;
+        prepParams.myLodTable               = &aWorld.myLodTable;
+        prepParams.myLodState               = lodStateForView;
+        prepParams.myLodDebugLogicalMeshId  = aWorld.myLodDebugLogicalMeshId;
+        prepParams.myCurrentFrame           = myCurrentFrame;
+        prepParams.myFrameDatas             = &myFrameDatas;
+        prepParams.myInstanceSlabStride     = InstanceSlabStride();
         prepParams.myInstanceSlabBaseOffset = static_cast< size_t >( viewIndex ) * static_cast< size_t >( perViewMaxEntries ) * InstanceSlabStride();
         prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
 
         myDrawPrep.ClearFrameOutputs();
         myDrawPrep.Build( prepParams );
-        viewPackets[ viewIndex ] = myDrawPrep.myFramePacket;
-        viewports[ viewIndex ]   = activeViews[ viewIndex ].myViewport;
-        scissors[ viewIndex ]    = activeViews[ viewIndex ].myScissor;
-        frameDescriptors[ viewIndex ] = myFrameDatas[ myCurrentFrame ].myGlobalDescriptors[ viewIndex ];
+        aOut.myViewPackets[ viewIndex ]      = myDrawPrep.myFramePacket;
+        aOut.myViewports[ viewIndex ]        = activeViews[ viewIndex ].myViewport;
+        aOut.myScissors[ viewIndex ]         = activeViews[ viewIndex ].myScissor;
+        aOut.myFrameDescriptors[ viewIndex ] = myFrameDatas[ myCurrentFrame ].myGlobalDescriptors[ viewIndex ];
         totalOpaqueDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myDraws.size() );
         totalTransDraws += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() );
         totalOpaqueRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() );
         totalTransRuns += static_cast< uint32_t >( myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
         Vk_FrameUniformUploader::UpdateForView( *this, myCurrentFrame, viewIndex, activeViews[ viewIndex ].myCamera );
     }
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( World().mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
+
+    aOut.myTotalOpaqueDraws      = totalOpaqueDraws;
+    aOut.myTotalTransparentDraws = totalTransDraws;
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( aWorld.mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
-    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, activeViewCount,
+    UtilPerfLog::AppendFrame( static_cast< uint64_t >( myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf, aOut.myActiveViewCount,
                               Vk_RenderMaterialPathName( myMaterialPath ) );
-
-    // Forward debug: panel after prep (draw counts) and before env UBO upload so debug view + skip apply this frame.
-    // Lighting panel still runs after RecordScene (tuning applies next frame).
-    UtilRenderDebugPanel::Build( myRenderDebugState, myEnvironmentData, totalOpaqueDraws, totalTransDraws );
-    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
 
     if ( !myMaterialBindLoggedOnce ) {
         if ( myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
@@ -722,69 +709,57 @@ void Vk_Core::DrawFrame( const Vk_FrameData aFrameData ) {
         myBindlessLoggedOnce = true;
     }
 
-    // --- GPU record: scene pass + ImGui overlay ---
-    vkResetFences( myDevice, 1, &aFrameData.myRenderFence );
-    vkResetCommandBuffer( aFrameData.myCommandBuffer, 0 );
+    aOut.myOk = true;
+    return true;
+}
+
+void Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep ) {
+    ( void )aDebugUI;
+    if ( !aPrep.myOk || aPrep.myFrameData == nullptr ) {
+        return;
+    }
+
+    Vk_FrameData& frameData = *aPrep.myFrameData;
+
+    // Env UBO upload after Application built debug panels (RenderDebug must precede this).
+    Vk_FrameUniformUploader::Update( *this, myCurrentFrame );
+
+    vkResetFences( myDevice, 1, &frameData.myRenderFence );
+    vkResetCommandBuffer( frameData.myCommandBuffer, 0 );
 
     const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( 0 );
-    if ( vkBeginCommandBuffer( aFrameData.myCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
+    if ( vkBeginCommandBuffer( frameData.myCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    Vk_ScenePasses::RecordScene( *this, aFrameData.myCommandBuffer, imageIndex, viewports, scissors, frameDescriptors, activeViewCount, viewPackets );
+    Vk_ScenePasses::RecordScene( *this, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors, aPrep.myActiveViewCount,
+                                 aPrep.myViewPackets );
 
+    // Lighting tuning applies next frame (unchanged contract).
     UtilLightingPanel::Build( myEnvironmentData );
-    UtilCameraPanel::Build( myCameraSettings );
-    UtilScenePanel::Build( myScenePanelState );
-    if ( ImGui::Begin( "Multi-view", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) {
-        ImGui::Checkbox( "Enable PiP", &myMultiViewState.myEnablePiP );
-        const bool hasSceneCameras = !World().myLoadedScene.myCameras.empty();
-        if ( !hasSceneCameras ) {
-            ImGui::TextUnformatted( "No scene cameras in scene JSON." );
-        }
-        else {
-            if ( myMultiViewState.mySecondaryCameraIndex >= World().myLoadedScene.myCameras.size() ) {
-                myMultiViewState.mySecondaryCameraIndex = 0;
-            }
-            const Gfx_SceneCameraEntry& selected = World().myLoadedScene.myCameras[ myMultiViewState.mySecondaryCameraIndex ];
-            if ( ImGui::BeginCombo( "Secondary camera", selected.myId.c_str() ) ) {
-                for ( uint32_t i = 0; i < static_cast< uint32_t >( World().myLoadedScene.myCameras.size() ); ++i ) {
-                    const bool isSelected = i == myMultiViewState.mySecondaryCameraIndex;
-                    if ( ImGui::Selectable( World().myLoadedScene.myCameras[ i ].myId.c_str(), isSelected ) ) {
-                        myMultiViewState.mySecondaryCameraIndex = i;
-                    }
-                    if ( isSelected ) {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-        }
-        ImGui::Text( "Active views: %u", activeViewCount );
-    }
-    ImGui::End();
-    UtilStatsOverlay::Build( myFrameStats );
-    ImGui::Render();
-    Vk_ScenePasses::RecordImGui( *this, aFrameData.myCommandBuffer, imageIndex );
 
-    if ( vkEndCommandBuffer( aFrameData.myCommandBuffer ) != VK_SUCCESS ) {
+    ImGui::Render();
+    Vk_ScenePasses::RecordImGui( *this, frameData.myCommandBuffer, aPrep.myImageIndex );
+
+    if ( vkEndCommandBuffer( frameData.myCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
     }
 
-    // --- Submit + present ---
-    Vk_SwapchainHost::SubmitAndPresent( *this, aFrameData, imageIndex );
+    Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex );
 
     if ( myHasFrameInputSampleTime ) {
         const float inputToPresentMs = ElapsedMs( myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
-        myFrameStats.RecordInputLatency( inputToPresentMs, gpuFenceWaitMs, myVsync, myFrameStats.myFrameMs );
+        myFrameStats.RecordInputLatency( inputToPresentMs, aPrep.myGpuFenceWaitMs, myVsync, myFrameStats.myFrameMs );
         myHasFrameInputSampleTime = false;
     }
 
-    // Main loop increments myFrameNumber after DrawFrame; this triggers once when frame #60 completes.
     if ( !myM1PerfLoggedOnce && myFrameNumber >= 59 ) {
         LogM1PerfSnapshot();
         myM1PerfLoggedOnce = true;
     }
+
+    myFrameNumber++;
+    myCurrentFrame = myFrameNumber % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Vk_Core::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
@@ -1419,7 +1394,7 @@ void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
 }
 
 void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput ) {
-    myCamera.ApplyInput( aDeltaSeconds, aInput, myCameraSettings );
+    myCamera.ApplyInput( aDeltaSeconds, aInput, DebugUI().myCameraSettings );
 }
 
 void Vk_Core::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {
