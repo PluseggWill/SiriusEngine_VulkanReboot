@@ -53,7 +53,7 @@ flowchart LR
 
 ### A. Render graph and pass topology
 
-**Deps:** Stage 1 forward baseline handoff (`forward-rendering-epic_Plan.md`), S2 permutation/cache groundwork.
+**Deps:** Stage 1 handoff ([`forward-stage1.md`](forward-stage1.md) §2, [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) — closed 2026-06-02), S2 permutation/cache groundwork.
 
 - [ ] Promote frame graph implementation to required infra for hybrid path.
 - [ ] Add explicit pass chain: `GBufferOpaque -> ClusterBuild -> DeferredLighting -> TransparentForward -> Post`.

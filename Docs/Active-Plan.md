@@ -261,7 +261,7 @@ flowchart TB
 *Parallel with late S1 / early S3. Old §2 core runtime + §7 structure.*
 **Validation plan:** [`SprintOutcomeValidation.md` (see S2 validation section)](./SprintOutcomeValidation.md)
 
-**Next recommended vibe task:** Stage 1 epic B–C (forward pass hardening) or **flat world matrices**. Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
+**Next recommended vibe task:** Stage 2 hybrid deferred epic or **flat world matrices** / **multi-view** (Stage 1 forward epic closed 2026-06-02). Completed S2 task logs: [`Archived/plans/`](Archived/plans/) (see [`README.md`](README.md) → Active now).
 
 ### `Vk_Core` decomposition — phase 2 (RHI modules)
 
@@ -294,7 +294,6 @@ flowchart TB
 
 ### Shader systems — *deps: S0 SPIR-V, M1 layout; unblocks S7 permutations*
 
-- [ ] Stage 1 gate (epic §C): migration validation (golden, handoff checklist) from [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) — §A/B done (`forward-stage1-contracts`, `forward-pass-hardening`).
 
 ---
 

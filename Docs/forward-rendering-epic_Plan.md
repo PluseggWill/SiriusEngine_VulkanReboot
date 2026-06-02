@@ -1,7 +1,7 @@
 # Epic Plan: forward-rendering
 
-**Status:** Planned  
-**Scope:** Stage 1 of lighting evolution  
+**Status:** Stage 1 complete (2026-06-02); Stage 2+ planned  
+**Scope:** Stage 1 of lighting evolution (closed); Stages 2–3 open  
 **Related:** [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md)
 
 ## Naming conventions
@@ -69,15 +69,15 @@ flowchart LR
 
 **Deps:** A and B complete; benchmark/preset infra from `Active-Plan.md` S7 can be reused for parity captures.
 
-- [ ] Capture golden screenshots and perf baseline in one benchmark scene.
-- [ ] Add acceptance checklist for deferred migration handoff.
-- [ ] Document known gaps that are intentionally deferred to Stage 2.
+- [x] Capture golden screenshots and perf baseline in one benchmark scene — 2026-06-02 `forward-stage1-validation`; [`forward-stage1.md`](forward-stage1.md) §1, [`Assets/golden/forward-stage1/`](Assets/golden/forward-stage1/).
+- [x] Add acceptance checklist for deferred migration handoff — [`forward-stage1.md`](forward-stage1.md) §2.
+- [x] Document known gaps that are intentionally deferred to Stage 2 — [`forward-stage1.md`](forward-stage1.md) §3.
 
 ## Acceptance
 
-- [ ] Default scene renders correctly with forward opaque + transparent policy.
-- [ ] Material and permutation contracts are documented and reused by Stage 2 plan.
-- [ ] `ForwardLit` baseline can be selected for A/B comparison after deferred path lands.
+- [x] Default scene renders correctly with forward opaque + transparent policy — `demo.json` + baseline runbook (2026-06-02).
+- [x] Material and permutation contracts are documented and reused by Stage 2 plan — Architecture §5.10, handoff checklist, `hybrid-deferred-epic` deps.
+- [x] `ForwardLit` baseline can be selected for A/B comparison after deferred path lands — `Config/engine.benchmark.json`, `--render-preset ForwardLit`.
 
 ## Exit criteria for Stage 2
 

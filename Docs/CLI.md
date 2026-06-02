@@ -71,8 +71,16 @@
 | `enableValidationLayers` | bool | 是否启用 Vulkan validation；可被 CLI 覆盖。 |
 | `features.demoRotate` | bool | 与 `--demo-rotate` / `--no-demo-rotate` 对应。 |
 | `features.runtimeMipmap` | bool | 运行时生成 mipmap（纹理加载路径）；默认 `false`。 |
+| `renderPreset` | string | Stage 1：`ForwardLit`、`ForwardLitAlphaClip`（映射 permutation registry）；CLI `--render-preset` 可覆盖。 |
+| `shaderPermutation` | string | 可选；显式 registry 名（如 `lit`）时优先于 `renderPreset`。 |
 
 示例见仓库 [`Config/engine.json`](../Config/engine.json)。
+
+**基准捕获配置（Stage 1 golden / perf）：** [`Config/engine.benchmark.json`](../Config/engine.benchmark.json) — 见 [`forward-stage1.md`](forward-stage1.md) §1。
+
+```powershell
+.\VulkanDesktop.exe --asset-root <repo> --config <repo>\Config\engine.benchmark.json --no-validation
+```
 
 ---
 

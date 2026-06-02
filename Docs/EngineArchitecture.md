@@ -351,7 +351,7 @@ Lighting roadmap is staged to reduce risk while keeping GPU-driven geometry work
 
 **Stage 1 material contract (2026-06-01):** `GpuMaterialParams` (Set 1 UBO, std140) and `GpuMaterialTableEntry` (bindless SSBO, std430) carry `baseColorFactor`, `roughness`, `metallic`, `alpha`, `alphaMode` (0=opaque, 1=mask, 2=blend). Lit shaders upload all fields; `alphaMode==mask` discards fragments with alpha &lt; 0.5; global `ForwardLitAlphaClip` permutation still applies `ALPHA_CLIP` to all draws. Shading remains Blinn-Phong until a `PBR` permutation lands; `roughness`/`metallic` are not consumed in lit frags yet. Scene JSON optional fields mirror the struct. `Config/engine.json` `renderPreset` (`ForwardLit` → permutation `lit`) resolves before `shaderPermutation` when the latter is unset; CLI `--render-preset` / `--shader-permutation` follow the same priority as config.
 
-**Stage 1 gaps (post pass-hardening):** golden screenshots, perf baseline, and deferred migration checklist → epic §C task `forward-stage1-validation`. `HybridDeferred` preset, GBuffer, clustered deferred, and `Gfx_ShaderFeature_Pbr` shading → Stage 2. Runtime render-preset hot-reload not required for parity (restart / CLI).
+**Stage 1 gate (2026-06-02):** [`forward-stage1.md`](forward-stage1.md) (baseline, handoff, gaps). Remaining lighting work is Stage 2+ (`HybridDeferred`, GBuffer, PBR perm).
 
 #### 5.10.1 Lighting dependency graph
 
@@ -551,4 +551,4 @@ Today, **`VulkanDesktop`** still routes through **`Vk_Core`** for windowing and 
 
 ---
 
-*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 forward pass hardening; 2026-06-02).*
+*Last aligned with `Docs/Active-Plan.md` / `Archived-Plan.md` (Stage 1 forward epic closed; 2026-06-02).*

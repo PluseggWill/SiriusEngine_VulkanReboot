@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md) § S2)* |
-| **Recommended next** | `forward-stage1-validation` (Stage 1 epic §C) or `multi-view` |
+| **Task** | *(none — pick next from [`Active-Plan.md`](Active-Plan.md))* |
+| **Recommended next** | Stage 2 `hybrid-deferred-epic` or S2 `multi-view` / flat world matrices |
 | **Plan / Progress** | Create `Docs/{TaskName}_Plan.md` + `_Progress.md` when starting |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
@@ -27,7 +27,8 @@
 
 | File | Purpose |
 |------|---------|
-| [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 — forward baseline |
+| [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) | Stage 1 — forward baseline (closed) |
+| [`forward-stage1.md`](forward-stage1.md) | Stage 1 golden/perf, handoff, gaps (canonical) |
 | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | Stage 2 — hybrid deferred + PBR |
 | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | Stage 3 — optional DDGI |
 

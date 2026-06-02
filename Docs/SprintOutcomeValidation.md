@@ -27,6 +27,13 @@ Validation runbook for sprint close-out. Use with [`Active-Plan.md`](Active-Plan
 - Transparent-over-opaque correctness is visually verified.
 - Instance slab and descriptor set policies (Set 0/1/2) behave as documented.
 
+<a id="validation-stage1-forward"></a>
+## Stage 1 forward gate (lighting epic)
+
+- [`forward-stage1.md`](forward-stage1.md) §1 runbook + golden under `Docs/Assets/golden/forward-stage1/`; `[PERF]` row in §1.
+- [`forward-stage1.md`](forward-stage1.md) §2 handoff reviewed and §3 gaps accepted before Stage 2.
+- Smoke with `Config/engine.benchmark.json`: exit 0, `renderPreset=ForwardLit`.
+
 <a id="validation-s2"></a>
 ## S2 validation
 
