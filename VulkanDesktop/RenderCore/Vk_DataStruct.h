@@ -47,4 +47,11 @@ struct Vk_DeletionQueue {
 
         myDeletors.clear();
     }
+
+    // Drop the oldest deferred deletor without running it (swapchain recreate keeps WSI handle for oldSwapchain).
+    void popFront() {
+        if ( !myDeletors.empty() ) {
+            myDeletors.pop_front();
+        }
+    }
 };

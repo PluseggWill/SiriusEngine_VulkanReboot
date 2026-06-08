@@ -43,7 +43,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless dogfood vs defer |
 | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
 
-Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`).
+Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`, `swapchain-recreation`).
 
 ---
 

@@ -12,6 +12,19 @@
 
 namespace {
 
+VkResult TryAcquireOnce( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex ) {
+    return vkAcquireNextImageKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &anOutImageIndex );
+}
+
+void DestroySwapchainImageViews( Vk_Core& aCore ) {
+    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    for ( const VkImageView imageView : aCore.mySwapchainCtx.mySwapChainImageViews ) {
+        vkDestroyImageView( device, imageView, nullptr );
+    }
+    aCore.mySwapchainCtx.mySwapChainImageViews.clear();
+    aCore.mySwapchainCtx.mySwapChainImages.clear();
+}
+
 // Maps queue results for per-frame submit/present/acquire; OUT_OF_DATE is handled by callers via Recreate.
 Vk_FrameResult ClassifyQueueResult( VkResult aResult, const char* aOperation ) {
     if ( aResult == VK_SUCCESS ) {
@@ -45,14 +58,21 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
         glfwWaitEvents();
     }
 
+    // Keep superseded WSI handle for createInfo.oldSwapchain (ImGui/Khronos handoff); views destroyed before flush.
+    const VkSwapchainKHR supersededSwapChain = aCore.mySwapchainCtx.mySwapChain;
+
     vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
     aCore.myPlatformCtx.myImGuiLayer.DestroySwapchainResources();
     if ( aCore.HasLoadedScene() ) {
         Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
     }
+
+    DestroySwapchainImageViews( aCore );
+    // First deletor is swapchain generation; skip so supersededSwapChain survives until new chain is created.
+    aCore.mySwapchainCtx.mySwapChainDeletionQueue.popFront();
     aCore.mySwapchainCtx.mySwapChainDeletionQueue.flush();
 
-    CreateSwapChain( aCore );
+    CreateSwapChain( aCore, supersededSwapChain );
     CreateRenderPass( aCore );
     if ( aCore.HasLoadedScene() ) {
         Vk_GfxPipelineCache::InitScenePipelines( aCore );
@@ -70,17 +90,24 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
 }
 
 bool Vk_SwapchainHost::AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex ) {
-    static bool    sAcquirePathLogged = false;
-    const VkResult result = vkAcquireNextImageKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &anOutImageIndex );
-    if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
-        UtilLogger::Warn( "SWAPCHAIN", "Acquire image returned OUT_OF_DATE. Recreating swapchain." );
+    static bool sAcquirePathLogged = false;
+
+    // CONTRACT: caller already vkWaitForFences; do not vkResetFences here — early return leaves fence signaled.
+    VkResult result = TryAcquireOnce( aCore, aFrameData, anOutImageIndex );
+    if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ) {
+        UtilLogger::Warn( "SWAPCHAIN", "Acquire outdated/suboptimal; recreating and retrying acquire." );
         Recreate( aCore );
+        result = TryAcquireOnce( aCore, aFrameData, anOutImageIndex );
+    }
+
+    if ( result == VK_ERROR_OUT_OF_DATE_KHR ) {
         return false;
     }
     if ( result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR ) {
         ( void )ClassifyQueueResult( result, "vkAcquireNextImageKHR" );
         return false;
     }
+
     if ( !sAcquirePathLogged ) {
         UtilLogger::Info( "SWAPCHAIN", "Acquire path delegated to Vk_SwapchainHost." );
         sAcquirePathLogged = true;
@@ -122,6 +149,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_Fram
     presentInfo.pResults        = nullptr;
 
     const VkResult result = vkQueuePresentKHR( aCore.myDeviceCtx.myPresentQueue, &presentInfo );
+    // Resize flag checked after present (tutorial): keeps image-acquired semaphore pairing consistent.
     if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || aCore.mySwapchainCtx.myFramebufferResized ) {
         aCore.mySwapchainCtx.myFramebufferResized = false;
         UtilLogger::Warn( "SWAPCHAIN", "Present reported outdated/suboptimal framebuffer. Recreating swapchain." );
@@ -138,7 +166,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_Fram
     return Vk_FrameResult::Ok;
 }
 
-void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore ) {
+void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersededSwapChain ) {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
     const Vk_SwapChainSupportDetails swapChainSupport = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
     const VkSurfaceFormatKHR         surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
@@ -171,8 +199,13 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore ) {
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     createInfo.presentMode    = presentMode;
     createInfo.clipped        = VK_TRUE;
+    // Hand off superseded chain to WSI; still safe with vkDeviceWaitIdle in Recreate (baseline stall).
+    createInfo.oldSwapchain = aSupersededSwapChain;
     if ( vkCreateSwapchainKHR( aCore.myDeviceCtx.myDevice, &createInfo, nullptr, &aCore.mySwapchainCtx.mySwapChain ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create swap chain!" );
+    }
+    if ( aSupersededSwapChain != VK_NULL_HANDLE ) {
+        vkDestroySwapchainKHR( aCore.myDeviceCtx.myDevice, aSupersededSwapChain, nullptr );
     }
     vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, nullptr );
     aCore.mySwapchainCtx.mySwapChainImages.resize( imageCount );
@@ -186,6 +219,7 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore ) {
     const VkDevice       device     = aCore.myDeviceCtx.myDevice;
     const VkSwapchainKHR swapchain  = aCore.mySwapchainCtx.mySwapChain;
     const auto           imageViews = aCore.mySwapchainCtx.mySwapChainImageViews;
+    // Registered first: popped without run on Recreate so superseded handle can use oldSwapchain.
     aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, swapchain, imageViews ]() {
         for ( const VkImageView imageView : imageViews ) {
             vkDestroyImageView( device, imageView, nullptr );
