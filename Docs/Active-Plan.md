@@ -37,8 +37,8 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P1** | Peel, config instance, bindless decision |
-| 3 | **P2** | CPU indirect + record/cull hygiene |
+| 1 | **P1** | Bindless decision; **Vulkan RHI** correctness + WSI hygiene ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §A–B1) |
+| 3 | **P2** | CPU indirect + **RHI** recreate/upload ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C) |
 | 4 | **P3** | M2 GPU cull + automated parity |
 | 5 | **P4** | Vertical slice (objective + restart) |
 | *gate* | — | FG v0 / Stage 2 / Wishlist |
@@ -116,6 +116,16 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 30 | Windows-only explicit | P1 ✓ | config-platform-hardening (archived) |
 | 31 | Recoverable VK errors | P1 ✓ | config-platform-hardening (archived) |
 | 32 | `--perf-log` JSONL | P0 ✓ | ci-verification § D (archived) |
+| 33 | Instance slab overflow skips GPU | P1 | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §RHI-A1 |
+| 34 | Multi-view camera UBO consistency | P1 | vulkan-rhi-hardening §RHI-A2 |
+| 35 | Swapchain create hygiene | P1 | vulkan-rhi-hardening §RHI-B1 |
+| 36 | `Recreate()` three-layer split | P2 | vulkan-rhi-hardening §RHI-B2 |
+| 37 | `SURFACE_LOST` recovery | P2 | vulkan-rhi-hardening §RHI-B3 |
+| 38 | Resource layer merge (`Vk_ResourceContext`) | P2 | vulkan-rhi-hardening §RHI-C1 |
+| 39 | Staging pool / batched uploads | P2 | vulkan-rhi-hardening §RHI-C2 |
+| 40 | Descriptor pool sizing from manifest | P2 | vulkan-rhi-hardening §RHI-C3 |
+| 41 | Khronos production WSI (maintenance1) | Wishlist S7 | vulkan-rhi-hardening §RHI-D |
+| 42 | Swapchain recreate (acquire-retry) | P1 ✓ | [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md) |
 
 ---
 
@@ -130,20 +140,40 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | Track | Plan | Task |
 |-------|------|------|
 | Shader | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless decision; freeze perm |
+| **Vulkan RHI** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | §Track A–B1 (correctness + swapchain hygiene) |
 
-**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Remaining P1:** shader-bindless-policy per its plan.
+### Vulkan RHI — P1 open tasks
+
+*Kickoff: vibe `rhi-*_Plan.md` per epic task; full steps in epic §RHI-A1/B1.*
+
+- [ ] **RHI-A1** — Instance slab overflow: `PrepareFrameCpu` checks `DrawPrep::Build()`; abort GPU frame on overflow
+- [ ] **RHI-A2** — `Vk_FrameUniformUploader`: env-only `Update`; no fly-camera overwrite of view 0 after multi-view `UpdateForView`
+- [ ] **RHI-B1** — Swapchain create: `compositeAlpha` fallback chain, triple-buffer image count, extent precheck hook
+
+**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **Remaining P1:** shader-bindless-policy + RHI §A–B1.
 
 ---
 
 ## P2 — Render path prep
 
-**Plan:** [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md)
+**Plans:** [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C
+
+### Render / M2 prep
 
 - [ ] Draw template SSBO + CPU `DrawIndexedIndirect`
 - [ ] `Gfx_Mesh::myIndexCount`
-- [ ] RenderDoc tags: fixed buffer / `#ifdef`
+- [ ] RenderDoc tags: fixed buffer / `#ifdef` *(overlaps RHI hot-path; epic cross-ref §RHI-A)*
 - [ ] `demoRotate: false`; `lodEnabled: false` defaults
 - [ ] Tighter AABB; depth bucket from bounds center
+
+### Vulkan RHI — P2 open tasks
+
+- [ ] **RHI-B2** — Split `Vk_SwapchainHost::Recreate` into WSI / extent-dependent / pipeline layers
+- [ ] **RHI-B3** — Handle `VK_ERROR_SURFACE_LOST_KHR` (recreate surface + swapchain)
+- [ ] **RHI-B4** — Optional `Scripts/Verify-ResizeSmoke.ps1` (or document manual soak gate)
+- [ ] **RHI-C1** — Consolidate `Vk_ResourceContext` vs `Vk_Core` buffer/image/upload helpers
+- [ ] **RHI-C2** — Staging pool; batched scene upload (remove per-asset `vkQueueWaitIdle`)
+- [ ] **RHI-C3** — Descriptor pool sizes derived from scene manifest
 
 ---
 
@@ -171,11 +201,12 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 ## Lighting & epics (reference)
 
-| Stage | Doc | When |
-|-------|-----|------|
+| Stage / topic | Doc | When |
+|---------------|-----|------|
 | 1 Forward | [`forward-stage1.md`](forward-stage1.md) | Closed |
 | 2 Hybrid | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) | After G1 |
 | 3 DDGI | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | After G4 |
+| **Vulkan RHI hardening** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | P1–P2 (D→Wishlist S7) |
 
 ---
 
@@ -192,7 +223,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
-**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `render-m2-prep`, `shader-bindless-policy`, `content-pipeline`.
+**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `swapchain-recreation` (archived), `vulkan-rhi-hardening-epic`, `render-m2-prep`, `shader-bindless-policy`, `content-pipeline`.
 
 ---
 

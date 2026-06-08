@@ -209,6 +209,7 @@ flowchart TB
 
 - [ ] GitHub Actions: `CompileShader_Glslc.bat` CI. *(P0)*
 - [ ] CI smoke: init + one frame headless/offscreen. *(P0)*
+- [ ] **RHI-B4** — `Scripts/Verify-ResizeSmoke.ps1` or documented manual resize gate — [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §RHI-B4 *(optional; also Active-Plan P2)*
 - [ ] Document or eliminate runtime **working-directory** dependency. *(P0)*
 - [ ] `LNK4098` linker warning; safe `size_t`→`uint32_t` casts.
 - [ ] **[S1+] Cull/sort depth metric:** opaque `depthBucket` from bounds eye-space Z; tighter world AABB. *(P2)*
@@ -312,6 +313,14 @@ flowchart TB
 - [ ] Shader reflection-driven **layout codegen** — follow-up to closed 2b JSON path.
 - [ ] `VK_KHR_pipeline_binary` disk cache research — *deps: S2 pipeline cache (done)*.
 - [ ] **[Multi-view] Instance slab dynamic partition:** per-frame pre-count + prefix-sum offsets; overlap/overflow guards per view.
+
+### Open tasks — Vulkan RHI production WSI *(epic §Track D)*
+
+**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) · *promote after P2 RHI-B2 or heavy FG resize work*
+
+- [ ] **RHI-D1** — `Vk_ProbeWsiCaps`; enable `VK_EXT_swapchain_maintenance1` when available ([Khronos sample](https://docs.vulkan.org/samples/latest/samples/api/swapchain_recreation/README.html))
+- [ ] **RHI-D2** — Present history + deferred old-swapchain destroy (no-extension fallback)
+- [ ] **RHI-D3** — Remove `vkDeviceWaitIdle` from hot swapchain recreate path (maintenance or D2 path)
 
 ### Open tasks — feature experiments *(prefer after FG)*
 
@@ -417,6 +426,16 @@ flowchart TB
 - Navmesh / full behavior trees (post S8 AI v0).
 - Material hot reload at runtime — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) § B.
 - MeshImport v0 — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) § A (gate **G3**).
+
+### Vulkan RHI — long-term *(epic §Track E)*
+
+**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)
+
+- [ ] **RHI-E1** — Instance/device `apiVersion` 1.2+ ([Vulkan Guide — versions](https://vulkan.lunarg.com/doc/view/latest/linux/guide/latest/chapters/extensions.html))
+- [ ] **RHI-E2** — Timeline semaphores — *deps: S7 frame graph*
+- [ ] **RHI-E3** — Dynamic rendering spike (`VK_KHR_dynamic_rendering`) to decouple resize from render pass
+- [ ] **RHI-E4** — Injectable render device / de-singleton `Vk_Core` for headless CI
+- [ ] **RHI-E5** — Dynamic MSAA sample count or remove dead MSAA branches in `Vk_SwapchainHost`
 
 ### Maintenance (non-blocking)
 

@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick from [`Active-Plan.md`](Active-Plan.md) recommended queue)* |
-| **Recommended next** | **P1** — [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) (bindless decision; freeze perm) |
+| **Recommended next** | **P1** — bindless ([`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md)) or RHI-A1 ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)) |
 | **Plan / Progress** | Start vibe task → `{topic}_Plan.md` + `{topic}_Progress.md` at Docs root |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
@@ -39,6 +39,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 
 | Plan | Topic |
 |------|--------|
+| [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | Vulkan RHI audit → WSI, upload, resize (P1–P2; D→S7) |
 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) | CPU indirect, record hygiene |
 | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless dogfood vs defer |
 | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
