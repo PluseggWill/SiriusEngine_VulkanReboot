@@ -12,12 +12,10 @@ set "REFLECT_EXE=%~dp0..\Tools\ShaderReflect\bin\ShaderReflect.exe"
 set "VS_SPV=%GEN_DIR%TriangleVert.spv"
 set "PS_SPV=%GEN_DIR%TrianglePix.spv"
 
-if not exist "%REFLECT_EXE%" (
-    call "%REFLECT_BAT%"
-    if errorlevel 1 (
-        call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER-REFLECT "ShaderReflect build failed"
-        exit /b 1
-    )
+call "%REFLECT_BAT%"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER-REFLECT "ShaderReflect build failed"
+    exit /b 1
 )
 
 if not exist "%VS_SPV%" (
