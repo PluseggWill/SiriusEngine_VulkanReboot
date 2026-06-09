@@ -219,6 +219,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P2 — render-m2-prep §A CPU indirect *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | `Gfx_DrawTemplate` + per-frame indirect/template SSBO upload; record via `vkCmdDrawIndexedIndirect`; `--legacy-direct-draw` fallback |
+| **Validation** | MSBuild Debug\|x64; GfxTests; `Verify-Smoke.ps1` — log: `FillDrawTemplates`, `vkCmdDrawIndexedIndirect`, `drawCalls=1` |
+| **Plan log** | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) §A · [`render-m2-prep_Progress.md`](render-m2-prep_Progress.md) |
+| **Hardening** | #13 |
+
+- [x] **[P2]** Draw template SSBO + CPU `DrawIndexedIndirect` — 2026-06-09
+
+---
+
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
 
 | | |

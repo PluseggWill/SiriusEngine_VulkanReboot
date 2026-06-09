@@ -26,6 +26,9 @@ inline constexpr bool kUseDynamicUniformForInstanceSlab = true;
 // Max draws written into the per-frame instance ring UBO (FillInstanceSlab); no per-draw heap alloc.
 inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 
+// Draw-template / indirect buffers share instance-slab partition sizing (PrepareFrameCpu splits by active view count).
+inline constexpr uint32_t kMaxDrawTemplateEntries = kMaxInstanceSlabEntries;
+
 // Bindless Set 1 texture array capacity (S1 bindless v0).
 // CONTRACT: TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES + layout descriptorCount must match.
 inline constexpr uint32_t kMaxBindlessTextures = 64;

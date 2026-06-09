@@ -7,4 +7,6 @@ void Gfx_BuildFrameRenderPacketFromStream( const Gfx_FrameDrawStreamOutput& aStr
     aOutPacket.myTransparentPass.myDraws     = aStreamOutput.myExtract.myTransparent.myDrawInstances;
     aOutPacket.myOpaquePass.myBatchRuns      = aStreamOutput.myOpaqueBatchRuns;
     aOutPacket.myTransparentPass.myBatchRuns = aStreamOutput.myTransparentBatchRuns;
+    aOutPacket.myOpaquePass.myDrawBufferPassOffset      = 0;
+    aOutPacket.myTransparentPass.myDrawBufferPassOffset = static_cast< uint32_t >( aOutPacket.myOpaquePass.myDraws.size() );
 }

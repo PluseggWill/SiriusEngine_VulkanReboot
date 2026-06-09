@@ -1,8 +1,13 @@
+// Module: Vk_FrameDrawPrep — Gfx draw stream + CPU uploads before record (instance slab, draw templates).
+// Fill order: instance slab first (myInstanceDataOffset), then draw templates (indirect + SSBO metadata).
 #include "Vk_FrameDrawPrep.h"
 
+#include "../Gfx/Gfx_DrawTemplate.h"
+#include "../Gfx/Gfx_RenderPacket.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_RenderBackend.h"
+#include "Vk_ResourceTables.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -16,6 +21,7 @@ void Vk_FrameDrawPrep::ResetLogState() {
     Gfx_ResetFrameDrawStreamLogState( myStreamLogs );
     mySlabFillLoggedOnce         = false;
     myInstanceSlabOverflowLogged = false;
+    myDrawTemplateOverflowLogged = false;
 }
 
 bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
@@ -42,11 +48,17 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
         myInstanceSlabOverflowLogged = true;
     }
 
+    const bool templateOk = slabOk && FillDrawTemplates( aParams, myFramePacket );
+    if ( slabOk && !templateOk && !myDrawTemplateOverflowLogged ) {
+        UtilLogger::Warn( "RESOURCE", "Skipping RecordScenePass: draw-template buffer overflow (see FillDrawTemplates error)." );
+        myDrawTemplateOverflowLogged = true;
+    }
+
     if ( !Vk_RenderBackend::ValidateFramePacket( myFramePacket ) ) {
         UtilLogger::Warn( "RENDER", "Frame render packet validation failed." );
     }
 
-    return slabOk;
+    return slabOk && templateOk;
 }
 
 bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket ) {
@@ -93,6 +105,56 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
     if ( !mySlabFillLoggedOnce ) {
         UtilLogger::Info( "RESOURCE", "FillInstanceSlab: wrote " + std::to_string( drawCount ) + " instance(s)" );
         mySlabFillLoggedOnce = true;
+    }
+
+    return true;
+}
+
+// CONTRACT (M2 prep §A): parallel arrays in myDrawIndirectBuffer + myDrawTemplateBuffer; same slot layout as FillInstanceSlab.
+bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket ) {
+    if ( aParams.myResourceTables == nullptr ) {
+        UtilLogger::Error( "RESOURCE", "FillDrawTemplates: resource tables not set." );
+        return false;
+    }
+
+    Vk_FrameData& frame = ( *aParams.myFrameDatas )[ aParams.myCurrentFrame ];
+    if ( frame.myDrawIndirectMapped == nullptr || frame.myDrawTemplateMapped == nullptr ) {
+        UtilLogger::Error( "RESOURCE", "Draw-template buffers not mapped for frame " + std::to_string( aParams.myCurrentFrame ) );
+        return false;
+    }
+
+    const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
+    const uint32_t maxEntries = aParams.myDrawBufferMaxEntries > 0 ? aParams.myDrawBufferMaxEntries : VkDescriptorPolicy::kMaxDrawTemplateEntries;
+    if ( drawCount > maxEntries ) {
+        UtilLogger::Error( "RESOURCE",
+                           "Draw-template overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
+        return false;
+    }
+
+    auto* const indirectBase = static_cast< Gfx_DrawIndirectCommand* >( frame.myDrawIndirectMapped );
+    auto* const templateBase = static_cast< Gfx_DrawTemplate* >( frame.myDrawTemplateMapped );
+    const uint32_t baseIndex = aParams.myDrawBufferBaseIndex;
+
+    auto writeDrawList = [ & ]( const std::vector< Gfx_DrawInstance >& someDraws, uint32_t aPassOffset ) {
+        for ( size_t drawIndex = 0; drawIndex < someDraws.size(); ++drawIndex ) {
+            const Gfx_DrawInstance& draw = someDraws[ drawIndex ];
+            const Gfx_Mesh&         mesh = aParams.myResourceTables->GetMesh( draw.myMeshId );
+            const uint32_t slot = Gfx_ComputeDrawBufferSlot( baseIndex, aPassOffset, static_cast< uint32_t >( drawIndex ) );
+
+            Gfx_DrawTemplate drawTemplate{};
+            Gfx_FillDrawTemplate( drawTemplate, draw, static_cast< uint32_t >( mesh.myIndices.size() ), draw.myInstanceDataOffset );
+            templateBase[ slot ] = drawTemplate;
+            indirectBase[ slot ] = drawTemplate.myIndirect;
+        }
+    };
+
+    aPacket.myDrawBufferBaseIndex = baseIndex;
+    writeDrawList( aPacket.myOpaquePass.myDraws, aPacket.myOpaquePass.myDrawBufferPassOffset );
+    writeDrawList( aPacket.myTransparentPass.myDraws, aPacket.myTransparentPass.myDrawBufferPassOffset );
+
+    if ( !myDrawTemplateFillLoggedOnce ) {
+        UtilLogger::Info( "RESOURCE", "FillDrawTemplates: wrote " + std::to_string( drawCount ) + " draw template(s)" );
+        myDrawTemplateFillLoggedOnce = true;
     }
 
     return true;

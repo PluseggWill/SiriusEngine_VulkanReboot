@@ -258,6 +258,10 @@ Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc,
             overrides.myDemoRotate = false;
             continue;
         }
+        if ( arg == "--legacy-direct-draw" ) {
+            overrides.myLegacyDirectDraw = true;
+            continue;
+        }
         if ( arg == "--smoke-frames" ) {
             if ( i + 1 >= aArgc ) {
                 throw std::runtime_error( "Missing value for --smoke-frames" );
@@ -344,6 +348,9 @@ void Util_EngineConfig::ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.myDemoRotate.has_value() ) {
         myFeatures.myDemoRotate = *aOverrides.myDemoRotate;
+    }
+    if ( aOverrides.myLegacyDirectDraw.has_value() ) {
+        myLegacyDirectDraw = *aOverrides.myLegacyDirectDraw;
     }
     if ( aOverrides.myRuntimeMipmap.has_value() ) {
         myFeatures.myRuntimeMipmap = *aOverrides.myRuntimeMipmap;
@@ -449,6 +456,10 @@ bool Util_EngineConfig::GetEnableRenderDoc() const {
     return myEnableRenderDoc;
 }
 
+bool Util_EngineConfig::GetLegacyDirectDraw() const {
+    return myLegacyDirectDraw;
+}
+
 bool Util_EngineConfig::ResolveValidationEnabled( bool aBuildDefault ) const {
     if ( myCliValidationOverride.has_value() ) {
         myValidationEnabled = *myCliValidationOverride;
@@ -498,6 +509,7 @@ void Util_EngineConfig::LogResolvedSummary() const {
     }
     UtilLogger::Info( "CONFIG", "shaderPermutation=" + myShaderPermutationName );
     UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( myEnableRenderDoc ? "enabled" : "disabled" ) );
+    UtilLogger::Info( "CONFIG", std::string( "legacyDirectDraw=" ) + ( myLegacyDirectDraw ? "true" : "false" ) );
 
     if ( myValidationResolved ) {
         const char* source = "build default";
@@ -537,6 +549,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --validation / --enable-validation   Enable Vulkan validation layers\n"
               << "  --no-validation / --disable-validation   Disable validation layers\n"
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
+              << "  --legacy-direct-draw   Use vkCmdDrawIndexed per draw (M2 prep debug fallback)\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
               << "  --perf-log <path>      Append per-frame JSONL metrics (schemaVersion 1)\n"

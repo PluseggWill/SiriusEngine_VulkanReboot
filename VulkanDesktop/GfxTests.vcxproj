@@ -90,6 +90,7 @@
   <ItemGroup>
     <ClCompile Include="GfxTests\GfxTests_Main.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
+    <ClCompile Include="Gfx\Gfx_DrawTemplate.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
     <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />

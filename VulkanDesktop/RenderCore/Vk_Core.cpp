@@ -5,6 +5,7 @@
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_DebugMessenger.h"
@@ -198,6 +199,7 @@ void Vk_Core::InitRenderDevice() {
 
     CreateFrameData();
     CreateInstanceSlabs();
+    CreateDrawTemplateBuffers();
     CreateUniformBuffers();
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
@@ -553,6 +555,42 @@ void Vk_Core::CreateInstanceSlabs() {
                                       + " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
 }
 
+// M2 prep §A: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
+void Vk_Core::CreateDrawTemplateBuffers() {
+    static_assert( sizeof( Gfx_DrawIndirectCommand ) == sizeof( VkDrawIndexedIndirectCommand ), "Gfx_DrawIndirectCommand must match Vulkan" );
+
+    const VkDeviceSize indirectBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( VkDrawIndexedIndirectCommand );
+    const VkDeviceSize templateBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( Gfx_DrawTemplate );
+
+    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+        CreateBuffer( indirectBytes, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer, true );
+        CreateBuffer( templateBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer, true );
+
+        void* indirectMapped = nullptr;
+        void* templateMapped = nullptr;
+        vmaMapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myAllocation, &indirectMapped );
+        vmaMapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation, &templateMapped );
+        myFrameCtx.myFrameDatas[ i ].myDrawIndirectMapped = indirectMapped;
+        myFrameCtx.myFrameDatas[ i ].myDrawTemplateMapped = templateMapped;
+
+        myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
+            if ( myFrameCtx.myFrameDatas[ i ].myDrawIndirectMapped != nullptr ) {
+                vmaUnmapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myAllocation );
+                myFrameCtx.myFrameDatas[ i ].myDrawIndirectMapped = nullptr;
+            }
+            if ( myFrameCtx.myFrameDatas[ i ].myDrawTemplateMapped != nullptr ) {
+                vmaUnmapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation );
+                myFrameCtx.myFrameDatas[ i ].myDrawTemplateMapped = nullptr;
+            }
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myAllocation );
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation );
+        } );
+    }
+
+    UtilLogger::Info( "RESOURCE", "Draw-template buffers: entries=" + std::to_string( VkDescriptorPolicy::kMaxDrawTemplateEntries )
+                                      + " indirectBytes/frame=" + std::to_string( indirectBytes ) + " templateBytes/frame=" + std::to_string( templateBytes ) );
+}
+
 void Vk_Core::CreateUniformBuffers() {
     // Device-scoped env UBO slab (CPU defaults written at scene load ??Vk_SceneHost::InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
@@ -632,6 +670,9 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myInstanceSlabStride     = InstanceSlabStride();
         prepParams.myInstanceSlabBaseOffset = static_cast< size_t >( viewIndex ) * static_cast< size_t >( perViewMaxEntries ) * InstanceSlabStride();
         prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
+        prepParams.myDrawBufferBaseIndex    = viewIndex * perViewMaxEntries;
+        prepParams.myDrawBufferMaxEntries   = perViewMaxEntries;
+        prepParams.myResourceTables         = &mySceneGpuCtx.myResourceTables;
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
         // Fail-closed on slab overflow (same post-acquire contract as swapchain acquire failure).

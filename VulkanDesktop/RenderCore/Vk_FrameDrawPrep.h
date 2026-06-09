@@ -11,6 +11,8 @@
 #include "Vk_Camera.h"
 #include "Vk_FrameData.h"
 
+class Vk_ResourceTables;
+
 // Per-frame draw prep: Gfx draw stream + instance slab CPU write (before vkCmd record).
 
 struct Vk_FrameDrawPrepBuildParams {
@@ -24,6 +26,9 @@ struct Vk_FrameDrawPrepBuildParams {
     size_t                       myInstanceSlabStride    = 0;
     size_t                       myInstanceSlabBaseOffset = 0;
     uint32_t                     myInstanceSlabMaxEntries = 0;
+    uint32_t                     myDrawBufferBaseIndex   = 0;
+    uint32_t                     myDrawBufferMaxEntries  = 0;
+    const Vk_ResourceTables*     myResourceTables        = nullptr;
 };
 
 class Vk_FrameDrawPrep {
@@ -41,7 +46,10 @@ public:
 
 private:
     bool FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
+    bool FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
 
-    bool mySlabFillLoggedOnce         = false;
-    bool myInstanceSlabOverflowLogged = false;
+    bool mySlabFillLoggedOnce          = false;
+    bool myInstanceSlabOverflowLogged  = false;
+    bool myDrawTemplateFillLoggedOnce  = false;
+    bool myDrawTemplateOverflowLogged  = false;
 };

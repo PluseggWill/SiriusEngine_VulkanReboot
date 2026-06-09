@@ -22,4 +22,11 @@ struct Vk_FrameData {
     Vk_AllocatedBuffer myObjectBuffer;
     void*              myInstanceSlabMapped = nullptr;
     VkDescriptorSet    myObjectDescriptor;  // set 2 | UNIFORM_BUFFER_DYNAMIC | instance slab
+
+    // M2 prep §A: CPU-filled VkDrawIndexedIndirectCommand[] + Gfx_DrawTemplate[] (GPU cull will consume same layout).
+    // Partitioned per view via myDrawBufferBaseIndex in Gfx_FrameRenderPacket (see Vk_FrameDrawPrep).
+    Vk_AllocatedBuffer myDrawIndirectBuffer;
+    void*              myDrawIndirectMapped = nullptr;
+    Vk_AllocatedBuffer myDrawTemplateBuffer;
+    void*              myDrawTemplateMapped = nullptr;
 };

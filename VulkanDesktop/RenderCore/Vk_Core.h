@@ -288,6 +288,8 @@ private:
 
     void CreateInstanceSlabs();
 
+    void CreateDrawTemplateBuffers();
+
     void CreateUniformBuffers();
 
     void InitImGui();

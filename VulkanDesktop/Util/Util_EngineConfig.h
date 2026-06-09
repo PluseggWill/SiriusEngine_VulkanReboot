@@ -36,6 +36,7 @@ struct Util_EngineConfig {
     double                       GetSmokeSeconds() const;
     bool                         GetDescriptorLayoutMismatchTest() const;
     bool                         GetEnableRenderDoc() const;
+    bool                         GetLegacyDirectDraw() const;
     const std::string&           GetShaderPermutationName() const;
     const std::string&           GetRenderPresetName() const;
     bool                         ResolveValidationEnabled( bool aBuildDefault ) const;
@@ -53,6 +54,7 @@ private:
         std::optional< uint32_t >              myWindowWidth;
         std::optional< uint32_t >              myWindowHeight;
         std::optional< bool >                  myDemoRotate;
+        std::optional< bool >                  myLegacyDirectDraw;
         std::optional< bool >                  myRuntimeMipmap;
         std::optional< int >                   mySmokeFrames;
         std::optional< double >                mySmokeSeconds;
@@ -81,6 +83,7 @@ private:
     double                         mySmokeSeconds                 = 0.0;
     bool                           myDescriptorLayoutMismatchTest = false;
     bool                           myEnableRenderDoc              = false;
+    bool                           myLegacyDirectDraw             = false;  // --legacy-direct-draw: vkCmdDrawIndexed fallback (M2 prep debug)
     std::string                    myShaderPermutationName        = "lit";
     std::string                    myRenderPresetName;
     std::optional< std::string >   myConfigShaderPermutation;

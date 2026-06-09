@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P2** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md)) |
-| **Recommended next** | CPU indirect + `myIndexCount`; parallel items in Active-Plan P2 |
-| **Plan / Progress** | Roadmap plans only — last closed: [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md) |
+| **Task** | **P2 §B–F** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md); §A closed) |
+| **Recommended next** | `Gfx_Mesh::myIndexCount` (§B); RenderDoc tags (§C) |
+| **Plan / Progress** | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · [`render-m2-prep_Progress.md`](render-m2-prep_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
