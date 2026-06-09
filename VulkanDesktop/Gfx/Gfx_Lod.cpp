@@ -1,5 +1,7 @@
 #include "Gfx_Lod.h"
 
+#include "Gfx_Bounds.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -7,10 +9,6 @@ namespace {
 constexpr uint32_t kLodUnset     = UINT32_MAX;
 constexpr float    kHysteresisUp = 0.85f;
 constexpr float    kHysteresisDn = 1.15f;
-
-glm::vec3 BoundsCenter( const Gfx_Bounds& aBounds ) {
-    return ( aBounds.myMin + aBounds.myMax ) * 0.5f;
-}
 
 float EyeDistance( const glm::vec3& aEyeWorld, const glm::vec3& aWorldPoint ) {
     return glm::length( aWorldPoint - aEyeWorld );
@@ -26,7 +24,7 @@ void ApplyLodToResult( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, c
             continue;
         }
 
-        const float    eyeDist   = EyeDistance( aEyeWorld, BoundsCenter( aScene.GetBounds( slot ) ) );
+        const float    eyeDist   = EyeDistance( aEyeWorld, Gfx_BoundsCenter( aScene.GetBounds( slot ) ) );
         const uint32_t candidate = Gfx_SelectLodLevel( eyeDist, lodBias, *chain );
         const uint32_t lodLevel  = Gfx_ApplyLodHysteresis( slot, candidate, *chain, eyeDist, lodBias, aState );
         const uint32_t resolved  = aTable.GetResolvedMeshId( logicalId, lodLevel );

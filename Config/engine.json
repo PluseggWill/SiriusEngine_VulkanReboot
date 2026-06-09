@@ -11,7 +11,8 @@
   "enableValidationLayers": true,
   "renderPreset": "ForwardLit",
   "features": {
-    "demoRotate": true,
+    "demoRotate": false,
+    "lodEnabled": false,
     "runtimeMipmap": false
   }
 }

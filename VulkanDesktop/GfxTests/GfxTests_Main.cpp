@@ -187,6 +187,47 @@ void TestSoAGeneration() {
     Expect( id2.myGeneration != id1.myGeneration, "SoA: generation bumped on reuse" );
 }
 
+void TestTransparentSortStableUnderRotation() {
+    Gfx_SceneSoA scene;
+
+    const glm::mat4 nearTransform = glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 3.0f ) );
+    const glm::mat4 farTransform  = glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 8.0f ) );
+    scene.AllocEntity( 0, 0, nearTransform, 0xFFFFFFFFu, Gfx_RenderTransparent );
+    scene.AllocEntity( 0, 0, farTransform, 0xFFFFFFFFu, Gfx_RenderTransparent );
+
+    Gfx_Bounds offsetLocalBounds{};
+    offsetLocalBounds.myMin = glm::vec3( 0.0f );
+    offsetLocalBounds.myMax = glm::vec3( 1.0f );
+    scene.SetLocalBoundsForSlot( 0, offsetLocalBounds );
+    scene.SetLocalBoundsForSlot( 1, offsetLocalBounds );
+
+    const glm::mat4 view = glm::lookAt( glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+
+    auto sortTransparentDraws = [ & ]( const glm::mat4& aNearTransform, const glm::mat4& aFarTransform ) {
+        scene.SetWorldTransform( 0, aNearTransform );
+        scene.SetWorldTransform( 1, aFarTransform );
+
+        Gfx_FrameExtract   extract{};
+        Gfx_CullViewParams viewParams{};
+        viewParams.myView          = view;
+        viewParams.myProj          = glm::mat4( 1.0f );
+        viewParams.myViewLayerMask = 0xFFFFFFFFu;
+        Gfx_ExtractDrawInstances( scene, viewParams, extract );
+        Gfx_SortTransparentDrawInstances( extract.myTransparent, scene, view );
+        return extract.myTransparent.myDrawInstances;
+    };
+
+    const auto referenceOrder = sortTransparentDraws( nearTransform, farTransform );
+    Expect( referenceOrder.size() == 2, "transparent sort: expected two draws" );
+    Expect( referenceOrder.front().myEntityIndex == 1, "transparent sort: farther entity first (back-to-front)" );
+
+    const glm::mat4 rotatedNear  = nearTransform * glm::rotate( glm::mat4( 1.0f ), glm::radians( 90.0f ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+    const auto      rotatedOrder = sortTransparentDraws( rotatedNear, farTransform );
+    Expect( rotatedOrder.size() == 2, "transparent sort: rotated case count" );
+    Expect( rotatedOrder[ 0 ].myEntityIndex == referenceOrder[ 0 ].myEntityIndex && rotatedOrder[ 1 ].myEntityIndex == referenceOrder[ 1 ].myEntityIndex,
+            "transparent sort stable when entity rotates around pivot (bounds-center eye Z)" );
+}
+
 void TestDemoCullAndBatch() {
     Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
@@ -241,6 +282,7 @@ int main() {
 
     TestConfigPrecedence( repoRoot );
     TestSoAGeneration();
+    TestTransparentSortStableUnderRotation();
     TestDemoCullAndBatch();
 
     // GpuMaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.

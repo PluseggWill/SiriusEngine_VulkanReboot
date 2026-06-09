@@ -1,13 +1,23 @@
 #include "Gfx_SceneSoA.h"
 
+#include "Gfx_Bounds.h"
+
 #include <algorithm>
 
 namespace {
 constexpr uint32_t kInvalidSlot = UINT32_MAX;
+
+Gfx_Bounds DefaultUnitLocalBounds() {
+    Gfx_Bounds bounds{};
+    bounds.myMin = glm::vec3( -0.5f );
+    bounds.myMax = glm::vec3( 0.5f );
+    return bounds;
 }
+}  // namespace
 
 void Gfx_SceneSoA::Clear() {
     myTransforms.clear();
+    myLocalBounds.clear();
     myBounds.clear();
     myLogicalMeshIds.clear();
     myLodBiases.clear();
@@ -21,6 +31,7 @@ void Gfx_SceneSoA::Clear() {
 
 void Gfx_SceneSoA::GrowOneSlot() {
     myTransforms.emplace_back( 1.0f );
+    myLocalBounds.push_back( DefaultUnitLocalBounds() );
     myBounds.emplace_back();
     myLogicalMeshIds.push_back( 0 );
     myLodBiases.push_back( 0.0f );
@@ -31,18 +42,7 @@ void Gfx_SceneSoA::GrowOneSlot() {
 }
 
 void Gfx_SceneSoA::UpdateBoundsForSlot( uint32_t aSlot ) {
-    const glm::mat4& m      = myTransforms[ aSlot ];
-    const glm::vec3  center = glm::vec3( m[ 3 ] );
-    glm::vec3        halfExtents{
-        std::max( glm::length( glm::vec3( m[ 0 ] ) ), 0.01f ),
-        std::max( glm::length( glm::vec3( m[ 1 ] ) ), 0.01f ),
-        std::max( glm::length( glm::vec3( m[ 2 ] ) ), 0.01f ),
-    };
-
-    Gfx_Bounds bounds{};
-    bounds.myMin      = center - halfExtents;
-    bounds.myMax      = center + halfExtents;
-    myBounds[ aSlot ] = bounds;
+    myBounds[ aSlot ] = Gfx_TransformBounds( myLocalBounds[ aSlot ], myTransforms[ aSlot ] );
 }
 
 Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aLogicalMeshId, uint32_t aMaterialId, const glm::mat4& aWorldTransform, uint32_t aLayerMask,
@@ -63,6 +63,7 @@ Gfx_StableEntityId Gfx_SceneSoA::AllocEntity( uint32_t aLogicalMeshId, uint32_t 
     myLayerMasks[ slot ]     = aLayerMask;
     myRenderFlags[ slot ]    = aRenderFlags;
     myTransforms[ slot ]     = aWorldTransform;
+    myLocalBounds[ slot ]    = DefaultUnitLocalBounds();
     UpdateBoundsForSlot( slot );
 
     myActiveSlots.push_back( slot );
@@ -134,5 +135,10 @@ uint32_t Gfx_SceneSoA::GetGeneration( uint32_t aSlot ) const {
 
 void Gfx_SceneSoA::SetWorldTransform( uint32_t aSlot, const glm::mat4& aWorldTransform ) {
     myTransforms.at( aSlot ) = aWorldTransform;
+    UpdateBoundsForSlot( aSlot );
+}
+
+void Gfx_SceneSoA::SetLocalBoundsForSlot( uint32_t aSlot, const Gfx_Bounds& aLocalBounds ) {
+    myLocalBounds.at( aSlot ) = aLocalBounds;
     UpdateBoundsForSlot( aSlot );
 }

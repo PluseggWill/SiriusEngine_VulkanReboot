@@ -239,6 +239,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
         SyncResourceContext();
         mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue,
                                                          mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
+        Gfx_ApplyMeshLocalBoundsToSceneSoA( World().myLoadedScene, World().mySceneIdTables, mySceneGpuCtx.myResourceTables.CollectMeshLocalBounds(), World().mySceneSoA );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
@@ -671,6 +672,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myCamera                 = &aViews[ viewIndex ].myCamera;
         prepParams.myLodTable               = &aWorld.myLodTable;
         prepParams.myLodState               = lodStateForView;
+        prepParams.myLodEnabled             = myDebugUI != nullptr ? myDebugUI->myRenderDebug.myLodEnabled : false;
         prepParams.myLodDebugLogicalMeshId  = aWorld.myLodDebugLogicalMeshId;
         prepParams.myCurrentFrame           = myFrameCtx.myCurrentFrame;
         prepParams.myFrameDatas             = &myFrameCtx.myFrameDatas;

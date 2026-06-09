@@ -37,7 +37,7 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P2** | render-m2-prep peel items (CPU indirect, defaults, AABB) |
+| 1 | **P3** | M2 GPU cull + automated parity (G1) |
 | 4 | **P3** | M2 GPU cull + automated parity |
 | 5 | **P4** | Vertical slice (objective + restart) |
 | *gate* | — | FG v0 / Stage 2 / Wishlist |
@@ -83,7 +83,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 
 | # | Landing | Phase | Plan |
 |---|---------|-------|------|
-| 1 | M2 only; FG v0 after G1 | P3 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) |
+| 1 | M2 only; FG v0 after G1 | P3 | [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) |
 | 2 | GHA MSBuild + shader compile | P0 ✓ | [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) |
 | 3 | Scene CPU out of `Vk_Core` | P1 ✓ | [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md) |
 | 4 | S4–S8 frozen in Wishlist | — | [`Wishlist.md`](Wishlist.md) |
@@ -92,7 +92,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 7 | Config instance not globals | P1 ✓ | [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md) |
 | 8 | `Vk_*Context` not `friend` | P1 ✓ | vk-core-world-peel (archived) |
 | 9 | `WorldState` in Application | P1 ✓ | vk-core-world-peel §1 (archived) |
-| 10 | `demoRotate: false` default | P2 | render-m2-prep § D |
+| 10 | `demoRotate: false` default | P2 ✓ | render-m2-prep § D |
 | 11 | No per-draw `std::string` in record | P2 ✓ | render-m2-prep § C |
 | 12 | `myIndexCount` on mesh | P2 ✓ | render-m2-prep § B |
 | 13 | CPU `DrawIndexedIndirect` + template SSBO | P2 ✓ | render-m2-prep § A |
@@ -103,9 +103,9 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 18 | Bindless layout codegen | Wishlist | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) |
 | 19 | MeshImport v0 | Wishlist | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
 | 20 | Required `assetRoot` | P0 ✓ | ci-verification § B (archived) |
-| 21 | `lodEnabled` false default | P2 | render-m2-prep § E |
+| 21 | `lodEnabled` false default | P2 ✓ | render-m2-prep § E |
 | 22 | Unit tests SoA + cull | P0 ✓ | ci-verification § E (archived) |
-| 23 | AABB + depth bucket fix | P2 | render-m2-prep § F |
+| 23 | AABB + depth bucket fix | P2 ✓ | render-m2-prep § F |
 | 24 | Material hot reload | Wishlist | content-pipeline § B |
 | 25 | CI smoke + tests | P0 ✓ | ci-verification (archived) |
 | 26 | Adversarial archived-claim verify | P0 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) § P0 |
@@ -153,20 +153,15 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 ---
 
-## P2 — Render path prep
+## P2 — Render path prep *(closed 2026-06-09)*
 
-**Plans:** [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · RHI B2–C closed → [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md)
-
-### Render / M2 prep
-
-- [ ] `demoRotate: false`; `lodEnabled: false` defaults
-- [ ] Tighter AABB; depth bucket from bounds center
+**Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) · [`Archived/plans/render-m2-prep_Progress.md`](Archived/plans/render-m2-prep_Progress.md) · RHI B2–C → [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md)
 
 ---
 
 ## P3 — M2 GPU cull
 
-**Plans:** render-m2-prep (GPU), ci-verification (parity)  
+**Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (GPU §), ci-verification (parity)  
 **Not in scope:** FG v0, MT v1, Stage 2 passes
 
 - [ ] AABB + draw template SSBO (sync SoA)
@@ -210,7 +205,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
-**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `swapchain-recreation` (archived), `shader-bindless-policy` (archived), `vulkan-rhi-hardening-epic`, `render-m2-prep`, `content-pipeline`.
+**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `swapchain-recreation` (archived), `shader-bindless-policy` (archived), `vulkan-rhi-hardening-epic`, `render-m2-prep` (archived P2), `content-pipeline`.
 
 ---
 

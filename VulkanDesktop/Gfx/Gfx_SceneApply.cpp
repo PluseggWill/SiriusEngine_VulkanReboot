@@ -124,3 +124,27 @@ void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_S
 
     UtilLogger::Info( "SCENE", "Populated SoA from scene: active entities=" + std::to_string( aSceneSoA.GetActiveCount() ) );
 }
+
+void Gfx_ApplyMeshLocalBoundsToSceneSoA( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, const std::vector< Gfx_Bounds >& aMeshLocalBounds,
+                                         Gfx_SceneSoA& aSceneSoA ) {
+    for ( const uint32_t slot : aSceneSoA.GetActiveSlots() ) {
+        const uint32_t logicalMeshId = aSceneSoA.GetLogicalMeshId( slot );
+        if ( logicalMeshId >= aScene.myLogicalMeshes.size() ) {
+            continue;
+        }
+
+        const Gfx_SceneLogicalMeshEntry& logical = aScene.myLogicalMeshes[ logicalMeshId ];
+        if ( logical.myLodMeshes.empty() ) {
+            continue;
+        }
+
+        const uint32_t meshId = LookupId( aTables.myMeshIdByName, logical.myLodMeshes.front(), "mesh" );
+        if ( meshId >= aMeshLocalBounds.size() ) {
+            continue;
+        }
+
+        aSceneSoA.SetLocalBoundsForSlot( slot, aMeshLocalBounds[ meshId ] );
+    }
+
+    UtilLogger::Info( "SCENE", "Applied mesh local bounds to SoA slots=" + std::to_string( aSceneSoA.GetActiveCount() ) );
+}

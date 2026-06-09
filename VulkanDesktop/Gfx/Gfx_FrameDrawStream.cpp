@@ -1,6 +1,7 @@
 #include "Gfx_FrameDrawStream.h"
 
 #include "../Util/Util_Logger.h"
+#include "Gfx_Bounds.h"
 
 void Gfx_ResetFrameDrawStreamLogState( Gfx_FrameDrawStreamLogState& aLogs ) {
     aLogs = Gfx_FrameDrawStreamLogState{};
@@ -16,14 +17,16 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myOpaque );
     Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myTransparent );
-    Gfx_ApplyLodToFrameExtract( *aParams.myScene, aParams.myCameraEye, *aParams.myLodTable, *aParams.myLodState, aOut.myExtract );
+    if ( aParams.myLodEnabled ) {
+        Gfx_ApplyLodToFrameExtract( *aParams.myScene, aParams.myCameraEye, *aParams.myLodTable, *aParams.myLodState, aOut.myExtract );
+    }
 
-    if ( !aLogs.myLodLoggedOnce ) {
+    if ( aParams.myLodEnabled && !aLogs.myLodLoggedOnce ) {
         for ( const Gfx_DrawInstance& draw : aOut.myExtract.myOpaque.myDrawInstances ) {
             if ( aParams.myLodDebugLogicalMeshId == UINT32_MAX || aParams.myScene->GetLogicalMeshId( draw.myEntityIndex ) != aParams.myLodDebugLogicalMeshId ) {
                 continue;
             }
-            const glm::vec3 center = ( aParams.myScene->GetBounds( draw.myEntityIndex ).myMin + aParams.myScene->GetBounds( draw.myEntityIndex ).myMax ) * 0.5f;
+            const glm::vec3 center = Gfx_BoundsCenter( aParams.myScene->GetBounds( draw.myEntityIndex ) );
             const float     dist   = glm::length( center - aParams.myCameraEye );
             UtilLogger::Info( "LOD", "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" + std::to_string( aParams.myLodDebugLogicalMeshId )
                                          + " resolvedMeshId=" + std::to_string( draw.myMeshId ) + " dist=" + std::to_string( dist ) );

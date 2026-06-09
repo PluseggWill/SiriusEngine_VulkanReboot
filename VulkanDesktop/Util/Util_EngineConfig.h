@@ -14,7 +14,8 @@
 
 struct Util_EngineConfig {
     struct FeatureFlags {
-        bool myDemoRotate    = true;
+        bool myDemoRotate    = false;
+        bool myLodEnabled    = false;
         bool myRuntimeMipmap = false;
     };
 
@@ -54,6 +55,7 @@ private:
         std::optional< uint32_t >              myWindowWidth;
         std::optional< uint32_t >              myWindowHeight;
         std::optional< bool >                  myDemoRotate;
+        std::optional< bool >                  myLodEnabled;
         std::optional< bool >                  myLegacyDirectDraw;
         std::optional< bool >                  myRuntimeMipmap;
         std::optional< int >                   mySmokeFrames;

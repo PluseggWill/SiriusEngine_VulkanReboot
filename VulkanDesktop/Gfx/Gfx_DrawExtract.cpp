@@ -1,5 +1,6 @@
 #include "Gfx_DrawExtract.h"
 
+#include "Gfx_Bounds.h"
 #include "Gfx_ShaderPermutation.h"
 
 #include <algorithm>
@@ -68,19 +69,10 @@ void Gfx_ExtractDrawInstances( const Gfx_SceneSoA& aScene, const Gfx_CullViewPar
     aOut.myTransparent.myVisibleEntityIndices.reserve( activeSlots.size() );
     aOut.myTransparent.myDrawInstances.reserve( activeSlots.size() );
 
-    const glm::mat4 viewProj = aView.myProj * aView.myView;
-
     for ( const uint32_t slot : activeSlots ) {
-        const glm::mat4& transform   = aScene.GetWorldTransform( slot );
-        const glm::vec3  worldOrigin = glm::vec3( transform[ 3 ] );
-        const glm::vec4  clip        = viewProj * glm::vec4( worldOrigin, 1.0f );
-        float            ndcZ        = 0.0f;
-        if ( std::abs( clip.w ) > 1e-6f ) {
-            const glm::vec4 ndc = clip / clip.w;
-            ndcZ                = ndc.z;
-        }
-
-        const uint16_t depthBucket = Gfx_ComputeDepthBucket( ndcZ );
+        const Gfx_Bounds& bounds      = aScene.GetBounds( slot );
+        const float       eyeSpaceZ   = Gfx_ComputeEyeSpaceZ( aView.myView, Gfx_BoundsCenter( bounds ) );
+        const uint16_t    depthBucket = Gfx_ComputeDepthBucket( eyeSpaceZ );
         if ( aScene.GetRenderFlags( slot ) == Gfx_RenderTransparent ) {
             AppendDraw( aOut.myTransparent, slot, aScene, depthBucket );
         }

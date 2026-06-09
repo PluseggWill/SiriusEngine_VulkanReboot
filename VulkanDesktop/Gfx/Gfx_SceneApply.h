@@ -7,6 +7,7 @@
 #include "Gfx_SceneTransform.h"
 
 #include <string>
+#include <vector>
 
 // Hydrate runtime structures from a parsed Gfx_SceneDesc (CPU-only; no Vulkan).
 
@@ -17,3 +18,6 @@ void Gfx_BuildResourceManifestFromSceneDesc( const Gfx_SceneDesc& aScene, const 
 void Gfx_BuildLodTableFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_LodTable& aOut );
 
 void Gfx_PopulateSceneSoAFromSceneDesc( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, Gfx_SceneSoA& aSceneSoA, Gfx_SceneTransformState& aTransformState );
+
+void Gfx_ApplyMeshLocalBoundsToSceneSoA( const Gfx_SceneDesc& aScene, const Gfx_SceneIdTables& aTables, const std::vector< Gfx_Bounds >& aMeshLocalBounds,
+                                         Gfx_SceneSoA& aSceneSoA );

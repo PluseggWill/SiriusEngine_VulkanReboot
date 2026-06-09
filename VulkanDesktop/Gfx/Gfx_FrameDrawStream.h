@@ -20,6 +20,7 @@ struct Gfx_FrameDrawStreamParams {
     glm::mat4           myCameraView{ 1.0f };
     const Gfx_LodTable* myLodTable              = nullptr;
     Gfx_LodState*       myLodState              = nullptr;
+    bool                myLodEnabled            = false;
     uint32_t            myLodDebugLogicalMeshId = UINT32_MAX;
 };
 

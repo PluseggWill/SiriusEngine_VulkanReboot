@@ -13,6 +13,7 @@ namespace UtilRenderDebugPanel {
 struct State {
     bool              mySkipOpaquePass      = false;
     bool              mySkipTransparentPass = false;
+    bool              myLodEnabled          = false;
     Gfx_DebugViewMode myDebugViewMode       = Gfx_DebugViewMode_Lit;
 };
 

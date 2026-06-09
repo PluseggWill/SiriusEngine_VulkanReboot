@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "Gfx_Bounds.h"
 #include <glm/glm.hpp>
 
 // Columnar scene store (S1 data plane). No Vulkan.
@@ -10,11 +11,6 @@
 struct Gfx_StableEntityId {
     uint32_t myIndex      = UINT32_MAX;
     uint32_t myGeneration = 0;
-};
-
-struct Gfx_Bounds {
-    glm::vec3 myMin{ 0.0f };
-    glm::vec3 myMax{ 0.0f };
 };
 
 enum Gfx_RenderFlags : uint32_t {
@@ -53,12 +49,14 @@ public:
     uint32_t          GetGeneration( uint32_t aSlot ) const;
 
     void SetWorldTransform( uint32_t aSlot, const glm::mat4& aWorldTransform );
+    void SetLocalBoundsForSlot( uint32_t aSlot, const Gfx_Bounds& aLocalBounds );
 
 private:
     void GrowOneSlot();
     void UpdateBoundsForSlot( uint32_t aSlot );
 
     std::vector< glm::mat4 >  myTransforms;
+    std::vector< Gfx_Bounds > myLocalBounds;
     std::vector< Gfx_Bounds > myBounds;
     std::vector< uint32_t >   myLogicalMeshIds;
     std::vector< float >      myLodBiases;

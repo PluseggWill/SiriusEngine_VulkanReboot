@@ -143,6 +143,9 @@ void Util_EngineConfig::ApplyJsonFile( const std::filesystem::path& aConfigPath 
         if ( features.contains( "demoRotate" ) && features[ "demoRotate" ].is_boolean() ) {
             myFeatures.myDemoRotate = features[ "demoRotate" ].get< bool >();
         }
+        if ( features.contains( "lodEnabled" ) && features[ "lodEnabled" ].is_boolean() ) {
+            myFeatures.myLodEnabled = features[ "lodEnabled" ].get< bool >();
+        }
         if ( features.contains( "runtimeMipmap" ) && features[ "runtimeMipmap" ].is_boolean() ) {
             myFeatures.myRuntimeMipmap = features[ "runtimeMipmap" ].get< bool >();
         }
@@ -258,6 +261,14 @@ Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc,
             overrides.myDemoRotate = false;
             continue;
         }
+        if ( arg == "--lod-enabled" ) {
+            overrides.myLodEnabled = true;
+            continue;
+        }
+        if ( arg == "--no-lod-enabled" ) {
+            overrides.myLodEnabled = false;
+            continue;
+        }
         if ( arg == "--legacy-direct-draw" ) {
             overrides.myLegacyDirectDraw = true;
             continue;
@@ -348,6 +359,9 @@ void Util_EngineConfig::ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.myDemoRotate.has_value() ) {
         myFeatures.myDemoRotate = *aOverrides.myDemoRotate;
+    }
+    if ( aOverrides.myLodEnabled.has_value() ) {
+        myFeatures.myLodEnabled = *aOverrides.myLodEnabled;
     }
     if ( aOverrides.myLegacyDirectDraw.has_value() ) {
         myLegacyDirectDraw = *aOverrides.myLegacyDirectDraw;
@@ -501,8 +515,8 @@ void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", "scene=" + mySceneLogicalPath );
     UtilLogger::Info( "CONFIG", "window=" + std::to_string( myWindowWidth ) + "x" + std::to_string( myWindowHeight ) + " vsync=" + ( myVsync ? "on" : "off" ) );
     UtilLogger::Info( "CONFIG", std::string( "logLevel=" ) + LogLevelName( myMinLogLevel ) );
-    UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( myFeatures.myDemoRotate ? "true" : "false" )
-                                    + " runtimeMipmap=" + ( myFeatures.myRuntimeMipmap ? "true" : "false" ) );
+    UtilLogger::Info( "CONFIG", std::string( "features demoRotate=" ) + ( myFeatures.myDemoRotate ? "true" : "false" ) + " lodEnabled="
+                                    + ( myFeatures.myLodEnabled ? "true" : "false" ) + " runtimeMipmap=" + ( myFeatures.myRuntimeMipmap ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "assetVerify=" ) + ( myAssetVerifyPolicy == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" ) );
     if ( !myRenderPresetName.empty() ) {
         UtilLogger::Info( "CONFIG", "renderPreset=" + myRenderPresetName );
@@ -549,6 +563,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --validation / --enable-validation   Enable Vulkan validation layers\n"
               << "  --no-validation / --disable-validation   Disable validation layers\n"
               << "  --demo-rotate / --no-demo-rotate   Demo Z spin on entities\n"
+              << "  --lod-enabled / --no-lod-enabled   CPU mesh LOD selection in draw stream\n"
               << "  --legacy-direct-draw   Use vkCmdDrawIndexed per draw (M2 prep debug fallback)\n"
               << "  --smoke-frames <n>     Exit after n rendered frames (dev smoke / CI)\n"
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"

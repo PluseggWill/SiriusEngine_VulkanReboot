@@ -192,6 +192,7 @@
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="App\WorldState.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
+    <ClCompile Include="Gfx\Gfx_Bounds.cpp" />
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawTemplate.cpp" />
@@ -263,6 +264,7 @@
     <ClInclude Include="Util\Util_StatsOverlay.h" />
     <ClInclude Include="Util\Util_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />
+    <ClInclude Include="Gfx\Gfx_Bounds.h" />
     <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
     <ClInclude Include="Gfx\Gfx_DrawBatch.h" />
     <ClInclude Include="Gfx\Gfx_DrawTemplate.h" />

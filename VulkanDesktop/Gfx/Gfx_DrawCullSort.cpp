@@ -1,5 +1,6 @@
 #include "Gfx_DrawCullSort.h"
 
+#include "Gfx_Bounds.h"
 #include "Gfx_DrawExtract.h"
 #include "Gfx_SceneSoA.h"
 
@@ -119,9 +120,7 @@ void Gfx_SortTransparentDrawInstances( Gfx_ExtractResult& aResult, const Gfx_Sce
     std::iota( order.begin(), order.end(), size_t{ 0 } );
 
     auto eyeZForDraw = [ &aScene, &aView ]( const Gfx_DrawInstance& aDraw ) {
-        const glm::mat4& transform   = aScene.GetWorldTransform( aDraw.myEntityIndex );
-        const glm::vec3  worldOrigin = glm::vec3( transform[ 3 ] );
-        return Gfx_ComputeEyeSpaceZ( aView, worldOrigin );
+        return Gfx_ComputeEyeSpaceZ( aView, Gfx_BoundsCenter( aScene.GetBounds( aDraw.myEntityIndex ) ) );
     };
 
     std::sort( order.begin(), order.end(), [ &aResult, &eyeZForDraw ]( size_t aLeft, size_t aRight ) {

@@ -31,7 +31,8 @@ struct Gfx_FrameExtract {
 };
 
 // Opaque sort key: (permSlot 16 | material 16 | mesh 16 | depthBucket 16).
-// permSlot: Gfx_ShaderPermutation::EncodeSortKeyPermSlot(shaderPermId, materialTableGeneration) — see Gfx_ShaderPermutation.h.
+// permSlot: Gfx_ShaderPermutation::EncodeSortKeyPermSlot(shaderPermId, materialTableGeneration).
+// depthBucket: eye-space Z of world bounds center × kDepthBucketScale (see Gfx_ComputeDepthBucket).
 uint64_t Gfx_PackOpaqueSortKey( uint32_t aPermSlot, uint32_t aMaterialId, uint32_t aMeshId, uint16_t aDepthBucket );
 
 void Gfx_SetMaterialTableGenerationForExtract( uint16_t aGeneration );

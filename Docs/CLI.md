@@ -42,7 +42,9 @@
 | `--validation` / `--enable-validation` | — | 强制启用 Vulkan 校验层（需已安装，见 [`validation-layers.md`](validation-layers.md)）。 |
 | `--no-validation` / `--disable-validation` | — | 强制关闭校验层。 |
 | `--demo-rotate` | — | 开启 demo 实体绕 Z 轴旋转（`Gfx_TickDemoSceneTransforms`）。 |
-| `--no-demo-rotate` | — | 关闭 demo 旋转。 |
+| `--no-demo-rotate` | — | 关闭 demo 旋转（与 `features.demoRotate: false` 默认一致）。 |
+| `--lod-enabled` | — | 开启 CPU mesh LOD（draw stream；ImGui **CPU LOD** 为会话覆盖）。 |
+| `--no-lod-enabled` | — | 关闭 CPU mesh LOD（与 `features.lodEnabled: false` 默认一致）。 |
 | `--smoke-frames` `<n>` | 正整数 | 渲染 **n** 帧后（与 `--smoke-seconds` 同时设置时需**同时**满足）请求关闭，走完整 `UnloadScene` → `Shutdown`。 |
 | `--smoke-seconds` `<s>` | 正数 | 场景 `LoadSceneResources` 完成、进入主循环后至少运行 **s** 秒再请求关闭（任务收尾冒烟**推荐**）。 |
 | `--perf-log` `<path>` | 文件路径 | 每个完成的 `DrawFrame` 追加一行 JSONL（`schemaVersion` 1：`frameIndex`, `frameMs`, `drawCalls`, `visibleDraws`, `activeViews`, `materialPath`）。`visibleDraws` 为当前帧各视图之和。路径相对 asset root；配合 `engine.benchmark.json`（`vsync: false`）。汇总：`Scripts/Perf-JsonlSummary.ps1`。 |
@@ -71,7 +73,8 @@
 | `logFile` | string | 可选；空则 `Logs/engine_runtime_log.txt`（相对资源根或仓库）。 |
 | `assetVerify` | string | `strict`（缺文件则启动失败）或 `warn`（缺文件 `[STARTUP] WARN` 后继续）。 |
 | `enableValidationLayers` | bool | 是否启用 Vulkan validation；可被 CLI 覆盖。 |
-| `features.demoRotate` | bool | 与 `--demo-rotate` / `--no-demo-rotate` 对应。 |
+| `features.demoRotate` | bool | 默认 `false`；与 `--demo-rotate` / `--no-demo-rotate` 对应（`Gfx_TickDemoSceneTransforms`）。 |
+| `features.lodEnabled` | bool | 默认 `false`；CPU draw stream 是否做 mesh LOD；与 `--lod-enabled` / `--no-lod-enabled` 对应；ImGui **Render Debug → CPU LOD** 为会话覆盖。 |
 | `features.runtimeMipmap` | bool | 运行时生成 mipmap（纹理加载路径）；默认 `false`。 |
 | `renderPreset` | string | Stage 1：`ForwardLit`、`ForwardLitAlphaClip`（映射 permutation registry）；CLI `--render-preset` 可覆盖。 |
 | `shaderPermutation` | string | 可选；显式 registry 名（如 `lit`）时优先于 `renderPreset`。 |

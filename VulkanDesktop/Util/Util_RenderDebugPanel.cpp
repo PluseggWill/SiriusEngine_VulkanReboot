@@ -21,6 +21,10 @@ void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData&
 
     ImGui::Checkbox( "Skip opaque pass", &aState.mySkipOpaquePass );
     ImGui::Checkbox( "Skip transparent pass", &aState.mySkipTransparentPass );
+    ImGui::Checkbox( "CPU LOD", &aState.myLodEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Session toggle; default from engine.json features.lodEnabled / CLI." );
+    }
 
     ImGui::Separator();
     const std::string& preset = aConfig.GetRenderPresetName();

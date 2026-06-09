@@ -20,6 +20,7 @@ struct Vk_FrameDrawPrepBuildParams {
     const Vk_Camera*             myCamera                 = nullptr;
     const Gfx_LodTable*          myLodTable               = nullptr;
     Gfx_LodState*                myLodState               = nullptr;
+    bool                         myLodEnabled             = false;
     uint32_t                     myLodDebugLogicalMeshId  = UINT32_MAX;
     uint32_t                     myCurrentFrame           = 0;
     std::vector< Vk_FrameData >* myFrameDatas             = nullptr;

@@ -3,6 +3,8 @@
 #include <string>
 #include <vk_mem_alloc.h>
 
+#include "../Gfx/Gfx_Bounds.h"
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -142,6 +144,7 @@ public:
     std::vector< Gfx_Vertex > myVertices;
     std::vector< uint32_t >   myIndices;
     uint32_t                  myIndexCount = 0;  // GPU index count; set in BuildIndexBuffer (record/indirect use this, not myIndices.size()).
+    Gfx_Bounds                myLocalBounds{};
 
     Vk_AllocatedBuffer myVertexBuffer;
     Vk_AllocatedBuffer myIndexBuffer;

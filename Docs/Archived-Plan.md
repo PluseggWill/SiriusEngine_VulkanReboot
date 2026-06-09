@@ -225,7 +225,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 |--|--|
 | **Outcome** | `Gfx_DrawTemplate` + per-frame indirect/template SSBO upload; record via `vkCmdDrawIndexedIndirect`; `--legacy-direct-draw` fallback |
 | **Validation** | MSBuild Debug\|x64; GfxTests; `Verify-Smoke.ps1` — log: `FillDrawTemplates`, `vkCmdDrawIndexedIndirect`, `drawCalls=1` |
-| **Plan log** | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) §A · [`render-m2-prep_Progress.md`](render-m2-prep_Progress.md) |
+| **Plan log** | [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) · [`Archived/plans/render-m2-prep_Progress.md`](Archived/plans/render-m2-prep_Progress.md) |
 | **Hardening** | #13 |
 
 - [x] **[P2]** Draw template SSBO + CPU `DrawIndexedIndirect` — 2026-06-09
@@ -233,6 +233,12 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 - [x] **[P2]** `Gfx_Mesh::myIndexCount` at buffer build; record/indirect use GPU count — 2026-06-09
 
 - [x] **[P2]** Per-draw RenderDoc tags via `char[128]` + `snprintf`; no heap in record hot path — 2026-06-09
+
+- [x] **[P2]** `demoRotate: false` default; opt-in Z spin; sim time reset on scene reload — 2026-06-09
+
+- [x] **[P2]** `lodEnabled: false` default; ImGui **CPU LOD** + CLI; draw stream gated — 2026-06-09
+
+- [x] **[P2]** Mesh local AABB × transform; opaque depthBucket + transparent sort from bounds-center eye Z — 2026-06-09
 
 ---
 

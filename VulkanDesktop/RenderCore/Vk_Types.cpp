@@ -49,6 +49,22 @@ std::vector< glm::vec3 > ComputeSmoothNormals( const tinyobj::attrib_t& attrib, 
     return normals;
 }
 
+Gfx_Bounds ComputeLocalBoundsFromVertices( const std::vector< Gfx_Vertex >& aVertices ) {
+    if ( aVertices.empty() ) {
+        return {};
+    }
+    glm::vec3 minPos = aVertices.front().pos;
+    glm::vec3 maxPos = minPos;
+    for ( const Gfx_Vertex& vertex : aVertices ) {
+        minPos = glm::min( minPos, vertex.pos );
+        maxPos = glm::max( maxPos, vertex.pos );
+    }
+    Gfx_Bounds bounds{};
+    bounds.myMin = minPos;
+    bounds.myMax = maxPos;
+    return bounds;
+}
+
 }  // namespace
 
 VkVertexInputBindingDescription Gfx_Vertex::getBindingDescription() {
@@ -126,6 +142,8 @@ void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
             myIndices.push_back( uniqueVertices[ vertex ] );
         }
     }
+
+    myLocalBounds = ComputeLocalBoundsFromVertices( myVertices );
 }
 
 void Gfx_Mesh::BuildBuffers( const Vk_ResourceContext& aContext ) {

@@ -12,6 +12,7 @@
   "renderPreset": "ForwardLit",
   "features": {
     "demoRotate": false,
+    "lodEnabled": false,
     "runtimeMipmap": false
   }
 }

@@ -149,6 +149,15 @@ const Gfx_Mesh& Vk_ResourceTables::GetMesh( uint32_t aMeshId ) const {
     return myMeshes[ aMeshId ];
 }
 
+std::vector< Gfx_Bounds > Vk_ResourceTables::CollectMeshLocalBounds() const {
+    std::vector< Gfx_Bounds > bounds;
+    bounds.reserve( myMeshes.size() );
+    for ( const Gfx_Mesh& mesh : myMeshes ) {
+        bounds.push_back( mesh.myLocalBounds );
+    }
+    return bounds;
+}
+
 const Gfx_Material& Vk_ResourceTables::GetMaterial( uint32_t aMaterialId ) const {
     if ( aMaterialId >= myMaterials.size() || myMaterials[ aMaterialId ].myPipeline == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_ResourceTables: invalid material id " + std::to_string( aMaterialId ) );

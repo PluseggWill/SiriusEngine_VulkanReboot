@@ -33,6 +33,7 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
     streamParams.myCameraView            = aParams.myCamera->myView;
     streamParams.myLodTable              = aParams.myLodTable;
     streamParams.myLodState              = aParams.myLodState;
+    streamParams.myLodEnabled            = aParams.myLodEnabled;
     streamParams.myLodDebugLogicalMeshId = aParams.myLodDebugLogicalMeshId;
 
     Gfx_FrameDrawStreamOutput streamOut{};

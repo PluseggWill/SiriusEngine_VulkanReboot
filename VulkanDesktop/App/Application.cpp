@@ -77,6 +77,7 @@ void Application::InitApp( int argc, char** argv ) {
     const bool validationEnabled = myConfig.ResolveValidationEnabled( buildDefaultValidation );
     core.SetEnableValidationLayers( validationEnabled, myConfig.GetValidationLayerNames() );
     myConfig.LogResolvedSummary();
+    myDebugUI.myRenderDebug.myLodEnabled = myConfig.GetFeatures().myLodEnabled;
 }
 
 void Application::LoadAndVerifyScene() {
@@ -171,6 +172,7 @@ void Application::TryProcessSceneReload() {
     try {
         core.UnloadScene();
         loadScene( reloadPath );
+        Gfx_ResetDemoSceneSimTime();
         UtilLogger::Info( "APP", "Scene reload completed: " + reloadPath );
     }
     catch ( const std::exception& e ) {

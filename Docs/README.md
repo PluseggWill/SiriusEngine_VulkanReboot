@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P2 §D–F** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md); §A–C closed) |
-| **Recommended next** | `demoRotate` / `lodEnabled` defaults (§D–E); AABB + depth bucket (§F) |
-| **Plan / Progress** | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · [`render-m2-prep_Progress.md`](render-m2-prep_Progress.md) |
+| **Task** | **P3** — M2 GPU cull + G1 parity |
+| **Recommended next** | Compute frustum cull → indirect buffer; automated CPU vs GPU parity |
+| **Plan / Progress** | [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (M2 §) · P2 closeout [`render-m2-prep_Progress.md`](Archived/plans/render-m2-prep_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
@@ -40,7 +40,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 | Plan | Topic |
 |------|--------|
 | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | Vulkan RHI audit → WSI, upload, resize (P1–P2; D→S7) |
-| [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) | CPU indirect, record hygiene |
+| [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) | P2 CPU path prep (closed); P3 GPU cull reference |
 | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) | Bindless dogfood (closed) |
 | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
 

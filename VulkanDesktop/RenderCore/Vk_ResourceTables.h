@@ -40,6 +40,8 @@ public:
         return myMaterialTableGeneration;
     }
 
+    std::vector< Gfx_Bounds > CollectMeshLocalBounds() const;
+
     // After swapchain recreate: Vk pipelines are recreated; refresh stored handles (same material ids).
     void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 

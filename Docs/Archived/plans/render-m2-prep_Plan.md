@@ -1,6 +1,6 @@
 # Plan: render-m2-prep
 
-**Status:** WIP (§A–C closed 2026-06-09; §D–F open)  
+**Status:** Closed (2026-06-09)  
 **Parent:** [`Active-Plan.md`](Active-Plan.md) **P2 → P3**  
 **Covers recommendations:** #1, #11, #12, #13, #21, #23
 
