@@ -183,3 +183,7 @@ void Vk_RenderDoc::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
     }
     myVkCmdEndDebugUtilsLabel( aCommandBuffer );
 }
+
+bool Vk_RenderDoc::AreCommandLabelsEnabled() const {
+    return myVkCmdBeginDebugUtilsLabel != nullptr && myVkCmdEndDebugUtilsLabel != nullptr;
+}

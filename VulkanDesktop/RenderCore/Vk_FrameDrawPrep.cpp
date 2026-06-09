@@ -139,7 +139,7 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
             const uint32_t          slot = Gfx_ComputeDrawBufferSlot( baseIndex, aPassOffset, static_cast< uint32_t >( drawIndex ) );
 
             Gfx_DrawTemplate drawTemplate{};
-            Gfx_FillDrawTemplate( drawTemplate, draw, static_cast< uint32_t >( mesh.myIndices.size() ), draw.myInstanceDataOffset );
+            Gfx_FillDrawTemplate( drawTemplate, draw, mesh.myIndexCount, draw.myInstanceDataOffset );
             templateBase[ slot ] = drawTemplate;
             indirectBase[ slot ] = drawTemplate.myIndirect;
         }

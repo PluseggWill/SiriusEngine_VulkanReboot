@@ -15,8 +15,7 @@
 #include "Vk_RenderBackend.h"
 
 #include <array>
-
-#include <string>
+#include <cstdio>
 
 // POLICY_BINDLESS (Option A): record keyed by Vk_RenderMaterialPath.
 
@@ -24,8 +23,18 @@
 
 namespace {
 
+constexpr size_t kDrawDebugLabelCapacity = 128;
+
 VkDeviceSize IndirectByteOffset( uint32_t aDrawSlot ) {
     return static_cast< VkDeviceSize >( aDrawSlot ) * sizeof( VkDrawIndexedIndirectCommand );
+}
+
+// Per-draw RenderDoc tag: fixed stack buffer (no heap); skipped when debug_utils labels unavailable.
+void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
+    char label[ kDrawDebugLabelCapacity ];
+    std::snprintf( label, sizeof( label ), "Pass=%s Draw=%u Mesh=%u Material=%u Entity=%u", aPassName, aDrawLabelIndex, aDraw.myMeshId, aDraw.myMaterialId,
+                   aDraw.myEntityIndex );
+    aCore.CmdBeginDebugLabel( aCommandBuffer, label );
 }
 
 // Per draw: bind VB/IB + Set 2 dynamic offset; issue vkCmdDrawIndexedIndirect (or legacy direct draw).
@@ -33,13 +42,11 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
 
                               const Gfx_DrawInstance& aDraw, const Gfx_Mesh& aMesh, const char* aPassName, uint32_t aDrawLabelIndex,
 
-                              VkBuffer aIndirectBuffer, VkDeviceSize aIndirectOffset, bool aUseLegacyDirectDraw ) {
+                              VkBuffer aIndirectBuffer, VkDeviceSize aIndirectOffset, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
-    const std::string drawTag = std::string( "Pass=" ) + aPassName + " Draw=" + std::to_string( aDrawLabelIndex ) + " Mesh=" + std::to_string( aDraw.myMeshId )
-
-                                + " Material=" + std::to_string( aDraw.myMaterialId ) + " Entity=" + std::to_string( aDraw.myEntityIndex );
-
-    aCore.CmdBeginDebugLabel( aCommandBuffer, drawTag.c_str() );
+    if ( aEmitDebugLabels ) {
+        BeginDrawDebugLabel( aCore, aCommandBuffer, aPassName, aDrawLabelIndex, aDraw );
+    }
 
     VkBuffer vertexBuffers[] = { aMesh.myVertexBuffer.myBuffer };
 
@@ -57,7 +64,7 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
 
     if ( aUseLegacyDirectDraw ) {
 
-        vkCmdDrawIndexed( aCommandBuffer, static_cast< uint32_t >( aMesh.myIndices.size() ), 1, 0, 0, 0 );
+        vkCmdDrawIndexed( aCommandBuffer, aMesh.myIndexCount, 1, 0, 0, 0 );
     }
 
     else {
@@ -65,12 +72,14 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
         vkCmdDrawIndexedIndirect( aCommandBuffer, aIndirectBuffer, aIndirectOffset, 1, sizeof( VkDrawIndexedIndirectCommand ) );
     }
 
-    aCore.CmdEndDebugLabel( aCommandBuffer );
+    if ( aEmitDebugLabels ) {
+        aCore.CmdEndDebugLabel( aCommandBuffer );
+    }
 }
 
 void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
-                                     uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw ) {
+                                     uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
 
@@ -110,7 +119,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
             RecordSingleIndexedDraw( aCore, aCommandBuffer, layout, objectDescriptor, draw, mesh, aPassName, absoluteDrawIndex, aIndirectBuffer, indirectOffset,
 
-                                     aUseLegacyDirectDraw );
+                                     aUseLegacyDirectDraw, aEmitDebugLabels );
         }
     }
 }
@@ -119,7 +128,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
 void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
 
-                                        uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw ) {
+                                        uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
 
@@ -138,7 +147,8 @@ void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommand
         const uint32_t     drawSlot       = Gfx_ComputeDrawBufferSlot( aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, drawIndex );
         const VkDeviceSize indirectOffset = IndirectByteOffset( drawSlot );
 
-        RecordSingleIndexedDraw( aCore, aCommandBuffer, layout, objectDescriptor, draw, mesh, aPassName, drawIndex, aIndirectBuffer, indirectOffset, aUseLegacyDirectDraw );
+        RecordSingleIndexedDraw( aCore, aCommandBuffer, layout, objectDescriptor, draw, mesh, aPassName, drawIndex, aIndirectBuffer, indirectOffset, aUseLegacyDirectDraw,
+                                 aEmitDebugLabels );
     }
 }
 
@@ -148,7 +158,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
                                 Vk_RenderMaterialPath aMaterialPath, VkPipeline aBindlessPipeline, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
 
-                                bool aUseLegacyDirectDraw ) {
+                                bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     if ( aPass.myDraws.empty() ) {
 
@@ -157,12 +167,13 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
     if ( aMaterialPath == Vk_RenderMaterialPath::Bindless ) {
 
-        RecordPassDrawsBindlessFromPacket( aCore, aCommandBuffer, aPass, aBindlessPipeline, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw );
+        RecordPassDrawsBindlessFromPacket( aCore, aCommandBuffer, aPass, aBindlessPipeline, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw,
+                                           aEmitDebugLabels );
     }
 
     else {
 
-        RecordPassDrawsBatchFromPacket( aCore, aCommandBuffer, aPass, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw );
+        RecordPassDrawsBatchFromPacket( aCore, aCommandBuffer, aPass, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw, aEmitDebugLabels );
     }
 }
 
@@ -221,6 +232,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
     const bool bindless = materialPath == Vk_RenderMaterialPath::Bindless;
 
     const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     const VkPipelineLayout frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
 
@@ -259,24 +271,32 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
         if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
 
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
+            if ( emitDebugLabels ) {
+                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
+            }
 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque", materialPath, aCore.mySceneGpuCtx.myBasicPipelineBindless,
 
-                                       packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw );
+                                       packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw, emitDebugLabels );
 
-            aCore.CmdEndDebugLabel( aCommandBuffer );
+            if ( emitDebugLabels ) {
+                aCore.CmdEndDebugLabel( aCommandBuffer );
+            }
         }
 
         if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
 
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
+            if ( emitDebugLabels ) {
+                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
+            }
 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent", materialPath,
 
-                                       aCore.mySceneGpuCtx.myTransparentPipelineBindless, packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw );
+                                       aCore.mySceneGpuCtx.myTransparentPipelineBindless, packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw, emitDebugLabels );
 
-            aCore.CmdEndDebugLabel( aCommandBuffer );
+            if ( emitDebugLabels ) {
+                aCore.CmdEndDebugLabel( aCommandBuffer );
+            }
         }
     }
 

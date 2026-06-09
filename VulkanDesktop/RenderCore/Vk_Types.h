@@ -141,6 +141,7 @@ class Gfx_Mesh {
 public:
     std::vector< Gfx_Vertex > myVertices;
     std::vector< uint32_t >   myIndices;
+    uint32_t                  myIndexCount = 0;  // GPU index count; set in BuildIndexBuffer (record/indirect use this, not myIndices.size()).
 
     Vk_AllocatedBuffer myVertexBuffer;
     Vk_AllocatedBuffer myIndexBuffer;

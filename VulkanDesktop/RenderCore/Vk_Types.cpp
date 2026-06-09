@@ -155,7 +155,8 @@ void Gfx_Mesh::BuildVertexBuffer( const Vk_ResourceContext& aContext ) {
 }
 
 void Gfx_Mesh::BuildIndexBuffer( const Vk_ResourceContext& aContext ) {
-    const VkDeviceSize bufferSize = sizeof( uint32_t ) * myIndices.size();
+    myIndexCount                  = static_cast< uint32_t >( myIndices.size() );
+    const VkDeviceSize bufferSize = sizeof( uint32_t ) * static_cast< size_t >( myIndexCount );
 
     Vk_AllocatedBuffer stagingBuffer;
 

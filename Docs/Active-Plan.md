@@ -93,8 +93,8 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 8 | `Vk_*Context` not `friend` | P1 ✓ | vk-core-world-peel (archived) |
 | 9 | `WorldState` in Application | P1 ✓ | vk-core-world-peel §1 (archived) |
 | 10 | `demoRotate: false` default | P2 | render-m2-prep § D |
-| 11 | No per-draw `std::string` in record | P2 | render-m2-prep § C |
-| 12 | `myIndexCount` on mesh | P2 | render-m2-prep § B |
+| 11 | No per-draw `std::string` in record | P2 ✓ | render-m2-prep § C |
+| 12 | `myIndexCount` on mesh | P2 ✓ | render-m2-prep § B |
 | 13 | CPU `DrawIndexedIndirect` + template SSBO | P2 ✓ | render-m2-prep § A |
 | 14 | Bindless: **Option A dogfood** (locked) | P1 ✓ | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract |
 | 15 | One record path semantics | P1 ✓ | shader-bindless-policy (archived) |
@@ -159,8 +159,6 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 ### Render / M2 prep
 
-- [ ] `Gfx_Mesh::myIndexCount`
-- [ ] RenderDoc tags: fixed buffer / `#ifdef` *(overlaps RHI hot-path; epic cross-ref §RHI-A)*
 - [ ] `demoRotate: false`; `lodEnabled: false` defaults
 - [ ] Tighter AABB; depth bucket from bounds center
 

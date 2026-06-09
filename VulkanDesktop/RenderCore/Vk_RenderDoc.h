@@ -30,6 +30,9 @@ public:
     void CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const;
     void CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
 
+    // True when VK_EXT_debug_utils command-label entry points are loaded (--renderdoc + extension present).
+    bool AreCommandLabelsEnabled() const;
+
 private:
     struct Api {
         void( RENDERDOC_CC* GetAPIVersion )( int* major, int* minor, int* patch ) = nullptr;

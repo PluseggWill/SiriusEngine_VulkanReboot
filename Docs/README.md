@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P2 §B–F** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md); §A closed) |
-| **Recommended next** | `Gfx_Mesh::myIndexCount` (§B); RenderDoc tags (§C) |
+| **Task** | **P2 §D–F** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md); §A–C closed) |
+| **Recommended next** | `demoRotate` / `lodEnabled` defaults (§D–E); AABB + depth bucket (§F) |
 | **Plan / Progress** | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · [`render-m2-prep_Progress.md`](render-m2-prep_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

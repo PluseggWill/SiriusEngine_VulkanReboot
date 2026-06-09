@@ -230,6 +230,10 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 - [x] **[P2]** Draw template SSBO + CPU `DrawIndexedIndirect` — 2026-06-09
 
+- [x] **[P2]** `Gfx_Mesh::myIndexCount` at buffer build; record/indirect use GPU count — 2026-06-09
+
+- [x] **[P2]** Per-draw RenderDoc tags via `char[128]` + `snprintf`; no heap in record hot path — 2026-06-09
+
 ---
 
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*

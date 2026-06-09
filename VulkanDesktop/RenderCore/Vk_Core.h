@@ -144,6 +144,9 @@ public:
 
     void CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
 
+    // VK_EXT_debug_utils labels loaded (--renderdoc + extension); used to skip label formatting on hot path.
+    bool AreCommandDebugLabelsEnabled() const;
+
     bool ShouldClose() const;
 
     GLFWwindow* GetWindow() const {

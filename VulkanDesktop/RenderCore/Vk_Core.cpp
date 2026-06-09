@@ -787,6 +787,10 @@ void Vk_Core::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
     myPlatformCtx.myRenderDoc.CmdEndDebugLabel( aCommandBuffer );
 }
 
+bool Vk_Core::AreCommandDebugLabelsEnabled() const {
+    return myPlatformCtx.myRenderDoc.AreCommandLabelsEnabled();
+}
+
 void Vk_Core::LogM1PerfSnapshot() const {
     const uint32_t visibleDraws = myFrameStats.myVisibleOpaqueDraws + myFrameStats.myVisibleTransparentDraws;
     const uint32_t batchRuns    = myFrameStats.myOpaqueBatchRuns + myFrameStats.myTransparentBatchRuns;
