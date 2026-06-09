@@ -25,7 +25,7 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 
 $exe = Join-Path $RepoRoot "x64\$Configuration\VulkanDesktop.exe"
 if (-not (Test-Path $exe)) {
-    throw "Missing $exe — build Debug|x64 first (Scripts/Verify-CI.ps1)"
+    throw "Missing $exe - build Debug|x64 first (run Scripts/Verify-CI.ps1)"
 }
 
 Write-Host "=== Verify-Smoke: VulkanDesktop ===" -ForegroundColor Cyan

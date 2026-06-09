@@ -167,6 +167,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — rhi-slab-overflow (RHI-A1) *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | `PrepareFrameCpu` fail-closed on `DrawPrep::Build()` slab overflow; GPU frame skipped |
+| **Validation** | `Scripts/Verify-CI.ps1`; manual smoke + `Assert-SmokeLog.ps1` |
+| **Plan log** | [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md), [`rhi-slab-overflow_Progress.md`](Archived/plans/rhi-slab-overflow_Progress.md) |
+| **Hardening** | #33 |
+
+- [x] **[P1]** RHI-A1 — instance slab overflow gate in `PrepareFrameCpu` — 2026-06-09
+
+---
+
 ## P0 — Verify & measure *(closed 2026-06-02)*
 
 | | |

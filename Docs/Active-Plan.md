@@ -116,7 +116,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 30 | Windows-only explicit | P1 ✓ | config-platform-hardening (archived) |
 | 31 | Recoverable VK errors | P1 ✓ | config-platform-hardening (archived) |
 | 32 | `--perf-log` JSONL | P0 ✓ | ci-verification § D (archived) |
-| 33 | Instance slab overflow skips GPU | P1 | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §RHI-A1 |
+| 33 | Instance slab overflow skips GPU | P1 ✓ | [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md) |
 | 34 | Multi-view camera UBO consistency | P1 | vulkan-rhi-hardening §RHI-A2 |
 | 35 | Swapchain create hygiene | P1 | vulkan-rhi-hardening §RHI-B1 |
 | 36 | `Recreate()` three-layer split | P2 | vulkan-rhi-hardening §RHI-B2 |
@@ -146,11 +146,10 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 *Kickoff: vibe `rhi-*_Plan.md` per epic task; full steps in epic §RHI-A1/B1.*
 
-- [ ] **RHI-A1** — Instance slab overflow: `PrepareFrameCpu` checks `DrawPrep::Build()`; abort GPU frame on overflow
 - [ ] **RHI-A2** — `Vk_FrameUniformUploader`: env-only `Update`; no fly-camera overwrite of view 0 after multi-view `UpdateForView`
 - [ ] **RHI-B1** — Swapchain create: `compositeAlpha` fallback chain, triple-buffer image count, extent precheck hook
 
-**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **Remaining P1:** shader-bindless-policy + RHI §A–B1.
+**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **RHI-A1 slab overflow (closed 2026-06-09):** [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md). **Remaining P1:** shader-bindless-policy + RHI-A2/B1.
 
 ---
 

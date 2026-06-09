@@ -626,7 +626,14 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
-        mySceneGpuCtx.myDrawPrep.Build( prepParams );
+        // Fail-closed on slab overflow (same post-acquire contract as swapchain acquire failure).
+        if ( !mySceneGpuCtx.myDrawPrep.Build( prepParams ) ) {
+            if ( !myPrepareFrameSlabOverflowLogged ) {
+                UtilLogger::Warn( "RESOURCE", "PrepareFrameCpu aborted: instance slab overflow." );
+                myPrepareFrameSlabOverflowLogged = true;
+            }
+            return false;
+        }
         aOut.myViewPackets[ viewIndex ]      = mySceneGpuCtx.myDrawPrep.myFramePacket;
         aOut.myViewports[ viewIndex ]        = aViews[ viewIndex ].myViewport;
         aOut.myScissors[ viewIndex ]         = aViews[ viewIndex ].myScissor;

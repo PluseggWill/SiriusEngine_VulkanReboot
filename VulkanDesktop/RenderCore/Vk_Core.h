@@ -265,6 +265,8 @@ public:
 
     bool myM1PerfLoggedOnce       = false;
 
+    bool myPrepareFrameSlabOverflowLogged = false;
+
 private:
 
     Vk_Core();
