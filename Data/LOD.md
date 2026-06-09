@@ -11,6 +11,19 @@ CPU LOD v0 uses a **logical mesh id** on each entity. `Gfx_LodTable` maps logica
 
 Logical id: `"tree"` in `Data/Scenes/demo.json` → `logicalMeshes` (runtime: `Gfx_BuildLodTableFromSceneDesc`).
 
+## Stress scene LOD chains (`stress.json`)
+
+Valley layout: north cliff + waterfall → river (south) → stone bridge → east longhouse / west forest.
+
+| Logical id | High → low meshes | Threshold |
+|------------|-------------------|-----------|
+| `tree` | `kenney_tree_detailed` → `kenney_tree_simple` | 18 m |
+| `tree_giant` | `kenney_tree_tall` → `kenney_tree_simple` | 20 m |
+| `pine` | `kenney_tree_pine_a` → `kenney_tree_pine_simple` | 16 m |
+| `tree_oak` | `kenney_tree_oak` → `kenney_tree_small` | 18 m |
+
+Regenerate layout: `Scripts/Generate-StressScene.ps1`. Run with `Config/engine.stress.json` (`lodEnabled: true`).
+
 ## Adding a chain (scene JSON, shipped)
 
 1. List physical meshes under `meshes` in the scene file.

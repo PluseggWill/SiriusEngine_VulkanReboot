@@ -5,14 +5,14 @@
     "width": 1600,
     "height": 1200
   },
-  "vsync": true,
+  "vsync": false,
   "logLevel": "info",
   "assetVerify": "strict",
-  "enableValidationLayers": true,
+  "enableValidationLayers": false,
   "renderPreset": "ForwardLit",
   "features": {
     "demoRotate": false,
-    "lodEnabled": false,
+    "lodEnabled": true,
     "runtimeMipmap": true
   }
 }

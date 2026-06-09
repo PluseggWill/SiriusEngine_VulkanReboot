@@ -14,7 +14,7 @@
 | Item | Rule |
 |------|------|
 | **Location** | `Data/Scenes/<name>.json` (repo-relative path) |
-| **Default scene** | `Data/Scenes/demo.json` |
+| **Default scene** | `Data/Scenes/stress.json` (Stage 1 golden still uses [`demo.json`](../Data/Scenes/demo.json)) |
 | **CLI** | `VulkanDesktop.exe --scene Data/Scenes/your_scene.json` |
 | **Asset root** | Every `path` is repo-relative to **asset root** (`assetRoot` in `Config/engine.json` or `--asset-root`), resolved by `UtilLoader::ResolvePath` |
 | **Startup verify** | Before Vulkan init, `Util_VerifyManifest` checks the manifest; `Config/engine.json` `"assetVerify": "strict"` (missing → exit) or `"warn"` (missing → `[STARTUP] WARN`, continue) |

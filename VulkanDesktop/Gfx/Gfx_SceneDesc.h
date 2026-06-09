@@ -13,7 +13,7 @@
 // Hydration into Gfx_SceneSoA + resource table ids is scene-load Phase C (not here).
 
 inline constexpr uint32_t    kGfxSceneFormatVersion      = 1;
-inline constexpr const char* kGfxDefaultSceneLogicalPath = "Data/Scenes/demo.json";
+inline constexpr const char* kGfxDefaultSceneLogicalPath = "Data/Scenes/stress.json";
 
 struct Gfx_SceneShaderPair {
     std::string myVertPath;
