@@ -28,9 +28,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $gen = Join-Path $RepoRoot "VulkanDesktop\Shader_Generated"
-# reflection_*.json embeds absolute .spv paths from the host machine — not drift-checked (contracts + .spv are).
 $patterns = @(
     "*.spv",
+    "reflection_*.json",
     "DescriptorContract_LitBatch.json",
     "DescriptorContract_LitBindless.json"
 )

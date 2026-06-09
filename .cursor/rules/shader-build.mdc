@@ -9,7 +9,7 @@ alwaysApply: false
 ## Toolchain
 
 - **Sources** (`Shader/`): `TriangleVertex.vert` + `TriangleFrag_Lit.frag` (developer-edited GLSL).
-- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` / `TrianglePix_Bindless.spv` — glslc output only; do not hand-edit. `reflection_lit.json` / `reflection_lit_bindless.json` — ShaderReflect output (committed; regen on shader compile).
+- **Generated** (`Shader_Generated/`): `TriangleVert.spv` / `TrianglePix.spv` / `TrianglePix_Bindless.spv` — glslc output only; do not hand-edit. `reflection_lit.json` / `reflection_lit_bindless.json` — ShaderReflect output (committed; `shaders[].spv` uses repo-relative `VulkanDesktop/Shader_Generated/*.spv`; drift-checked).
 - **VS build + runtime**: **glslc** only; pipeline entry `"main"` in `Vk_Core::CreateGfxPipeline`.
 - **Custom Build** is on `Shader\TriangleVertex.vert`; **Outputs** go to `Shader_Generated\`.
 

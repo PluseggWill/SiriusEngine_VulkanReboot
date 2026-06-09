@@ -42,6 +42,13 @@ uint64_t BindingKey( uint32_t aSet, uint32_t aBinding ) {
     return ( static_cast< uint64_t >( aSet ) << 32 ) | aBinding;
 }
 
+// Stable repo-relative path for committed reflection JSON (host absolute paths drift per machine).
+std::string LogicalSpvPath( const std::string& aHostPath ) {
+    const size_t sep = aHostPath.find_last_of( "/\\" );
+    const std::string fileName = ( sep == std::string::npos ) ? aHostPath : aHostPath.substr( sep + 1 );
+    return "VulkanDesktop/Shader_Generated/" + fileName;
+}
+
 const char* DescriptorTypeName( SpvReflectDescriptorType aType ) {
     switch ( aType ) {
     case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
@@ -181,7 +188,7 @@ json BuildReflectionJson( const std::string& aGroup, const std::vector< SpvInput
     root[ "shaders" ]        = json::array();
     for ( const SpvInput& input : aInputs ) {
         json shaderEntry;
-        shaderEntry[ "spv" ]        = input.myPath;
+        shaderEntry[ "spv" ]        = LogicalSpvPath( input.myPath );
         shaderEntry[ "stage" ]      = input.myStageLabel;
         shaderEntry[ "entryPoint" ] = "main";
         root[ "shaders" ].push_back( std::move( shaderEntry ) );
