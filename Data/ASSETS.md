@@ -10,7 +10,7 @@ Curated test content for multi-mesh / LOD / batch experiments. All listed assets
 | Longhouse mesh | `Data/Models/viking_room.obj` | Project demo mesh | existing |
 | Mist debug prop | `Data/Models/monkey_smooth.obj` | Project demo mesh | existing |
 | Kenney props / terrain | `Data/Models/kenney_*.obj` | [Kenney Nature Kit 2.1](https://kenney.nl/assets/nature-kit) · [OpenGameArt mirror](https://opengameart.org/content/nature-kit) | **CC0** |
-| Albedo (grass / rock / wood / metal) | `Data/Textures/ph_*_diff_1k.jpg` | [Poly Haven](https://polyhaven.com/) | **CC0** |
+| Albedo (grass / foliage / cliff / rock / path) | `Data/Textures/ph_*_diff_1k.jpg` | [Poly Haven](https://polyhaven.com/) — see table below | **CC0** |
 | Longhouse albedo | `Data/Textures/viking_room.png` | Project demo | existing |
 
 **Attribution (optional):** Kenney — [kenney.nl](https://kenney.nl) · Poly Haven — [polyhaven.com](https://polyhaven.com).
@@ -18,11 +18,12 @@ Curated test content for multi-mesh / LOD / batch experiments. All listed assets
 **Fetch / regenerate:**
 
 ```powershell
-powershell -File Scripts/Fetch-KenneyNatureSubset.ps1   # CC0 OBJ subset -> Data/Models/
-powershell -File Scripts/Generate-StressScene.ps1       # stress.json from layout script
+powershell -File Scripts/Fetch-KenneyNatureSubset.ps1        # CC0 OBJ -> Data/Models/
+powershell -File Scripts/Fetch-PolyHavenStressTextures.ps1   # CC0 JPG -> Data/Textures/
+powershell -File Scripts/Generate-StressScene.ps1            # stress.json
 ```
 
-Kenney `.mtl` solid colors are not shipped; stress materials use Poly Haven albedo × `baseColor` tuned to Nature Kit `Kd` values (see scene JSON `materials[]`).
+Kenney `.mtl` solid colors are not shipped. Stress materials use dedicated Poly Haven diffuse maps (see below); water/tent keep light `baseColor` tints.
 
 ## Models (`Models/`)
 
@@ -72,15 +73,29 @@ Full pack (~330 models) is not in-repo.
 
 ## Textures (`Textures/`)
 
+### Stress scene (Poly Haven CC0, 1K diffuse JPG)
+
+| Repo file | Poly Haven id | Used by (`stress.json`) |
+|-----------|---------------|-------------------------|
+| `ph_grass_ground_diff_1k.jpg` | [sparse_grass](https://polyhaven.com/a/sparse_grass) | `mat_grass` — ground tiles |
+| `ph_foliage_diff_1k.jpg` | [forest_leaves_03](https://polyhaven.com/a/forest_leaves_03) | `mat_foliage` — trees / bushes |
+| `ph_cliff_rock_diff_1k.jpg` | [cliff_side](https://polyhaven.com/a/cliff_side) | `mat_cliff` — cliff / waterfall |
+| `ph_rock_face_diff_1k.jpg` | [rock_face](https://polyhaven.com/a/rock_face) | `mat_rock`, `mat_bridge`, `mat_stone`, river tint base |
+| `ph_grass_path_diff_1k.jpg` | [grass_path_3](https://polyhaven.com/a/grass_path_3) | `mat_path` — footpath |
+| `ph_wood_table_diff_1k.jpg` | [wood_table_worn](https://polyhaven.com/a/wood_table_worn) | `mat_wood`, `mat_tent` |
+| `ph_metal_diff_1k.jpg` | [metal_plate](https://polyhaven.com/a/metal_plate) | (reserved / props) |
+
+Fetch: `Scripts/Fetch-PolyHavenStressTextures.ps1` (grass/cliff/rock/path/foliage subset).
+
+### Demo / legacy (still used by `demo.json`)
+
 | File | Source | License |
 |------|--------|---------|
-| `viking_room.png`, `RedMoon.jpg` | Demo scene | Existing |
+| `viking_room.png`, `RedMoon.jpg` | Project demo | existing |
 | `ph_rock_diff_1k.jpg` | [Poly Haven — rock_01](https://polyhaven.com/a/rock_01) | CC0 |
 | `ph_grass_diff_1k.jpg` | [Poly Haven — aerial_grass_rock](https://polyhaven.com/a/aerial_grass_rock) | CC0 |
-| `ph_metal_diff_1k.jpg` | [Poly Haven — metal_plate](https://polyhaven.com/a/metal_plate) | CC0 |
-| `ph_wood_table_diff_1k.jpg` | [Poly Haven — wood_table_worn](https://polyhaven.com/a/wood_table_worn) | CC0 |
 
-Diffuse-only 1K JPGs; sufficient for albedo sampling in the current lit shader.
+Diffuse-only 1K JPGs; lit shader samples albedo only (`textureBlend` from env UBO). Enable `runtimeMipmap` in `engine.json` for ground viewing angles.
 
 ## LOD chains
 

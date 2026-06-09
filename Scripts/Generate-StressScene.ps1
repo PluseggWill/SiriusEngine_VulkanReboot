@@ -272,23 +272,26 @@ $scene = [ordered]@{
     )
     textures = @(
         @{ id = "viking_albedo"; path = "Data/Textures/viking_room.png" }
-        @{ id = "tex_rock"; path = "Data/Textures/ph_rock_diff_1k.jpg" }
-        @{ id = "tex_grass"; path = "Data/Textures/ph_grass_diff_1k.jpg" }
+        @{ id = "tex_grass"; path = "Data/Textures/ph_grass_ground_diff_1k.jpg" }
+        @{ id = "tex_foliage"; path = "Data/Textures/ph_foliage_diff_1k.jpg" }
+        @{ id = "tex_cliff"; path = "Data/Textures/ph_cliff_rock_diff_1k.jpg" }
+        @{ id = "tex_rock"; path = "Data/Textures/ph_rock_face_diff_1k.jpg" }
+        @{ id = "tex_path"; path = "Data/Textures/ph_grass_path_diff_1k.jpg" }
         @{ id = "tex_metal"; path = "Data/Textures/ph_metal_diff_1k.jpg" }
         @{ id = "tex_wood"; path = "Data/Textures/ph_wood_table_diff_1k.jpg" }
     )
     materials = @(
         @{ id = "mat_viking"; shader = "lit"; texture = "viking_albedo" }
-        @{ id = "mat_grass"; shader = "lit"; texture = "tex_grass"; baseColor = @(0.17, 0.85, 0.72, 1.0) }
-        @{ id = "mat_foliage"; shader = "lit"; texture = "tex_grass"; baseColor = @(0.16, 0.79, 0.67, 1.0) }
-        @{ id = "mat_cliff"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.89, 0.51, 0.34, 1.0); roughness = 0.95 }
-        @{ id = "mat_rock"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.72, 0.89, 0.91, 1.0) }
-        @{ id = "mat_bridge"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.72, 0.89, 0.91, 1.0); roughness = 0.85 }
-        @{ id = "mat_water"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.69, 0.96, 1.0, 1.0); roughness = 0.12 }
-        @{ id = "mat_wood"; shader = "lit"; texture = "tex_wood"; baseColor = @(0.89, 0.51, 0.34, 1.0) }
-        @{ id = "mat_tent"; shader = "lit"; texture = "tex_wood"; baseColor = @(0.88, 0.29, 0.31, 1.0) }
-        @{ id = "mat_stone"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.72, 0.89, 0.91, 1.0) }
-        @{ id = "mat_path"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.96, 0.84, 0.73, 1.0); roughness = 0.88 }
+        @{ id = "mat_grass"; shader = "lit"; texture = "tex_grass" }
+        @{ id = "mat_foliage"; shader = "lit"; texture = "tex_foliage" }
+        @{ id = "mat_cliff"; shader = "lit"; texture = "tex_cliff"; roughness = 0.95 }
+        @{ id = "mat_rock"; shader = "lit"; texture = "tex_rock"; roughness = 0.9 }
+        @{ id = "mat_bridge"; shader = "lit"; texture = "tex_rock"; roughness = 0.85 }
+        @{ id = "mat_water"; shader = "lit"; texture = "tex_rock"; baseColor = @(0.55, 0.78, 0.92, 1.0); roughness = 0.12 }
+        @{ id = "mat_wood"; shader = "lit"; texture = "tex_wood" }
+        @{ id = "mat_tent"; shader = "lit"; texture = "tex_wood"; baseColor = @(0.95, 0.55, 0.5, 1.0) }
+        @{ id = "mat_stone"; shader = "lit"; texture = "tex_rock" }
+        @{ id = "mat_path"; shader = "lit"; texture = "tex_path"; roughness = 0.88 }
         @{ id = "mat_mist"; shader = "lit"; texture = "viking_albedo"; alpha = 0.25; transparent = $true }
     )
     cameras = @(
