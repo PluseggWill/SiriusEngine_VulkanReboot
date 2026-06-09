@@ -6,15 +6,68 @@
 #include "Vk_ResourceContext.h"
 #include "Vk_ShaderEffectMeta.h"
 
+#include "../Gfx/Gfx_RenderView.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include <array>
+#include <cmath>
 #include <cstring>
 
 namespace {
 
 constexpr VkFormat kBindlessDefaultTextureFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+uint32_t WithPoolHeadroom( uint32_t aCount ) {
+    return static_cast< uint32_t >( std::ceil( static_cast< float >( aCount ) * 1.2f ) ) + 4;
+}
+
+struct DescriptorPoolPlan {
+    std::array< VkDescriptorPoolSize, 5 > myPoolSizes{};
+    uint32_t                              myMaxSets = 0;
+};
+
+DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Core& aCore ) {
+    // Sizes derived from scene manifest at load time; 20% headroom + policy caps fail before vkCreateDescriptorPool.
+    const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
+    const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
+
+    if ( materialCount > VkDescriptorPolicy::kMaxSceneMaterials ) {
+        throw std::runtime_error( "scene material count " + std::to_string( materialCount ) + " exceeds policy max "
+                                  + std::to_string( VkDescriptorPolicy::kMaxSceneMaterials ) );
+    }
+    if ( textureCount > VkDescriptorPolicy::kMaxSceneTextures ) {
+        throw std::runtime_error( "scene texture count " + std::to_string( textureCount ) + " exceeds policy max "
+                                  + std::to_string( VkDescriptorPolicy::kMaxSceneTextures ) );
+    }
+
+    const bool bindless = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless;
+
+    const uint32_t frameSets    = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * kGfxMaxRenderViews;
+    const uint32_t objectSets   = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
+    const uint32_t materialSets = bindless ? 1u : static_cast< uint32_t >( materialCount );
+    const uint32_t baseSets     = frameSets + objectSets + materialSets;
+
+    const uint32_t uniformStatic = WithPoolHeadroom( frameSets * 2 + static_cast< uint32_t >( materialCount ) );
+    const uint32_t uniformDynamic = WithPoolHeadroom( static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) );
+    const uint32_t combinedSamplers =
+        bindless ? WithPoolHeadroom( VkDescriptorPolicy::kMaxBindlessTextures ) : WithPoolHeadroom( static_cast< uint32_t >( materialCount ) );
+    const uint32_t storageBuffers = WithPoolHeadroom( bindless ? 2u : 1u );
+
+    DescriptorPoolPlan plan{};
+    plan.myPoolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    plan.myPoolSizes[ 0 ].descriptorCount = uniformStatic;
+    plan.myPoolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    plan.myPoolSizes[ 1 ].descriptorCount = uniformDynamic;
+    plan.myPoolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    plan.myPoolSizes[ 2 ].descriptorCount = combinedSamplers;
+    plan.myPoolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    plan.myPoolSizes[ 3 ].descriptorCount = uniformDynamic;
+    plan.myPoolSizes[ 4 ].type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    plan.myPoolSizes[ 4 ].descriptorCount = storageBuffers;
+    plan.myMaxSets                        = WithPoolHeadroom( baseSets );
+    return plan;
+}
 
 }  // namespace
 
@@ -240,25 +293,21 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
 }
 
 void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
-    std::array< VkDescriptorPoolSize, 5 > poolSizes{};
-    poolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[ 0 ].descriptorCount = 32;
-    poolSizes[ 1 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    poolSizes[ 1 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
-    poolSizes[ 2 ].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[ 2 ].descriptorCount = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? VkDescriptorPolicy::kMaxBindlessTextures + 4 : 16;
-    poolSizes[ 3 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[ 3 ].descriptorCount = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
-    poolSizes[ 4 ].type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[ 4 ].descriptorCount = 4;
+    const DescriptorPoolPlan plan = ComputeDescriptorPoolPlan( aCore );
+
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * 2 + 16;
+    poolInfo.poolSizeCount = static_cast< uint32_t >( plan.myPoolSizes.size() );
+    poolInfo.pPoolSizes    = plan.myPoolSizes.data();
+    poolInfo.maxSets       = plan.myMaxSets;
     if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &aCore.mySceneGpuCtx.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor pool!" );
     }
+
+    UtilLogger::Info( "DESCRIPTOR",
+                      "pool from manifest: maxSets=" + std::to_string( plan.myMaxSets ) + " materials=" + std::to_string( aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount() )
+                          + " textures=" + std::to_string( aCore.mySceneGpuCtx.myResourceTables.GetTextureCount() ) + " UBO=" + std::to_string( plan.myPoolSizes[ 0 ].descriptorCount )
+                          + " dynamicUBO=" + std::to_string( plan.myPoolSizes[ 1 ].descriptorCount ) + " samplers=" + std::to_string( plan.myPoolSizes[ 2 ].descriptorCount ) );
 
     const VkDevice         device = aCore.myDeviceCtx.myDevice;
     const VkDescriptorPool pool   = aCore.mySceneGpuCtx.myDescriptorPool;

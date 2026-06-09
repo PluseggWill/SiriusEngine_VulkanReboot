@@ -142,6 +142,8 @@ Set-Location x64\Debug
 
 任务收尾优先 **`--smoke-seconds 6`** + 完整卸载日志；仅 `Stop-Process` 不会走 `UnloadScene`。实现 P0 后本地可用 `pwsh -File Scripts/Verify-CI.ps1` 镜像 G0。
 
+**WSI 缩放冒烟（可选，RHI-B4）：** 在 G0 构建后运行 `powershell -File Scripts/Verify-ResizeSmoke.ps1`。脚本启动 `demo.json`，通过 Win32 `SetWindowPos` 触发 `[SWAPCHAIN] rebuild layer=wsi`；找不到窗口时降级为无程序化缩放（需手动拖拽验证）。CI 可 soft-fail。
+
 ---
 
 ## 相关文档

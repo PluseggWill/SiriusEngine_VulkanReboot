@@ -150,7 +150,8 @@ void Gfx_Mesh::BuildVertexBuffer( const Vk_ResourceContext& aContext ) {
 
     aContext.CopyBuffer( stagingBuffer.myBuffer, myVertexBuffer.myBuffer, bufferSize );
 
-    vmaDestroyBuffer( aContext.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    // Staging must outlive batched CopyBuffer; DestroyStagingBuffer frees after EndSceneUploadBatch.
+    aContext.DestroyStagingBuffer( stagingBuffer );
 }
 
 void Gfx_Mesh::BuildIndexBuffer( const Vk_ResourceContext& aContext ) {
@@ -169,5 +170,5 @@ void Gfx_Mesh::BuildIndexBuffer( const Vk_ResourceContext& aContext ) {
 
     aContext.CopyBuffer( stagingBuffer.myBuffer, myIndexBuffer.myBuffer, bufferSize );
 
-    vmaDestroyBuffer( aContext.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    aContext.DestroyStagingBuffer( stagingBuffer );
 }

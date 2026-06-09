@@ -37,8 +37,7 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P2** | CPU indirect + **RHI** recreate/upload ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C) |
-| 2 | **P2** | render-m2-prep peel items (parallel) |
+| 1 | **P2** | render-m2-prep peel items (CPU indirect, defaults, AABB) |
 | 4 | **P3** | M2 GPU cull + automated parity |
 | 5 | **P4** | Vertical slice (objective + restart) |
 | *gate* | — | FG v0 / Stage 2 / Wishlist |
@@ -119,13 +118,14 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 33 | Instance slab overflow skips GPU | P1 ✓ | [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md) |
 | 34 | Multi-view camera UBO consistency | P1 ✓ | [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md) |
 | 35 | Swapchain create hygiene | P1 ✓ | [`Archived/plans/rhi-swapchain-create_Plan.md`](Archived/plans/rhi-swapchain-create_Plan.md) |
-| 36 | `Recreate()` three-layer split | P2 | vulkan-rhi-hardening §RHI-B2 |
-| 37 | `SURFACE_LOST` recovery | P2 | vulkan-rhi-hardening §RHI-B3 |
-| 38 | Resource layer merge (`Vk_ResourceContext`) | P2 | vulkan-rhi-hardening §RHI-C1 |
-| 39 | Staging pool / batched uploads | P2 | vulkan-rhi-hardening §RHI-C2 |
-| 40 | Descriptor pool sizing from manifest | P2 | vulkan-rhi-hardening §RHI-C3 |
+| 36 | `Recreate()` three-layer split | P2 ✓ | vulkan-rhi-hardening §RHI-B2 |
+| 37 | `SURFACE_LOST` recovery | P2 ✓ | vulkan-rhi-hardening §RHI-B3 |
+| 38 | Resource layer merge (`Vk_ResourceContext`) | P2 ✓ | vulkan-rhi-hardening §RHI-C1 |
+| 39 | Staging pool / batched uploads | P2 ✓ | vulkan-rhi-hardening §RHI-C2 |
+| 40 | Descriptor pool sizing from manifest | P2 ✓ | vulkan-rhi-hardening §RHI-C3 |
 | 41 | Khronos production WSI (maintenance1) | Wishlist S7 | vulkan-rhi-hardening §RHI-D |
 | 42 | Swapchain recreate (acquire-retry) | P1 ✓ | [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md) |
+| 43 | Resize smoke script | P2 ✓ | vulkan-rhi-hardening §RHI-B4 · `Scripts/Verify-ResizeSmoke.ps1` |
 
 ---
 
@@ -139,23 +139,23 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 | Track | Plan | Task |
 |-------|------|------|
-| **Vulkan RHI** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | §Track A–B1 *(closed)* · **B2+ open in P2** |
+| **Vulkan RHI** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | §Track A–C *(closed 2026-06-09)* · Track D → Wishlist S7 |
 
 ### Bindless maint contract *(Option A — closed 2026-06-09)*
 
 **Before merging any change to** `Vk_ScenePasses`, `Vk_DescriptorSystem`, `Vk_Bindless`, `Vk_ResourceTables`, `TriangleFrag_Lit*.frag`, or material sort keys — still apply M1–M8 from [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract.
 
-### Vulkan RHI — P1 closed; P2 open
+### Vulkan RHI — P1–P2 RHI tracks closed
 
 *Kickoff: vibe `rhi-*_Plan.md` per epic task.*
 
-**P1 closed:** vk-core-world-peel, config-platform-hardening, swapchain-recreation, rhi-slab-overflow, rhi-camera-ubo, rhi-swapchain-create, shader-bindless-policy (2026-06-09). **Next:** RHI-B2 `Recreate` three-layer split (P2).
+**P1 closed:** vk-core-world-peel, config-platform-hardening, swapchain-recreation, rhi-slab-overflow, rhi-camera-ubo, rhi-swapchain-create, shader-bindless-policy (2026-06-09). **P2 RHI B2–C closed** 2026-06-09 — [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md).
 
 ---
 
 ## P2 — Render path prep
 
-**Plans:** [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C
+**Plans:** [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) · RHI B2–C closed → [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md)
 
 ### Render / M2 prep
 
@@ -164,15 +164,6 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 - [ ] RenderDoc tags: fixed buffer / `#ifdef` *(overlaps RHI hot-path; epic cross-ref §RHI-A)*
 - [ ] `demoRotate: false`; `lodEnabled: false` defaults
 - [ ] Tighter AABB; depth bucket from bounds center
-
-### Vulkan RHI — P2 open tasks
-
-- [ ] **RHI-B2** — Split `Vk_SwapchainHost::Recreate` into WSI / extent-dependent / pipeline layers
-- [ ] **RHI-B3** — Handle `VK_ERROR_SURFACE_LOST_KHR` (recreate surface + swapchain)
-- [ ] **RHI-B4** — Optional `Scripts/Verify-ResizeSmoke.ps1` (or document manual soak gate)
-- [ ] **RHI-C1** — Consolidate `Vk_ResourceContext` vs `Vk_Core` buffer/image/upload helpers
-- [ ] **RHI-C2** — Staging pool; batched scene upload (remove per-asset `vkQueueWaitIdle`)
-- [ ] **RHI-C3** — Descriptor pool sizes derived from scene manifest
 
 ---
 

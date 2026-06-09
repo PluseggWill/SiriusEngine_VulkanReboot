@@ -207,6 +207,13 @@ public:
 
     void CreateSurface();
 
+    // SURFACE_LOST recovery: destroy and recreate WSI surface (window unchanged).
+    void RecreateSurface();
+
+    const Vk_ResourceContext& GetResourceContext() const {
+        return myResourceContext;
+    }
+
     void PickPhysicalDevice();
 
     void InitVk_QueueFamilyIndices();
@@ -308,10 +315,6 @@ private:
     Vk_QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
 
     uint32_t                   FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const;
-
-    VkCommandBuffer            BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
-
-    void                       EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
 
     VkFormat                   FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
 

@@ -1,6 +1,6 @@
 # Epic Plan: vulkan-rhi-hardening
 
-**Status:** Planned  
+**Status:** Planned (Track A–B1, B2–C closed 2026-06-09; Track D → Wishlist S7)  
 **Scope:** VulkanDesktop / `RenderCore` low-level RHI — WSI, sync, upload, descriptors, resize  
 **Related:** [`Active-Plan.md`](Active-Plan.md) · [`Wishlist.md`](Wishlist.md) · [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md) (closed 2026-06-08)
 
@@ -17,7 +17,7 @@ Audit (2026-06-08) vs [Khronos swapchain_recreation sample](https://docs.vulkan.
 |----------|------------|
 | **Correctness (desktop)** | B+ — frames-in-flight, descriptor policy, `Vk_FrameResult` solid |
 | **WSI** | B — acquire-retry + `oldSwapchain` done; still `vkDeviceWaitIdle` on recreate |
-| **Upload / memory** | C+ — VMA OK; per-upload `vkQueueWaitIdle` |
+| **Upload / memory** | B — VMA OK; scene mesh upload batched (RHI-C2); per-texture still immediate submit |
 | **Production WSI** | C — no present history / `VK_EXT_swapchain_maintenance1` |
 
 **Closed prerequisite:** [swapchain-recreation](Archived/plans/swapchain-recreation_Plan.md) (Khronos L2 acquire-retry).

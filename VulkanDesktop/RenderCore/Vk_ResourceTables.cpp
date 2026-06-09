@@ -33,9 +33,14 @@ void Vk_ResourceTables::LoadFromManifest( const Util_EngineConfig& aConfig, cons
         aTextureMipLevels = std::max( aTextureMipLevels, textureMipLevels );
     }
 
+    // Batch mesh staging→device copies only; textures above use immediate submit (layout + copy + mips).
+    aContext.BeginSceneUploadBatch();
+
     for ( const Gfx_MeshManifestEntry& entry : aManifest.myMeshes ) {
         LoadMesh( aConfig, entry.myPath, entry.myId, aContext, aSceneDeletionQueue );
     }
+
+    aContext.EndSceneUploadBatch();
 
     for ( const Gfx_MaterialManifestEntry& entry : aManifest.myMaterials ) {
         VkPipeline pipeline = entry.myIsTransparent ? aTransparentPipeline : aOpaquePipeline;

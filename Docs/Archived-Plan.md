@@ -219,6 +219,24 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | Three-layer swapchain recreate; `SURFACE_LOST` recovery; resource layer merge + batched upload; manifest descriptor pool; `Verify-ResizeSmoke.ps1` |
+| **Validation** | MSBuild Debug\|x64; `Verify-Smoke.ps1`; `Verify-ResizeSmoke.ps1` |
+| **Plan log** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C, [`vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md) |
+| **Hardening** | #36–40, #43 |
+
+- [x] **[P2]** RHI-B2 — `Recreate` three-layer split (wsi / extent / pipeline) — 2026-06-09
+- [x] **[P2]** RHI-B3 — `VK_ERROR_SURFACE_LOST_KHR` surface + swapchain recovery — 2026-06-09
+- [x] **[P2]** RHI-B4 — `Scripts/Verify-ResizeSmoke.ps1` + `CLI.md` — 2026-06-09
+- [x] **[P2]** RHI-C1 — `Vk_ResourceContext` single owner; `Vk_Core` thin forwards — 2026-06-09
+- [x] **[P2]** RHI-C2 — batched scene upload (`BeginSceneUploadBatch`) — 2026-06-09
+- [x] **[P2]** RHI-C3 — descriptor pool sizing from manifest + policy max — 2026-06-09
+
+---
+
 ## P0 — Verify & measure *(closed 2026-06-02)*
 
 | | |

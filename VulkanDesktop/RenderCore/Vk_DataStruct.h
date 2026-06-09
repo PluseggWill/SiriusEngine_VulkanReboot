@@ -54,4 +54,15 @@ struct Vk_DeletionQueue {
             myDeletors.pop_front();
         }
     }
+
+    // Run and remove the deletor just before the back entry (swapchain stays at back during extent rebuild).
+    void popSecondFromBackAndRun() {
+        if ( myDeletors.size() <= 1 ) {
+            return;
+        }
+        const size_t            idx = myDeletors.size() - 2;
+        std::function< void() > fn  = std::move( myDeletors[ idx ] );
+        myDeletors.erase( myDeletors.begin() + static_cast< std::deque< std::function< void() > >::difference_type >( idx ) );
+        fn();
+    }
 };

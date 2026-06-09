@@ -17,6 +17,11 @@ class Vk_SwapchainHost {
 public:
     static void Init( Vk_Core& aCore );
     static void Recreate( Vk_Core& aCore );
+    // B2 three-layer split — orchestrator calls these in order; log rebuild layer=wsi|extent|pipeline.
+    static void RecreateWsiOnly( Vk_Core& aCore, VkSwapchainKHR aSupersededSwapChain = VK_NULL_HANDLE );
+    static void RebuildExtentDependentResources( Vk_Core& aCore, bool aIncludeRenderPass );
+    static void RebuildScenePipelinesIfNeeded( Vk_Core& aCore );
+    static bool HandleSurfaceLost( Vk_Core& aCore );
     // Extent precheck before heavy recreate (B1); returns true when extent changed or resize flag set.
     static bool NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTargetExtent );
     static bool AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex );

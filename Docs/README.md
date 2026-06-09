@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P2** — RHI-B2 `Recreate` three-layer split ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2) |
-| **Recommended next** | Vibe `rhi-recreate-split` or parallel **render-m2-prep** peel |
-| **Plan / Progress** | Epic only until kickoff — last closed: [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) |
+| **Task** | **P2** — render-m2-prep ([`render-m2-prep_Plan.md`](render-m2-prep_Plan.md)) |
+| **Recommended next** | CPU indirect + `myIndexCount`; parallel items in Active-Plan P2 |
+| **Plan / Progress** | Roadmap plans only — last closed: [`Archived/plans/vulkan-rhi-p2_Progress.md`](Archived/plans/vulkan-rhi-p2_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*

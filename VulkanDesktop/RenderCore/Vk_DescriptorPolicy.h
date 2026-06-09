@@ -30,6 +30,10 @@ inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 // CONTRACT: TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES + layout descriptorCount must match.
 inline constexpr uint32_t kMaxBindlessTextures = 64;
 
+// Scene-load descriptor pool policy max (fail LoadScene before vkCreateDescriptorPool).
+inline constexpr uint32_t kMaxSceneMaterials = 512;
+inline constexpr uint32_t kMaxSceneTextures  = 512;
+
 // --- Material / descriptor rebuild (S2 layout verify) ---
 // Device boot: Vk_DescriptorSystem::InitDeviceLayouts -> CreateDescriptorSetLayout (+ bindless set layout if enabled).
 // LoadScene: InitSceneDescriptors -> pool, per-frame Set 0/2 descriptors, then CreateMaterialDescriptorSets (batch)

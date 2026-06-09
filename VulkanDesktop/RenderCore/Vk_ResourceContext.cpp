@@ -1,8 +1,10 @@
 #include "Vk_ResourceContext.h"
 
+#include "../Util/Util_Logger.h"
 #include "Vk_Initializer.h"
 
 #include <array>
+#include <chrono>
 #include <stdexcept>
 
 void Vk_ResourceContext::Bind( VkDevice aDevice, VmaAllocator aAllocator, VkPhysicalDevice aPhysicalDevice, VkQueue aGraphicsQueue, VkQueue aTransferQueue,
@@ -16,6 +18,44 @@ void Vk_ResourceContext::Bind( VkDevice aDevice, VmaAllocator aAllocator, VkPhys
     myTransferCommandPool = aTransferCommandPool;
     myGraphicsQueueFamily = aGraphicsQueueFamily;
     myTransferQueueFamily = aTransferQueueFamily;
+}
+
+void Vk_ResourceContext::BeginSceneUploadBatch() const {
+    if ( myUploadBatch.myActive ) {
+        throw std::runtime_error( "Vk_ResourceContext: nested BeginSceneUploadBatch" );
+    }
+    myUploadBatch = UploadBatchState{};
+    myUploadBatch.myActive = true;
+}
+
+void Vk_ResourceContext::EndSceneUploadBatch() const {
+    if ( !myUploadBatch.myActive ) {
+        return;
+    }
+
+    const auto waitStart = std::chrono::steady_clock::now();
+
+    if ( myUploadBatch.myTransferRecording ) {
+        vkEndCommandBuffer( myUploadBatch.myTransferCommandBuffer );
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers    = &myUploadBatch.myTransferCommandBuffer;
+        vkQueueSubmit( myTransferQueue, 1, &submitInfo, VK_NULL_HANDLE );
+        vkQueueWaitIdle( myTransferQueue );
+        vkFreeCommandBuffers( myDevice, myTransferCommandPool, 1, &myUploadBatch.myTransferCommandBuffer );
+    }
+
+    for ( const Vk_AllocatedBuffer& staging : myUploadBatch.myPendingStagingDestroys ) {
+        vmaDestroyBuffer( myAllocator, staging.myBuffer, staging.myAllocation );
+    }
+
+    const auto   waitEnd = std::chrono::steady_clock::now();
+    const double waitMs  = std::chrono::duration< double, std::milli >( waitEnd - waitStart ).count();
+    UtilLogger::Info( "RESOURCE", "LoadSceneResources upload waitMs=" + std::to_string( waitMs ) );
+
+    myUploadBatch = UploadBatchState{};
 }
 
 void Vk_ResourceContext::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer,
@@ -43,6 +83,12 @@ void Vk_ResourceContext::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aB
     }
 }
 
+void Vk_ResourceContext::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                                      VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
+    const VkExtent3D extent = { anExtent.width, anExtent.height, 1 };
+    CreateImage( extent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
+}
+
 void Vk_ResourceContext::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
                                       uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     VkImageCreateInfo imageInfo = VkInit::ImageCreateInfo( aFormat, anImageUsage, anExtent );
@@ -62,7 +108,7 @@ void Vk_ResourceContext::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkI
 }
 
 void Vk_ResourceContext::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const {
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool, false );
 
     VkImageMemoryBarrier barrier{};
     barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -112,11 +158,11 @@ void Vk_ResourceContext::TransitionImageLayout( VkImage aImage, VkFormat aFormat
     }
 
     vkCmdPipelineBarrier( commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
+    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue, false );
 }
 
 void Vk_ResourceContext::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
-    VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
+    VkCommandBuffer   commandBuffer = BeginSingleTimeCommands( myTransferCommandPool, false );
     VkBufferImageCopy region{};
     region.bufferOffset                    = 0;
     region.bufferRowLength                 = 0;
@@ -129,17 +175,40 @@ void Vk_ResourceContext::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, ui
     region.imageExtent                     = { aWidth, aHeight, 1 };
 
     vkCmdCopyBufferToImage( commandBuffer, aBuffer, aImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
-    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
+    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue, false );
 }
 
 void Vk_ResourceContext::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
-    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myTransferCommandPool );
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myTransferCommandPool, true );
     VkBufferCopy    copyRegion{};
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size      = aSize;
     vkCmdCopyBuffer( commandBuffer, aSrcBuffer, aDstBuffer, 1, &copyRegion );
-    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue );
+    EndSingleTimeCommands( commandBuffer, myTransferCommandPool, myTransferQueue, true );
+}
+
+void Vk_ResourceContext::DestroyStagingBuffer( Vk_AllocatedBuffer& aBuffer ) const {
+    if ( aBuffer.myBuffer == VK_NULL_HANDLE ) {
+        return;
+    }
+    if ( myUploadBatch.myActive ) {
+        myUploadBatch.myPendingStagingDestroys.push_back( aBuffer );
+        aBuffer = {};
+        return;
+    }
+    vmaDestroyBuffer( myAllocator, aBuffer.myBuffer, aBuffer.myAllocation );
+    aBuffer = {};
+}
+
+void Vk_ResourceContext::CopyBufferOnGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool, false );
+    VkBufferCopy    copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size      = aSize;
+    vkCmdCopyBuffer( commandBuffer, aSrcBuffer, aDstBuffer, 1, &copyRegion );
+    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue, false );
 }
 
 void Vk_ResourceContext::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const {
@@ -149,7 +218,7 @@ void Vk_ResourceContext::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat,
         throw std::runtime_error( "texture image does not support linear blitting!" );
     }
 
-    VkCommandBuffer      commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool );
+    VkCommandBuffer      commandBuffer = BeginSingleTimeCommands( myGraphicsCommandPool, false );
     VkImageMemoryBarrier barrier{};
     barrier.sType                           = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image                           = aImage;
@@ -206,7 +275,7 @@ void Vk_ResourceContext::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat,
     barrier.dstAccessMask                 = VK_ACCESS_SHADER_READ_BIT;
     vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 
-    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue );
+    EndSingleTimeCommands( commandBuffer, myGraphicsCommandPool, myGraphicsQueue, false );
 }
 
 VkImageView Vk_ResourceContext::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
@@ -220,7 +289,19 @@ VkImageView Vk_ResourceContext::CreateImageView( VkImage anImage, VkFormat aForm
     return imageView;
 }
 
-VkCommandBuffer Vk_ResourceContext::BeginSingleTimeCommands( VkCommandPool aCommandPool ) const {
+VkCommandBuffer Vk_ResourceContext::BeginSingleTimeCommands( VkCommandPool aCommandPool, bool aDeferTransferCopyToBatch ) const {
+    // aDeferTransferCopyToBatch: only mesh CopyBuffer on transfer queue joins the scene batch.
+    if ( myUploadBatch.myActive && aDeferTransferCopyToBatch && aCommandPool == myTransferCommandPool ) {
+        if ( !myUploadBatch.myTransferRecording ) {
+            const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( aCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
+            vkAllocateCommandBuffers( myDevice, &allocInfo, &myUploadBatch.myTransferCommandBuffer );
+            const VkCommandBufferBeginInfo beginInfo = VkInit::CommandBufferBeginInfo( VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT );
+            vkBeginCommandBuffer( myUploadBatch.myTransferCommandBuffer, &beginInfo );
+            myUploadBatch.myTransferRecording = true;
+        }
+        return myUploadBatch.myTransferCommandBuffer;
+    }
+
     const VkCommandBufferAllocateInfo allocInfo = VkInit::CommandBufferAllocInfo( aCommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY );
     VkCommandBuffer                   commandBuffer;
     vkAllocateCommandBuffers( myDevice, &allocInfo, &commandBuffer );
@@ -230,7 +311,13 @@ VkCommandBuffer Vk_ResourceContext::BeginSingleTimeCommands( VkCommandPool aComm
     return commandBuffer;
 }
 
-void Vk_ResourceContext::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const {
+void Vk_ResourceContext::EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue, bool aDeferTransferCopyToBatch ) const {
+    if ( myUploadBatch.myActive && aDeferTransferCopyToBatch && aCommandPool == myTransferCommandPool ) {
+        ( void )aCommandBuffer;
+        ( void )aQueue;
+        return;
+    }
+
     vkEndCommandBuffer( aCommandBuffer );
 
     VkSubmitInfo submitInfo{};

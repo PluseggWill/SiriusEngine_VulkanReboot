@@ -67,6 +67,12 @@ void DestroySwapchainImageViews( Vk_Core& aCore ) {
     aCore.mySwapchainCtx.mySwapChainImages.clear();
 }
 
+bool RenderPassNeedsRebuild( Vk_Core& aCore ) {
+    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    const VkSurfaceFormatKHR         format  = aCore.ChooseSwapSurfaceFormat( support.myFormats );
+    return format.format != aCore.mySwapchainCtx.mySwapChainImageFormat;
+}
+
 // Maps queue results for per-frame submit/present/acquire; OUT_OF_DATE is handled by callers via Recreate.
 Vk_FrameResult ClassifyQueueResult( VkResult aResult, const char* aOperation ) {
     if ( aResult == VK_SUCCESS ) {
@@ -81,6 +87,14 @@ Vk_FrameResult ClassifyQueueResult( VkResult aResult, const char* aOperation ) {
 }
 
 }  // namespace
+
+bool Vk_SwapchainHost::HandleSurfaceLost( Vk_Core& aCore ) {
+    UtilLogger::Warn( "SWAPCHAIN", "VK_ERROR_SURFACE_LOST_KHR; recreating surface and swapchain." );
+    vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    aCore.RecreateSurface();
+    Recreate( aCore );
+    return true;
+}
 
 void Vk_SwapchainHost::Init( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Vk_SwapchainHost::Init." );
@@ -99,6 +113,80 @@ bool Vk_SwapchainHost::NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTa
     return extentChanged || aCore.mySwapchainCtx.myFramebufferResized;
 }
 
+// Drop the pending swapchain deletor without running it (superseded chain uses createInfo.oldSwapchain).
+// Init order: [swapchain, renderpass, depth, (+msaa), framebuffers]. First recreate: pop_front (swapchain at 0).
+// After renderPass=reuse cycle: [renderpass, swapchain, depth, framebuffers] — swapchain at index 1.
+void DiscardPendingSwapchainDeletor( Vk_Core& aCore ) {
+    auto& deletors = aCore.mySwapchainCtx.mySwapChainDeletionQueue.myDeletors;
+    if ( deletors.empty() ) {
+        return;
+    }
+    if ( !aCore.mySwapchainCtx.myHasRecreateOnce ) {
+        deletors.pop_front();
+        return;
+    }
+    if ( deletors.size() >= 2 ) {
+        deletors.erase( deletors.begin() + 1 );
+        return;
+    }
+    deletors.pop_back();
+}
+
+void Vk_SwapchainHost::RecreateWsiOnly( Vk_Core& aCore, VkSwapchainKHR aSupersededSwapChain ) {
+    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=wsi" );
+    aCore.myPlatformCtx.myImGuiLayer.DestroySwapchainResources();
+
+    DestroySwapchainImageViews( aCore );
+    DiscardPendingSwapchainDeletor( aCore );
+    CreateSwapChain( aCore, aSupersededSwapChain );
+
+    const uint32_t imageCount    = static_cast< uint32_t >( aCore.mySwapchainCtx.mySwapChainImageViews.size() );
+    const uint32_t minImageCount = std::max( 2u, imageCount );
+    aCore.myPlatformCtx.myImGuiLayer.CreateSwapchainResources( aCore.mySwapchainCtx.mySwapChainImageFormat, aCore.mySwapchainCtx.mySwapChainExtent, aCore.mySwapchainCtx.mySwapChainImageViews,
+                                                               imageCount, minImageCount );
+}
+
+void RunExtentDeletorsBeforeSwapchain( Vk_Core& aCore, bool aIncludeRenderPass ) {
+    Vk_DeletionQueue& queue = aCore.mySwapchainCtx.mySwapChainDeletionQueue;
+
+    if ( aIncludeRenderPass && !queue.myDeletors.empty() ) {
+        std::function< void() > fn = std::move( queue.myDeletors.front() );
+        queue.myDeletors.pop_front();
+        fn();
+    }
+
+    size_t attachmentDeletorCount = 2;  // depth + framebuffers
+    if ( aCore.mySwapchainCtx.myMSAASamples != VK_SAMPLE_COUNT_1_BIT ) {
+        ++attachmentDeletorCount;  // MSAA color
+    }
+
+    for ( size_t i = 0; i < attachmentDeletorCount; ++i ) {
+        queue.popSecondFromBackAndRun();  // keep swapchain deletor at back (just pushed in RecreateWsiOnly)
+    }
+}
+
+void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Core& aCore, bool aIncludeRenderPass ) {
+    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=extent renderPass=" + std::string( aIncludeRenderPass ? "yes" : "reuse" ) );
+    RunExtentDeletorsBeforeSwapchain( aCore, aIncludeRenderPass );
+
+    if ( aIncludeRenderPass ) {
+        CreateRenderPass( aCore );
+    }
+    CreateColorResources( aCore );
+    CreateDepthResources( aCore );
+    CreateFrameBuffers( aCore );
+}
+
+void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Core& aCore ) {
+    if ( !aCore.HasLoadedScene() ) {
+        return;
+    }
+    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=pipeline" );
+    Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
+    Vk_GfxPipelineCache::InitScenePipelines( aCore );
+    aCore.RefreshMaterialPipelinesAfterSwapchainRecreate();
+}
+
 void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Recreating swapchain." );
     int width = 0, height = 0;
@@ -108,8 +196,9 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
         glfwWaitEvents();
     }
 
-    VkExtent2D targetExtent{};
-    const bool needsRebuild = NeedsSwapchainRebuild( aCore, targetExtent );
+    const VkExtent2D previousExtent = aCore.mySwapchainCtx.mySwapChainExtent;
+    VkExtent2D       targetExtent{};
+    const bool       needsRebuild = NeedsSwapchainRebuild( aCore, targetExtent );
     if ( aCore.mySwapchainCtx.myFramebufferResized ) {
         UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: framebuffer resize flag set." );
     }
@@ -117,40 +206,28 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
         UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent unchanged (suboptimal/out-of-date path)." );
     }
     else {
-        const VkExtent2D& current = aCore.mySwapchainCtx.mySwapChainExtent;
         UtilLogger::Info( "SWAPCHAIN",
-                          "Recreate precheck: extent " + std::to_string( current.width ) + "x" + std::to_string( current.height ) + " -> " +
+                          "Recreate precheck: extent " + std::to_string( previousExtent.width ) + "x" + std::to_string( previousExtent.height ) + " -> " +
                               std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
     }
 
-    // Keep superseded WSI handle for createInfo.oldSwapchain (ImGui/Khronos handoff); views destroyed before flush.
+    const bool extentChanged = targetExtent.width != previousExtent.width || targetExtent.height != previousExtent.height;
+    aCore.mySwapchainCtx.myFramebufferResized = false;
+
     const VkSwapchainKHR supersededSwapChain = aCore.mySwapchainCtx.mySwapChain;
 
     vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
-    aCore.myPlatformCtx.myImGuiLayer.DestroySwapchainResources();
-    if ( aCore.HasLoadedScene() ) {
-        Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
+
+    const bool includeRenderPass = RenderPassNeedsRebuild( aCore );
+    RecreateWsiOnly( aCore, supersededSwapChain );
+    RebuildExtentDependentResources( aCore, includeRenderPass );
+
+    if ( extentChanged || includeRenderPass ) {
+        RebuildScenePipelinesIfNeeded( aCore );
     }
 
-    DestroySwapchainImageViews( aCore );
-    // First deletor is swapchain generation; skip so supersededSwapChain survives until new chain is created.
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.popFront();
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.flush();
-
-    CreateSwapChain( aCore, supersededSwapChain );
-    CreateRenderPass( aCore );
-    if ( aCore.HasLoadedScene() ) {
-        Vk_GfxPipelineCache::InitScenePipelines( aCore );
-    }
-    CreateColorResources( aCore );
-    CreateDepthResources( aCore );
-    CreateFrameBuffers( aCore );
-
-    const uint32_t imageCount    = static_cast< uint32_t >( aCore.mySwapchainCtx.mySwapChainImageViews.size() );
-    const uint32_t minImageCount = std::max( 2u, imageCount );
-    aCore.myPlatformCtx.myImGuiLayer.CreateSwapchainResources( aCore.mySwapchainCtx.mySwapChainImageFormat, aCore.mySwapchainCtx.mySwapChainExtent, aCore.mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
-    aCore.RefreshMaterialPipelinesAfterSwapchainRecreate();
     aCore.myCamera.SetAspect( static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );
+    aCore.mySwapchainCtx.myHasRecreateOnce = true;
     UtilLogger::Info( "SWAPCHAIN", "Swapchain recreation completed." );
 }
 
@@ -159,6 +236,10 @@ bool Vk_SwapchainHost::AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFr
 
     // CONTRACT: caller already vkWaitForFences; do not vkResetFences here — early return leaves fence signaled.
     VkResult result = TryAcquireOnce( aCore, aFrameData, anOutImageIndex );
+    if ( result == VK_ERROR_SURFACE_LOST_KHR ) {
+        HandleSurfaceLost( aCore );
+        return false;
+    }
     if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ) {
         UtilLogger::Warn( "SWAPCHAIN", "Acquire outdated/suboptimal; recreating and retrying acquire." );
         Recreate( aCore );
@@ -214,6 +295,10 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_Fram
     presentInfo.pResults        = nullptr;
 
     const VkResult result = vkQueuePresentKHR( aCore.myDeviceCtx.myPresentQueue, &presentInfo );
+    if ( result == VK_ERROR_SURFACE_LOST_KHR ) {
+        HandleSurfaceLost( aCore );
+        return Vk_FrameResult::SkipFrame;
+    }
     // Resize flag checked after present (tutorial): keeps image-acquired semaphore pairing consistent.
     if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || aCore.mySwapchainCtx.myFramebufferResized ) {
         aCore.mySwapchainCtx.myFramebufferResized = false;
@@ -289,7 +374,7 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersed
     const VkDevice       device     = aCore.myDeviceCtx.myDevice;
     const VkSwapchainKHR swapchain  = aCore.mySwapchainCtx.mySwapChain;
     const auto           imageViews = aCore.mySwapchainCtx.mySwapChainImageViews;
-    // Registered first: popped without run on Recreate so superseded handle can use oldSwapchain.
+    // Registered at end of WSI step; extent rebuild runs attachment deletors before it via popSecondFromBackAndRun.
     aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, swapchain, imageViews ]() {
         for ( const VkImageView imageView : imageViews ) {
             vkDestroyImageView( device, imageView, nullptr );

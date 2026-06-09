@@ -1,12 +1,17 @@
 #pragma once
 
 #include "Vk_Types.h"
+#include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 // Narrow GPU resource factory surface for load-time paths (meshes, textures, tables).
-// Vk_Core fills this after device + VMA init; avoids friend access from Vk_ResourceTables.
-// TODO(vk-core-peel): extend with CreateBuffer/Image/Copy/Transition/Mipmap from Vk_Core; Util_Loader + Gfx_Mesh take const Vk_ResourceContext&.
+// Vk_Core fills this after device + VMA init; single owner for upload/barrier/alloc helpers.
+//
+// Scene upload batch (RHI-C2): call BeginSceneUploadBatch before mesh loads, EndSceneUploadBatch after.
+// Only mesh CopyBuffer (transfer queue) is batched into one submit + wait. Image layout transitions,
+// CopyBufferToImage, and GenerateMipmaps always submit immediately — textures must load before the batch.
+// DestroyStagingBuffer defers staging VMA frees until EndSceneUploadBatch when a batch is active.
 struct Vk_ResourceContext {
     VkDevice         myDevice              = VK_NULL_HANDLE;
     VmaAllocator     myAllocator           = VK_NULL_HANDLE;
@@ -21,17 +26,34 @@ struct Vk_ResourceContext {
     void Bind( VkDevice aDevice, VmaAllocator aAllocator, VkPhysicalDevice aPhysicalDevice, VkQueue aGraphicsQueue, VkQueue aTransferQueue, VkCommandPool aGraphicsCommandPool,
                VkCommandPool aTransferCommandPool, uint32_t aGraphicsQueueFamily, uint32_t aTransferQueueFamily );
 
+    void BeginSceneUploadBatch() const;
+    void EndSceneUploadBatch() const;
+
     void        CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool aIsExclusive ) const;
+    void        CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                             VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     void        CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
                              VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
     void        TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
     void        CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
     void        CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    // Staging teardown after CopyBuffer; deferred until EndSceneUploadBatch when batch active.
+    void        DestroyStagingBuffer( Vk_AllocatedBuffer& aBuffer ) const;
+    void        CopyBufferOnGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     void        GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const;
     VkImageView CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
 
 private:
-    VkCommandBuffer BeginSingleTimeCommands( VkCommandPool aCommandPool ) const;
-    void            EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue ) const;
+    struct UploadBatchState {
+        bool                           myActive                = false;
+        VkCommandBuffer                myTransferCommandBuffer = VK_NULL_HANDLE;
+        bool                           myTransferRecording     = false;
+        std::vector< Vk_AllocatedBuffer > myPendingStagingDestroys{};
+    };
+
+    mutable UploadBatchState myUploadBatch{};
+
+    VkCommandBuffer BeginSingleTimeCommands( VkCommandPool aCommandPool, bool aDeferTransferCopyToBatch ) const;
+    void            EndSingleTimeCommands( VkCommandBuffer aCommandBuffer, VkCommandPool aCommandPool, VkQueue aQueue, bool aDeferTransferCopyToBatch ) const;
     static bool     HasStencilComponent( VkFormat aFormat );
 };
