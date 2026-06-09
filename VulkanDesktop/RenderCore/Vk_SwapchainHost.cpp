@@ -8,9 +8,51 @@
 
 #include <algorithm>
 #include <array>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
+
+constexpr uint32_t kPreferredSwapchainImageCount = 3;
+
+VkCompositeAlphaFlagBitsKHR ChooseCompositeAlpha( const VkSurfaceCapabilitiesKHR& aCapabilities ) {
+    static constexpr VkCompositeAlphaFlagBitsKHR kOrder[] = {
+        VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+        VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+    };
+    for ( const VkCompositeAlphaFlagBitsKHR flag : kOrder ) {
+        if ( aCapabilities.supportedCompositeAlpha & flag ) {
+            return flag;
+        }
+    }
+    throw std::runtime_error( "no supported composite alpha mode for surface" );
+}
+
+const char* CompositeAlphaName( VkCompositeAlphaFlagBitsKHR aMode ) {
+    switch ( aMode ) {
+    case VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR:
+        return "OPAQUE";
+    case VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR:
+        return "INHERIT";
+    case VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR:
+        return "PRE_MULTIPLIED";
+    case VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR:
+        return "POST_MULTIPLIED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+uint32_t ChooseSwapchainImageCount( const VkSurfaceCapabilitiesKHR& aCapabilities ) {
+    uint32_t imageCount = std::max( aCapabilities.minImageCount, kPreferredSwapchainImageCount );
+    if ( aCapabilities.maxImageCount > 0 && imageCount > aCapabilities.maxImageCount ) {
+        imageCount = aCapabilities.maxImageCount;
+    }
+    return imageCount;
+}
 
 VkResult TryAcquireOnce( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex ) {
     return vkAcquireNextImageKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &anOutImageIndex );
@@ -49,6 +91,14 @@ void Vk_SwapchainHost::Init( Vk_Core& aCore ) {
     CreateFrameBuffers( aCore );
 }
 
+bool Vk_SwapchainHost::NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTargetExtent ) {
+    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    aOutTargetExtent                         = aCore.ChooseSwapExtent( support.myCapabilities );
+    const bool extentChanged                 = aOutTargetExtent.width != aCore.mySwapchainCtx.mySwapChainExtent.width ||
+                               aOutTargetExtent.height != aCore.mySwapchainCtx.mySwapChainExtent.height;
+    return extentChanged || aCore.mySwapchainCtx.myFramebufferResized;
+}
+
 void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
     UtilLogger::Info( "SWAPCHAIN", "Recreating swapchain." );
     int width = 0, height = 0;
@@ -56,6 +106,21 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
     while ( width == 0 || height == 0 ) {
         glfwGetFramebufferSize( aCore.myPlatformCtx.myWindow, &width, &height );
         glfwWaitEvents();
+    }
+
+    VkExtent2D targetExtent{};
+    const bool needsRebuild = NeedsSwapchainRebuild( aCore, targetExtent );
+    if ( aCore.mySwapchainCtx.myFramebufferResized ) {
+        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: framebuffer resize flag set." );
+    }
+    else if ( !needsRebuild ) {
+        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent unchanged (suboptimal/out-of-date path)." );
+    }
+    else {
+        const VkExtent2D& current = aCore.mySwapchainCtx.mySwapChainExtent;
+        UtilLogger::Info( "SWAPCHAIN",
+                          "Recreate precheck: extent " + std::to_string( current.width ) + "x" + std::to_string( current.height ) + " -> " +
+                              std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
     }
 
     // Keep superseded WSI handle for createInfo.oldSwapchain (ImGui/Khronos handoff); views destroyed before flush.
@@ -172,9 +237,10 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersed
     const VkSurfaceFormatKHR         surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
     const VkPresentModeKHR           presentMode      = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
     const VkExtent2D                 extent           = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
-    uint32_t                         imageCount       = swapChainSupport.myCapabilities.minImageCount + 1;
-    if ( swapChainSupport.myCapabilities.maxImageCount > 0 && imageCount > swapChainSupport.myCapabilities.maxImageCount ) {
-        imageCount = swapChainSupport.myCapabilities.maxImageCount;
+    uint32_t                         imageCount       = ChooseSwapchainImageCount( swapChainSupport.myCapabilities );
+    const VkCompositeAlphaFlagBitsKHR compositeAlpha = ChooseCompositeAlpha( swapChainSupport.myCapabilities );
+    if ( imageCount < static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) ) {
+        throw std::runtime_error( "swapchain imageCount < MAX_FRAMES_IN_FLIGHT" );
     }
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -196,7 +262,7 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersed
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
     createInfo.preTransform   = swapChainSupport.myCapabilities.currentTransform;
-    createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    createInfo.compositeAlpha = compositeAlpha;
     createInfo.presentMode    = presentMode;
     createInfo.clipped        = VK_TRUE;
     // Hand off superseded chain to WSI; still safe with vkDeviceWaitIdle in Recreate (baseline stall).
@@ -207,11 +273,15 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersed
     if ( aSupersededSwapChain != VK_NULL_HANDLE ) {
         vkDestroySwapchainKHR( aCore.myDeviceCtx.myDevice, aSupersededSwapChain, nullptr );
     }
+    const uint32_t requestedImageCount = imageCount;
     vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, nullptr );
     aCore.mySwapchainCtx.mySwapChainImages.resize( imageCount );
     vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, aCore.mySwapchainCtx.mySwapChainImages.data() );
     aCore.mySwapchainCtx.mySwapChainImageFormat = surfaceFormat.format;
     aCore.mySwapchainCtx.mySwapChainExtent      = extent;
+    UtilLogger::Info( "SWAPCHAIN",
+                      "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha ) + " extent=" +
+                          std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
     aCore.mySwapchainCtx.mySwapChainImageViews.resize( imageCount );
     for ( size_t i = 0; i < imageCount; ++i ) {
         aCore.mySwapchainCtx.mySwapChainImageViews[ i ] = aCore.CreateImageView( aCore.mySwapchainCtx.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );

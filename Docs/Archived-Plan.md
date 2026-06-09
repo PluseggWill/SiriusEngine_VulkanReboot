@@ -167,6 +167,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — rhi-swapchain-create (RHI-B1) *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | compositeAlpha fallback, triple-buffer image count, create log, `NeedsSwapchainRebuild` precheck |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/rhi-swapchain-create_Plan.md`](Archived/plans/rhi-swapchain-create_Plan.md), [`rhi-swapchain-create_Progress.md`](Archived/plans/rhi-swapchain-create_Progress.md) |
+| **Hardening** | #35 |
+
+- [x] **[P1]** RHI-B1 — swapchain create hygiene — 2026-06-09
+
+---
+
 ## P1 — rhi-camera-ubo (RHI-A2) *(closed 2026-06-09)*
 
 | | |

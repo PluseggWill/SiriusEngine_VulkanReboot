@@ -118,7 +118,7 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 32 | `--perf-log` JSONL | P0 ✓ | ci-verification § D (archived) |
 | 33 | Instance slab overflow skips GPU | P1 ✓ | [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md) |
 | 34 | Multi-view camera UBO consistency | P1 ✓ | [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md) |
-| 35 | Swapchain create hygiene | P1 | vulkan-rhi-hardening §RHI-B1 |
+| 35 | Swapchain create hygiene | P1 ✓ | [`Archived/plans/rhi-swapchain-create_Plan.md`](Archived/plans/rhi-swapchain-create_Plan.md) |
 | 36 | `Recreate()` three-layer split | P2 | vulkan-rhi-hardening §RHI-B2 |
 | 37 | `SURFACE_LOST` recovery | P2 | vulkan-rhi-hardening §RHI-B3 |
 | 38 | Resource layer merge (`Vk_ResourceContext`) | P2 | vulkan-rhi-hardening §RHI-C1 |
@@ -146,9 +146,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 *Kickoff: vibe `rhi-*_Plan.md` per epic task; full steps in epic §RHI-A1/B1.*
 
-- [ ] **RHI-B1** — Swapchain create: `compositeAlpha` fallback chain, triple-buffer image count, extent precheck hook
-
-**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **RHI-A1 slab overflow (closed 2026-06-09):** [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md). **RHI-A2 camera UBO (closed 2026-06-09):** [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md). **Remaining P1:** shader-bindless-policy + RHI-B1.
+**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **RHI-A1 slab overflow (closed 2026-06-09):** [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md). **RHI-A2 camera UBO (closed 2026-06-09):** [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md). **RHI-B1 swapchain create (closed 2026-06-09):** [`Archived/plans/rhi-swapchain-create_Plan.md`](Archived/plans/rhi-swapchain-create_Plan.md). **Remaining P1:** shader-bindless-policy; RHI Track B continues in P2 (B2+).
 
 ---
 
