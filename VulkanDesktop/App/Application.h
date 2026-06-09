@@ -16,14 +16,14 @@ public:
     int Run( int argc, char** argv );
 
 private:
-    void InitApp( int argc, char** argv );
-    void LoadAndVerifyScene();
-    void RunMainLoop();
-    void TryProcessSceneReload();
+    void        InitApp( int argc, char** argv );
+    void        LoadAndVerifyScene();
+    void        RunMainLoop();
+    void        TryProcessSceneReload();
     std::string TakePendingSceneReloadPath();
 
     std::vector< const char* > myDeviceExtensions;
-    Util_EngineConfig myConfig;  // Single source of truth; bound on Vk_Core in InitApp.
+    Util_EngineConfig          myConfig;  // Single source of truth; bound on Vk_Core in InitApp.
     WorldState                 myWorld;
     DebugUIState               myDebugUI;
     Gfx_SceneDesc              mySceneDesc;

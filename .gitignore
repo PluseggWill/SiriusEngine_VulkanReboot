@@ -372,6 +372,9 @@ imgui.ini
 # Vulkan pipeline cache blobs (regenerated locally)
 /Cache/*.bin
 
+# Local dev tool bootstrap (Assert-ClangFormat.ps1 -BootstrapTools)
+.tools/
+
 # Cursor IDE local state (track shared rules and skills)
 .cursor/*
 !.cursor/rules/

@@ -26,7 +26,7 @@ void Gfx_TickDemoSceneTransforms( const Util_EngineConfig& aConfig, Gfx_SceneTra
     }
 
     for ( size_t slot = 0; slot < aTransforms.mySourceWorldTransforms.size(); ++slot ) {
-        const glm::mat4& base = aTransforms.mySourceWorldTransforms[ slot ];
+        const glm::mat4& base                         = aTransforms.mySourceWorldTransforms[ slot ];
         aTransforms.myResolvedWorldTransforms[ slot ] = ComputeDemoSpinMatrix( base, timeSeconds, demoRotate );
     }
 }

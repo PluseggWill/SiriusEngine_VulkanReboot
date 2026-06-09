@@ -1,16 +1,16 @@
 #include "Application.h"
 
-#include "ActiveViewsBuild.h"
-#include "DebugOverlay.h"
 #include "../Gfx/Gfx_DemoSceneSim.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_Core.h"
-#include "../Util/Util_AssetManifest.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
+#include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_RenderDebugPanel.h"
+#include "ActiveViewsBuild.h"
+#include "DebugOverlay.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdlib>
@@ -87,12 +87,11 @@ void Application::LoadAndVerifyScene() {
 }
 
 void Application::RunMainLoop() {
-    Vk_Core& core = Vk_Core::GetInstance();
+    Vk_Core&     core            = Vk_Core::GetInstance();
     const int    smokeFrameLimit = myConfig.GetSmokeFrameLimit();
     const double smokeSeconds    = myConfig.GetSmokeSeconds();
     int          renderedFrames  = 0;
-    const auto   smokeStart =
-        ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    const auto   smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if ( smokeSeconds > 0.0 ) {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }
@@ -113,8 +112,8 @@ void Application::RunMainLoop() {
         Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
 
-        uint32_t                viewCount = 0;
-        const auto              views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
+        uint32_t              viewCount = 0;
+        const auto            views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
         Vk_FrameCpuPrepResult prep{};
         if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
             UtilRenderDebugPanel::Build( myConfig, myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
@@ -128,8 +127,7 @@ void Application::RunMainLoop() {
         ++renderedFrames;
 
         const bool frameThresholdMet = smokeFrameLimit <= 0 || renderedFrames >= smokeFrameLimit;
-        const bool timeThresholdMet  = smokeSeconds <= 0.0 ||
-                                      std::chrono::duration<double>( std::chrono::steady_clock::now() - smokeStart ).count() >= smokeSeconds;
+        const bool timeThresholdMet  = smokeSeconds <= 0.0 || std::chrono::duration< double >( std::chrono::steady_clock::now() - smokeStart ).count() >= smokeSeconds;
         const bool smokeExit         = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) && frameThresholdMet && timeThresholdMet;
         if ( smokeExit ) {
             if ( smokeSeconds > 0.0 ) {
@@ -148,14 +146,14 @@ std::string Application::TakePendingSceneReloadPath() {
     if ( !myDebugUI.myScenePanel.myReloadRequested ) {
         return {};
     }
-    std::string path                           = std::move( myDebugUI.myScenePanel.myReloadTargetPath );
-    myDebugUI.myScenePanel.myReloadRequested   = false;
+    std::string path                         = std::move( myDebugUI.myScenePanel.myReloadTargetPath );
+    myDebugUI.myScenePanel.myReloadRequested = false;
     myDebugUI.myScenePanel.myReloadTargetPath.clear();
     return path;
 }
 
 void Application::TryProcessSceneReload() {
-    Vk_Core& core = Vk_Core::GetInstance();
+    Vk_Core&          core       = Vk_Core::GetInstance();
     const std::string reloadPath = TakePendingSceneReloadPath();
     if ( reloadPath.empty() ) {
         return;

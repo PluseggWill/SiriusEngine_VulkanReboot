@@ -13,28 +13,28 @@ namespace {
 using pRENDERDOC_GetAPI = int( RENDERDOC_CC* )( int version, void** outApi );
 
 struct RenderDocApiV170 {
-    void ( RENDERDOC_CC *GetAPIVersion )( int*, int*, int* );
+    void( RENDERDOC_CC* GetAPIVersion )( int*, int*, int* );
     void* SetCaptureOptionU32;
     void* SetCaptureOptionF32;
     void* GetCaptureOptionU32;
     void* GetCaptureOptionF32;
     void* SetFocusToggleKeys;
-    void ( RENDERDOC_CC *SetCaptureKeys )( int*, int );
-    uint32_t ( RENDERDOC_CC *GetOverlayBits )( void );
-    void ( RENDERDOC_CC *MaskOverlayBits )( uint32_t, uint32_t );
+    void( RENDERDOC_CC* SetCaptureKeys )( int*, int );
+    uint32_t( RENDERDOC_CC* GetOverlayBits )( void );
+    void( RENDERDOC_CC* MaskOverlayBits )( uint32_t, uint32_t );
     void* RemoveHooksUnion0;
     void* UnloadCrashHandler;
     void* SetCaptureFilePathTemplateUnion0;
     void* GetCaptureFilePathTemplateUnion0;
     void* GetNumCaptures;
     void* GetCapture;
-    void ( RENDERDOC_CC *TriggerCapture )( void );
+    void( RENDERDOC_CC* TriggerCapture )( void );
     void* IsTargetControlConnectedUnion0;
     void* LaunchReplayUI;
-    void ( RENDERDOC_CC *SetActiveWindow )( void*, void* );
-    void ( RENDERDOC_CC *StartFrameCapture )( void*, void* );
-    uint32_t ( RENDERDOC_CC *IsFrameCapturing )( void );
-    uint32_t ( RENDERDOC_CC *EndFrameCapture )( void*, void* );
+    void( RENDERDOC_CC* SetActiveWindow )( void*, void* );
+    void( RENDERDOC_CC* StartFrameCapture )( void*, void* );
+    uint32_t( RENDERDOC_CC* IsFrameCapturing )( void );
+    uint32_t( RENDERDOC_CC* EndFrameCapture )( void*, void* );
 };
 }  // namespace
 
@@ -87,9 +87,9 @@ void Vk_RenderDoc::AttachRenderDocApi() {
         return;
     }
 
-    void* api = nullptr;
-    int   negotiatedVersion = 0;
-    const int kApiCandidates[] = { 10700, 10600, 10500, 10402, 10401, 10400, 10300, 10200, 10102, 10101, 10100, 10002, 10001, 10000 };
+    void*     api               = nullptr;
+    int       negotiatedVersion = 0;
+    const int kApiCandidates[]  = { 10700, 10600, 10500, 10402, 10401, 10400, 10300, 10200, 10102, 10101, 10100, 10002, 10001, 10000 };
     for ( int version : kApiCandidates ) {
         api = nullptr;
         if ( getApi( version, &api ) != 0 && api != nullptr ) {
@@ -102,18 +102,18 @@ void Vk_RenderDoc::AttachRenderDocApi() {
         return;
     }
 
-    myRenderDocApiReady = true;
-    const auto* apiV170 = reinterpret_cast< const RenderDocApiV170* >( api );
-    myApi.GetAPIVersion    = apiV170->GetAPIVersion;
-    myApi.SetCaptureKeys   = apiV170->SetCaptureKeys;
-    myApi.MaskOverlayBits  = apiV170->MaskOverlayBits;
-    myApi.TriggerCapture   = apiV170->TriggerCapture;
+    myRenderDocApiReady   = true;
+    const auto* apiV170   = reinterpret_cast< const RenderDocApiV170* >( api );
+    myApi.GetAPIVersion   = apiV170->GetAPIVersion;
+    myApi.SetCaptureKeys  = apiV170->SetCaptureKeys;
+    myApi.MaskOverlayBits = apiV170->MaskOverlayBits;
+    myApi.TriggerCapture  = apiV170->TriggerCapture;
 
     if ( myApi.GetAPIVersion != nullptr ) {
         int major = 0, minor = 0, patch = 0;
         myApi.GetAPIVersion( &major, &minor, &patch );
-        UtilLogger::Info( "RENDERDOC", "RenderDoc API version " + std::to_string( major ) + "." + std::to_string( minor ) + "." + std::to_string( patch )
-                                           + " (requested " + std::to_string( negotiatedVersion ) + ")" );
+        UtilLogger::Info( "RENDERDOC", "RenderDoc API version " + std::to_string( major ) + "." + std::to_string( minor ) + "." + std::to_string( patch ) + " (requested "
+                                           + std::to_string( negotiatedVersion ) + ")" );
     }
     if ( myApi.MaskOverlayBits != nullptr ) {
         constexpr uint32_t kOverlayAll = 0x07ffffffu;

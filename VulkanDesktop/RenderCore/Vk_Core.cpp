@@ -3,9 +3,9 @@
 #include "Vk_Core.h"
 #include "../App/DebugUIState.h"
 #include "../App/WorldState.h"
+#include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
-#include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_DebugMessenger.h"
@@ -230,13 +230,15 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildResourceManifestFromSceneDesc( World().myLoadedScene, World().mySceneIdTables, manifest );
-        mySceneGpuCtx.myTextureImageMipLevels           = 1;
-        const VkPipeline       opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
-        const VkPipeline       transPipe  = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
-        const VkPipelineLayout layout     = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
+        mySceneGpuCtx.myTextureImageMipLevels = 1;
+        const VkPipeline opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
+        const VkPipeline transPipe =
+            myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
+        const VkPipelineLayout layout =
+            myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
         SyncResourceContext();
-        mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue, mySceneGpuCtx.myTextureImageMipLevels,
-                                                         opaquePipe, transPipe, layout );
+        mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue,
+                                                         mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
@@ -291,8 +293,9 @@ void Vk_Core::InitImGui() {
     const uint32_t imageCount    = static_cast< uint32_t >( mySwapchainCtx.mySwapChainImageViews.size() );
     const uint32_t minImageCount = std::max( 2u, imageCount );
 
-    myPlatformCtx.myImGuiLayer.Init( myPlatformCtx.myWindow, myDeviceCtx.myInstance, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myGraphicsQueue, mySwapchainCtx.mySwapChainImageFormat,
-                       mySwapchainCtx.mySwapChainExtent, mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
+    myPlatformCtx.myImGuiLayer.Init( myPlatformCtx.myWindow, myDeviceCtx.myInstance, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myDevice,
+                                     myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myGraphicsQueue, mySwapchainCtx.mySwapChainImageFormat,
+                                     mySwapchainCtx.mySwapChainExtent, mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
     UtilLogger::Info( "IMGUI", "ImGui overlay initialized." );
 }
 
@@ -397,8 +400,8 @@ void Vk_Core::PickPhysicalDevice() {
 void Vk_Core::CreateLogicalDevice() {
     // Build one queue create-info per unique family (graphics/present/transfer may collapse to fewer families).
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
-    std::set< uint32_t >                   uniqueQueueFamilies = { myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value(),
-                                                                   myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value() };
+    std::set< uint32_t > uniqueQueueFamilies = { myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value(),
+                                                 myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value() };
 
     float queuePriority = 1.0f;
     for ( uint32_t queueFamily : uniqueQueueFamilies ) {
@@ -422,7 +425,7 @@ void Vk_Core::CreateLogicalDevice() {
         indexingFeatures.runtimeDescriptorArray                    = VK_TRUE;
         indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
         // Bindless material set uses VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT on the texture array.
-        indexingFeatures.descriptorBindingPartiallyBound           = VK_TRUE;
+        indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
     }
 
     VkPhysicalDeviceFeatures2 features2{};
@@ -476,8 +479,9 @@ void Vk_Core::RecreateSurface() {
 }
 
 void Vk_Core::SyncResourceContext() {
-    myResourceContext.Bind( myDeviceCtx.myDevice, myDeviceCtx.myAllocator, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myGraphicsQueue, myDeviceCtx.myTransferQueue, myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myTransferCommandPool,
-                            myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
+    myResourceContext.Bind( myDeviceCtx.myDevice, myDeviceCtx.myAllocator, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myGraphicsQueue, myDeviceCtx.myTransferQueue,
+                            myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myTransferCommandPool, myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ),
+                            myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
 }
 
 void Vk_Core::InitAllocator() {
@@ -582,8 +586,10 @@ void Vk_Core::CreateDrawTemplateBuffers() {
                 vmaUnmapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation );
                 myFrameCtx.myFrameDatas[ i ].myDrawTemplateMapped = nullptr;
             }
-            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myAllocation );
-            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myBuffer, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation );
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myBuffer,
+                              myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer.myAllocation );
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myBuffer,
+                              myFrameCtx.myFrameDatas[ i ].myDrawTemplateBuffer.myAllocation );
         } );
     }
 
@@ -602,7 +608,8 @@ void Vk_Core::CreateUniformBuffers() {
 
 void Vk_Core::CreateCommandPool() {
     // Graphics command pool: frame command buffers + graphics-side one-shot commands.
-    VkCommandPoolCreateInfo poolInfo = VkInit::CommandPoolCreateInfo( myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
+    VkCommandPoolCreateInfo poolInfo =
+        VkInit::CommandPoolCreateInfo( myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
 
     if ( vkCreateCommandPool( myDeviceCtx.myDevice, &poolInfo, nullptr, &myDeviceCtx.myGraphicsCommandPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create graphic command pool!" );
@@ -641,13 +648,13 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
 
     myFrameStats.ResetPerFrameCounters();
 
-    aOut.myActiveViewCount = std::min( aViewCount, kGfxMaxRenderViews );
+    aOut.myActiveViewCount         = std::min( aViewCount, kGfxMaxRenderViews );
     const uint32_t activeViewCount = aOut.myActiveViewCount;
 
-    uint32_t totalOpaqueDraws = 0;
-    uint32_t totalTransDraws  = 0;
-    uint32_t totalOpaqueRuns  = 0;
-    uint32_t totalTransRuns   = 0;
+    uint32_t       totalOpaqueDraws   = 0;
+    uint32_t       totalTransDraws    = 0;
+    uint32_t       totalOpaqueRuns    = 0;
+    uint32_t       totalTransRuns     = 0;
     const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
 
@@ -707,8 +714,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
             UtilLogger::Info( "DESCRIPTOR", "Set 1 bindless material set (once per pass); per-draw materialIndex in Set 2 slab." );
         }
         else {
-            UtilLogger::Info( "DESCRIPTOR",
-                              "Set 1 material binds this frame will be <= batch runs (" + std::to_string( totalOpaqueRuns + totalTransRuns ) + ")" );
+            UtilLogger::Info( "DESCRIPTOR", "Set 1 material binds this frame will be <= batch runs (" + std::to_string( totalOpaqueRuns + totalTransRuns ) + ")" );
         }
         myMaterialBindLoggedOnce = true;
     }
@@ -793,9 +799,10 @@ void Vk_Core::LogM1PerfSnapshot() const {
 }
 
 void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
-    const VkPipeline       opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
-    const VkPipeline       transPipe  = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
-    const VkPipelineLayout layout     = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
+    const VkPipeline opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
+    const VkPipeline transPipe =
+        myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
+    const VkPipelineLayout layout = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBindlessPipelineLayout : mySceneGpuCtx.myPipelineLayout;
     mySceneGpuCtx.myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
 }
 

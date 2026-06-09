@@ -11,8 +11,8 @@ struct DebugUIState {
         uint32_t mySecondaryCameraIndex = 0;
     };
 
-    MultiViewState                  myMultiView;
-    UtilScenePanel::State           myScenePanel;
-    UtilRenderDebugPanel::State     myRenderDebug;
-    Util_CameraSettings             myCameraSettings;
+    MultiViewState              myMultiView;
+    UtilScenePanel::State       myScenePanel;
+    UtilRenderDebugPanel::State myRenderDebug;
+    Util_CameraSettings         myCameraSettings;
 };

@@ -34,7 +34,8 @@ std::vector< char > UtilLoader::ReadFile( const Util_EngineConfig& aConfig, cons
     return buffer;
 }
 
-bool UtilLoader::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel ) {
+bool UtilLoader::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut,
+                              uint32_t& aTextureMipLevel ) {
     const std::string resolvedPath = ResolvePath( aConfig, aFilename );
     UtilLogger::Info( "RESOURCE", "Loading texture from disk: " + resolvedPath );
     int      texWidth    = 0;

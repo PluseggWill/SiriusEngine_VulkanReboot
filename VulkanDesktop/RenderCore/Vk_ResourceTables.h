@@ -44,9 +44,10 @@ public:
     void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
 private:
-    Gfx_Mesh*    LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue );
-    Gfx_Texture* LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
-                              uint32_t& aMipLevels );
+    Gfx_Mesh*     LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
+                            Vk_DeletionQueue& aSceneDeletionQueue );
+    Gfx_Texture*  LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
+                               Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
     Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, const Gfx_MaterialManifestEntry& aSurface );
 
     std::vector< Gfx_Mesh >     myMeshes;

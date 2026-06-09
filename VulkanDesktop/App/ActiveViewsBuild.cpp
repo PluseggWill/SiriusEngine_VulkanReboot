@@ -29,19 +29,19 @@ VkRect2D ToScissor( const VkExtent2D& aExtent, const VkViewport& aViewport ) {
     scissor.offset.x = std::max( 0, static_cast< int32_t >( aViewport.x ) );
     scissor.offset.y = std::max( 0, static_cast< int32_t >( aViewport.y ) );
 
-    const uint32_t offsetX = static_cast< uint32_t >( scissor.offset.x );
-    const uint32_t offsetY = static_cast< uint32_t >( scissor.offset.y );
+    const uint32_t offsetX             = static_cast< uint32_t >( scissor.offset.x );
+    const uint32_t offsetY             = static_cast< uint32_t >( scissor.offset.y );
     const uint32_t maxWidthFromOffset  = offsetX < aExtent.width ? ( aExtent.width - offsetX ) : 1u;
     const uint32_t maxHeightFromOffset = offsetY < aExtent.height ? ( aExtent.height - offsetY ) : 1u;
-    scissor.extent.width  = std::max( 1u, std::min( maxWidthFromOffset, static_cast< uint32_t >( aViewport.width ) ) );
-    scissor.extent.height = std::max( 1u, std::min( maxHeightFromOffset, static_cast< uint32_t >( aViewport.height ) ) );
+    scissor.extent.width               = std::max( 1u, std::min( maxWidthFromOffset, static_cast< uint32_t >( aViewport.width ) ) );
+    scissor.extent.height              = std::max( 1u, std::min( maxHeightFromOffset, static_cast< uint32_t >( aViewport.height ) ) );
     return scissor;
 }
 
 }  // namespace
 
-std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI, const Vk_Camera& aFlyCamera,
-                                                                               VkExtent2D aSwapChainExtent ) {
+std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI,
+                                                                              const Vk_Camera& aFlyCamera, VkExtent2D aSwapChainExtent ) {
     std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > views{};
     aOutViewCount = 1;
 
@@ -54,9 +54,9 @@ std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( ui
 
     // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so Vk_Core prep stays JSON-free.
     if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
-        aOutViewCount = 2;
+        aOutViewCount              = 2;
         const uint32_t cameraIndex = std::min( aDebugUI.myMultiView.mySecondaryCameraIndex, static_cast< uint32_t >( aWorld.myLoadedScene.myCameras.size() - 1 ) );
-        const Gfx_SceneCameraEntry& sceneCamera = aWorld.myLoadedScene.myCameras[ cameraIndex ];
+        const Gfx_SceneCameraEntry& sceneCamera  = aWorld.myLoadedScene.myCameras[ cameraIndex ];
         const glm::vec4             viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
 
         views[ 1 ].myView.myCameraSource     = Gfx_RenderViewCameraSource::SceneCamera;

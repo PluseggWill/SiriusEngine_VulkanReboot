@@ -68,22 +68,20 @@ bool Vk_FrameDrawPrep::FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aPar
         return false;
     }
 
-    const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
+    const size_t   drawCount  = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
     const uint32_t maxEntries = aParams.myInstanceSlabMaxEntries > 0 ? aParams.myInstanceSlabMaxEntries : VkDescriptorPolicy::kMaxInstanceSlabEntries;
     if ( drawCount > maxEntries ) {
-        UtilLogger::Error( "RESOURCE",
-                           "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
+        UtilLogger::Error( "RESOURCE", "Instance slab overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
         return false;
     }
 
-    char* const  slabBase   = static_cast< char* >( frame.myInstanceSlabMapped );
-    const size_t stride     = aParams.myInstanceSlabStride;
-    size_t       writeIndex = 0;
+    char* const  slabBase          = static_cast< char* >( frame.myInstanceSlabMapped );
+    const size_t stride            = aParams.myInstanceSlabStride;
+    size_t       writeIndex        = 0;
     const size_t slabCapacityBytes = static_cast< size_t >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * stride;
-    const size_t slabWriteEnd = aParams.myInstanceSlabBaseOffset + drawCount * stride;
+    const size_t slabWriteEnd      = aParams.myInstanceSlabBaseOffset + drawCount * stride;
     if ( slabWriteEnd > slabCapacityBytes ) {
-        UtilLogger::Error( "RESOURCE", "Instance slab partition overflow: writeEnd=" + std::to_string( slabWriteEnd )
-                                           + " capacity=" + std::to_string( slabCapacityBytes ) );
+        UtilLogger::Error( "RESOURCE", "Instance slab partition overflow: writeEnd=" + std::to_string( slabWriteEnd ) + " capacity=" + std::to_string( slabCapacityBytes ) );
         return false;
     }
 
@@ -123,23 +121,22 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
         return false;
     }
 
-    const size_t drawCount = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
+    const size_t   drawCount  = aPacket.myOpaquePass.myDraws.size() + aPacket.myTransparentPass.myDraws.size();
     const uint32_t maxEntries = aParams.myDrawBufferMaxEntries > 0 ? aParams.myDrawBufferMaxEntries : VkDescriptorPolicy::kMaxDrawTemplateEntries;
     if ( drawCount > maxEntries ) {
-        UtilLogger::Error( "RESOURCE",
-                           "Draw-template overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
+        UtilLogger::Error( "RESOURCE", "Draw-template overflow: draws=" + std::to_string( drawCount ) + " max=" + std::to_string( maxEntries ) );
         return false;
     }
 
-    auto* const indirectBase = static_cast< Gfx_DrawIndirectCommand* >( frame.myDrawIndirectMapped );
-    auto* const templateBase = static_cast< Gfx_DrawTemplate* >( frame.myDrawTemplateMapped );
-    const uint32_t baseIndex = aParams.myDrawBufferBaseIndex;
+    auto* const    indirectBase = static_cast< Gfx_DrawIndirectCommand* >( frame.myDrawIndirectMapped );
+    auto* const    templateBase = static_cast< Gfx_DrawTemplate* >( frame.myDrawTemplateMapped );
+    const uint32_t baseIndex    = aParams.myDrawBufferBaseIndex;
 
     auto writeDrawList = [ & ]( const std::vector< Gfx_DrawInstance >& someDraws, uint32_t aPassOffset ) {
         for ( size_t drawIndex = 0; drawIndex < someDraws.size(); ++drawIndex ) {
             const Gfx_DrawInstance& draw = someDraws[ drawIndex ];
             const Gfx_Mesh&         mesh = aParams.myResourceTables->GetMesh( draw.myMeshId );
-            const uint32_t slot = Gfx_ComputeDrawBufferSlot( baseIndex, aPassOffset, static_cast< uint32_t >( drawIndex ) );
+            const uint32_t          slot = Gfx_ComputeDrawBufferSlot( baseIndex, aPassOffset, static_cast< uint32_t >( drawIndex ) );
 
             Gfx_DrawTemplate drawTemplate{};
             Gfx_FillDrawTemplate( drawTemplate, draw, static_cast< uint32_t >( mesh.myIndices.size() ), draw.myInstanceDataOffset );

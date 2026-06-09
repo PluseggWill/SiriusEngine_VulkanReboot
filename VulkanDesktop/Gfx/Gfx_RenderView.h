@@ -7,7 +7,7 @@
 inline constexpr uint32_t kGfxMaxRenderViews = 2;
 
 enum class Gfx_RenderViewCameraSource : uint8_t {
-    Fly = 0,
+    Fly         = 0,
     SceneCamera = 1,
 };
 

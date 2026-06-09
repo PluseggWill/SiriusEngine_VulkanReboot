@@ -100,27 +100,27 @@ void TestConfigPrecedence( const std::filesystem::path& aRepoRoot ) {
     rootArgStorage.assign( rootStr.begin(), rootStr.end() );
     rootArgStorage.push_back( '\0' );
 
-    static char arg0[]           = "GfxTests";
-    static char argConfigFlag[]  = "--config";
-    static char argNoVsync[]     = "--no-vsync";
-    static char argAssetFlag[]   = "--asset-root";
+    static char arg0[]          = "GfxTests";
+    static char argConfigFlag[] = "--config";
+    static char argNoVsync[]    = "--no-vsync";
+    static char argAssetFlag[]  = "--asset-root";
 
     {
-        char* argv[] = { arg0, argConfigFlag, configPathStorage.data() };
+        char*             argv[]   = { arg0, argConfigFlag, configPathStorage.data() };
         Util_EngineConfig fromJson = LoadConfigFromArgv( 3, argv );
         Expect( fromJson.GetVsync(), "config precedence: json vsync true" );
     }
 
     {
-        char* argv[] = { arg0, argConfigFlag, configPathStorage.data(), argNoVsync };
+        char*             argv[]   = { arg0, argConfigFlag, configPathStorage.data(), argNoVsync };
         Util_EngineConfig cliVsync = LoadConfigFromArgv( 4, argv );
         Expect( !cliVsync.GetVsync(), "config precedence: CLI --no-vsync wins" );
     }
 
     {
-        char* argAsset = rootArgStorage.data();
-        char* argv[]   = { arg0, argConfigFlag, configPathStorage.data(), argAssetFlag, argAsset };
-        Util_EngineConfig cliRoot = LoadConfigFromArgv( 5, argv );
+        char*             argAsset = rootArgStorage.data();
+        char*             argv[]   = { arg0, argConfigFlag, configPathStorage.data(), argAssetFlag, argAsset };
+        Util_EngineConfig cliRoot  = LoadConfigFromArgv( 5, argv );
         Expect( cliRoot.GetAssetRoot() == std::filesystem::weakly_canonical( aRepoRoot ), "config precedence: CLI --asset-root wins" );
     }
 
@@ -175,7 +175,7 @@ Gfx_CullViewParams BuildDemoOverviewView() {
 
 void TestSoAGeneration() {
     Gfx_SceneSoA scene;
-    const auto    id1 = scene.AllocEntity( 0, 0, glm::mat4( 1.0f ) );
+    const auto   id1 = scene.AllocEntity( 0, 0, glm::mat4( 1.0f ) );
     Expect( scene.IsAlive( id1 ), "SoA: id1 alive" );
 
     Expect( scene.FreeEntity( id1 ), "SoA: free id1" );
@@ -188,21 +188,21 @@ void TestSoAGeneration() {
 }
 
 void TestDemoCullAndBatch() {
-    Gfx_SceneSoA               scene;
+    Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
     Expect( scene.GetActiveCount() == 9, "demo SoA entity count" );
 
-    Gfx_LodTable               lodTable;
-    Gfx_LodState               lodState;
-    Gfx_FrameDrawStreamParams  params{};
-    params.myScene       = &scene;
-    params.myView        = BuildDemoOverviewView();
-    params.myCameraEye   = glm::vec3( 10.0f, 8.0f, 10.0f );
-    params.myCameraView  = params.myView.myView;
-    params.myLodTable    = &lodTable;
-    params.myLodState    = &lodState;
+    Gfx_LodTable              lodTable;
+    Gfx_LodState              lodState;
+    Gfx_FrameDrawStreamParams params{};
+    params.myScene      = &scene;
+    params.myView       = BuildDemoOverviewView();
+    params.myCameraEye  = glm::vec3( 10.0f, 8.0f, 10.0f );
+    params.myCameraView = params.myView.myView;
+    params.myLodTable   = &lodTable;
+    params.myLodState   = &lodState;
 
-    Gfx_FrameDrawStreamOutput out;
+    Gfx_FrameDrawStreamOutput   out;
     Gfx_FrameDrawStreamLogState logs;
     Gfx_ResetFrameDrawStreamLogState( logs );
     Gfx_BuildFrameDrawStream( params, out, logs );

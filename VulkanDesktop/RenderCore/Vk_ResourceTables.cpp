@@ -124,15 +124,15 @@ Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint
         myMaterials.resize( aMaterialId + 1 );
     }
 
-    Gfx_Material& material    = myMaterials[ aMaterialId ];
-    material.myPipeline       = aPipeline;
-    material.myPipelineLayout = aLayout;
+    Gfx_Material& material     = myMaterials[ aMaterialId ];
+    material.myPipeline        = aPipeline;
+    material.myPipelineLayout  = aLayout;
     material.myBaseColorFactor = aSurface.myBaseColorFactor;
-    material.myRoughness      = aSurface.myRoughness;
-    material.myMetallic       = aSurface.myMetallic;
-    material.myAlpha          = aSurface.myAlpha;
-    material.myAlphaMode      = aSurface.myAlphaMode;
-    material.myIsTransparent  = aSurface.myIsTransparent;
+    material.myRoughness       = aSurface.myRoughness;
+    material.myMetallic        = aSurface.myMetallic;
+    material.myAlpha           = aSurface.myAlpha;
+    material.myAlphaMode       = aSurface.myAlphaMode;
+    material.myIsTransparent   = aSurface.myIsTransparent;
 
     if ( aMaterialId >= myMaterialTextureIds.size() ) {
         myMaterialTextureIds.resize( aMaterialId + 1, UINT32_MAX );

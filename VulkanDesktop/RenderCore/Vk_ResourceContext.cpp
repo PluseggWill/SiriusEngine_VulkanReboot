@@ -24,7 +24,7 @@ void Vk_ResourceContext::BeginSceneUploadBatch() const {
     if ( myUploadBatch.myActive ) {
         throw std::runtime_error( "Vk_ResourceContext: nested BeginSceneUploadBatch" );
     }
-    myUploadBatch = UploadBatchState{};
+    myUploadBatch          = UploadBatchState{};
     myUploadBatch.myActive = true;
 }
 
@@ -83,8 +83,8 @@ void Vk_ResourceContext::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aB
     }
 }
 
-void Vk_ResourceContext::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                                      VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
+void Vk_ResourceContext::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                                      uint32_t aMipLevel, VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     const VkExtent3D extent = { anExtent.width, anExtent.height, 1 };
     CreateImage( extent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
 }

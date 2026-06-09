@@ -1,8 +1,8 @@
 #include "Util_EngineConfig.h"
 
-#include "Util_AssetManifest.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneDesc.h"
+#include "Util_AssetManifest.h"
 #include <nlohmann/json.hpp>
 
 #include <cctype>

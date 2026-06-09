@@ -15,7 +15,7 @@ void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData&
     const char* debugViewLabels[] = { "Lit", "Depth", "World normal" };
     int         debugViewIndex    = static_cast< int >( aState.myDebugViewMode );
     if ( ImGui::Combo( "Debug view", &debugViewIndex, debugViewLabels, IM_ARRAYSIZE( debugViewLabels ) ) ) {
-        debugViewIndex = std::clamp( debugViewIndex, 0, 2 );
+        debugViewIndex         = std::clamp( debugViewIndex, 0, 2 );
         aState.myDebugViewMode = static_cast< Gfx_DebugViewMode >( debugViewIndex );
     }
 

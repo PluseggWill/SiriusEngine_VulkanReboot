@@ -8,6 +8,7 @@ on:
       - "Config/**"
       - "Scripts/**"
       - ".github/**"
+      - ".clang-format"
       - "VulkanDesktop.sln"
       - "Data/**"
   pull_request:
@@ -16,12 +17,13 @@ on:
       - "Config/**"
       - "Scripts/**"
       - ".github/**"
+      - ".clang-format"
       - "VulkanDesktop.sln"
       - "Data/**"
 
 jobs:
   build-and-test:
-    name: G0 build + GfxTests + shader drift
+    name: G0 clang-format + build + GfxTests + shader drift
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

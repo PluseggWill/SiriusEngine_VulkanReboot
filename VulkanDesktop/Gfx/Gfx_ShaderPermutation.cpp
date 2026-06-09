@@ -1,8 +1,8 @@
 #include "Gfx_ShaderPermutation.h"
 
 #include "../Util/Util_EngineConfig.h"
-#include "../Util/Util_ResolvePath.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_ResolvePath.h"
 
 #include <nlohmann/json.hpp>
 

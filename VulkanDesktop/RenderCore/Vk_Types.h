@@ -59,9 +59,9 @@ enum Gfx_MaterialAlphaMode : uint32_t {
 
 // Forward debug visualization (packed in GpuEnvironmentData.myFogDistance.w for lit shaders).
 enum Gfx_DebugViewMode : uint32_t {
-    Gfx_DebugViewMode_Lit          = 0,
-    Gfx_DebugViewMode_Depth        = 1,
-    Gfx_DebugViewMode_WorldNormal  = 2,
+    Gfx_DebugViewMode_Lit         = 0,
+    Gfx_DebugViewMode_Depth       = 1,
+    Gfx_DebugViewMode_WorldNormal = 2,
 };
 
 inline float Gfx_DebugViewModeToShaderPacked( Gfx_DebugViewMode aMode ) {
@@ -72,20 +72,20 @@ struct Gfx_Material {
     VkPipeline       myPipeline;
     VkPipelineLayout myPipelineLayout;
     glm::vec4        myBaseColorFactor{ 1.0f };
-    float            myRoughness       = 0.5f;
-    float            myMetallic        = 0.0f;
-    float            myAlpha           = 1.0f;
-    uint32_t         myAlphaMode       = Gfx_MaterialAlphaMode_Opaque;
-    bool             myIsTransparent   = false;
+    float            myRoughness     = 0.5f;
+    float            myMetallic      = 0.0f;
+    float            myAlpha         = 1.0f;
+    uint32_t         myAlphaMode     = Gfx_MaterialAlphaMode_Opaque;
+    bool             myIsTransparent = false;
 };
 
 // std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag (Stage 1 forward contract).
 struct GpuMaterialParams {
     alignas( 16 ) glm::vec4 myBaseColorFactor{ 1.0f };
-    alignas( 4 ) float      myRoughness = 0.5f;
-    alignas( 4 ) float      myMetallic  = 0.0f;
-    alignas( 4 ) float      myAlpha     = 1.0f;
-    alignas( 4 ) uint32_t   myAlphaMode = Gfx_MaterialAlphaMode_Opaque;
+    alignas( 4 ) float myRoughness    = 0.5f;
+    alignas( 4 ) float myMetallic     = 0.0f;
+    alignas( 4 ) float myAlpha        = 1.0f;
+    alignas( 4 ) uint32_t myAlphaMode = Gfx_MaterialAlphaMode_Opaque;
 };
 
 // std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag (vec4 @ 32).
@@ -104,9 +104,9 @@ static_assert( offsetof( GpuMaterialTableEntry, myBaseColorFactor ) == 32, "GpuM
 inline GpuMaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
     GpuMaterialParams params{};
     params.myBaseColorFactor = aMaterial.myBaseColorFactor;
-    params.myRoughness      = aMaterial.myRoughness;
-    params.myMetallic       = aMaterial.myMetallic;
-    params.myAlpha          = aMaterial.myAlpha;
+    params.myRoughness       = aMaterial.myRoughness;
+    params.myMetallic        = aMaterial.myMetallic;
+    params.myAlpha           = aMaterial.myAlpha;
     params.myAlphaMode       = aMaterial.myAlphaMode;
     return params;
 }

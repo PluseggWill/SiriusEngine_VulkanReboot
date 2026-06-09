@@ -21,28 +21,28 @@ struct Util_EngineConfig {
     // Load config file + CLI; throws std::runtime_error on invalid input.
     void LoadFromArgv( int aArgc, char** aArgv );
 
-    std::filesystem::path        GetAssetRoot() const;
-    std::string                  GetConfigPathUsed() const;
-    std::string                  GetSceneLogicalPath() const;
-    std::string                  GetLogFilePath() const;
-    std::string                  GetPerfLogPath() const;
-    uint32_t                     GetWindowWidth() const;
-    uint32_t                     GetWindowHeight() const;
-    bool                         GetVsync() const;
-    UtilLogger::LogLevel         GetMinLogLevel() const;
-    const FeatureFlags&          GetFeatures() const;
-    Util_AssetVerifyPolicy       GetAssetVerifyPolicy() const;
-    int                          GetSmokeFrameLimit() const;
-    double                       GetSmokeSeconds() const;
-    bool                         GetDescriptorLayoutMismatchTest() const;
-    bool                         GetEnableRenderDoc() const;
-    bool                         GetLegacyDirectDraw() const;
-    const std::string&           GetShaderPermutationName() const;
-    const std::string&           GetRenderPresetName() const;
-    bool                         ResolveValidationEnabled( bool aBuildDefault ) const;
-    bool                         IsValidationEnabled() const;
+    std::filesystem::path             GetAssetRoot() const;
+    std::string                       GetConfigPathUsed() const;
+    std::string                       GetSceneLogicalPath() const;
+    std::string                       GetLogFilePath() const;
+    std::string                       GetPerfLogPath() const;
+    uint32_t                          GetWindowWidth() const;
+    uint32_t                          GetWindowHeight() const;
+    bool                              GetVsync() const;
+    UtilLogger::LogLevel              GetMinLogLevel() const;
+    const FeatureFlags&               GetFeatures() const;
+    Util_AssetVerifyPolicy            GetAssetVerifyPolicy() const;
+    int                               GetSmokeFrameLimit() const;
+    double                            GetSmokeSeconds() const;
+    bool                              GetDescriptorLayoutMismatchTest() const;
+    bool                              GetEnableRenderDoc() const;
+    bool                              GetLegacyDirectDraw() const;
+    const std::string&                GetShaderPermutationName() const;
+    const std::string&                GetRenderPresetName() const;
+    bool                              ResolveValidationEnabled( bool aBuildDefault ) const;
+    bool                              IsValidationEnabled() const;
     const std::vector< const char* >& GetValidationLayerNames() const;
-    void LogResolvedSummary() const;
+    void                              LogResolvedSummary() const;
 
 private:
     struct CliOverrides {
@@ -68,31 +68,31 @@ private:
     void         ApplyCliOverrides( const CliOverrides& aOverrides );
     void         ResolveActiveShaderPermutation( const CliOverrides& aOverrides );
 
-    std::filesystem::path myAssetRoot;
-    std::string                    myConfigPathUsed;
-    std::string                    mySceneLogicalPath;
-    std::string                    myLogFilePath;
-    std::string                    myPerfLogPath;
-    uint32_t                       myWindowWidth  = 1600;
-    uint32_t                       myWindowHeight   = 1200;
-    bool                           myVsync         = true;
-    UtilLogger::LogLevel           myMinLogLevel    = UtilLogger::LogLevel::Info;
-    FeatureFlags                   myFeatures{};
-    Util_AssetVerifyPolicy         myAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;
-    int                            mySmokeFrameLimit              = 0;
-    double                         mySmokeSeconds                 = 0.0;
-    bool                           myDescriptorLayoutMismatchTest = false;
-    bool                           myEnableRenderDoc              = false;
-    bool                           myLegacyDirectDraw             = false;  // --legacy-direct-draw: vkCmdDrawIndexed fallback (M2 prep debug)
-    std::string                    myShaderPermutationName        = "lit";
-    std::string                    myRenderPresetName;
-    std::optional< std::string >   myConfigShaderPermutation;
-    std::optional< std::string >   myConfigRenderPreset;
-    std::optional< bool >          myCliValidationOverride;
-    std::optional< bool >          myConfigValidation;
-    mutable bool                   myValidationResolved = false;
-    mutable bool                   myValidationEnabled  = false;
-    std::vector< const char* >     myValidationLayers{ "VK_LAYER_KHRONOS_validation" };
+    std::filesystem::path        myAssetRoot;
+    std::string                  myConfigPathUsed;
+    std::string                  mySceneLogicalPath;
+    std::string                  myLogFilePath;
+    std::string                  myPerfLogPath;
+    uint32_t                     myWindowWidth  = 1600;
+    uint32_t                     myWindowHeight = 1200;
+    bool                         myVsync        = true;
+    UtilLogger::LogLevel         myMinLogLevel  = UtilLogger::LogLevel::Info;
+    FeatureFlags                 myFeatures{};
+    Util_AssetVerifyPolicy       myAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;
+    int                          mySmokeFrameLimit              = 0;
+    double                       mySmokeSeconds                 = 0.0;
+    bool                         myDescriptorLayoutMismatchTest = false;
+    bool                         myEnableRenderDoc              = false;
+    bool                         myLegacyDirectDraw             = false;  // --legacy-direct-draw: vkCmdDrawIndexed fallback (M2 prep debug)
+    std::string                  myShaderPermutationName        = "lit";
+    std::string                  myRenderPresetName;
+    std::optional< std::string > myConfigShaderPermutation;
+    std::optional< std::string > myConfigRenderPreset;
+    std::optional< bool >        myCliValidationOverride;
+    std::optional< bool >        myConfigValidation;
+    mutable bool                 myValidationResolved = false;
+    mutable bool                 myValidationEnabled  = false;
+    std::vector< const char* >   myValidationLayers{ "VK_LAYER_KHRONOS_validation" };
 };
 
 // Early CLI (--help) without constructing config.

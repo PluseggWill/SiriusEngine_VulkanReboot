@@ -108,8 +108,8 @@ void Vk_SwapchainHost::Init( Vk_Core& aCore ) {
 bool Vk_SwapchainHost::NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTargetExtent ) {
     const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
     aOutTargetExtent                         = aCore.ChooseSwapExtent( support.myCapabilities );
-    const bool extentChanged                 = aOutTargetExtent.width != aCore.mySwapchainCtx.mySwapChainExtent.width ||
-                               aOutTargetExtent.height != aCore.mySwapchainCtx.mySwapChainExtent.height;
+    const bool extentChanged =
+        aOutTargetExtent.width != aCore.mySwapchainCtx.mySwapChainExtent.width || aOutTargetExtent.height != aCore.mySwapchainCtx.mySwapChainExtent.height;
     return extentChanged || aCore.mySwapchainCtx.myFramebufferResized;
 }
 
@@ -142,8 +142,8 @@ void Vk_SwapchainHost::RecreateWsiOnly( Vk_Core& aCore, VkSwapchainKHR aSupersed
 
     const uint32_t imageCount    = static_cast< uint32_t >( aCore.mySwapchainCtx.mySwapChainImageViews.size() );
     const uint32_t minImageCount = std::max( 2u, imageCount );
-    aCore.myPlatformCtx.myImGuiLayer.CreateSwapchainResources( aCore.mySwapchainCtx.mySwapChainImageFormat, aCore.mySwapchainCtx.mySwapChainExtent, aCore.mySwapchainCtx.mySwapChainImageViews,
-                                                               imageCount, minImageCount );
+    aCore.myPlatformCtx.myImGuiLayer.CreateSwapchainResources( aCore.mySwapchainCtx.mySwapChainImageFormat, aCore.mySwapchainCtx.mySwapChainExtent,
+                                                               aCore.mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
 }
 
 void RunExtentDeletorsBeforeSwapchain( Vk_Core& aCore, bool aIncludeRenderPass ) {
@@ -206,12 +206,11 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
         UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent unchanged (suboptimal/out-of-date path)." );
     }
     else {
-        UtilLogger::Info( "SWAPCHAIN",
-                          "Recreate precheck: extent " + std::to_string( previousExtent.width ) + "x" + std::to_string( previousExtent.height ) + " -> " +
-                              std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
+        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent " + std::to_string( previousExtent.width ) + "x" + std::to_string( previousExtent.height ) + " -> "
+                                           + std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
     }
 
-    const bool extentChanged = targetExtent.width != previousExtent.width || targetExtent.height != previousExtent.height;
+    const bool extentChanged                  = targetExtent.width != previousExtent.width || targetExtent.height != previousExtent.height;
     aCore.mySwapchainCtx.myFramebufferResized = false;
 
     const VkSwapchainKHR supersededSwapChain = aCore.mySwapchainCtx.mySwapChain;
@@ -318,12 +317,12 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_Fram
 
 void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersededSwapChain ) {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
-    const Vk_SwapChainSupportDetails swapChainSupport = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
-    const VkSurfaceFormatKHR         surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
-    const VkPresentModeKHR           presentMode      = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
-    const VkExtent2D                 extent           = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
-    uint32_t                         imageCount       = ChooseSwapchainImageCount( swapChainSupport.myCapabilities );
-    const VkCompositeAlphaFlagBitsKHR compositeAlpha = ChooseCompositeAlpha( swapChainSupport.myCapabilities );
+    const Vk_SwapChainSupportDetails  swapChainSupport = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    const VkSurfaceFormatKHR          surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
+    const VkPresentModeKHR            presentMode      = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
+    const VkExtent2D                  extent           = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
+    uint32_t                          imageCount       = ChooseSwapchainImageCount( swapChainSupport.myCapabilities );
+    const VkCompositeAlphaFlagBitsKHR compositeAlpha   = ChooseCompositeAlpha( swapChainSupport.myCapabilities );
     if ( imageCount < static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) ) {
         throw std::runtime_error( "swapchain imageCount < MAX_FRAMES_IN_FLIGHT" );
     }
@@ -364,12 +363,12 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersed
     vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, aCore.mySwapchainCtx.mySwapChainImages.data() );
     aCore.mySwapchainCtx.mySwapChainImageFormat = surfaceFormat.format;
     aCore.mySwapchainCtx.mySwapChainExtent      = extent;
-    UtilLogger::Info( "SWAPCHAIN",
-                      "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha ) + " extent=" +
-                          std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
+    UtilLogger::Info( "SWAPCHAIN", "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha )
+                                       + " extent=" + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
     aCore.mySwapchainCtx.mySwapChainImageViews.resize( imageCount );
     for ( size_t i = 0; i < imageCount; ++i ) {
-        aCore.mySwapchainCtx.mySwapChainImageViews[ i ] = aCore.CreateImageView( aCore.mySwapchainCtx.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
+        aCore.mySwapchainCtx.mySwapChainImageViews[ i ] =
+            aCore.CreateImageView( aCore.mySwapchainCtx.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
     }
     const VkDevice       device     = aCore.myDeviceCtx.myDevice;
     const VkSwapchainKHR swapchain  = aCore.mySwapchainCtx.mySwapChain;
@@ -491,7 +490,8 @@ void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
     for ( size_t i = 0; i < aCore.mySwapchainCtx.mySwapChainImageViews.size(); i++ ) {
         std::vector< VkImageView > attachments;
         if ( useMsaaResolve ) {
-            attachments = { aCore.mySwapchainCtx.myColorTexture.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView(), aCore.mySwapchainCtx.mySwapChainImageViews[ i ] };
+            attachments = { aCore.mySwapchainCtx.myColorTexture.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView(),
+                            aCore.mySwapchainCtx.mySwapChainImageViews[ i ] };
         }
         else {
             attachments = { aCore.mySwapchainCtx.mySwapChainImageViews[ i ], aCore.mySwapchainCtx.myDepthTexture.ImageView() };
@@ -544,8 +544,9 @@ void Vk_SwapchainHost::CreateColorResources( Vk_Core& aCore ) {
     }
 
     const VkFormat colorFormat = aCore.mySwapchainCtx.mySwapChainImageFormat;
-    aCore.CreateImage( aCore.mySwapchainCtx.mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                       VMA_MEMORY_USAGE_GPU_ONLY, 1, aCore.mySwapchainCtx.myMSAASamples, aCore.mySwapchainCtx.myColorTexture.AllocImage() );
+    aCore.CreateImage( aCore.mySwapchainCtx.mySwapChainExtent, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+                       VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, aCore.mySwapchainCtx.myMSAASamples,
+                       aCore.mySwapchainCtx.myColorTexture.AllocImage() );
     aCore.mySwapchainCtx.myColorTexture.ImageView() = aCore.CreateImageView( aCore.mySwapchainCtx.myColorTexture.Image(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     const VkDevice      device     = aCore.myDeviceCtx.myDevice;

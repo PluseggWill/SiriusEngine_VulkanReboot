@@ -23,8 +23,8 @@ public:
     static void RebuildScenePipelinesIfNeeded( Vk_Core& aCore );
     static bool HandleSurfaceLost( Vk_Core& aCore );
     // Extent precheck before heavy recreate (B1); returns true when extent changed or resize flag set.
-    static bool NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTargetExtent );
-    static bool AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex );
+    static bool           NeedsSwapchainRebuild( Vk_Core& aCore, VkExtent2D& aOutTargetExtent );
+    static bool           AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex );
     static Vk_FrameResult SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex );
     // aSupersededSwapChain: WSI handle kept for createInfo.oldSwapchain during recreate (destroyed after new chain exists).
     static void CreateSwapChain( Vk_Core& aCore, VkSwapchainKHR aSupersededSwapChain = VK_NULL_HANDLE );

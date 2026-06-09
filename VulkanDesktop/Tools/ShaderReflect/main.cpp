@@ -18,10 +18,10 @@ namespace {
 
 using json = nlohmann::json;
 
-constexpr int kExitOk             = 0;
-constexpr int kExitSpvError       = 1;
-constexpr int kExitContractError  = 2;
-constexpr int kExitArgsError      = 3;
+constexpr int kExitOk            = 0;
+constexpr int kExitSpvError      = 1;
+constexpr int kExitContractError = 2;
+constexpr int kExitArgsError     = 3;
 
 struct SpvInput {
     std::string myPath;
@@ -29,12 +29,12 @@ struct SpvInput {
 };
 
 struct MergedBinding {
-    uint32_t                  mySet         = 0;
-    uint32_t                  myBinding     = 0;
-    SpvReflectDescriptorType  myType        = SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uint32_t                  myCount       = 1;
-    std::string               myName;
-    uint32_t                  myStageFlags  = 0;
+    uint32_t                   mySet     = 0;
+    uint32_t                   myBinding = 0;
+    SpvReflectDescriptorType   myType    = SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uint32_t                   myCount   = 1;
+    std::string                myName;
+    uint32_t                   myStageFlags = 0;
     std::vector< std::string > mySeenIn;
 };
 
@@ -44,7 +44,7 @@ uint64_t BindingKey( uint32_t aSet, uint32_t aBinding ) {
 
 // Stable repo-relative path for committed reflection JSON (host absolute paths drift per machine).
 std::string LogicalSpvPath( const std::string& aHostPath ) {
-    const size_t sep = aHostPath.find_last_of( "/\\" );
+    const size_t      sep      = aHostPath.find_last_of( "/\\" );
     const std::string fileName = ( sep == std::string::npos ) ? aHostPath : aHostPath.substr( sep + 1 );
     return "VulkanDesktop/Shader_Generated/" + fileName;
 }
@@ -109,7 +109,7 @@ std::vector< uint8_t > ReadFileBytes( const std::string& aPath, std::string& aEr
 }
 
 bool ReflectSpv( const SpvInput& aInput, std::unordered_map< uint64_t, MergedBinding >& aMerged, std::string& aError ) {
-    std::string readError;
+    std::string                  readError;
     const std::vector< uint8_t > bytes = ReadFileBytes( aInput.myPath, readError );
     if ( bytes.empty() ) {
         aError = readError;
@@ -117,8 +117,7 @@ bool ReflectSpv( const SpvInput& aInput, std::unordered_map< uint64_t, MergedBin
     }
 
     SpvReflectShaderModule module{};
-    const SpvReflectResult createResult =
-        spvReflectCreateShaderModule( bytes.size(), bytes.data(), &module );
+    const SpvReflectResult createResult = spvReflectCreateShaderModule( bytes.size(), bytes.data(), &module );
     if ( createResult != SPV_REFLECT_RESULT_SUCCESS ) {
         aError = "spvReflectCreateShaderModule failed for " + aInput.myPath;
         return false;
@@ -153,14 +152,14 @@ bool ReflectSpv( const SpvInput& aInput, std::unordered_map< uint64_t, MergedBin
         if ( binding == nullptr ) {
             continue;
         }
-        const uint64_t key = BindingKey( binding->set, binding->binding );
-        MergedBinding&   slot = aMerged[ key ];
+        const uint64_t key  = BindingKey( binding->set, binding->binding );
+        MergedBinding& slot = aMerged[ key ];
         if ( slot.mySeenIn.empty() ) {
-            slot.mySet     = binding->set;
-            slot.myBinding = binding->binding;
-            slot.myType    = binding->descriptor_type;
-            slot.myCount   = binding->count;
-            slot.myName    = binding->name ? binding->name : "";
+            slot.mySet        = binding->set;
+            slot.myBinding    = binding->binding;
+            slot.myType       = binding->descriptor_type;
+            slot.myCount      = binding->count;
+            slot.myName       = binding->name ? binding->name : "";
             slot.myStageFlags = stageFlags;
             slot.mySeenIn.push_back( seenName );
         }
@@ -180,12 +179,11 @@ bool ReflectSpv( const SpvInput& aInput, std::unordered_map< uint64_t, MergedBin
     return true;
 }
 
-json BuildReflectionJson( const std::string& aGroup, const std::vector< SpvInput >& aInputs,
-                            const std::unordered_map< uint64_t, MergedBinding >& aMerged ) {
+json BuildReflectionJson( const std::string& aGroup, const std::vector< SpvInput >& aInputs, const std::unordered_map< uint64_t, MergedBinding >& aMerged ) {
     json root;
-    root[ "schemaVersion" ]  = 1;
-    root[ "pipelineGroup" ]  = aGroup;
-    root[ "shaders" ]        = json::array();
+    root[ "schemaVersion" ] = 1;
+    root[ "pipelineGroup" ] = aGroup;
+    root[ "shaders" ]       = json::array();
     for ( const SpvInput& input : aInputs ) {
         json shaderEntry;
         shaderEntry[ "spv" ]        = LogicalSpvPath( input.myPath );
@@ -199,7 +197,7 @@ json BuildReflectionJson( const std::string& aGroup, const std::vector< SpvInput
         bySet[ pair.second.mySet ].push_back( &pair.second );
     }
 
-    json setsJson = json::array();
+    json                    setsJson = json::array();
     std::vector< uint32_t > setNumbers;
     setNumbers.reserve( bySet.size() );
     for ( const auto& pair : bySet ) {
@@ -213,16 +211,15 @@ json BuildReflectionJson( const std::string& aGroup, const std::vector< SpvInput
         setEntry[ "bindings" ] = json::array();
 
         std::vector< const MergedBinding* > bindings = bySet[ setNumber ];
-        std::sort( bindings.begin(), bindings.end(),
-                   []( const MergedBinding* aLeft, const MergedBinding* aRight ) { return aLeft->myBinding < aRight->myBinding; } );
+        std::sort( bindings.begin(), bindings.end(), []( const MergedBinding* aLeft, const MergedBinding* aRight ) { return aLeft->myBinding < aRight->myBinding; } );
 
         for ( const MergedBinding* binding : bindings ) {
             json bindingEntry;
-            bindingEntry[ "binding" ]         = binding->myBinding;
-            bindingEntry[ "name" ]            = binding->myName;
-            bindingEntry[ "descriptorType" ]  = DescriptorTypeName( binding->myType );
-            bindingEntry[ "count" ]           = binding->myCount;
-            bindingEntry[ "stages" ]          = json::array();
+            bindingEntry[ "binding" ]        = binding->myBinding;
+            bindingEntry[ "name" ]           = binding->myName;
+            bindingEntry[ "descriptorType" ] = DescriptorTypeName( binding->myType );
+            bindingEntry[ "count" ]          = binding->myCount;
+            bindingEntry[ "stages" ]         = json::array();
             if ( binding->myStageFlags & SPV_REFLECT_SHADER_STAGE_VERTEX_BIT ) {
                 bindingEntry[ "stages" ].push_back( "VERTEX" );
             }
@@ -255,7 +252,7 @@ bool ValidateContract( const json& aReflectRoot, const json& aContract, std::vec
         return false;
     }
 
-    auto findReflectBinding = [&]( uint32_t aSet, uint32_t aBinding ) -> const json* {
+    auto findReflectBinding = [ & ]( uint32_t aSet, uint32_t aBinding ) -> const json* {
         for ( const json& setEntry : aReflectRoot[ "sets" ] ) {
             if ( setEntry[ "set" ].get< uint32_t >() != aSet ) {
                 continue;
@@ -273,7 +270,7 @@ bool ValidateContract( const json& aReflectRoot, const json& aContract, std::vec
     for ( const json& contractSet : aContract[ "sets" ] ) {
         const uint32_t setNumber = contractSet[ "set" ].get< uint32_t >();
         for ( const json& contractBinding : contractSet[ "bindings" ] ) {
-            const uint32_t bindingNumber = contractBinding[ "binding" ].get< uint32_t >();
+            const uint32_t bindingNumber  = contractBinding[ "binding" ].get< uint32_t >();
             const json*    reflectBinding = findReflectBinding( setNumber, bindingNumber );
             if ( reflectBinding == nullptr ) {
                 aErrors.push_back( "missing in SPIR-V: set " + std::to_string( setNumber ) + " binding " + std::to_string( bindingNumber ) );
@@ -284,8 +281,8 @@ bool ValidateContract( const json& aReflectRoot, const json& aContract, std::vec
             const std::string contractType = contractBinding[ "descriptorType" ].get< std::string >();
             const std::string reflectType  = ( *reflectBinding )[ "descriptorType" ].get< std::string >();
             if ( contractType != reflectType ) {
-                aErrors.push_back( "set " + std::to_string( setNumber ) + " binding " + std::to_string( bindingNumber ) + ": expected " + contractType +
-                                   ", got " + reflectType );
+                aErrors.push_back( "set " + std::to_string( setNumber ) + " binding " + std::to_string( bindingNumber ) + ": expected " + contractType + ", got "
+                                   + reflectType );
                 ok = false;
             }
 
@@ -295,8 +292,8 @@ bool ValidateContract( const json& aReflectRoot, const json& aContract, std::vec
                 reflectStages |= StageLabelToFlags( stage.get< std::string >() );
             }
             if ( ( reflectStages & requiredStages ) != requiredStages ) {
-                aErrors.push_back( "set " + std::to_string( setNumber ) + " binding " + std::to_string( bindingNumber ) + ": stages mismatch (contract requires " +
-                                   contractBinding[ "stages" ].dump() + ")" );
+                aErrors.push_back( "set " + std::to_string( setNumber ) + " binding " + std::to_string( bindingNumber ) + ": stages mismatch (contract requires "
+                                   + contractBinding[ "stages" ].dump() + ")" );
                 ok = false;
             }
         }
@@ -337,7 +334,7 @@ bool ParseArgs( int argc, char** argv, std::string& aGroup, std::vector< SpvInpu
             aGroup = argv[ ++i ];
         }
         else if ( arg == "--spv" && i + 1 < argc ) {
-            const std::string value = argv[ ++i ];
+            const std::string value  = argv[ ++i ];
             const size_t      atSign = value.rfind( '@' );
             if ( atSign == std::string::npos || atSign == 0 || atSign + 1 >= value.size() ) {
                 return false;
@@ -363,10 +360,10 @@ bool ParseArgs( int argc, char** argv, std::string& aGroup, std::vector< SpvInpu
 }  // namespace
 
 int main( int argc, char** argv ) {
-    std::string              group;
-    std::vector< SpvInput >  inputs;
-    std::string              contractPath;
-    std::string              outPath;
+    std::string             group;
+    std::vector< SpvInput > inputs;
+    std::string             contractPath;
+    std::string             outPath;
     if ( !ParseArgs( argc, argv, group, inputs, contractPath, outPath ) ) {
         PrintUsage();
         return kExitArgsError;

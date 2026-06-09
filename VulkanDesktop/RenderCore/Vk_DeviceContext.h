@@ -34,7 +34,7 @@ struct Vk_DeviceContext {
 
     std::vector< const char* > myValidationLayers;
     std::vector< const char* > myDeviceExtensions;
-    bool myEnableValidationLayers = false;
+    bool                       myEnableValidationLayers = false;
 
     Vk_BindlessCapabilities myBindlessCaps{};
     Vk_RenderMaterialPath   myMaterialPath = Vk_RenderMaterialPath::Batch;

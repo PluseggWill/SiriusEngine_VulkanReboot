@@ -24,11 +24,11 @@ struct Gfx_MaterialManifestEntry {
     uint32_t  myTextureId             = 0;
     uint32_t  myPipelinePermutationId = 0;
     glm::vec4 myBaseColorFactor{ 1.0f };
-    float     myRoughness             = 0.5f;
-    float     myMetallic              = 0.0f;
-    float     myAlpha                 = 1.0f;
-    uint32_t  myAlphaMode             = 0;
-    bool      myIsTransparent         = false;
+    float     myRoughness     = 0.5f;
+    float     myMetallic      = 0.0f;
+    float     myAlpha         = 1.0f;
+    uint32_t  myAlphaMode     = 0;
+    bool      myIsTransparent = false;
 };
 
 struct Gfx_ResourceManifest {

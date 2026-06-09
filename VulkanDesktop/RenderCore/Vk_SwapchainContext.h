@@ -27,5 +27,5 @@ struct Vk_SwapchainContext {
 
     bool myFramebufferResized = false;
     // After first Recreate(): swapchain deletor moves to index 1 when render pass is reused (see DiscardPendingSwapchainDeletor).
-    bool myHasRecreateOnce      = false;
+    bool myHasRecreateOnce = false;
 };

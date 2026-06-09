@@ -199,8 +199,8 @@ void Vk_DevicePipelineCache::Create( Vk_Core& aCore ) {
     }
 
     const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
-    const Util_EngineConfig&          cfg             = aCore.EngineConfig();
-    const uint32_t                    shaderFp        = ComputeShaderFingerprint( cfg, includeBindless );
+    const Util_EngineConfig&        cfg             = aCore.EngineConfig();
+    const uint32_t                  shaderFp        = ComputeShaderFingerprint( cfg, includeBindless );
     const PipelineDiskCacheHeaderV1 header          = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, shaderFp, includeBindless );
 
     std::vector< uint8_t > initialBlob;
@@ -236,7 +236,7 @@ void Vk_DevicePipelineCache::Destroy( Vk_Core& aCore ) {
     }
 
     const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
-    const Util_EngineConfig&          cfg    = aCore.EngineConfig();
+    const Util_EngineConfig&        cfg             = aCore.EngineConfig();
     const PipelineDiskCacheHeaderV1 header = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, ComputeShaderFingerprint( cfg, includeBindless ), includeBindless );
     SaveBlob( cfg, aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, header );
 

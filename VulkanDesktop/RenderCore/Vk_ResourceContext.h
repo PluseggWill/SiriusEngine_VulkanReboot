@@ -29,14 +29,14 @@ struct Vk_ResourceContext {
     void BeginSceneUploadBatch() const;
     void EndSceneUploadBatch() const;
 
-    void        CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool aIsExclusive ) const;
-    void        CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                             VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
-    void        CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                             VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
-    void        TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
-    void        CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
-    void        CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    void CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool aIsExclusive ) const;
+    void CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                      VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
+    void CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                      VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const;
+    void TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
+    void CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
+    void CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     // Staging teardown after CopyBuffer; deferred until EndSceneUploadBatch when batch active.
     void        DestroyStagingBuffer( Vk_AllocatedBuffer& aBuffer ) const;
     void        CopyBufferOnGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
@@ -45,9 +45,9 @@ struct Vk_ResourceContext {
 
 private:
     struct UploadBatchState {
-        bool                           myActive                = false;
-        VkCommandBuffer                myTransferCommandBuffer = VK_NULL_HANDLE;
-        bool                           myTransferRecording     = false;
+        bool                              myActive                = false;
+        VkCommandBuffer                   myTransferCommandBuffer = VK_NULL_HANDLE;
+        bool                              myTransferRecording     = false;
         std::vector< Vk_AllocatedBuffer > myPendingStagingDestroys{};
     };
 

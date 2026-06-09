@@ -35,11 +35,11 @@ struct Gfx_SceneMaterialEntry {
     std::string myShaderId;
     std::string myTextureId;
     glm::vec4   myBaseColorFactor{ 1.0f };
-    float       myRoughness       = 0.5f;
-    float       myMetallic        = 0.0f;
-    float       myAlpha           = 1.0f;
-    uint32_t    myAlphaMode       = 0;  // Gfx_MaterialAlphaMode
-    bool        myIsTransparent   = false;
+    float       myRoughness     = 0.5f;
+    float       myMetallic      = 0.0f;
+    float       myAlpha         = 1.0f;
+    uint32_t    myAlphaMode     = 0;  // Gfx_MaterialAlphaMode
+    bool        myIsTransparent = false;
 };
 
 struct Gfx_SceneLogicalMeshEntry {

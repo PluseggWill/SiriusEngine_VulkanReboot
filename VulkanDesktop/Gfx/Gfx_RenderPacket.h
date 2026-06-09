@@ -25,7 +25,7 @@ struct Gfx_FrameRenderPacket {
     Gfx_PassDrawPacket myTransparentPass;
     size_t             myDrawCountBeforeCull = 0;
     // Base slot in per-frame indirect/template buffers for this view (multi-view partition).
-    uint32_t           myDrawBufferBaseIndex = 0;
+    uint32_t myDrawBufferBaseIndex = 0;
 };
 
 // Slot index into per-frame indirect/template buffers (same partition as instance slab).

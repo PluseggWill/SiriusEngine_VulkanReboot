@@ -3,11 +3,11 @@
 #include "Vk_Camera.h"
 #include "Vk_Core.h"
 #include "Vk_DataStruct.h"
-#include "Vk_DeviceContext.h"
-#include "Vk_SceneGpuContext.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_DeviceContext.h"
 #include "Vk_Enum.h"
 #include "Vk_Initializer.h"
+#include "Vk_SceneGpuContext.h"
 
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_EngineConfig.h"
@@ -285,7 +285,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Core& aCore
         }
     }
 
-    const VkDevice aDevice = aCore.myDeviceCtx.myDevice;
+    const VkDevice        aDevice      = aCore.myDeviceCtx.myDevice;
     VkDescriptorSetLayout layouts[ 3 ] = {};
     for ( uint32_t setIndex = 0; setIndex < 3; ++setIndex ) {
         layouts[ setIndex ] = CreateOneSetLayout( aDevice, meta.mySets.at( setIndex ) );
@@ -347,12 +347,13 @@ void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig ) {
     ExpectBinding( materialTable, eVk_SetMaterial, eVk_BindlessMaterialTableBinding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, "MaterialTable SSBO" );
 
     if ( textureArray->myCount != VkDescriptorPolicy::kMaxBindlessTextures ) {
-        throw std::runtime_error( "Vk_ShaderEffectMeta bindless verify: u_Textures SPIR-V count " + std::to_string( textureArray->myCount ) + " != engine kMaxBindlessTextures "
-                                  + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures ) + " (rebuild shaders / sync TriangleFrag_Lit_Bindless.frag)" );
+        throw std::runtime_error( "Vk_ShaderEffectMeta bindless verify: u_Textures SPIR-V count " + std::to_string( textureArray->myCount )
+                                  + " != engine kMaxBindlessTextures " + std::to_string( VkDescriptorPolicy::kMaxBindlessTextures )
+                                  + " (rebuild shaders / sync TriangleFrag_Lit_Bindless.frag)" );
     }
 
-    UtilLogger::Info( "DESCRIPTOR", "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName
-                                        + " descriptorCount=" + std::to_string( textureArray->myCount ) + "; binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
+    UtilLogger::Info( "DESCRIPTOR", "bindless reflection verify OK: set1 binding0 name=" + textureArray->myName + " descriptorCount=" + std::to_string( textureArray->myCount )
+                                        + "; binding1 name=" + materialTable->myName + " STORAGE_BUFFER" );
 }
 
 }  // namespace VkShaderEffectMeta

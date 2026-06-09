@@ -15,7 +15,7 @@ struct Vk_FrameData {
 
     VkCommandBuffer myCommandBuffer;
 
-    Vk_AllocatedBuffer myCameraBuffer;  // sizeof(GpuCameraData) * kGfxMaxRenderViews, one slab per frame
+    Vk_AllocatedBuffer                                myCameraBuffer;         // sizeof(GpuCameraData) * kGfxMaxRenderViews, one slab per frame
     std::array< VkDescriptorSet, kGfxMaxRenderViews > myGlobalDescriptors{};  // set 0 (Frame): camera + env
 
     // Per-frame instance ring UBO (GpuObjectData slices); persistently CPU-mapped for FillInstanceSlab.

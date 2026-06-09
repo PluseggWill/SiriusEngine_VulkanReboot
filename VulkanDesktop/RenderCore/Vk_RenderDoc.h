@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#if defined(WIN32) || defined(__WIN32__) || defined(_WIN32) || defined(_MSC_VER)
+#if defined( WIN32 ) || defined( __WIN32__ ) || defined( _WIN32 ) || defined( _MSC_VER )
 #define RENDERDOC_CC __cdecl
 #else
 #define RENDERDOC_CC
@@ -32,10 +32,10 @@ public:
 
 private:
     struct Api {
-        void ( RENDERDOC_CC *GetAPIVersion )( int* major, int* minor, int* patch ) = nullptr;
-        void ( RENDERDOC_CC *SetCaptureKeys )( int* keys, int num )                = nullptr;
-        void ( RENDERDOC_CC *MaskOverlayBits )( uint32_t And, uint32_t Or )         = nullptr;
-        void ( RENDERDOC_CC *TriggerCapture )( void )                               = nullptr;
+        void( RENDERDOC_CC* GetAPIVersion )( int* major, int* minor, int* patch ) = nullptr;
+        void( RENDERDOC_CC* SetCaptureKeys )( int* keys, int num )                = nullptr;
+        void( RENDERDOC_CC* MaskOverlayBits )( uint32_t And, uint32_t Or )        = nullptr;
+        void( RENDERDOC_CC* TriggerCapture )( void )                              = nullptr;
     };
 
     void AttachRenderDocApi();

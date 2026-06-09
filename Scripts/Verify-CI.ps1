@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  G0 CI entry: MSBuild Debug|x64, shader drift, GfxTests.
+  G0 CI entry: clang-format, MSBuild Debug|x64, shader drift, GfxTests.
 
 .EXAMPLE
   powershell -File Scripts/Verify-CI.ps1
@@ -13,7 +13,8 @@ param(
     [string] $Configuration = "Debug",
     [ValidateSet("x64")]
     [string] $Platform = "x64",
-    [switch] $SkipShaderDrift
+    [switch] $SkipShaderDrift,
+    [switch] $SkipClangFormat
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +38,12 @@ $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild `
     -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
 if ([string]::IsNullOrWhiteSpace($msbuild) -or -not (Test-Path $msbuild)) {
     throw "MSBuild not found via vswhere."
+}
+
+if (-not $SkipClangFormat) {
+    Write-Host "=== Verify-CI: clang-format ===" -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot "Assert-ClangFormat.ps1") -RepoRoot $RepoRoot -BootstrapTools
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 $sln = Join-Path $RepoRoot "VulkanDesktop.sln"

@@ -47,10 +47,8 @@ inline constexpr const char* kLitBatchReflectionLogicalPath = "VulkanDesktop/Sha
 // S2 phase 2d: bindless frag SPIR-V contract (Set 1 texture array + material SSBO). MSBuild validates; runtime checks types when Bindless path is active.
 inline constexpr const char* kLitBindlessReflectionLogicalPath = "VulkanDesktop/Shader_Generated/reflection_lit_bindless.json";
 
-ShaderEffectMeta LoadLitBatchFromReflectionJson( const Util_EngineConfig& aConfig,
-                                                 const std::string&         aLogicalPath = kLitBatchReflectionLogicalPath );
-ShaderEffectMeta LoadLitBindlessFromReflectionJson( const Util_EngineConfig& aConfig,
-                                                    const std::string&         aLogicalPath = kLitBindlessReflectionLogicalPath );
+ShaderEffectMeta LoadLitBatchFromReflectionJson( const Util_EngineConfig& aConfig, const std::string& aLogicalPath = kLitBatchReflectionLogicalPath );
+ShaderEffectMeta LoadLitBindlessFromReflectionJson( const Util_EngineConfig& aConfig, const std::string& aLogicalPath = kLitBindlessReflectionLogicalPath );
 void             ApplyLitBatchLayoutOverrides( ShaderEffectMeta& aMeta );
 size_t           HashLayout( const ShaderEffectMeta& aMeta );
 void             LogMetaDump( const ShaderEffectMeta& aMeta );

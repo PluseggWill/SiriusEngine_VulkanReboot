@@ -40,9 +40,9 @@
 
 #include <optional>
 
-constexpr int  MAX_FRAMES_IN_FLIGHT = 2;      // swapchain frames in flight; also env UBO slice count
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;  // swapchain frames in flight; also env UBO slice count
 
-constexpr bool FILL_MODE_LINE       = false;  // debug wireframe via polygon mode
+constexpr bool FILL_MODE_LINE = false;  // debug wireframe via polygon mode
 
 struct Vk_AllocatedImage;
 
@@ -77,10 +77,9 @@ class Vk_Core;
 class Vk_Core {
 
 public:
-
     static Vk_Core& GetInstance();
 
-    Vk_Core( const Vk_Core& )            = delete;
+    Vk_Core( const Vk_Core& ) = delete;
 
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
@@ -109,21 +108,20 @@ public:
 
     const std::string& GetLoadedSceneLogicalPath() const;
 
-    bool               HasLoadedScene() const;
+    bool HasLoadedScene() const;
 
     Vk_DeletionQueue& GetSceneDeletionQueue() {
 
         return mySceneGpuCtx.mySceneDeletionQueue;
-
     }
 
-    void        Shutdown();
+    void Shutdown();
 
-    void        BeginPlatformFrame( float& aOutDeltaSeconds );
+    void BeginPlatformFrame( float& aOutDeltaSeconds );
 
-    void        ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
+    void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
 
-    void        SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
+    void SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
 
     // aViews built by Application (BuildActiveRenderViews); core does not read scene JSON for PiP here.
 
@@ -134,37 +132,33 @@ public:
     GpuEnvironmentData& GetEnvironmentData() {
 
         return myEnvironmentData;
-
     }
 
-    void        ConfigureRenderDoc( bool aEnableRenderDoc );
+    void ConfigureRenderDoc( bool aEnableRenderDoc );
 
-    void        TriggerRenderDocCapture();
+    void TriggerRenderDocCapture();
 
-    bool        IsRenderDocEnabled() const;
+    bool IsRenderDocEnabled() const;
 
-    void        CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const;
+    void CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const;
 
-    void        CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
+    void CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
 
-    bool        ShouldClose() const;
+    bool ShouldClose() const;
 
     GLFWwindow* GetWindow() const {
 
         return myPlatformCtx.myWindow;
-
     }
 
     const Vk_Camera& GetFlyCamera() const {
 
         return myCamera;
-
     }
 
     VkExtent2D GetSwapChainExtent() const {
 
         return mySwapchainCtx.mySwapChainExtent;
-
     }
 
     void SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers );
@@ -189,17 +183,17 @@ public:
 
     VkShaderModule CreateShaderModule( const std::string aShaderPath ) const;
 
-    VkImageView    CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
+    VkImageView CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
 
-    void           TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
+    void TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
 
-    void           CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
+    void CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
 
-    void           GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const;
+    void GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const;
 
-    void           CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
+    void CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
 
-    bool           HasStencilComponent( VkFormat aFormat ) const;
+    bool HasStencilComponent( VkFormat aFormat ) const;
 
     // Exposed for Vk_RenderDevice / Vk_SwapchainHost (replaces former friend access).
 
@@ -226,39 +220,39 @@ public:
 
     Vk_SwapChainSupportDetails QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const;
 
-    VkSurfaceFormatKHR         ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const;
+    VkSurfaceFormatKHR ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const;
 
-    VkPresentModeKHR           ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const;
+    VkPresentModeKHR ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const;
 
-    VkExtent2D                 ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const;
+    VkExtent2D ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const;
 
-    VkFormat                   FindDepthFormat() const;
+    VkFormat FindDepthFormat() const;
 
-    size_t                     PadUniformBufferSize( size_t anOriginalSize ) const;
+    size_t PadUniformBufferSize( size_t anOriginalSize ) const;
 
-    void                       RefreshMaterialPipelinesAfterSwapchainRecreate();
+    void RefreshMaterialPipelinesAfterSwapchainRecreate();
 
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const;
 
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
-    bool            myVsync = true;
+    bool myVsync = true;
 
     Util_FrameStats myFrameStats;
 
-    Vk_DeviceContext    myDeviceCtx;
+    Vk_DeviceContext myDeviceCtx;
 
     Vk_SwapchainContext mySwapchainCtx;
 
-    Vk_FrameContext     myFrameCtx;
+    Vk_FrameContext myFrameCtx;
 
-    Vk_SceneGpuContext  mySceneGpuCtx;
+    Vk_SceneGpuContext mySceneGpuCtx;
 
-    Vk_PlatformContext  myPlatformCtx;
+    Vk_PlatformContext myPlatformCtx;
 
     // Session presentation (fly camera + env UBO); not moved into contexts yet.
 
-    Vk_Camera          myCamera;
+    Vk_Camera myCamera;
 
     GpuEnvironmentData myEnvironmentData;
 
@@ -268,14 +262,13 @@ public:
 
     bool myMaterialBindLoggedOnce = false;
 
-    bool myBindlessLoggedOnce     = false;
+    bool myBindlessLoggedOnce = false;
 
-    bool myM1PerfLoggedOnce       = false;
+    bool myM1PerfLoggedOnce = false;
 
     bool myPrepareFrameSlabOverflowLogged = false;
 
 private:
-
     Vk_Core();
 
     ~Vk_Core();
@@ -296,13 +289,13 @@ private:
 
     void ShutdownImGui();
 
-    WorldState&   World() const;
+    WorldState& World() const;
 
     DebugUIState& DebugUI() const;
 
-    void          LogM1PerfSnapshot() const;
+    void LogM1PerfSnapshot() const;
 
-    size_t        InstanceSlabStride() const;
+    size_t InstanceSlabStride() const;
 
     void CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
 
@@ -314,19 +307,17 @@ private:
 
     bool CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const;
 
-    Vk_QueueFamilyIndices      FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
+    Vk_QueueFamilyIndices FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const;
 
-    uint32_t                   FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const;
+    uint32_t FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const;
 
-    VkFormat                   FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
+    VkFormat FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
 
-    VkSampleCountFlagBits      GetMaxUsableSampleCount() const;
+    VkSampleCountFlagBits GetMaxUsableSampleCount() const;
 
-    WorldState*   myWorld   = nullptr;
+    WorldState* myWorld = nullptr;
 
     DebugUIState* myDebugUI = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
-
 };
-
