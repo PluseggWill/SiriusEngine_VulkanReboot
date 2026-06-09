@@ -682,8 +682,8 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
 
     Vk_FrameData& frameData = *aPrep.myFrameData;
 
-    // Env UBO upload after Application built debug panels (RenderDebug must precede this).
-    Vk_FrameUniformUploader::Update( *this, myFrameCtx.myCurrentFrame );
+    // Env UBO after debug panels patch myEnvironmentData; camera slices already in PrepareFrameCpu.
+    Vk_FrameUniformUploader::UpdateEnvironment( *this, myFrameCtx.myCurrentFrame );
 
     vkResetFences( myDeviceCtx.myDevice, 1, &frameData.myRenderFence );
     vkResetCommandBuffer( frameData.myCommandBuffer, 0 );

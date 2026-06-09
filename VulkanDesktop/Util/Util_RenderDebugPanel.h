@@ -17,7 +17,7 @@ struct State {
 };
 
 // ImGui panel; patches myFogDistance.w for GpuEnvironmentData (see Gfx_DebugViewMode). Must run after
-// Gfx_FrameDrawPrep::Build and before Vk_FrameUniformUploader::Update in Vk_Core::DrawFrame.
+// Gfx_FrameDrawPrep::Build and before Vk_FrameUniformUploader::UpdateEnvironment in DrawFrameGpu.
 void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws );
 
 }  // namespace UtilRenderDebugPanel

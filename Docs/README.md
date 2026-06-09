@@ -5,7 +5,7 @@
 | Field | Value |
 |-------|--------|
 | **Task** | *(none — pick from [`Active-Plan.md`](Active-Plan.md) recommended queue)* |
-| **Recommended next** | **P1** — RHI-A2 ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)) or shader-bindless-policy |
+| **Recommended next** | **P1** — RHI-B1 ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)) or shader-bindless-policy |
 | **Plan / Progress** | Start vibe task → `{topic}_Plan.md` + `{topic}_Progress.md` at Docs root |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 

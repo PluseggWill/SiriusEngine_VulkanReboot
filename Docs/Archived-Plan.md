@@ -167,6 +167,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — rhi-camera-ubo (RHI-A2) *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | Camera UBO in `PrepareFrameCpu` only; `UpdateEnvironment` in `DrawFrameGpu`; no view-0 overwrite |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md), [`rhi-camera-ubo_Progress.md`](Archived/plans/rhi-camera-ubo_Progress.md) |
+| **Hardening** | #34 |
+
+- [x] **[P1]** RHI-A2 — multi-view camera UBO consistency (`UpdateEnvironment` split) — 2026-06-09
+
+---
+
 ## P1 — rhi-slab-overflow (RHI-A1) *(closed 2026-06-09)*
 
 | | |
