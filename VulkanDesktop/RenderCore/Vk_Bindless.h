@@ -6,7 +6,7 @@
 
 #include <vulkan/vulkan.h>
 
-// S1 bindless v0: probe + render path selection. Policy: EngineArchitecture.md §6; decision: Docs/shader-bindless-policy_Plan.md
+// S1 bindless v0: probe + render path selection. Policy: EngineArchitecture.md §6; maint: Docs/Archived/plans/shader-bindless-policy_Plan.md
 
 enum class Vk_RenderMaterialPath : uint8_t {
     Batch    = 0,
@@ -25,7 +25,7 @@ void Vk_AppendRequiredInstanceExtensions( std::vector< const char* >& aInstanceE
 // Device: append indexing + KHR deps only if enumerated; caps use core apiVersion when extensions are promoted.
 Vk_BindlessCapabilities Vk_ProbeBindlessCapabilities( VkPhysicalDevice aPhysicalDevice, std::vector< const char* >& aDeviceExtensions );
 
-// After device creation: pick bindless vs batch (env FORCE_MATERIAL_BATCH=1 forces batch).
+// After device creation: bindless when caps OK; FORCE_MATERIAL_BATCH=1 or RenderDoc (unless BINDLESS_RENDERDOC_OK=1) → batch.
 Vk_RenderMaterialPath Vk_SelectRenderMaterialPath( const Vk_BindlessCapabilities& aCaps );
 
 const char* Vk_RenderMaterialPathName( Vk_RenderMaterialPath aPath );

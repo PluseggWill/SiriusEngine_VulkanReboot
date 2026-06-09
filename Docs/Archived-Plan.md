@@ -167,6 +167,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P1 — shader-bindless-policy *(closed 2026-06-09)*
+
+| | |
+|--|--|
+| **Outcome** | Option A dogfood: `BINDLESS_RENDERDOC_OK` gate (#14), unified `RecordPassDrawsFromPacket` (#15), M7 perm freeze (#17); #18 codegen → Wishlist |
+| **Validation** | `Scripts/Verify-CI.ps1`, `Scripts/Verify-Smoke.ps1`; log `materialPath=Bindless` on RTX |
+| **Plan log** | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md), [`shader-bindless-policy_Progress.md`](Archived/plans/shader-bindless-policy_Progress.md) |
+| **Hardening** | #14, #15, #17 |
+
+- [x] **[P1]** shader-bindless-policy — Option A implement (#14–#17) — 2026-06-09
+
+---
+
 ## P1 — rhi-swapchain-create (RHI-B1) *(closed 2026-06-09)*
 
 | | |

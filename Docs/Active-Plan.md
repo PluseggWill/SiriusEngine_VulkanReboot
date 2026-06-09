@@ -37,8 +37,8 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P1** | Bindless decision; **Vulkan RHI** correctness + WSI hygiene ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §A–B1) |
-| 3 | **P2** | CPU indirect + **RHI** recreate/upload ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C) |
+| 1 | **P2** | CPU indirect + **RHI** recreate/upload ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2–C) |
+| 2 | **P2** | render-m2-prep peel items (parallel) |
 | 4 | **P3** | M2 GPU cull + automated parity |
 | 5 | **P4** | Vertical slice (objective + restart) |
 | *gate* | — | FG v0 / Stage 2 / Wishlist |
@@ -97,11 +97,11 @@ Lighting pass topology (diagram): [`EngineArchitecture.md`](EngineArchitecture.m
 | 11 | No per-draw `std::string` in record | P2 | render-m2-prep § C |
 | 12 | `myIndexCount` on mesh | P2 | render-m2-prep § B |
 | 13 | CPU `DrawIndexedIndirect` + template SSBO | P2 | render-m2-prep § A |
-| 14 | Bindless: dogfood or defer | P1 | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) |
-| 15 | One record path semantics | P1 | shader-bindless-policy |
+| 14 | Bindless: **Option A dogfood** (locked) | P1 ✓ | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract |
+| 15 | One record path semantics | P1 ✓ | shader-bindless-policy (archived) |
 | 16 | Benchmark vsync off | P0 ✓ | ci-verification § D (archived) |
-| 17 | Freeze perm until hybrid pass 2 | P1 | shader-bindless-policy |
-| 18 | Bindless layout codegen | Wishlist | shader-bindless-policy |
+| 17 | Freeze perm until hybrid pass 2 | P1 ✓ | shader-bindless-policy (archived) |
+| 18 | Bindless layout codegen | Wishlist | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) |
 | 19 | MeshImport v0 | Wishlist | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
 | 20 | Required `assetRoot` | P0 ✓ | ci-verification § B (archived) |
 | 21 | `lodEnabled` false default | P2 | render-m2-prep § E |
@@ -139,14 +139,17 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 | Track | Plan | Task |
 |-------|------|------|
-| Shader | [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless decision; freeze perm |
-| **Vulkan RHI** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | §Track A–B1 (correctness + swapchain hygiene) |
+| **Vulkan RHI** | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | §Track A–B1 *(closed)* · **B2+ open in P2** |
 
-### Vulkan RHI — P1 open tasks
+### Bindless maint contract *(Option A — closed 2026-06-09)*
 
-*Kickoff: vibe `rhi-*_Plan.md` per epic task; full steps in epic §RHI-A1/B1.*
+**Before merging any change to** `Vk_ScenePasses`, `Vk_DescriptorSystem`, `Vk_Bindless`, `Vk_ResourceTables`, `TriangleFrag_Lit*.frag`, or material sort keys — still apply M1–M8 from [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract.
 
-**Peel track (closed 2026-06-02):** [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md). **Config/platform/VK recover (closed 2026-06-02):** [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md). **Swapchain acquire-retry (closed 2026-06-08):** [`Archived/plans/swapchain-recreation_Plan.md`](Archived/plans/swapchain-recreation_Plan.md). **RHI-A1 slab overflow (closed 2026-06-09):** [`Archived/plans/rhi-slab-overflow_Plan.md`](Archived/plans/rhi-slab-overflow_Plan.md). **RHI-A2 camera UBO (closed 2026-06-09):** [`Archived/plans/rhi-camera-ubo_Plan.md`](Archived/plans/rhi-camera-ubo_Plan.md). **RHI-B1 swapchain create (closed 2026-06-09):** [`Archived/plans/rhi-swapchain-create_Plan.md`](Archived/plans/rhi-swapchain-create_Plan.md). **Remaining P1:** shader-bindless-policy; RHI Track B continues in P2 (B2+).
+### Vulkan RHI — P1 closed; P2 open
+
+*Kickoff: vibe `rhi-*_Plan.md` per epic task.*
+
+**P1 closed:** vk-core-world-peel, config-platform-hardening, swapchain-recreation, rhi-slab-overflow, rhi-camera-ubo, rhi-swapchain-create, shader-bindless-policy (2026-06-09). **Next:** RHI-B2 `Recreate` three-layer split (P2).
 
 ---
 
@@ -219,7 +222,7 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
 | [`README.md`](README.md) | Docs index |
 
-**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `swapchain-recreation` (archived), `vulkan-rhi-hardening-epic`, `render-m2-prep`, `shader-bindless-policy`, `content-pipeline`.
+**Implementation plans:** `ci-verification` (archived), `vk-core-world-peel` (archived), `config-platform-hardening` (archived), `swapchain-recreation` (archived), `shader-bindless-policy` (archived), `vulkan-rhi-hardening-epic`, `render-m2-prep`, `content-pipeline`.
 
 ---
 

@@ -9,6 +9,7 @@ if not exist "%GEN_DIR%" mkdir "%GEN_DIR%"
 set "VS_OUT=%GEN_DIR%TriangleVert.spv"
 set "PS_OUT=%GEN_DIR%TrianglePix.spv"
 
+REM POLICY_BINDLESS M7 (#17): PermutationRegistry.json frozen at lit + lit_alpha_clip until hybrid pass 2.
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile started."
 
 if not exist "%GLSLC%" (

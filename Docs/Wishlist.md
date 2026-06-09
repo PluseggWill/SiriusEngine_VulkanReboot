@@ -35,6 +35,21 @@
 
 ---
 
+## Bindless maintenance *(Option A — locked 2026-06-09)*
+
+Canonical checklist: [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract · policy: [`EngineArchitecture.md`](EngineArchitecture.md) §6.
+
+| When you work on… | Remember |
+|-------------------|----------|
+| **S3 M2 / GPU indirect** | Indirect buffer + bindless `materialIndex` must agree; test smoke stays Bindless on RTX. |
+| **S3 FG v0 / Stage 2 hybrid** | New passes use existing Set 0/2 contracts; bindless Set 1 is one bind per pass — do not reintroduce per-draw Set 1. |
+| **S5 mesh shader** | Fragment side assumes material SSBO table (S1 bindless v0); keep table layout in sync with `Vk_ResourceTables`. |
+| **S6 fallback preset** | `bindless-off → batch` is the **hardware/test** fallback, not the default dev path (Option A). |
+| **S7 presets / benchmarks** | Preset matrix must include **Batch** and **Bindless** runs for parity; RenderDoc captures may still force Batch until #14 lands. |
+| **#18 layout codegen** | Promote when hand-written `CreateBindlessMaterialSetLayout` blocks Stage 2 shader work. |
+
+---
+
 ## Sprint index
 
 | Sprint | Milestone | Open `[ ]` (summary) | Section |

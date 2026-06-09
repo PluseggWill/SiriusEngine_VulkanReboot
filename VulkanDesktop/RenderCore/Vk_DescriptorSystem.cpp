@@ -114,6 +114,7 @@ void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
     }
 }
 
+// POLICY_BINDLESS M2: hand-written until #18 codegen — must match TriangleFrag_Lit_Bindless.frag + DescriptorContract_LitBindless.json.
 void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {
     VkDescriptorSetLayoutBinding textureArrayBinding{};
     textureArrayBinding.binding         = eVk_BindlessTextureArrayBinding;

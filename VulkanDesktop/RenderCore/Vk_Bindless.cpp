@@ -1,4 +1,4 @@
-﻿// Windows-only dev override: FORCE_MATERIAL_BATCH via _dupenv_s (see Docs/Platform.md).
+﻿// Windows-only env overrides: FORCE_MATERIAL_BATCH, BINDLESS_RENDERDOC_OK (_dupenv_s; see Docs/Platform.md).
 #include "Vk_Bindless.h"
 
 #include "../Util/Util_Logger.h"
@@ -8,7 +8,6 @@
 #endif
 #include <Windows.h>
 
-#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <set>
@@ -32,6 +31,23 @@ void AppendExtensionIfMissing( const char* aName, std::vector< const char* >& aE
         }
     }
     aExtensions.push_back( aName );
+}
+
+// Non-empty env value that is not "0" counts as true (lab toggles).
+bool EnvTruthy( const char* aName ) {
+#ifdef _MSC_VER
+    char*  value = nullptr;
+    size_t len   = 0;
+    if ( _dupenv_s( &value, &len, aName ) != 0 || value == nullptr ) {
+        return false;
+    }
+    const bool truthy = value[ 0 ] != '\0' && value[ 0 ] != '0';
+    free( value );
+    return truthy;
+#else
+    const char* value = std::getenv( aName );
+    return value != nullptr && value[ 0 ] != '\0' && value[ 0 ] != '0';
+#endif
 }
 
 }  // namespace
@@ -102,29 +118,23 @@ Vk_BindlessCapabilities Vk_ProbeBindlessCapabilities( VkPhysicalDevice aPhysical
     return caps;
 }
 
+// POLICY_BINDLESS (Option A): default Bindless when caps OK; Batch is fallback only.
+// Maint: Docs/Archived/plans/shader-bindless-policy_Plan.md §Maintenance contract (M1,M5,M6).
 Vk_RenderMaterialPath Vk_SelectRenderMaterialPath( const Vk_BindlessCapabilities& aCaps ) {
-#ifdef _MSC_VER
-    char*         forceBatchEnv = nullptr;
-    size_t        envLen        = 0;
-    const errno_t envErr        = _dupenv_s( &forceBatchEnv, &envLen, "FORCE_MATERIAL_BATCH" );
-    const bool    forceBatch    = envErr == 0 && forceBatchEnv != nullptr && forceBatchEnv[ 0 ] != '\0' && forceBatchEnv[ 0 ] != '0';
-    if ( forceBatchEnv != nullptr ) {
-        free( forceBatchEnv );
-    }
-#else
-    const char* forceBatchPtr = std::getenv( "FORCE_MATERIAL_BATCH" );
-    const bool  forceBatch    = forceBatchPtr != nullptr && forceBatchPtr[ 0 ] != '\0' && forceBatchPtr[ 0 ] != '0';
-#endif
-    if ( forceBatch ) {
+    if ( EnvTruthy( "FORCE_MATERIAL_BATCH" ) ) {
         UtilLogger::Info( "BINDLESS", "FORCE_MATERIAL_BATCH set - using Batch material path." );
         return Vk_RenderMaterialPath::Batch;
     }
 
-    // RenderDoc + bindless has shown startup instability on some driver stacks.
-    // Prefer deterministic captures by forcing the simpler Batch material path.
+    // POLICY_BINDLESS M5 (#14): default Batch when RenderDoc is injected; opt in with BINDLESS_RENDERDOC_OK=1.
     if ( GetModuleHandleA( "renderdoc.dll" ) != nullptr ) {
-        UtilLogger::Info( "BINDLESS", "RenderDoc module detected - forcing Batch material path for capture stability." );
-        return Vk_RenderMaterialPath::Batch;
+        if ( EnvTruthy( "BINDLESS_RENDERDOC_OK" ) ) {
+            UtilLogger::Info( "BINDLESS", "RenderDoc detected; BINDLESS_RENDERDOC_OK=1 - keeping bindless path when capable." );
+        }
+        else {
+            UtilLogger::Info( "BINDLESS", "RenderDoc detected - using Batch (set BINDLESS_RENDERDOC_OK=1 to keep bindless)." );
+            return Vk_RenderMaterialPath::Batch;
+        }
     }
 
     if ( aCaps.myDescriptorIndexingExtension && aCaps.myRuntimeDescriptorArray && aCaps.myNonUniformIndexing ) {

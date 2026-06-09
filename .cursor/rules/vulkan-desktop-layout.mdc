@@ -62,7 +62,7 @@ Gfx/
 - **RAII**：`vkCreate*` 对称销毁或 deletion queue；GPU struct 用 `alignas` + std140/std430
 - **安全**：枚举 `switch` 全覆盖或显式 `default`；`VkResult` 等 `[[nodiscard]]`
 - **错误**：Debug 用 `VK_CHECK` 等，不吞 API 失败
-- **Bindless vs batch:** follow [`shader-bindless-policy_Plan.md`](../../Docs/shader-bindless-policy_Plan.md) — not “always bindless”; batch fallback required
+- **Bindless vs batch:** follow [`shader-bindless-policy_Plan.md`](../../Docs/Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract — not “always bindless”; batch fallback required
 - **格式化**：仓库根 `.clang-format`（`clang-format -i`）
 
 注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。非 vibe 改动见 **`vulkan-desktop-quick.mdc`**。

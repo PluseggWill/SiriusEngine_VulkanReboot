@@ -5,7 +5,7 @@
 | Path | Win32 / platform API | Why Windows-only | Port owner |
 |------|----------------------|------------------|------------|
 | `VulkanDesktop/App/Application.cpp` | GLFW window/input | Desktop shell; GLFW is portable but product ships Windows-only | Wishlist |
-| `VulkanDesktop/RenderCore/Vk_Bindless.cpp` | `_dupenv_s( "FORCE_MATERIAL_BATCH" )` | S7 lab / RenderDoc stability override | Wishlist |
+| `VulkanDesktop/RenderCore/Vk_Bindless.cpp` | `_dupenv_s( "FORCE_MATERIAL_BATCH" )`, `BINDLESS_RENDERDOC_OK` | Batch override; RenderDoc defaults Batch unless `BINDLESS_RENDERDOC_OK=1` | Wishlist |
 | `VulkanDesktop/RenderCore/Vk_RenderDoc.cpp` | `LoadLibraryW`, `GetProcAddress` | RenderDoc DLL injection path | Wishlist |
 | `VulkanDesktop/GfxTests/GfxTests_Main.cpp` | `GetModuleFileNameW` | Locate repo root from test exe | Wishlist |
 

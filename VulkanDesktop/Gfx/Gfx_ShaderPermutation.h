@@ -29,6 +29,10 @@ namespace Gfx_ShaderPermutation {
 
 inline constexpr const char* kRegistryLogicalPath = "VulkanDesktop/Shader/PermutationRegistry.json";
 
+// POLICY_BINDLESS M7 (#17): freeze registry until hybrid pass 2 needs a shader branch.
+inline constexpr uint32_t kFrozenRegistryPermutationMax     = 2u;
+inline constexpr uint32_t kFrozenRegistryAllowedFeatureMask = Gfx_ShaderFeature_AlphaClip;
+
 void Initialize( const Util_EngineConfig& aConfig );
 bool IsInitialized();
 

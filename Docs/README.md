@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | *(none — pick from [`Active-Plan.md`](Active-Plan.md) recommended queue)* |
-| **Recommended next** | **P2** RHI-B2 (`Recreate` split) or **P1** shader-bindless-policy |
-| **Plan / Progress** | Start vibe task → `{topic}_Plan.md` + `{topic}_Progress.md` at Docs root |
+| **Task** | **P2** — RHI-B2 `Recreate` three-layer split ([`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) §B2) |
+| **Recommended next** | Vibe `rhi-recreate-split` or parallel **render-m2-prep** peel |
+| **Plan / Progress** | Epic only until kickoff — last closed: [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
@@ -41,7 +41,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 |------|--------|
 | [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | Vulkan RHI audit → WSI, upload, resize (P1–P2; D→S7) |
 | [`render-m2-prep_Plan.md`](render-m2-prep_Plan.md) | CPU indirect, record hygiene |
-| [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md) | Bindless dogfood vs defer |
+| [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) | Bindless dogfood (closed) |
 | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
 
 Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`, `swapchain-recreation`).

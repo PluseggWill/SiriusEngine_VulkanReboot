@@ -101,6 +101,17 @@ void Initialize( const Util_EngineConfig& aConfig ) {
         gDefinitions.push_back( std::move( def ) );
     }
 
+    // M7 (#17): PermutationRegistry.json stays lit + lit_alpha_clip until hybrid pass 2.
+    if ( gDefinitions.size() > kFrozenRegistryPermutationMax ) {
+        throw std::runtime_error( "Gfx_ShaderPermutation: registry has " + std::to_string( gDefinitions.size() ) + " permutation(s); M7 freeze allows at most "
+                                  + std::to_string( kFrozenRegistryPermutationMax ) + " until hybrid pass 2" );
+    }
+    for ( const Gfx_ShaderPermutationDef& def : gDefinitions ) {
+        if ( ( def.myFeatureMask & ~kFrozenRegistryAllowedFeatureMask ) != 0 ) {
+            throw std::runtime_error( "Gfx_ShaderPermutation: permutation '" + def.myName + "' uses frozen feature bits (M7); only ALPHA_CLIP allowed until hybrid pass 2" );
+        }
+    }
+
     gInitialized = true;
     SetActiveByName( aConfig.GetShaderPermutationName() );
 

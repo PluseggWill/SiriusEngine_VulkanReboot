@@ -272,7 +272,7 @@ flowchart LR
 - Per-draw `mat4` → Set 2 dynamic slice or push constants (policy allows both; demo uses Set 2).
 - Material count / texture set changes → full scene GPU reload today (see `Vk_DescriptorPolicy.h`).
 
-**Bindless:** optional path when `VK_EXT_descriptor_indexing` available; batch fallback always supported. Decision track: [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md).
+**Bindless (Option A):** **primary dev path** when `VK_EXT_descriptor_indexing` + runtime array + non-uniform indexing available; **batch fallback always supported** (no indexing, `FORCE_MATERIAL_BATCH`, tests). Dual record paths must stay visually in parity — maint rules: [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract.
 
 ### 6.2 Shader / permutations (principle)
 
