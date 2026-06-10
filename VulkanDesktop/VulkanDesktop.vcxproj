@@ -196,6 +196,7 @@
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawTemplate.cpp" />
+    <ClCompile Include="Gfx\Gfx_EntityGpuRecord.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
     <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />
     <ClCompile Include="Gfx\Gfx_RenderPacket.cpp" />
@@ -268,6 +269,7 @@
     <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
     <ClInclude Include="Gfx\Gfx_DrawBatch.h" />
     <ClInclude Include="Gfx\Gfx_DrawTemplate.h" />
+    <ClInclude Include="Gfx\Gfx_EntityGpuRecord.h" />
     <ClInclude Include="Gfx\Gfx_DrawExtract.h" />
     <ClInclude Include="Gfx\Gfx_FrameDrawStream.h" />
     <ClInclude Include="Gfx\Gfx_RenderPacket.h" />

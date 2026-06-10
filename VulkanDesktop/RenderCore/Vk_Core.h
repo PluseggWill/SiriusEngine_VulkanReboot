@@ -286,6 +286,8 @@ private:
 
     void CreateDrawTemplateBuffers();
 
+    void CreateEntityRecordBuffers();
+
     void CreateUniformBuffers();
 
     void InitImGui();

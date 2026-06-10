@@ -3,6 +3,7 @@
 #include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawCullSort.h"
 #include "../Gfx/Gfx_DrawExtract.h"
+#include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -228,6 +229,31 @@ void TestTransparentSortStableUnderRotation() {
             "transparent sort stable when entity rotates around pivot (bounds-center eye Z)" );
 }
 
+void TestEntityGpuRecordSync() {
+    Gfx_SceneSoA scene;
+
+    const glm::mat4 worldTransform = glm::translate( glm::mat4( 1.0f ), glm::vec3( 1.0f, 0.0f, 0.0f ) );
+    const auto      id             = scene.AllocEntity( 2, 3, worldTransform );
+
+    Gfx_Bounds localBounds{};
+    localBounds.myMin = glm::vec3( -1.0f );
+    localBounds.myMax = glm::vec3( 1.0f );
+    scene.SetLocalBoundsForSlot( id.myIndex, localBounds );
+
+    Gfx_EntityGpuRecord record{};
+    Gfx_FillEntityGpuRecord( record, scene, id.myIndex, 99 );
+
+    Expect( record.myLayerMask != 0, "entity record: active slot has layer mask" );
+    Expect( record.myLogicalMeshId == 2, "entity record: logical mesh id" );
+    Expect( record.myMaterialId == 3, "entity record: material id" );
+    Expect( record.myIndirect.indexCount == 99, "entity record: index count" );
+    Expect( record.myBoundsMin.x == 0.0f && record.myBoundsMax.x == 2.0f, "entity record: world AABB synced from SoA" );
+
+    scene.FreeEntity( id );
+    Gfx_FillEntityGpuRecord( record, scene, id.myIndex, 99 );
+    Expect( record.myLayerMask == 0, "entity record: freed slot cleared" );
+}
+
 void TestDemoCullAndBatch() {
     Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
@@ -283,6 +309,7 @@ int main() {
     TestConfigPrecedence( repoRoot );
     TestSoAGeneration();
     TestTransparentSortStableUnderRotation();
+    TestEntityGpuRecordSync();
     TestDemoCullAndBatch();
 
     // GpuMaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.

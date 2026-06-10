@@ -29,4 +29,8 @@ struct Vk_FrameData {
     void*              myDrawIndirectMapped = nullptr;
     Vk_AllocatedBuffer myDrawTemplateBuffer;
     void*              myDrawTemplateMapped = nullptr;
+
+    // P3: per SoA slot Gfx_EntityGpuRecord[] (scene-wide; filled before multi-view draw prep).
+    Vk_AllocatedBuffer myEntityRecordBuffer;
+    void*              myEntityRecordMapped = nullptr;
 };

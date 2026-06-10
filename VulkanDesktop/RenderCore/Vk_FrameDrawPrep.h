@@ -45,6 +45,9 @@ public:
     // Returns false when instance slab overflow (record should be skipped).
     bool Build( const Vk_FrameDrawPrepBuildParams& aParams );
 
+    // Scene-wide SoA → entity-record SSBO (once per frame, before multi-view Build).
+    bool FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, uint32_t aCurrentFrame, std::vector< Vk_FrameData >& aFrameDatas );
+
 private:
     bool FillInstanceSlab( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
     bool FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aParams, Gfx_FrameRenderPacket& aPacket );
@@ -53,4 +56,6 @@ private:
     bool myInstanceSlabOverflowLogged = false;
     bool myDrawTemplateFillLoggedOnce = false;
     bool myDrawTemplateOverflowLogged = false;
+    bool myEntityRecordFillLoggedOnce = false;
+    bool myEntityRecordOverflowLogged = false;
 };

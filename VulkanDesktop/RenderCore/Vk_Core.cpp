@@ -4,6 +4,7 @@
 #include "../App/DebugUIState.h"
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
+#include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -200,6 +201,7 @@ void Vk_Core::InitRenderDevice() {
     CreateFrameData();
     CreateInstanceSlabs();
     CreateDrawTemplateBuffers();
+    CreateEntityRecordBuffers();
     CreateUniformBuffers();
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
@@ -598,6 +600,30 @@ void Vk_Core::CreateDrawTemplateBuffers() {
                                       + " indirectBytes/frame=" + std::to_string( indirectBytes ) + " templateBytes/frame=" + std::to_string( templateBytes ) );
 }
 
+// P3: per SoA slot entity-record SSBO (CPU fill in FillEntityRecords; compute cull reads same layout).
+void Vk_Core::CreateEntityRecordBuffers() {
+    const VkDeviceSize recordBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxEntitySlots ) * sizeof( Gfx_EntityGpuRecord );
+
+    for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
+        CreateBuffer( recordBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer, true );
+
+        void* recordMapped = nullptr;
+        vmaMapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer.myAllocation, &recordMapped );
+        myFrameCtx.myFrameDatas[ i ].myEntityRecordMapped = recordMapped;
+
+        myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
+            if ( myFrameCtx.myFrameDatas[ i ].myEntityRecordMapped != nullptr ) {
+                vmaUnmapMemory( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer.myAllocation );
+                myFrameCtx.myFrameDatas[ i ].myEntityRecordMapped = nullptr;
+            }
+            vmaDestroyBuffer( myDeviceCtx.myAllocator, myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer.myBuffer,
+                              myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer.myAllocation );
+        } );
+    }
+
+    UtilLogger::Info( "RESOURCE", "Entity-record buffer: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/frame=" + std::to_string( recordBytes ) );
+}
+
 void Vk_Core::CreateUniformBuffers() {
     // Device-scoped env UBO slab (CPU defaults written at scene load ??Vk_SceneHost::InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
@@ -658,6 +684,11 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     uint32_t       totalTransRuns     = 0;
     const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
+
+    // Scene-wide; FillEntityRecords logs on failure (fail-closed before per-view slab/template fill).
+    if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( aWorld.mySceneSoA, mySceneGpuCtx.myResourceTables, myFrameCtx.myCurrentFrame, myFrameCtx.myFrameDatas ) ) {
+        return false;
+    }
 
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         Gfx_LodState  secondaryViewLodState;

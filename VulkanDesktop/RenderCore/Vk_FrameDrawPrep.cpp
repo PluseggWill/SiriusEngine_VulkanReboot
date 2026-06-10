@@ -3,6 +3,7 @@
 #include "Vk_FrameDrawPrep.h"
 
 #include "../Gfx/Gfx_DrawTemplate.h"
+#include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
@@ -22,6 +23,8 @@ void Vk_FrameDrawPrep::ResetLogState() {
     mySlabFillLoggedOnce         = false;
     myInstanceSlabOverflowLogged = false;
     myDrawTemplateOverflowLogged = false;
+    myEntityRecordFillLoggedOnce = false;
+    myEntityRecordOverflowLogged = false;
 }
 
 bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
@@ -153,6 +156,41 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
     if ( !myDrawTemplateFillLoggedOnce ) {
         UtilLogger::Info( "RESOURCE", "FillDrawTemplates: wrote " + std::to_string( drawCount ) + " draw template(s)" );
         myDrawTemplateFillLoggedOnce = true;
+    }
+
+    return true;
+}
+
+// CONTRACT (P3): Gfx_EntityGpuRecord[slot] mirrors SoA columns; inactive slots keep layerMask == 0.
+bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, uint32_t aCurrentFrame, std::vector< Vk_FrameData >& aFrameDatas ) {
+    Vk_FrameData& frame = aFrameDatas[ aCurrentFrame ];
+    if ( frame.myEntityRecordMapped == nullptr ) {
+        UtilLogger::Error( "RESOURCE", "Entity-record buffer not mapped for frame " + std::to_string( aCurrentFrame ) );
+        return false;
+    }
+
+    const uint32_t slotCount = aScene.GetSlotCount();
+    if ( slotCount > VkDescriptorPolicy::kMaxEntitySlots ) {
+        if ( !myEntityRecordOverflowLogged ) {
+            UtilLogger::Error( "RESOURCE", "Entity-record overflow: slots=" + std::to_string( slotCount ) + " max=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) );
+            myEntityRecordOverflowLogged = true;
+        }
+        return false;
+    }
+
+    auto* const recordBase = static_cast< Gfx_EntityGpuRecord* >( frame.myEntityRecordMapped );
+    for ( uint32_t slot = 0; slot < slotCount; ++slot ) {
+        const uint32_t indexCount = aScene.IsSlotActive( slot ) ? aTables.GetMesh( aScene.GetLogicalMeshId( slot ) ).myIndexCount : 0u;
+        Gfx_FillEntityGpuRecord( recordBase[ slot ], aScene, slot, indexCount );
+    }
+
+    if ( slotCount < VkDescriptorPolicy::kMaxEntitySlots ) {
+        std::memset( recordBase + slotCount, 0, static_cast< size_t >( VkDescriptorPolicy::kMaxEntitySlots - slotCount ) * sizeof( Gfx_EntityGpuRecord ) );
+    }
+
+    if ( !myEntityRecordFillLoggedOnce ) {
+        UtilLogger::Info( "RESOURCE", "FillEntityRecords: wrote " + std::to_string( slotCount ) + " slot(s)" );
+        myEntityRecordFillLoggedOnce = true;
     }
 
     return true;

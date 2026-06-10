@@ -29,6 +29,9 @@ inline constexpr uint32_t kMaxInstanceSlabEntries = 256;
 // Draw-template / indirect buffers share instance-slab partition sizing (PrepareFrameCpu splits by active view count).
 inline constexpr uint32_t kMaxDrawTemplateEntries = kMaxInstanceSlabEntries;
 
+// Entity-record SSBO (per SoA slot, scene-wide — P3 GPU cull input).
+inline constexpr uint32_t kMaxEntitySlots = kMaxInstanceSlabEntries;
+
 // Bindless Set 1 texture array capacity (S1 bindless v0).
 // CONTRACT: TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES + layout descriptorCount must match.
 inline constexpr uint32_t kMaxBindlessTextures = 64;

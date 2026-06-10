@@ -242,6 +242,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P3 — entity AABB + draw template SSBO (sync SoA) *(closed 2026-06-10)*
+
+| | |
+|--|--|
+| **Outcome** | Per SoA slot `Gfx_EntityGpuRecord` SSBO (world AABB + indirect template fields); `FillEntityRecords` each frame before multi-view draw prep |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; GfxTests `TestEntityGpuRecordSync` |
+| **Plan log** | [`Archived/plans/render-m2-p3-a_Plan.md`](Archived/plans/render-m2-p3-a_Plan.md) · [`render-m2-p3-a_Progress.md`](Archived/plans/render-m2-p3-a_Progress.md) |
+
+- [x] **[P3]** AABB + draw template SSBO synced with SoA (entity-record buffer) — 2026-06-10
+
+---
+
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
 
 | | |
