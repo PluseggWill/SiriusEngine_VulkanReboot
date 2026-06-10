@@ -33,4 +33,9 @@ inline uint32_t Gfx_ComputeDrawBufferSlot( uint32_t aViewBaseIndex, uint32_t aPa
     return aViewBaseIndex + aPassOffset + aDrawIndexInPass;
 }
 
+// P3 GPU cull: entity SoA slot in myGpuCullIndirectBuffer (matches EntityCull.comp outputBaseSlot + slot).
+inline uint32_t Gfx_ComputeEntityIndirectSlot( uint32_t aViewBaseIndex, uint32_t aEntitySlot ) {
+    return aViewBaseIndex + aEntitySlot;
+}
+
 void Gfx_BuildFrameRenderPacketFromStream( const Gfx_FrameDrawStreamOutput& aStreamOutput, Gfx_FrameRenderPacket& aOutPacket );

@@ -164,7 +164,6 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 **Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (GPU §), [`Archived/plans/render-m2-p3-a_Plan.md`](Archived/plans/render-m2-p3-a_Plan.md), [`Archived/plans/render-m2-p3-b_Plan.md`](Archived/plans/render-m2-p3-b_Plan.md), ci-verification (parity)  
 **Not in scope:** FG v0, MT v1, Stage 2 passes
 
-- [ ] GPU indirect record; no per-object CPU `vkCmdDraw*`
 - [ ] Optional compaction
 - [ ] **Automated parity** — gate G1
 - [ ] LOD GPU subset parity when `lodEnabled`

@@ -22,6 +22,7 @@ struct Gfx_FrameDrawStreamParams {
     Gfx_LodState*       myLodState              = nullptr;
     bool                myLodEnabled            = false;
     uint32_t            myLodDebugLogicalMeshId = UINT32_MAX;
+    bool                myGpuCullEnabled        = false;  // skip CPU frustum cull; GPU indirect drives visibility
 };
 
 struct Gfx_FrameDrawStreamLogState {

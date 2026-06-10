@@ -266,6 +266,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P3 — GPU indirect record path *(closed 2026-06-10)*
+
+| | |
+|--|--|
+| **Outcome** | `--gpu-cull` record consumes `myGpuCullIndirectBuffer` by entity slot; CPU frustum cull skipped; default path unchanged |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual `--gpu-cull` → `gpu-deferred` + `GPU-filled slot indirect` logs |
+| **Plan log** | [`Archived/plans/render-m2-p3-c_Plan.md`](Archived/plans/render-m2-p3-c_Plan.md) · [`render-m2-p3-c_Progress.md`](Archived/plans/render-m2-p3-c_Progress.md) |
+
+- [x] **[P3]** GPU indirect record; no per-object CPU `vkCmdDraw*` (gpu path uses slot indirect) — 2026-06-10
+
+---
+
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
 
 | | |

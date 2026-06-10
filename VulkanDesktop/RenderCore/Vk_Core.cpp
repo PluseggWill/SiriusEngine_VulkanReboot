@@ -728,6 +728,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myDrawBufferBaseIndex    = viewIndex * perViewMaxEntries;
         prepParams.myDrawBufferMaxEntries   = perViewMaxEntries;
         prepParams.myViewLayerMask          = aViews[ viewIndex ].myView.myLayerMask;
+        prepParams.myGpuCullEnabled         = EngineConfig().GetGpuCullEnabled();
         prepParams.myResourceTables         = &mySceneGpuCtx.myResourceTables;
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();

@@ -21,7 +21,7 @@ Run from **repo root**. Use **`powershell`** (Windows PowerShell 5.1); scripts a
 | Gate | Script | What it checks |
 |------|--------|----------------|
 | **G0** | `Scripts/Verify-CI.ps1` | MSBuild Debug\|x64, `Assert-ShaderDrift.ps1`, `GfxTests.exe` |
-| **G0-smoke** | `Scripts/Verify-Smoke.ps1` | Built exe + `engine.benchmark.json` + `smoke.json` + `Assert-SmokeLog.ps1` |
+| **G0-smoke** | `Scripts/Verify-Smoke.ps1` | Built exe + `engine.stress.json` + `stress.json` + `Assert-SmokeLog.ps1` |
 
 ```powershell
 powershell -File Scripts/Verify-CI.ps1
@@ -58,7 +58,7 @@ Local dev may still auto-discover repo root; automation must use `--asset-root` 
 | GPU graceful smoke + log contract | `powershell -File Scripts/Verify-Smoke.ps1` |
 | CLI parses, no GPU | `.\VulkanDesktop.exe --help` |
 | Headless gfx contracts | `x64\Debug\GfxTests.exe` (included in Verify-CI) |
-| Minimal scene | `--scene Data/Scenes/smoke.json` |
+| Minimal scene | `--scene Data/Scenes/smoke.json` (optional; G0-smoke uses `stress.json`) |
 | Scene/manifest/path work | `--scene …` + `--asset-root <repo-root>` |
 | CI/agent without validation layers | `--no-validation` |
 

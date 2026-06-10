@@ -29,6 +29,11 @@ VkDeviceSize IndirectByteOffset( uint32_t aDrawSlot ) {
     return static_cast< VkDeviceSize >( aDrawSlot ) * sizeof( VkDrawIndexedIndirectCommand );
 }
 
+// CPU path: draw-order slot in myDrawIndirectBuffer. GPU cull path: entity SoA slot in myGpuCullIndirectBuffer.
+uint32_t ComputeIndirectDrawSlot( bool aUseGpuCullIndirect, uint32_t aViewBaseIndex, uint32_t aPassOffset, uint32_t aDrawIndexInPass, uint32_t aEntitySlot ) {
+    return aUseGpuCullIndirect ? Gfx_ComputeEntityIndirectSlot( aViewBaseIndex, aEntitySlot ) : Gfx_ComputeDrawBufferSlot( aViewBaseIndex, aPassOffset, aDrawIndexInPass );
+}
+
 // Per-draw RenderDoc tag: fixed stack buffer (no heap); skipped when debug_utils labels unavailable.
 void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
     char label[ kDrawDebugLabelCapacity ];
@@ -79,7 +84,9 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
 
 void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
-                                     uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
+                                     uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
+
+                                     bool aEmitDebugLabels ) {
 
     const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
 
@@ -114,7 +121,8 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
             const Gfx_Mesh& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
 
-            const uint32_t     drawSlot       = Gfx_ComputeDrawBufferSlot( aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, absoluteDrawIndex );
+            const uint32_t drawSlot =
+                ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, absoluteDrawIndex, draw.myEntityIndex );
             const VkDeviceSize indirectOffset = IndirectByteOffset( drawSlot );
 
             RecordSingleIndexedDraw( aCore, aCommandBuffer, layout, objectDescriptor, draw, mesh, aPassName, absoluteDrawIndex, aIndirectBuffer, indirectOffset,
@@ -128,7 +136,9 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
 void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
 
-                                        uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
+                                        uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
+
+                                        bool aEmitDebugLabels ) {
 
     const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
 
@@ -144,7 +154,7 @@ void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommand
 
         const Gfx_Mesh& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
 
-        const uint32_t     drawSlot       = Gfx_ComputeDrawBufferSlot( aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, drawIndex );
+        const uint32_t     drawSlot       = ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, drawIndex, draw.myEntityIndex );
         const VkDeviceSize indirectOffset = IndirectByteOffset( drawSlot );
 
         RecordSingleIndexedDraw( aCore, aCommandBuffer, layout, objectDescriptor, draw, mesh, aPassName, drawIndex, aIndirectBuffer, indirectOffset, aUseLegacyDirectDraw,
@@ -158,7 +168,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
                                 Vk_RenderMaterialPath aMaterialPath, VkPipeline aBindlessPipeline, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
 
-                                bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
+                                bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     if ( aPass.myDraws.empty() ) {
 
@@ -167,13 +177,14 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
     if ( aMaterialPath == Vk_RenderMaterialPath::Bindless ) {
 
-        RecordPassDrawsBindlessFromPacket( aCore, aCommandBuffer, aPass, aBindlessPipeline, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw,
-                                           aEmitDebugLabels );
+        RecordPassDrawsBindlessFromPacket( aCore, aCommandBuffer, aPass, aBindlessPipeline, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
+                                           aUseLegacyDirectDraw, aEmitDebugLabels );
     }
 
     else {
 
-        RecordPassDrawsBatchFromPacket( aCore, aCommandBuffer, aPass, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseLegacyDirectDraw, aEmitDebugLabels );
+        RecordPassDrawsBatchFromPacket( aCore, aCommandBuffer, aPass, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect, aUseLegacyDirectDraw,
+                                        aEmitDebugLabels );
     }
 }
 
@@ -227,16 +238,20 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
     static bool sIndirectPathLoggedOnce = false;
 
+    static bool sGpuIndirectPathLoggedOnce = false;
+
     const Vk_RenderMaterialPath materialPath = aCore.myDeviceCtx.myMaterialPath;
 
     const bool bindless = materialPath == Vk_RenderMaterialPath::Bindless;
 
     const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
     const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     const VkPipelineLayout frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
 
-    const VkBuffer indirectBuffer = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myDrawIndirectBuffer.myBuffer;
+    Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
+    const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
 
     for ( uint32_t viewIndex = 0; viewIndex < aViewCount; ++viewIndex ) {
 
@@ -277,7 +292,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque", materialPath, aCore.mySceneGpuCtx.myBasicPipelineBindless,
 
-                                       packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw, emitDebugLabels );
+                                       packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels );
 
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -292,7 +307,8 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent", materialPath,
 
-                                       aCore.mySceneGpuCtx.myTransparentPipelineBindless, packet.myDrawBufferBaseIndex, indirectBuffer, legacyDirectDraw, emitDebugLabels );
+                                       aCore.mySceneGpuCtx.myTransparentPipelineBindless, packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw,
+                                       emitDebugLabels );
 
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -307,7 +323,14 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
         sPacketPathLoggedOnce = true;
     }
 
-    if ( aViewCount > 0 && !legacyDirectDraw && !sIndirectPathLoggedOnce ) {
+    if ( aViewCount > 0 && gpuCullRecord && !sGpuIndirectPathLoggedOnce ) {
+
+        UtilLogger::Info( "RENDER", "Scene record using GPU-filled slot indirect (EntityCull.comp → myGpuCullIndirectBuffer)." );
+
+        sGpuIndirectPathLoggedOnce = true;
+    }
+
+    if ( aViewCount > 0 && !legacyDirectDraw && !gpuCullRecord && !sIndirectPathLoggedOnce ) {
 
         UtilLogger::Info( "RENDER", "Scene record using CPU vkCmdDrawIndexedIndirect (draw templates uploaded each frame)." );
 

@@ -31,8 +31,8 @@ if (-not (Test-Path $exe)) {
 Write-Host "=== Verify-Smoke: VulkanDesktop ===" -ForegroundColor Cyan
 & $exe `
     --asset-root $RepoRoot `
-    --config (Join-Path $RepoRoot "Config\engine.benchmark.json") `
-    --scene Data/Scenes/smoke.json `
+    --config (Join-Path $RepoRoot "Config\engine.stress.json") `
+    --scene Data/Scenes/stress.json `
     --no-validation `
     --smoke-frames $SmokeFrames `
     --smoke-seconds $SmokeSeconds

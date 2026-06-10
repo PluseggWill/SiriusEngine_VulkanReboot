@@ -107,7 +107,8 @@ See [`LOD.md`](LOD.md) for demo + stress LOD chains.
 |------|---------|
 | `Data/Scenes/stress.json` | **Default** valley test scene (cull / LOD / batch) |
 | `Data/Scenes/demo.json` | Stage 1 forward golden baseline |
-| `Data/Scenes/smoke.json` | CI minimal load |
+| `Data/Scenes/smoke.json` | Minimal load (optional) |
+| `Data/Scenes/stress.json` | G0-smoke / default functional test |
 
 ## Usage
 

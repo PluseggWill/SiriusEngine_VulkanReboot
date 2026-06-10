@@ -5,8 +5,8 @@
 | Field | Value |
 |-------|--------|
 | **Task** | **P3** — M2 GPU cull + G1 parity |
-| **Recommended next** | GPU indirect record path; G1 CPU vs GPU parity |
-| **Plan / Progress** | [`Active-Plan.md`](Active-Plan.md) § P3 · last closeout [`Archived/plans/render-m2-p3-b_Progress.md`](Archived/plans/render-m2-p3-b_Progress.md) |
+| **Recommended next** | G1 automated CPU vs GPU cull parity (or optional compaction) |
+| **Plan / Progress** | [`Active-Plan.md`](Active-Plan.md) § P3 · last closeout [`Archived/plans/render-m2-p3-c_Progress.md`](Archived/plans/render-m2-p3-c_Progress.md) |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*

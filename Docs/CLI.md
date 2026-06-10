@@ -83,7 +83,7 @@
 
 **基准捕获配置（Stage 1 golden / perf）：** [`Config/engine.benchmark.json`](../Config/engine.benchmark.json) — 见 [`forward-stage1.md`](forward-stage1.md) §1。
 
-**压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；用于 cull / batch / indirect / perf 摸底（不影响 CI 默认 `smoke.json`）。
+**压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke 默认使用此组合。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
 
 ```powershell
 .\VulkanDesktop.exe --asset-root <repo> --config <repo>\Config\engine.benchmark.json --no-validation

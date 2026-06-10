@@ -30,6 +30,7 @@ struct Vk_FrameDrawPrepBuildParams {
     uint32_t                     myDrawBufferBaseIndex    = 0;
     uint32_t                     myDrawBufferMaxEntries   = 0;
     uint32_t                     myViewLayerMask          = 0xFFFFFFFFu;
+    bool                         myGpuCullEnabled         = false;
     const Vk_ResourceTables*     myResourceTables         = nullptr;
 };
 

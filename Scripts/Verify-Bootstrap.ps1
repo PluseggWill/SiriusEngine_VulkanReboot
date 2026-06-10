@@ -108,8 +108,8 @@ try {
     Write-Host "Graceful smoke (ci-verification canonical) ..."
     $smokeArgs = @(
         "--asset-root", $repo,
-        "--config", (Join-Path $repo "Config\engine.benchmark.json"),
-        "--scene", "Data/Scenes/smoke.json",
+        "--config", (Join-Path $repo "Config\engine.stress.json"),
+        "--scene", "Data/Scenes/stress.json",
         "--no-validation",
         "--smoke-frames", "120",
         "--smoke-seconds", "$SmokeSeconds"
@@ -117,7 +117,7 @@ try {
     & $exe @smokeArgs
     $smokeExit = $LASTEXITCODE
     $smokeOk = ($smokeExit -eq 0)
-    Add-StepResult "Smoke run" $smokeOk "exit=$smokeExit (--asset-root + smoke.json)"
+    Add-StepResult "Smoke run" $smokeOk "exit=$smokeExit (--asset-root + stress.json)"
 
     $assertScript = Join-Path $repo "Scripts\Assert-SmokeLog.ps1"
     if ($smokeOk -and (Test-Path $assertScript)) {

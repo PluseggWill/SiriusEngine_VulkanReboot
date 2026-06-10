@@ -15,8 +15,10 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     aOut.myDrawCountBeforeCull = aOut.myExtract.myOpaque.myDrawInstances.size() + aOut.myExtract.myTransparent.myDrawInstances.size();
 
-    Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myOpaque );
-    Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myTransparent );
+    if ( !aParams.myGpuCullEnabled ) {
+        Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myOpaque );
+        Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myTransparent );
+    }
     if ( aParams.myLodEnabled ) {
         Gfx_ApplyLodToFrameExtract( *aParams.myScene, aParams.myCameraEye, *aParams.myLodTable, *aParams.myLodState, aOut.myExtract );
     }
@@ -53,8 +55,9 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     if ( !aLogs.myExtractLoggedOnce ) {
         UtilLogger::Info( "EXTRACT", "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" + std::to_string( aOut.myDrawCountBeforeCull ) );
+        const char* cullMode = aParams.myGpuCullEnabled ? "gpu-deferred" : "frustum+layer";
         UtilLogger::Info( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
-                                      + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (frustum+layer)" );
+                                      + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (" + cullMode + ")" );
         aLogs.myExtractLoggedOnce = true;
     }
 }

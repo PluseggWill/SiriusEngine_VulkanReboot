@@ -5,6 +5,7 @@
 #include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
+#include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
@@ -254,6 +255,38 @@ void TestEntityGpuRecordSync() {
     Expect( record.myLayerMask == 0, "entity record: freed slot cleared" );
 }
 
+void TestEntityIndirectSlot() {
+    const uint32_t viewBase = 128;
+    const uint32_t entity   = 5;
+    Expect( Gfx_ComputeEntityIndirectSlot( viewBase, entity ) == viewBase + entity, "entity indirect slot matches outputBaseSlot + entity" );
+    Expect( Gfx_ComputeEntityIndirectSlot( 0, 0 ) == 0, "entity indirect slot zero base" );
+}
+
+void TestGpuCullSkipsCpuFrustumCull() {
+    Gfx_SceneSoA scene;
+    PopulateDemoSceneSoA( scene );
+
+    Gfx_LodTable              lodTable;
+    Gfx_LodState              lodState;
+    Gfx_FrameDrawStreamParams params{};
+    params.myScene          = &scene;
+    params.myView           = BuildDemoOverviewView();
+    params.myCameraEye      = glm::vec3( 10.0f, 8.0f, 10.0f );
+    params.myCameraView     = params.myView.myView;
+    params.myLodTable       = &lodTable;
+    params.myLodState       = &lodState;
+    params.myGpuCullEnabled = true;
+
+    Gfx_FrameDrawStreamOutput   out;
+    Gfx_FrameDrawStreamLogState logs;
+    Gfx_ResetFrameDrawStreamLogState( logs );
+    Gfx_BuildFrameDrawStream( params, out, logs );
+
+    Expect( out.myDrawCountBeforeCull == 9, "gpu cull mode: pre-cull draw count" );
+    Expect( out.myExtract.myOpaque.myDrawInstances.size() + out.myExtract.myTransparent.myDrawInstances.size() == 9,
+            "gpu cull mode: CPU frustum cull skipped (all extracted draws kept)" );
+}
+
 void TestDemoCullAndBatch() {
     Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
@@ -310,6 +343,8 @@ int main() {
     TestSoAGeneration();
     TestTransparentSortStableUnderRotation();
     TestEntityGpuRecordSync();
+    TestEntityIndirectSlot();
+    TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 
     // GpuMaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.

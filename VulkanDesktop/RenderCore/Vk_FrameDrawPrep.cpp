@@ -39,6 +39,7 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
     streamParams.myLodState              = aParams.myLodState;
     streamParams.myLodEnabled            = aParams.myLodEnabled;
     streamParams.myLodDebugLogicalMeshId = aParams.myLodDebugLogicalMeshId;
+    streamParams.myGpuCullEnabled        = aParams.myGpuCullEnabled;
 
     Gfx_FrameDrawStreamOutput streamOut{};
     Gfx_BuildFrameDrawStream( streamParams, streamOut, myStreamLogs );
