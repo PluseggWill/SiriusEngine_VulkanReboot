@@ -165,7 +165,6 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 **Not in scope:** FG v0, MT v1, Stage 2 passes
 
 - [ ] Optional compaction
-- [ ] **Automated parity** — gate G1
 - [ ] LOD GPU subset parity when `lodEnabled`
 
 ---

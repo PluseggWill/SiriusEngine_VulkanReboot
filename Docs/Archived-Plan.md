@@ -278,6 +278,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P3 — automated CPU vs GPU cull parity (G1) *(closed 2026-06-10)*
+
+| | |
+|--|--|
+| **Outcome** | `Gfx_GpuCull.cpp` EntityCull reference + GfxTests slot-set parity (demo overview, tight FOV, layer mask); runs in G0 CI |
+| **Validation** | `Verify-CI.ps1` GfxTests; `Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/render-m2-p3-g1_Plan.md`](Archived/plans/render-m2-p3-g1_Plan.md) · [`render-m2-p3-g1_Progress.md`](Archived/plans/render-m2-p3-g1_Progress.md) |
+| **Gate** | **G1** met — unlocks FG v0 / hybrid-deferred epic per roadmap |
+
+- [x] **[P3]** Automated CPU vs GPU cull parity (GfxTests, fixed cameras) — 2026-06-10
+
+---
+
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
 
 | | |

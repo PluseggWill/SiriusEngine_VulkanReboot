@@ -5,6 +5,7 @@
 #include "../Gfx/Gfx_DrawExtract.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
+#include "../Gfx/Gfx_GpuCull.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -162,17 +163,23 @@ void PopulateDemoSceneSoA( Gfx_SceneSoA& aScene ) {
     }
 }
 
-Gfx_CullViewParams BuildDemoOverviewView() {
-    const glm::vec3 eye{ 10.0f, 8.0f, 10.0f };
-    const glm::vec3 center{ 0.0f, 0.0f, -4.0f };
+Gfx_CullViewParams MakePerspectiveView( const glm::vec3& aEye, const glm::vec3& aCenter, float aFovDegrees, float aAspect ) {
     const glm::vec3 up{ 0.0f, 0.0f, 1.0f };
-    const float     aspect = 1600.0f / 1200.0f;
 
     Gfx_CullViewParams view{};
-    view.myView = glm::lookAt( eye, center, up );
-    view.myProj = glm::perspective( glm::radians( 50.0f ), aspect, 0.1f, 200.0f );
+    view.myView = glm::lookAt( aEye, aCenter, up );
+    view.myProj = glm::perspective( glm::radians( aFovDegrees ), aAspect, 0.1f, 200.0f );
     view.myProj[ 1 ][ 1 ] *= -1.0f;
     return view;
+}
+
+Gfx_CullViewParams BuildDemoOverviewView() {
+    return MakePerspectiveView( glm::vec3( 10.0f, 8.0f, 10.0f ), glm::vec3( 0.0f, 0.0f, -4.0f ), 50.0f, 1600.0f / 1200.0f );
+}
+
+// Tight FOV on viking room — distant demo entities (e.g. slot 4 @ z=-16) should fail frustum cull.
+Gfx_CullViewParams BuildDemoCloseVikingView() {
+    return MakePerspectiveView( glm::vec3( -3.5f, 0.5f, 1.0f ), glm::vec3( -4.0f, 0.0f, 0.0f ), 35.0f, 1600.0f / 1200.0f );
 }
 
 void TestSoAGeneration() {
@@ -262,6 +269,47 @@ void TestEntityIndirectSlot() {
     Expect( Gfx_ComputeEntityIndirectSlot( 0, 0 ) == 0, "entity indirect slot zero base" );
 }
 
+void TestCpuGpuCullParity( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, const char* aCaseName ) {
+    if ( Gfx_AreCpuGpuCullVisibleSlotsEqual( aScene, aView ) ) {
+        return;
+    }
+
+    std::vector< uint32_t > cpuSlots;
+    std::vector< uint32_t > gpuSlots;
+    Gfx_CollectCpuCullVisibleSlots( aScene, aView, cpuSlots );
+    Gfx_CollectGpuCullVisibleSlots( aScene, aView, gpuSlots );
+    std::cerr << "[FAIL] cpu/gpu cull parity (" << aCaseName << "): cpu=" << cpuSlots.size() << " gpu=" << gpuSlots.size() << '\n';
+    std::cerr.flush();
+    ++gFailures;
+}
+
+void TestCpuGpuCullParityDemoViews() {
+    Gfx_SceneSoA scene;
+    PopulateDemoSceneSoA( scene );
+
+    TestCpuGpuCullParity( scene, BuildDemoOverviewView(), "cpu/gpu cull parity: demo overview (all visible)" );
+
+    const Gfx_CullViewParams closeView = BuildDemoCloseVikingView();
+    std::vector< uint32_t >  culledCpu;
+    Gfx_CollectCpuCullVisibleSlots( scene, closeView, culledCpu );
+    Expect( culledCpu.size() < scene.GetActiveCount(), "cpu/gpu cull parity: close view culls some entities" );
+    TestCpuGpuCullParity( scene, closeView, "cpu/gpu cull parity: demo close viking view" );
+}
+
+void TestCpuGpuCullParityLayerMask() {
+    Gfx_SceneSoA scene;
+    scene.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 2.0f ) ), 0x00000001u, Gfx_RenderOpaque );
+    scene.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 4.0f ) ), 0x00000002u, Gfx_RenderOpaque );
+
+    Gfx_CullViewParams view = MakePerspectiveView( glm::vec3( 0.0f, -6.0f, 3.0f ), glm::vec3( 0.0f, 0.0f, 3.0f ), 60.0f, 1.0f );
+    view.myViewLayerMask    = 0x00000002u;
+
+    std::vector< uint32_t > visible;
+    Gfx_CollectCpuCullVisibleSlots( scene, view, visible );
+    Expect( visible.size() == 1 && visible.front() == 1u, "cpu/gpu cull parity: layer mask leaves one slot" );
+    TestCpuGpuCullParity( scene, view, "cpu/gpu cull parity: layer mask filter" );
+}
+
 void TestGpuCullSkipsCpuFrustumCull() {
     Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
@@ -344,6 +392,8 @@ int main() {
     TestTransparentSortStableUnderRotation();
     TestEntityGpuRecordSync();
     TestEntityIndirectSlot();
+    TestCpuGpuCullParityDemoViews();
+    TestCpuGpuCullParityLayerMask();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

@@ -1,8 +1,13 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <glm/glm.hpp>
+
+#include "Gfx_DrawCullSort.h"
+
+class Gfx_SceneSoA;
 
 // Push constants for EntityCull.comp — must match GLSL layout and Gfx_DrawCullSort frustum (proj * view).
 struct Gfx_GpuCullPushConstants {
@@ -14,3 +19,12 @@ struct Gfx_GpuCullPushConstants {
 };
 
 static_assert( sizeof( Gfx_GpuCullPushConstants ) == 80, "Gfx_GpuCullPushConstants push constant size" );
+
+// G1: CPU reference for EntityCull.comp visibility (GfxTests / no Vulkan).
+bool Gfx_IsEntitySlotVisibleForGpuCull( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, uint32_t aSlot );
+
+void Gfx_CollectCpuCullVisibleSlots( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, std::vector< uint32_t >& aOutSlots );
+
+void Gfx_CollectGpuCullVisibleSlots( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView, std::vector< uint32_t >& aOutSlots );
+
+bool Gfx_AreCpuGpuCullVisibleSlotsEqual( const Gfx_SceneSoA& aScene, const Gfx_CullViewParams& aView );

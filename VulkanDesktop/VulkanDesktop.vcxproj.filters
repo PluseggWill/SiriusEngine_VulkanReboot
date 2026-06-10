@@ -121,6 +121,9 @@
     <ClCompile Include="Gfx\Gfx_EntityGpuRecord.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_GpuCull.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_Bounds.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
