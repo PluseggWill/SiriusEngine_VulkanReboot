@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Gfx/Gfx_GpuCull.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_RenderView.h"
 #include "Vk_FrameData.h"
@@ -20,4 +21,7 @@ struct Vk_FrameCpuPrepResult {
     std::array< VkViewport, kGfxMaxRenderViews >            myViewports{};
     std::array< VkRect2D, kGfxMaxRenderViews >              myScissors{};
     std::array< VkDescriptorSet, kGfxMaxRenderViews >       myFrameDescriptors{};
+
+    uint32_t                                                   mySceneSlotCount = 0;
+    std::array< Gfx_GpuCullPushConstants, kGfxMaxRenderViews > myGpuCullViews{};
 };

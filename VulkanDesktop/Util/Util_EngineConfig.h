@@ -38,6 +38,7 @@ struct Util_EngineConfig {
     bool                              GetDescriptorLayoutMismatchTest() const;
     bool                              GetEnableRenderDoc() const;
     bool                              GetLegacyDirectDraw() const;
+    bool                              GetGpuCullEnabled() const;
     const std::string&                GetShaderPermutationName() const;
     const std::string&                GetRenderPresetName() const;
     bool                              ResolveValidationEnabled( bool aBuildDefault ) const;
@@ -57,6 +58,7 @@ private:
         std::optional< bool >                  myDemoRotate;
         std::optional< bool >                  myLodEnabled;
         std::optional< bool >                  myLegacyDirectDraw;
+        std::optional< bool >                  myGpuCullEnabled;
         std::optional< bool >                  myRuntimeMipmap;
         std::optional< int >                   mySmokeFrames;
         std::optional< double >                mySmokeSeconds;
@@ -86,6 +88,7 @@ private:
     bool                         myDescriptorLayoutMismatchTest = false;
     bool                         myEnableRenderDoc              = false;
     bool                         myLegacyDirectDraw             = false;  // --legacy-direct-draw: vkCmdDrawIndexed fallback (M2 prep debug)
+    bool                         myGpuCullEnabled               = false;  // --gpu-cull: compute frustum cull → slot indirect buffer (P3)
     std::string                  myShaderPermutationName        = "lit";
     std::string                  myRenderPresetName;
     std::optional< std::string > myConfigShaderPermutation;

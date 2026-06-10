@@ -29,6 +29,7 @@
 #include "Vk_FrameResult.h"
 
 #include "Vk_FrameDrawPrep.h"
+#include "Vk_GpuCull.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -250,6 +251,8 @@ public:
     Vk_FrameContext myFrameCtx;
 
     Vk_SceneGpuContext mySceneGpuCtx;
+
+    Vk_GpuCullState myGpuCullState;
 
     Vk_PlatformContext myPlatformCtx;
 

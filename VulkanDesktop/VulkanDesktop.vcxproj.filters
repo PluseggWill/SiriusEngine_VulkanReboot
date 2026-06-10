@@ -193,6 +193,9 @@
     <ClCompile Include="RenderCore\Vk_FrameDrawPrep.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_GpuCull.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_ResourceContext.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -327,6 +330,9 @@
     <ClInclude Include="Gfx\Gfx_EntityGpuRecord.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_GpuCull.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_Bounds.h">
       <Filter>Gfx</Filter>
     </ClInclude>
@@ -403,6 +409,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameDrawPrep.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_GpuCull.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ResourceContext.h">

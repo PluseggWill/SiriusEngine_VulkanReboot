@@ -5,6 +5,7 @@
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
+#include "../Gfx/Gfx_GpuCull.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -25,6 +26,7 @@
 #include "Vk_DevicePipelineCache.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_GfxPipelineCache.h"
+#include "Vk_GpuCull.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
@@ -202,6 +204,8 @@ void Vk_Core::InitRenderDevice() {
     CreateInstanceSlabs();
     CreateDrawTemplateBuffers();
     CreateEntityRecordBuffers();
+    Vk_GpuCull::Init( *this );
+    Vk_GpuCull::CreateFrameBuffers( *this );
     CreateUniformBuffers();
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
@@ -684,6 +688,17 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     uint32_t       totalTransRuns     = 0;
     const uint32_t slabPartitionCount = std::max( 1u, activeViewCount );
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
+    const uint32_t perViewEntitySlots = std::max( 1u, VkDescriptorPolicy::kMaxEntitySlots / slabPartitionCount );
+
+    aOut.mySceneSlotCount = static_cast< uint32_t >( aWorld.mySceneSoA.GetSlotCount() );
+    for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
+        Gfx_GpuCullPushConstants& cullParams = aOut.myGpuCullViews[ viewIndex ];
+        cullParams.viewProj                  = aViews[ viewIndex ].myCamera.myProj * aViews[ viewIndex ].myCamera.myView;
+        cullParams.viewLayerMask             = aViews[ viewIndex ].myView.myLayerMask;
+        cullParams.slotCount                 = aOut.mySceneSlotCount;
+        cullParams.outputBaseSlot            = viewIndex * perViewEntitySlots;
+        cullParams.pad                       = 0;
+    }
 
     // Scene-wide; FillEntityRecords logs on failure (fail-closed before per-view slab/template fill).
     if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( aWorld.mySceneSoA, mySceneGpuCtx.myResourceTables, myFrameCtx.myCurrentFrame, myFrameCtx.myFrameDatas ) ) {
@@ -712,6 +727,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myInstanceSlabMaxEntries = perViewMaxEntries;
         prepParams.myDrawBufferBaseIndex    = viewIndex * perViewMaxEntries;
         prepParams.myDrawBufferMaxEntries   = perViewMaxEntries;
+        prepParams.myViewLayerMask          = aViews[ viewIndex ].myView.myLayerMask;
         prepParams.myResourceTables         = &mySceneGpuCtx.myResourceTables;
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
@@ -780,6 +796,8 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
     if ( vkBeginCommandBuffer( frameData.myCommandBuffer, &beginInfo ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
+
+    Vk_GpuCull::RecordDispatches( *this, frameData.myCommandBuffer, aPrep );
 
     Vk_ScenePasses::RecordScene( *this, aDebugUI, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
                                  aPrep.myActiveViewCount, aPrep.myViewPackets );

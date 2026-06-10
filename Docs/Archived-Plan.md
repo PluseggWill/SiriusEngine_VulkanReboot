@@ -254,6 +254,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P3 — compute cull → indirect buffer *(closed 2026-06-10)*
+
+| | |
+|--|--|
+| **Outcome** | `EntityCull.comp` frustum cull; `Vk_GpuCull` writes slot-indexed indirect; `--gpu-cull` opt-in dispatch before scene record |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual `--gpu-cull` → `GPU cull dispatch` log |
+| **Plan log** | [`Archived/plans/render-m2-p3-b_Plan.md`](Archived/plans/render-m2-p3-b_Plan.md) · [`render-m2-p3-b_Progress.md`](Archived/plans/render-m2-p3-b_Progress.md) |
+
+- [x] **[P3]** Compute frustum cull → per-slot indirect buffer (`myGpuCullIndirectBuffer`) — 2026-06-10
+
+---
+
 ## P2 — vulkan-rhi-p2 (RHI-B2–C3, B4) *(closed 2026-06-09)*
 
 | | |

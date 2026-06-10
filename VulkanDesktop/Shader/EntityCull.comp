@@ -1,0 +1,108 @@
+#version 450
+
+// P3: per SoA slot frustum cull → slot-indexed indirect (instanceCount = 0 when culled).
+// Frustum math must match Gfx_DrawCullSort.cpp (viewProj = proj * view).
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawIndirectCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+
+struct EntityRecord {
+    vec4 boundsMin;
+    vec4 boundsMax;
+    uint layerMask;
+    uint renderFlags;
+    uint logicalMeshId;
+    uint materialId;
+    DrawIndirectCommand indirect;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+layout(push_constant) uniform PushConstants {
+    mat4 viewProj;
+    uint viewLayerMask;
+    uint slotCount;
+    uint outputBaseSlot;
+    uint pad;
+} pc;
+
+layout(set = 0, binding = 0) readonly buffer EntityRecords {
+    EntityRecord records[];
+};
+
+layout(set = 0, binding = 1) buffer SlotIndirectOut {
+    DrawIndirectCommand indirectOut[];
+};
+
+layout(set = 0, binding = 2) buffer VisibleCounter {
+    uint visibleCount;
+};
+
+void normalizePlane(inout vec4 plane) {
+    float len = length(plane.xyz);
+    if (len > 1e-6) {
+        plane /= len;
+    }
+}
+
+bool isAabbOutsidePlane(vec3 bmin, vec3 bmax, vec4 plane) {
+    vec3 positiveVertex = vec3(
+        plane.x >= 0.0 ? bmax.x : bmin.x,
+        plane.y >= 0.0 ? bmax.y : bmin.y,
+        plane.z >= 0.0 ? bmax.z : bmin.z);
+    return dot(plane.xyz, positiveVertex) + plane.w < 0.0;
+}
+
+bool isBoundsVisible(vec3 bmin, vec3 bmax, vec4 planes[6]) {
+    for (int i = 0; i < 6; ++i) {
+        if (isAabbOutsidePlane(bmin, bmax, planes[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void main() {
+    const uint slot = gl_GlobalInvocationID.x;
+    if (slot >= pc.slotCount) {
+        return;
+    }
+
+    const uint outSlot = pc.outputBaseSlot + slot;
+    EntityRecord rec = records[slot];
+
+    vec4 planes[6];
+    mat4 m = transpose(pc.viewProj);
+    planes[0] = m[3] + m[0];
+    planes[1] = m[3] - m[0];
+    planes[2] = m[3] + m[1];
+    planes[3] = m[3] - m[1];
+    planes[4] = m[3] + m[2];
+    planes[5] = m[3] - m[2];
+    for (int i = 0; i < 6; ++i) {
+        normalizePlane(planes[i]);
+    }
+
+    const bool visible = rec.layerMask != 0u
+        && (rec.layerMask & pc.viewLayerMask) != 0u
+        && isBoundsVisible(rec.boundsMin.xyz, rec.boundsMax.xyz, planes);
+
+    if (visible) {
+        indirectOut[outSlot] = rec.indirect;
+        atomicAdd(visibleCount, 1u);
+    } else {
+        indirectOut[outSlot].indexCount    = 0u;
+        indirectOut[outSlot].instanceCount = 0u;
+        indirectOut[outSlot].firstIndex    = 0u;
+        indirectOut[outSlot].vertexOffset  = 0;
+        indirectOut[outSlot].firstInstance = 0u;
+    }
+}

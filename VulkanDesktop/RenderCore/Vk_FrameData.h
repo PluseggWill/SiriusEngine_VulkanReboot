@@ -33,4 +33,10 @@ struct Vk_FrameData {
     // P3: per SoA slot Gfx_EntityGpuRecord[] (scene-wide; filled before multi-view draw prep).
     Vk_AllocatedBuffer myEntityRecordBuffer;
     void*              myEntityRecordMapped = nullptr;
+
+    // P3: compute cull output — slot-indexed indirect + visible counter (partitioned per view).
+    Vk_AllocatedBuffer myGpuCullIndirectBuffer;
+    void*              myGpuCullIndirectMapped = nullptr;
+    Vk_AllocatedBuffer myGpuCullVisibleCountBuffer;  // GPU-only atomic visible count (reset via vkCmdFillBuffer)
+    VkDescriptorSet    myGpuCullDescriptorSet = VK_NULL_HANDLE;
 };

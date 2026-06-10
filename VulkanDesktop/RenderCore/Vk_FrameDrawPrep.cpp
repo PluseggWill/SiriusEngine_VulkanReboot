@@ -32,6 +32,7 @@ bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
     streamParams.myScene                 = aParams.myScene;
     streamParams.myView.myView           = aParams.myCamera->myView;
     streamParams.myView.myProj           = aParams.myCamera->myProj;
+    streamParams.myView.myViewLayerMask  = aParams.myViewLayerMask;
     streamParams.myCameraEye             = aParams.myCamera->myEye;
     streamParams.myCameraView            = aParams.myCamera->myView;
     streamParams.myLodTable              = aParams.myLodTable;

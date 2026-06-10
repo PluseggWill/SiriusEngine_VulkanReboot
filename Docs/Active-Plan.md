@@ -161,10 +161,9 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 ## P3 — M2 GPU cull
 
-**Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (GPU §), [`Archived/plans/render-m2-p3-a_Plan.md`](Archived/plans/render-m2-p3-a_Plan.md), ci-verification (parity)  
+**Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (GPU §), [`Archived/plans/render-m2-p3-a_Plan.md`](Archived/plans/render-m2-p3-a_Plan.md), [`Archived/plans/render-m2-p3-b_Plan.md`](Archived/plans/render-m2-p3-b_Plan.md), ci-verification (parity)  
 **Not in scope:** FG v0, MT v1, Stage 2 passes
 
-- [ ] Compute cull → indirect buffer
 - [ ] GPU indirect record; no per-object CPU `vkCmdDraw*`
 - [ ] Optional compaction
 - [ ] **Automated parity** — gate G1
