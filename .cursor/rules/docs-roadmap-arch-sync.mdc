@@ -14,56 +14,54 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 
 ---
 
-## Plan file types
-
-| Type | Example | `_Progress.md` | Count at `Docs/` root |
-|------|---------|----------------|------------------------|
-| **Roadmap plan** | `ci-verification_Plan.md` | No — design reference until kickoff | **Multiple OK** (listed in README) |
-| **Task WIP** | Same filename after kickoff | **Required** `{name}_Progress.md` | **One pair max** |
-
-**Kickoff:** user/agent starts implementation → add `_Progress.md`, set README **Active now**. Roadmap plan is the task Plan (no copy/rename required).
-
-**Close:** Closeout → move Plan+Progress to `Archived/plans/`; clear Active now.
-
----
-
 ## Primary home
 
 | Document | Owns | Must NOT own |
 |----------|------|--------------|
-| **`Active-Plan.md`** | P0–P4 `[ ]`, gates, queue | Diagrams, policy prose, changelogs |
+| **`Active-Plan.md`** | **All open `[ ]`** — active sprint (S3), P4, gates, queue, hardening index | Diagrams, policy prose, S4–S8 staged tasks, changelogs |
+| **`Wishlist.md`** | **S4–S8 + Parallel + Backlog** staged `[ ]` only | Active sprint tasks, gates table, queue |
+| **`Archived-Plan.md`** | Completed `[x]` lines; § S1 implementation notes | Open tasks |
 | **`EngineArchitecture.md`** | Diagrams, **locked policies**, risks, non-goals | `[ ]` tasks, sprint logs |
-| **`Archived-Plan.md`** | Completed lines; § S1 implementation notes | Open tasks |
-| **`Wishlist.md`** | Full **S3–S8 + Parallel + Backlog** staged; promote via Active-Plan gates | Active `[ ]` |
-| **`{name}_Plan.md` (roadmap)** | Cross-cutting design before/during epic | Active-Plan duplicates |
-| **`{name}_Plan.md` + `_Progress` (WIP)** | One task scope, steps, verification | Roadmap queue |
-| **`forward-stage1.md`** | Stage 1 golden / handoff | Sprint queue |
-| **Epic plans** (`hybrid-deferred`, `ddgi`) | Stage 2–3 breakdown | P0–P4 checklists |
-| **Code** (`Vk_DescriptorPolicy.h`, shaders) | Field layouts, bindings | Scheduling |
+| **`README.md`** | Index + **Active now** (WIP pointer) | Task lists, gates, duplicate file maps |
+| **`{name}_Plan.md` (roadmap)** | Design / steps for one topic | Queue duplicates |
+| **`{name}_Plan.md` + `_Progress` (WIP)** | One in-flight task | Second WIP pair at `Docs/` root |
+| **Epic plans** (`hybrid-deferred`, `ddgi`) | Stage 2–3 breakdown | Executable `[ ]` queue |
+| **`SprintPlan.md`** | One-line redirect to README | Content duplicated elsewhere |
 
 ---
 
-## When to edit which file
+## What to edit (minimize touch)
 
-| Change | Edit |
-|--------|------|
-| Task wording, phase order, gates | `Active-Plan.md` only |
-| Task / phase line done | Move → `Archived-Plan.md` |
-| **Locked policy** changed (see tree below) | `EngineArchitecture.md` + Active-Plan task (or Wishlist) + code contracts |
-| Structure diagram only | `EngineArchitecture.md` only |
-| Deferred milestone | `Wishlist.md` |
-| UBO field layout only | Code + shader + JSON contract; Architecture **only if policy narrative changes** |
+| Event | Edit | Do **not** edit |
+|-------|------|-----------------|
+| Open / close task | `Active-Plan.md` | Wishlist, README (unless WIP) |
+| Task done | Move line → `Archived-Plan.md`; remove from Active-Plan | Wishlist, epic plans, Architecture |
+| Promote Wishlist → active | Add `[ ]` to Active-Plan; Wishlist → index pointer only | Gates in Wishlist, duplicate task lists |
+| Vibe kickoff | `README.md` **Active now** + `{Plan}_Progress.md` | Active-Plan queue unless scope changed |
+| Vibe close | Progress closeout → `Archived/plans/`; clear README **Active now** | EngineArchitecture unless policy |
+| **Locked policy** (tree below) | `EngineArchitecture.md` + code/shaders | Wishlist |
+| Deferred milestone | `Wishlist.md` only | Active-Plan |
+| Gate met | `Active-Plan.md` gates row (✓) | Wishlist gates table *(removed — use Active-Plan)* |
+
+---
+
+## Plan file types
+
+| Type | `_Progress.md` | Count at `Docs/` root |
+|------|----------------|------------------------|
+| **Roadmap plan** | No until kickoff | Multiple OK |
+| **Task WIP** | Required | **One pair max** |
 
 ---
 
 ## Locked policy? (decision tree)
 
-1. **Layer boundary moved?** (e.g. Gfx may call Vulkan; WorldState owner) → **yes, policy**
-2. **Descriptor model changed?** (set roles, dynamic vs push rules) → **yes, policy**
-3. **Extract / record contract changed?** (what RecordScenePass may read) → **yes, policy**
-4. **Transparent / Stage 2 depth rule changed?** → **yes, policy**
-5. **Only struct fields / bindings / shader layout** → **code + MSBuild**; Architecture if (2) narrative shifts
-6. **Task done, no 1–4** → Active-Plan → Archived-Plan only
+1. Layer boundary moved? → **yes, policy**
+2. Descriptor model changed? → **yes, policy**
+3. Extract / record contract changed? → **yes, policy**
+4. Transparent / Stage 2 depth rule changed? → **yes, policy**
+5. Struct fields / bindings only → code + MSBuild; Architecture if (2) narrative shifts
+6. Task done, no 1–4 → Active-Plan → Archived-Plan only
 
 ---
 
@@ -71,18 +69,18 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 
 | Goal | `@` |
 |------|-----|
-| Next task | `Active-Plan.md` (one P section; grep) |
+| Next task | `Active-Plan.md` |
 | Layer / policy | `EngineArchitecture.md` |
-| Active WIP steps | `{TaskName}_Plan.md` + `_Progress.md` |
-| Roadmap design (pre-kickoff) | e.g. `ci-verification_Plan.md` |
-| History | `Archived-Plan.md` / `Archived/plans/` (debug) |
+| WIP steps | `{Task}_Plan.md` + `_Progress.md` |
+| Staged S4+ | `Wishlist.md` |
+| History | `Archived-Plan.md` / `Archived/plans/` |
 
 ---
 
 ## Anti-patterns
 
+- Gates / queue / open `[ ]` in Wishlist or README
 - Same table in Active-Plan and Architecture
-- Changelog / S2 peel notes in Architecture
-- `[ ]` in Architecture
+- `[x]` in Active-Plan or Wishlist
 - Architecture edit on every task close
 - Second WIP Plan+Progress pair at Docs root

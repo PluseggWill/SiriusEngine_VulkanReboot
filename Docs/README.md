@@ -1,57 +1,31 @@
 # Docs — SiriusEngine / VulkanDesktop
 
+**Doc map (canonical):** `.cursor/rules/docs-roadmap-arch-sync.mdc` — do not duplicate file-boundary tables elsewhere.
+
 ## Active now
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P4** — Vertical slice v0 |
-| **Recommended next** | Play/benchmark scene + objective + restart; **G1 met** → FG v0 / hybrid epic |
-| **Plan / Progress** | [`Active-Plan.md`](Active-Plan.md) § P4 |
-| **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
+| **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
+| **Design** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) *(roadmap; add `_Progress.md` on kickoff)* |
+| **Parallel** | P4 vertical slice — same Active-Plan file |
 
-*Update this table when opening or closing a vibe task.*
-
-### Plan types (agent rules)
-
-| Type | Files | When |
-|------|-------|------|
-| **Roadmap plan** | `Docs/{topic}_Plan.md` only | Design reference; **multiple** allowed (table below) |
-| **Task WIP** | Same `*_Plan.md` + `{topic}_Progress.md` | **One pair max** at Docs root during implementation |
-
-Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.cursor/skills/vibe-coding-workflow/SKILL.md`
+*On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 
 ---
 
-## Roadmap & architecture
+## Files (one line each)
 
-| File | Purpose |
-|------|---------|
-| [`Active-Plan.md`](Active-Plan.md) | **Open P0–P4 `[ ]` only** — queue, gates, hardening index |
-| [`EngineArchitecture.md`](EngineArchitecture.md) | **Diagrams + locked policies** — not tasks or changelogs |
-| [`Wishlist.md`](Wishlist.md) | **Full S3–S8 + Parallel + Backlog** (staged); promote via Active-Plan gates |
-| [`Archived-Plan.md`](Archived-Plan.md) | Completed `[x]` sprint lines |
-| [`SprintPlan.md`](SprintPlan.md) | Index → Active / Architecture / Archived |
-| [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Sprint close-out runbook |
+| File | Role |
+|------|------|
+| [`Active-Plan.md`](Active-Plan.md) | **Open `[ ]`**, queue, gates, hardening index |
+| [`Wishlist.md`](Wishlist.md) | **S4–S8** + Parallel + Backlog (staged) |
+| [`Archived-Plan.md`](Archived-Plan.md) | Completed `[x]` |
+| [`EngineArchitecture.md`](EngineArchitecture.md) | Diagrams + locked policies |
+| [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
+| [`SprintPlan.md`](SprintPlan.md) | Redirect → this index |
+| [`bootstrap.md`](bootstrap.md) · [`CLI.md`](CLI.md) · [`Platform.md`](Platform.md) | Onboarding |
 
-**Split:** tasks → Active-Plan · architecture → EngineArchitecture · doc map → `docs-roadmap-arch-sync.mdc`
+**Epics / plans:** `hybrid-deferred-epic_Plan.md`, `vulkan-rhi-hardening-epic_Plan.md`, `content-pipeline_Plan.md`, … — design only; tasks live in Active-Plan or Wishlist.
 
-### Hardening plans *(reference — start vibe task to implement)*
-
-| Plan | Topic |
-|------|--------|
-| [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) | Vulkan RHI audit → WSI, upload, resize (P1–P2; D→S7) |
-| [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) | P2 CPU path prep (closed); P3 GPU cull reference |
-| [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) | Bindless dogfood (closed) |
-| [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
-
-Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`, `swapchain-recreation`, `render-m2-p3-*`).
-
----
-
-## Onboarding
-
-| File | Purpose |
-|------|---------|
-| [`bootstrap.md`](bootstrap.md) | Clone, build, smoke, CI scripts |
-| [`CLI.md`](CLI.md) | `VulkanDesktop.exe` flags |
-| [`Platform.md`](Platform.md) | Windows-only inventory |
+**Closed implementation logs:** [`Archived/plans/`](Archived/plans/)
