@@ -200,8 +200,9 @@ void CreateGBufferImages( Vk_Core& aCore ) {
     createColorTarget( aCore.myGBufferState.myAlbedo, kAlbedoFormat );
     createColorTarget( aCore.myGBufferState.myNormalRoughness, kNormalRoughnessFormat );
 
-    aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
-                       1, VK_SAMPLE_COUNT_1_BIT, aCore.myGBufferState.myDepth.AllocImage() );
+    aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
+                       VK_SAMPLE_COUNT_1_BIT, aCore.myGBufferState.myDepth.AllocImage() );
     aCore.myGBufferState.myDepth.ImageView() = aCore.CreateImageView( aCore.myGBufferState.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     {
@@ -283,13 +284,16 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
     region.extent                    = { extent.width, extent.height, 1 };
     vkCmdCopyImage( aCommandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
 
+    // Src stays shader-readable for DeferredLighting depth reconstruct; dst is swapchain depth for transparent pass.
     std::array< VkImageMemoryBarrier, 2 > toAttachment = {
-        DepthImageBarrier( srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT ),
+        DepthImageBarrier( srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
+                           VK_ACCESS_SHADER_READ_BIT ),
         DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_WRITE_BIT,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT ),
     };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0, 0,
-                          nullptr, 0, nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                          VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                          nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
 void RebuildResources( Vk_Core& aCore ) {

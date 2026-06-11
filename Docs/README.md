@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
-| **WIP task** | — *(slice 5 closed 2026-06-11)* |
+| **WIP task** | — *(S3 hybrid follow-ups closed 2026-06-11; optional LNK4098 remains)* |
 | **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices [`Archived/plans/`](Archived/plans/) |
 | **Parallel** | P4 vertical slice — same Active-Plan file |
 

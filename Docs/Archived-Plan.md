@@ -315,13 +315,25 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — FG slice 6 (forward parity specular v0) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | DeferredLighting depth reconstruct + Blinn-Phong specular (fogDistances.xy); parity checklist deferred epic §D |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/s3-fg-s6-forward-parity_Plan.md`](Archived/plans/s3-fg-s6-forward-parity_Plan.md) · [`s3-fg-s6-forward-parity_Progress.md`](Archived/plans/s3-fg-s6-forward-parity_Progress.md) |
+
+- [x] **[S3]** FG slice 6: opaque forward parity (specular v0) — 2026-06-11
+
+---
+
 ## S3 — FG v0 opaque chain *(closed 2026-06-11)*
 
 | | |
 |--|--|
-| **Outcome** | `GBufferOpaque → ClusterBuild → DeferredLighting → ForwardTransparent` on HybridDeferred preset (batch); ForwardLit default unchanged |
-| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred dogfood (`FORCE_MATERIAL_BATCH=1`) |
-| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–4 in [`Archived/plans/`](Archived/plans/) |
+| **Outcome** | Full hybrid chain on batch + bindless; specular v0 in deferred; ForwardLit default unchanged |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred (bindless + batch) |
+| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–6 in [`Archived/plans/`](Archived/plans/) |
 
 - [x] **[S3]** FG v0: preset + G-buffer + cluster build + deferred lighting — 2026-06-11
 

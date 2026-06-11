@@ -87,7 +87,7 @@
 
 **压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke 默认使用此组合（两遍：CPU indirect + `--gpu-cull`）。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
 
-**HybridDeferred dogfood（slice 1）：** `--render-preset HybridDeferred`；G-buffer 录制当前为 **batch-only**（bindless 自动回退 ForwardLit）。手动验证时设 `FORCE_MATERIAL_BATCH=1`（见 [`Platform.md`](Platform.md)）。
+**HybridDeferred dogfood：** `--render-preset HybridDeferred`；默认 bindless + batch 双路径（见 slice 5）。batch-only 验证时设 `FORCE_MATERIAL_BATCH=1`（见 [`Platform.md`](Platform.md)）。
 
 ```powershell
 .\VulkanDesktop.exe --asset-root <repo> --config <repo>\Config\engine.benchmark.json --no-validation

@@ -5,10 +5,12 @@
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "Vk_Camera.h"
 #include "Vk_Core.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <array>
@@ -74,11 +76,17 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     listsInfo.offset = 0;
     listsInfo.range  = VK_WHOLE_SIZE;
 
-    std::array< VkWriteDescriptorSet, 4 > writes = {
+    VkDescriptorImageInfo depthInfo{};
+    depthInfo.sampler     = state.myGBufferSampler;
+    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
+    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 5 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &listsInfo, 3, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 4, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -86,11 +94,12 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
 void CreatePipelineResources( Vk_Core& aCore ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 4 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 5 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -129,7 +138,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kDeferredLightingFramesInFlight * 2 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kDeferredLightingFramesInFlight * 3 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kDeferredLightingFramesInFlight * 2 },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -194,6 +203,11 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.depthSlice                                               = 0;
     std::memcpy( push.ambientColor, glm::value_ptr( aCore.myEnvironmentData.myAmbientColor ), sizeof( float ) * 4 );
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
+    push.specularStrength = aCore.myEnvironmentData.myFogDistance.x;
+    push.shininess        = glm::max( aCore.myEnvironmentData.myFogDistance.y, 1.0f );
+
+    const glm::mat4 invViewProj = glm::inverse( aCore.myCamera.myProj * aCore.myCamera.myView );
+    std::memcpy( push.invViewProj, glm::value_ptr( invViewProj ), sizeof( push.invViewProj ) );
     return push;
 }
 
