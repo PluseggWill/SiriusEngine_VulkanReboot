@@ -261,6 +261,31 @@ void BindHybridSceneDescriptors( Vk_Core& aCore, VkCommandBuffer aCommandBuffer,
     }
 }
 
+VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout        = aOldLayout;
+    barrier.newLayout        = aNewLayout;
+    barrier.srcAccessMask    = aSrcAccess;
+    barrier.dstAccessMask    = aDstAccess;
+    barrier.image            = aImage;
+    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    return barrier;
+}
+
+// G-buffer MRT colors must be shader-readable before DeferredLighting (depth is handled by CmdCopyGBufferDepthToSwapchain).
+void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+    constexpr VkImageLayout kColorReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array< VkImageMemoryBarrier, 2 > barriers = {
+        ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kColorReadLayout, kColorReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kColorReadLayout, kColorReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                           VK_ACCESS_SHADER_READ_BIT ),
+    };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( barriers.size() ), barriers.data() );
+}
+
 // CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
 void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
@@ -364,8 +389,10 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
-    static bool sChainLoggedOnce   = false;
-    static bool sMultiViewWarnOnce = false;
+    static bool sChainLoggedOnce           = false;
+    static bool sMultiViewWarnOnce         = false;
+    static bool sIndirectPathLoggedOnce    = false;
+    static bool sGpuIndirectPathLoggedOnce = false;
 
     if ( !sChainLoggedOnce ) {
         UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
@@ -427,13 +454,14 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
+    CmdBarrierGBufferColorsForDeferredRead( aCore, aCommandBuffer );
     CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
 
     // Hybrid resolve RP: color clear + depth LOAD (opaque depth copied above).
     VkRenderPassBeginInfo swapBegin{};
     swapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     swapBegin.renderPass        = aCore.mySwapchainCtx.myHybridResolveRenderPass;
-    swapBegin.framebuffer       = aCore.mySwapchainCtx.mySwapChainFrameBuffers[ anImageIndex ];
+    swapBegin.framebuffer       = aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers[ anImageIndex ];
     swapBegin.renderArea.offset = { 0, 0 };
     swapBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
     std::array< VkClearValue, 2 > swapClears{};
@@ -458,6 +486,16 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         if ( emitDebugLabels ) {
             aCore.CmdEndDebugLabel( aCommandBuffer );
         }
+    }
+
+    if ( aViewCount > 0 && packet != nullptr && gpuCullRecord && !sGpuIndirectPathLoggedOnce ) {
+        UtilLogger::Info( "RENDER", "Scene record using GPU-filled slot indirect (EntityCull.comp → myGpuCullIndirectBuffer)." );
+        sGpuIndirectPathLoggedOnce = true;
+    }
+
+    if ( aViewCount > 0 && packet != nullptr && !legacyDirectDraw && !gpuCullRecord && !sIndirectPathLoggedOnce ) {
+        UtilLogger::Info( "RENDER", "Scene record using CPU vkCmdDrawIndexedIndirect (draw templates uploaded each frame)." );
+        sIndirectPathLoggedOnce = true;
     }
 
     vkCmdEndRenderPass( aCommandBuffer );

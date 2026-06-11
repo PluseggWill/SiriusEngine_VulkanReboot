@@ -23,6 +23,9 @@ struct Vk_SceneGpuContext {
     VkPipeline myTransparentPipeline         = VK_NULL_HANDLE;
     VkPipeline myBasicPipelineBindless       = VK_NULL_HANDLE;
     VkPipeline myTransparentPipelineBindless = VK_NULL_HANDLE;
+    // ForwardTransparent in HybridDeferred resolve RP (depth LOAD; incompatible with myRenderPass pipelines).
+    VkPipeline myTransparentPipelineHybridResolve         = VK_NULL_HANDLE;
+    VkPipeline myTransparentPipelineBindlessHybridResolve = VK_NULL_HANDLE;
 
     VkDescriptorSet                   myBindlessDescriptorSet = VK_NULL_HANDLE;
     Vk_AllocatedBuffer                myMaterialTableBuffer;

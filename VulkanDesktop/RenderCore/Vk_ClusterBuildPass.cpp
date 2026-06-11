@@ -12,6 +12,7 @@
 
 #include <array>
 #include <cstring>
+#include <iterator>
 #include <stdexcept>
 
 namespace {
@@ -273,8 +274,11 @@ void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
         }
     }
 
-    const VkBufferMemoryBarrier listsBarrier = BufferBarrier( state.myClusterListBuffers[ aFrameIndex ].myBuffer, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    CmdPipelineBarrierBuffer( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, listsBarrier );
+    const VkBufferMemoryBarrier listsBarrier  = BufferBarrier( state.myClusterListBuffers[ aFrameIndex ].myBuffer, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    const VkBufferMemoryBarrier lightsBarrier = BufferBarrier( state.myLightsBuffer.myBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
+    const VkBufferMemoryBarrier barriers[]    = { listsBarrier, lightsBarrier };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
+                          static_cast< uint32_t >( std::size( barriers ) ), barriers, 0, nullptr );
 
     if ( !sDispatchLoggedOnce ) {
         UtilLogger::Info( "CLUSTER",

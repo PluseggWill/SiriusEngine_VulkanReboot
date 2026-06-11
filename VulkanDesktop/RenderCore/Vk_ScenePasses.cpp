@@ -387,10 +387,16 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aC
 void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
-    const Vk_RenderMaterialPath path                = aCore.myDeviceCtx.myMaterialPath;
-    const VkPipeline            transparentPipeline = path == Vk_RenderMaterialPath::Bindless ? aCore.mySceneGpuCtx.myTransparentPipelineBindless : VK_NULL_HANDLE;
-    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "ForwardTransparent", path, transparentPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
-                               aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
+    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
+    const bool                  hybridResolve =
+        Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE;
+    const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
+                                                                                                  : aCore.mySceneGpuCtx.myTransparentPipelineBindless )
+                                                                                : VK_NULL_HANDLE;
+    const VkPipeline batchPipelineOverride =
+        path != Vk_RenderMaterialPath::Bindless && hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve : VK_NULL_HANDLE;
+    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "ForwardTransparent", path, bindlessPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
+                               aUseLegacyDirectDraw, aEmitDebugLabels, batchPipelineOverride );
 }
 
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {

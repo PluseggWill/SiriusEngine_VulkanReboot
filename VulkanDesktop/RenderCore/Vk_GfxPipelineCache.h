@@ -10,4 +10,5 @@ public:
     static void DestroyScenePipelines( Vk_Core& aCore );
     static void CreateGfxPipeline( Vk_Core& aCore );
     static void CreateBindlessGfxPipelines( Vk_Core& aCore );
+    static void CreateHybridResolveGfxPipelines( Vk_Core& aCore );
 };

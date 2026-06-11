@@ -31,12 +31,13 @@ VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aSwapchainRende
     Vk_PipelineBuilder                   pipelineBuilder;
     pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
     pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-    pipelineBuilder.myVertexInputInfo               = vertexInputInfo;
-    pipelineBuilder.myInputAssembly                 = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport                      = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
-    pipelineBuilder.myScissor.offset                = { 0, 0 };
-    pipelineBuilder.myScissor.extent                = aCore.mySwapchainCtx.mySwapChainExtent;
-    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL );
+    pipelineBuilder.myVertexInputInfo = vertexInputInfo;
+    pipelineBuilder.myInputAssembly   = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+    pipelineBuilder.myViewport        = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
+    pipelineBuilder.myScissor.offset  = { 0, 0 };
+    pipelineBuilder.myScissor.extent  = aCore.mySwapchainCtx.mySwapChainExtent;
+    // Fullscreen triangle: disable cull (Vulkan clip-space winding can cull the big tri with BACK).
+    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
     pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
     pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
     pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
@@ -92,6 +93,10 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
 }
 
 void CreatePipelineResources( Vk_Core& aCore ) {
+    if ( aCore.mySwapchainCtx.myHybridResolveRenderPass == VK_NULL_HANDLE ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: hybrid resolve render pass is required" );
+    }
+
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
     const std::array< VkDescriptorSetLayoutBinding, 5 > bindings = {
@@ -164,7 +169,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
 
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
-    state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, state.myPipelineLayout, vertPath, fragPath );
+    state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myHybridResolveRenderPass, state.myPipelineLayout, vertPath, fragPath );
 
     const VkDevice              device         = aCore.myDeviceCtx.myDevice;
     const VkPipeline            pipeline       = state.myPipeline;
@@ -205,6 +210,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
     push.specularStrength = aCore.myEnvironmentData.myFogDistance.x;
     push.shininess        = glm::max( aCore.myEnvironmentData.myFogDistance.y, 1.0f );
+    push.debugView        = aCore.myEnvironmentData.myFogDistance.w;  // UtilRenderDebugPanel::Build before DrawFrameGpu
 
     const glm::mat4 invViewProj = glm::inverse( aCore.myCamera.myProj * aCore.myCamera.myView );
     std::memcpy( push.invViewProj, glm::value_ptr( invViewProj ), sizeof( push.invViewProj ) );
@@ -242,7 +248,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
     aCore.myDeferredLightingState.myPipeline =
-        BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
+        BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
 }
 
 void Init( Vk_Core& aCore ) {

@@ -509,9 +509,15 @@ void Vk_SwapchainHost::CreateRenderPass( Vk_Core& aCore ) {
 }
 
 void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
-    aCore.mySwapchainCtx.mySwapChainFrameBuffers.resize( aCore.mySwapchainCtx.mySwapChainImageViews.size() );
+    const size_t imageCount = aCore.mySwapchainCtx.mySwapChainImageViews.size();
+    aCore.mySwapchainCtx.mySwapChainFrameBuffers.resize( imageCount );
+    aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.clear();
+    if ( aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE ) {
+        aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.resize( imageCount );
+    }
+
     const bool useMsaaResolve = ( aCore.mySwapchainCtx.myMSAASamples != VK_SAMPLE_COUNT_1_BIT );
-    for ( size_t i = 0; i < aCore.mySwapchainCtx.mySwapChainImageViews.size(); i++ ) {
+    for ( size_t i = 0; i < imageCount; i++ ) {
         std::vector< VkImageView > attachments;
         if ( useMsaaResolve ) {
             attachments = { aCore.mySwapchainCtx.myColorTexture.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView(),
@@ -523,21 +529,33 @@ void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
 
         VkFramebufferCreateInfo frameBufferInfo{};
         frameBufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        frameBufferInfo.renderPass      = aCore.mySwapchainCtx.myRenderPass;
         frameBufferInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
         frameBufferInfo.pAttachments    = attachments.data();
         frameBufferInfo.width           = aCore.mySwapchainCtx.mySwapChainExtent.width;
         frameBufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
         frameBufferInfo.layers          = 1;
+
+        frameBufferInfo.renderPass = aCore.mySwapchainCtx.myRenderPass;
         if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.mySwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to create framebuffer!" );
         }
+
+        if ( !aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.empty() ) {
+            frameBufferInfo.renderPass = aCore.mySwapchainCtx.myHybridResolveRenderPass;
+            if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
+                throw std::runtime_error( "failed to create hybrid resolve framebuffer!" );
+            }
+        }
     }
 
-    const VkDevice device       = aCore.myDeviceCtx.myDevice;
-    const auto     frameBuffers = aCore.mySwapchainCtx.mySwapChainFrameBuffers;
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, frameBuffers ]() {
+    const VkDevice device             = aCore.myDeviceCtx.myDevice;
+    const auto     frameBuffers       = aCore.mySwapchainCtx.mySwapChainFrameBuffers;
+    const auto     hybridFrameBuffers = aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers;
+    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, frameBuffers, hybridFrameBuffers ]() {
         for ( VkFramebuffer frameBuffer : frameBuffers ) {
+            vkDestroyFramebuffer( device, frameBuffer, nullptr );
+        }
+        for ( VkFramebuffer frameBuffer : hybridFrameBuffers ) {
             vkDestroyFramebuffer( device, frameBuffer, nullptr );
         }
     } );

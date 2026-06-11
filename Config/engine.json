@@ -9,7 +9,7 @@
   "logLevel": "info",
   "assetVerify": "strict",
   "enableValidationLayers": true,
-  "renderPreset": "ForwardLit",
+  "renderPreset": "HybridDeferred",
   "features": {
     "demoRotate": false,
     "lodEnabled": false,

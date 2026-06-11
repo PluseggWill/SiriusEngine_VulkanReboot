@@ -197,6 +197,8 @@ void Util_EngineConfig::ResolveActiveShaderPermutation( const CliOverrides& aOve
         myShaderPermutationName = Gfx_RenderPreset::ToShaderPermutationName( myRenderPresetName );
         return;
     }
+    // Default when config omits renderPreset (HybridDeferred maps to lit permutation).
+    myRenderPresetName = "HybridDeferred";
 }
 
 Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc, char** aArgv ) {
@@ -586,7 +588,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --smoke-seconds <s>    Exit after s seconds in main loop (post scene load; task smoke)\n"
               << "  --perf-log <path>      Append per-frame JSONL metrics (schemaVersion 1)\n"
               << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
-              << "  --render-preset <name>        Stage 1 preset (ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
+              << "  --render-preset <name>        Render preset (HybridDeferred, ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --renderdoc            Enable RenderDoc runtime integration (startup-gated)\n"
               << "  --help                 Show this message\n"

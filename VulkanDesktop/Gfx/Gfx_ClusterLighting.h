@@ -52,7 +52,7 @@ struct Gfx_DeferredLightingPushConstants {
     float    viewWorldPos[ 4 ];
     float    specularStrength = 0.0f;
     float    shininess        = 1.0f;
-    float    pad0             = 0.0f;
+    float    debugView        = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
     float    pad1             = 0.0f;
     float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct
 };

@@ -4,6 +4,9 @@
 // Keep in sync with Gfx_ClusterLighting.h.
 
 const uint kMaxLightsPerCluster = 8u;
+const uint kDebugViewLit = 0u;
+const uint kDebugViewDepth = 1u;
+const uint kDebugViewWorldNormal = 2u;
 
 struct ClusterLight {
     vec4 direction;
@@ -19,7 +22,7 @@ layout(push_constant) uniform PushConstants {
     uvec4 grid;           // tilesX, tilesY, tileSize, depthSlice
     vec4 ambientColor;
     vec4 viewWorldPos;
-    vec4 specParams;      // x=specularStrength, y=shininess (match forward fogDistances.xy)
+    vec4 specParams;      // x=specularStrength, y=shininess, z=debugView (Gfx_DebugViewMode), w=unused
     mat4 invViewProj;
 } pc;
 
@@ -41,6 +44,18 @@ vec3 reconstructWorldPos(vec2 aUV, float aDepth)
     const vec4 ndc = vec4(aUV * 2.0 - 1.0, aDepth, 1.0);
     const vec4 worldH = pc.invViewProj * ndc;
     return worldH.xyz / worldH.w;
+}
+
+vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth)
+{
+    const uint viewMode = uint(pc.specParams.z + 0.5);
+    if (viewMode == kDebugViewDepth) {
+        return vec4(vec3(aDepth), 1.0);
+    }
+    if (viewMode == kDebugViewWorldNormal) {
+        return vec4(normalize(aWorldNormal) * 0.5 + 0.5, 1.0);
+    }
+    return aLitColor;
 }
 
 void main()
@@ -74,5 +89,5 @@ void main()
         lit += light.color.rgb * spec;
     }
 
-    outColor = vec4(lit, 1.0);
+    outColor = applyDebugView(vec4(lit, 1.0), N, depth);
 }
