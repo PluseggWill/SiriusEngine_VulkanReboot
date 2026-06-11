@@ -267,6 +267,42 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — FG slice 2 (ClusterBuild stub) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `ClusterBuild.comp` + per-cluster light index SSBO; record between G-buffer and composite |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` (ForwardLit) |
+| **Plan log** | [`Archived/plans/s3-fg-s2-cluster-build_Plan.md`](Archived/plans/s3-fg-s2-cluster-build_Plan.md) · [`s3-fg-s2-cluster-build_Progress.md`](Archived/plans/s3-fg-s2-cluster-build_Progress.md) |
+
+- [x] **[S3]** FG slice 2: ClusterBuild compute stub — 2026-06-11
+
+---
+
+## S3 — FG slice 3 (DeferredLighting) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `Vk_DeferredLightingPass` replaces CompositeAlbedo; clustered diffuse + ambient resolve to swapchain |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` (ForwardLit) |
+| **Plan log** | [`Archived/plans/s3-fg-s3-deferred-lighting_Plan.md`](Archived/plans/s3-fg-s3-deferred-lighting_Plan.md) · [`s3-fg-s3-deferred-lighting_Progress.md`](Archived/plans/s3-fg-s3-deferred-lighting_Progress.md) |
+
+- [x] **[S3]** FG slice 3: DeferredLighting resolve — 2026-06-11
+
+---
+
+## S3 — FG v0 opaque chain *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `GBufferOpaque → ClusterBuild → DeferredLighting` on HybridDeferred preset; ForwardLit default unchanged |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred dogfood (`FORCE_MATERIAL_BATCH=1`) |
+| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–3 in [`Archived/plans/`](Archived/plans/) |
+
+- [x] **[S3]** FG v0: preset + G-buffer + cluster build + deferred lighting — 2026-06-11
+
+---
+
 ## P3 — entity AABB + draw template SSBO (sync SoA) *(closed 2026-06-10)*
 
 | | |

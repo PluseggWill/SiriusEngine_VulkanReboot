@@ -1,6 +1,6 @@
 # Plan: s3-fg-v0 — Frame graph v0 (Lighting Stage 2 entry)
 
-**Status:** Planned *(roadmap — kickoff adds `{name}_Progress.md`)*  
+**Status:** Closed (2026-06-11) — opaque chain landed via slices 1–3  
 **Parent:** [`Active-Plan.md`](Active-Plan.md) § S3 · epic [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A  
 **Depends on:** P2–P3 M2 geometry (archived), S2 permutation/cache (archived), **G1** met
 
@@ -32,10 +32,10 @@ Spike **minimal hybrid-deferred topology** without full S7 frame-graph infra:
 
 1. **Preset hook:** `HybridDeferred` preset opt-in; default remains `ForwardLit`. *(slice 1 — closed [`Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md`](Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md))*
 2. **GBufferOpaque:** raster opaque from existing `Gfx_FrameRenderPacket` / indirect path; lock format policy (document in plan Progress, not Architecture unless policy lock). *(slice 1 — closed)*
-3. **ClusterBuild:** compute pass stub — cluster grid + light index lists (minimal light count). *(slice 2 — [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md))*
-4. **DeferredLighting:** fullscreen/cluster resolve → swapchain or HDR intermediate; bind G-buffer + cluster SSBO.
-5. **Record order:** insert chain before present; `ForwardLit` path unchanged when preset off.
-6. **Smoke:** `Verify-Smoke.ps1` still green on `ForwardLit`; manual `HybridDeferred` log once.
+3. **ClusterBuild:** compute pass stub — cluster grid + light index lists (minimal light count). *(slice 2 — closed [`Archived/plans/s3-fg-s2-cluster-build_Plan.md`](Archived/plans/s3-fg-s2-cluster-build_Plan.md))*
+4. **DeferredLighting:** fullscreen/cluster resolve → swapchain or HDR intermediate; bind G-buffer + cluster SSBO. *(slice 3 — closed [`Archived/plans/s3-fg-s3-deferred-lighting_Plan.md`](Archived/plans/s3-fg-s3-deferred-lighting_Plan.md))*
+5. **Record order:** insert chain before present; `ForwardLit` path unchanged when preset off. *(done)*
+6. **Smoke:** `Verify-Smoke.ps1` still green on `ForwardLit`; manual `HybridDeferred` log once. *(done)*
 
 ## Verification
 

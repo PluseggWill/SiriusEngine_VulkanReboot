@@ -408,6 +408,11 @@ void TestDemoCullAndBatch() {
     Expect( out.myExtract.myTransparent.myDrawInstances.size() == 1, "demo transparent draws" );
 }
 
+void TestClusterIndexFromTile() {
+    Expect( Gfx_ClusterLighting::ClusterIndexFromTile( 3, 5, 120, 68 ) == 3 + 5 * 120, "cluster index screen tile depth slice 0" );
+    Expect( Gfx_ClusterLighting::ClusterIndexFromTile( 1, 2, 10, 8, 3 ) == 1 + 2 * 10 + 3 * 10 * 8, "cluster index with depth slice" );
+}
+
 void TestClusterGridCount() {
     const uint32_t tilesW = Gfx_ClusterLighting::TilesForExtent( 1920 );
     const uint32_t tilesH = Gfx_ClusterLighting::TilesForExtent( 1080 );
@@ -459,6 +464,7 @@ int main() {
     TestCpuGpuCullParityDemoViews();
     TestCpuGpuCullParityLayerMask();
     TestLodGpuEntityRecordParity();
+    TestClusterIndexFromTile();
     TestClusterGridCount();
     TestRenderPresetHybridDeferred();
     TestGpuCullSkipsCpuFrustumCull();

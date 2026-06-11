@@ -223,6 +223,9 @@
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -457,6 +460,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_GBufferPass.h">

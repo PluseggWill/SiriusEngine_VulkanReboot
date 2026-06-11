@@ -7,8 +7,8 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
-| **WIP task** | [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md) · [`_Progress.md`](s3-fg-s2-cluster-build_Progress.md) |
-| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) |
+| **WIP task** | — *(FG v0 closed 2026-06-11)* |
+| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices [`Archived/plans/`](Archived/plans/) |
 | **Parallel** | P4 vertical slice — same Active-Plan file |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*

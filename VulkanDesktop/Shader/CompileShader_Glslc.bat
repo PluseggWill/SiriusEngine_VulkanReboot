@@ -92,6 +92,20 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\CompositeAlbedoFrag.spv"
 
+"%GLSLC%" "%SHADER_DIR%DeferredLighting.vert" -o "%GEN_DIR%DeferredLightingVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: DeferredLighting.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\DeferredLightingVert.spv"
+
+"%GLSLC%" "%SHADER_DIR%DeferredLighting.frag" -o "%GEN_DIR%DeferredLightingFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: DeferredLighting.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\DeferredLightingFrag.spv"
+
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 
 REM Phase 2a (lit_batch) + 2d (lit_bindless): SPIRV-Reflect + descriptor contracts — stderr/log only; see shader-build.mdc.

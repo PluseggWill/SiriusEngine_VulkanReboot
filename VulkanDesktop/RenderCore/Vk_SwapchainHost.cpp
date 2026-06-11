@@ -3,6 +3,7 @@
 #include "../Util/Util_Logger.h"
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
+#include "Vk_DeferredLightingPass.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
 #include <GLFW/glfw3.h>
@@ -179,6 +180,7 @@ void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Core& aCore, bool aIn
     CreateFrameBuffers( aCore );
     Vk_GBufferPass::RecreateForExtent( aCore );
     Vk_ClusterBuildPass::RecreateForExtent( aCore );
+    Vk_DeferredLightingPass::RecreateForExtent( aCore );
 }
 
 void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Core& aCore ) {

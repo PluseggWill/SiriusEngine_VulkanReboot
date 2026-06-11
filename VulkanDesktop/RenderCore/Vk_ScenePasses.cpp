@@ -9,6 +9,7 @@
 
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
+#include "Vk_DeferredLightingPass.h"
 #include "Vk_GBufferPass.h"
 
 #include "Vk_DescriptorPolicy.h"
@@ -217,6 +218,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
         if ( !aCore.myGBufferState.myInitialized ) {
             Vk_GBufferPass::Init( aCore );
             Vk_ClusterBuildPass::Init( aCore );
+            Vk_DeferredLightingPass::Init( aCore );
         }
         Vk_GBufferPass::RecordFrame( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
         return;

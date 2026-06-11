@@ -1,4 +1,4 @@
-// Module: Vk_ClusterBuildPass — FG v0 slice 2 (ClusterBuild compute stub).
+// Module: Vk_ClusterBuildPass — FG v0 clustered light list build (compute).
 #include "Vk_ClusterBuildPass.h"
 
 #include "../Gfx/Gfx_ClusterLighting.h"
@@ -231,7 +231,7 @@ void Init( Vk_Core& aCore ) {
     if ( aCore.myClusterBuildState.myInitialized ) {
         return;
     }
-    UtilLogger::Info( "FG", "Vk_ClusterBuildPass::Init (slice 2)." );
+    UtilLogger::Info( "FG", "Vk_ClusterBuildPass::Init." );
     CreatePipeline( aCore );
     AllocateClusterListBuffers( aCore, true );
     aCore.myClusterBuildState.myInitialized = true;

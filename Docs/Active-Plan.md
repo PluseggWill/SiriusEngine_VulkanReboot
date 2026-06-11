@@ -11,7 +11,7 @@ Done → move line to Archived-Plan; no `[x]` here.
 
 | # | Focus | Plan |
 |---|--------|------|
-| 1 | **S3** — M2 acceptance + FG v0 | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A |
+| 1 | **S3** — hybrid deferred follow-ups | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A · FG v0 archived |
 | 2 | **P4** — Vertical slice (parallel) | § [P4](#p4--vertical-slice-v0) below |
 
 ---
@@ -34,8 +34,8 @@ Pass topology diagram: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 
 M2 geometry closed via P2–P3 ([`Archived-Plan.md`](Archived-Plan.md)). Validate: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3.
 
-- [ ] FG v0: `GBufferOpaque -> ClusterBuild -> DeferredLighting` — [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · WIP slice 2 [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md)
 - [ ] `LNK4098` linker warning *(optional)*
+- [ ] Hybrid follow-ups: transparent over deferred depth, bindless hybrid, forward parity — [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · [`Wishlist.md`](Wishlist.md) S7
 
 Compaction / MT v1 → [`Wishlist.md`](Wishlist.md) backlog.
 
@@ -53,7 +53,7 @@ Compaction / MT v1 → [`Wishlist.md`](Wishlist.md) backlog.
 
 | # | Landing | Where | Plan |
 |---|---------|-------|------|
-| 1 | FG v0 active | S3 | `s3-fg-v0_Plan.md` |
+| 1 | FG v0 closed | S3 | [`Archived/plans/s3-fg-s3-deferred-lighting_Plan.md`](Archived/plans/s3-fg-s3-deferred-lighting_Plan.md) |
 | 5 | Vertical slice = 3 tasks | P4 | § P4 |
 | 18 | Bindless layout codegen | Wishlist | shader-bindless-policy |
 | 19 | MeshImport v0 | Wishlist | content-pipeline §A |

@@ -27,7 +27,7 @@ struct Vk_ClusterBuildState {
     bool     myInitialized  = false;
 };
 
-// FG v0 slice 2: compute stub filling per-cluster light index lists (sun-only v1).
+// FG v0: compute pass filling per-cluster light index lists (sun-only v1 stub).
 namespace Vk_ClusterBuildPass {
 
 void Init( Vk_Core& aCore );

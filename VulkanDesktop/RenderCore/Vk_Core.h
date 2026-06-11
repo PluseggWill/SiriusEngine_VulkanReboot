@@ -29,6 +29,7 @@
 #include "Vk_FrameResult.h"
 
 #include "Vk_ClusterBuildPass.h"
+#include "Vk_DeferredLightingPass.h"
 #include "Vk_FrameDrawPrep.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
@@ -257,6 +258,8 @@ public:
     Vk_GBufferState myGBufferState;
 
     Vk_ClusterBuildState myClusterBuildState;
+
+    Vk_DeferredLightingState myDeferredLightingState;
 
     Vk_GpuCullState myGpuCullState;
 

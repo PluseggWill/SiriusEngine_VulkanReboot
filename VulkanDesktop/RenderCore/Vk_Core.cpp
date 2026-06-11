@@ -236,8 +236,10 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
+        // FG v0 chain: GBufferOpaque → ClusterBuild → DeferredLighting (init order matters).
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
+        Vk_DeferredLightingPass::Init( *this );
     }
 
     {
@@ -274,6 +276,7 @@ void Vk_Core::UnloadScene() {
     }
 
     ShutdownImGui();
+    Vk_DeferredLightingPass::Destroy( *this );
     Vk_ClusterBuildPass::Destroy( *this );
     Vk_GBufferPass::Destroy( *this );
     Vk_GfxPipelineCache::DestroyScenePipelines( *this );

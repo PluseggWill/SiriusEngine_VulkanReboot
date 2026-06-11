@@ -13,25 +13,19 @@ using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Core;
 struct DebugUIState;
 
-// Offscreen G-buffer + composite pass state (extent-sized; recreated on swapchain resize when hybrid active).
+// Offscreen G-buffer pass state (extent-sized; recreated on swapchain resize when hybrid active).
 struct Vk_GBufferState {
-    Gfx_Texture           myAlbedo;
-    Gfx_Texture           myNormalRoughness;
-    Gfx_Texture           myDepth;
-    VkRenderPass          myRenderPass              = VK_NULL_HANDLE;
-    VkFramebuffer         myFramebuffer             = VK_NULL_HANDLE;
-    VkPipeline            myGBufferPipeline         = VK_NULL_HANDLE;
-    VkPipelineLayout      myCompositePipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myCompositeSetLayout      = VK_NULL_HANDLE;
-    VkDescriptorPool      myCompositeDescriptorPool = VK_NULL_HANDLE;
-    VkDescriptorSet       myCompositeDescriptorSet  = VK_NULL_HANDLE;
-    VkPipeline            myCompositePipeline       = VK_NULL_HANDLE;
-    VkSampler             myCompositeSampler        = VK_NULL_HANDLE;
-    Vk_DeletionQueue      myDeletionQueue;
-    bool                  myInitialized = false;
+    Gfx_Texture      myAlbedo;
+    Gfx_Texture      myNormalRoughness;
+    Gfx_Texture      myDepth;
+    VkRenderPass     myRenderPass      = VK_NULL_HANDLE;
+    VkFramebuffer    myFramebuffer     = VK_NULL_HANDLE;
+    VkPipeline       myGBufferPipeline = VK_NULL_HANDLE;
+    Vk_DeletionQueue myDeletionQueue;
+    bool             myInitialized = false;
 };
 
-// FG v0 slice 1: offscreen G-buffer opaque + albedo composite to swapchain.
+// HybridDeferred opaque path: offscreen G-buffer raster (resolve → Vk_DeferredLightingPass).
 namespace Vk_GBufferPass {
 
 bool IsActive( const Vk_Core& aCore );

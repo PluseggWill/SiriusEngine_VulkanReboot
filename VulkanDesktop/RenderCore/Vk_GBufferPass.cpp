@@ -1,6 +1,6 @@
-// Module: Vk_GBufferPass — FG v0 slice 1 (HybridDeferred preset).
-// Chain: GBufferOpaque -> ClusterBuild -> CompositeAlbedo -> swapchain. DeferredLighting deferred (slice 3).
-// Format policy: Docs/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
+// Module: Vk_GBufferPass — FG v0 (HybridDeferred preset).
+// Chain: GBufferOpaque -> ClusterBuild -> DeferredLighting -> swapchain.
+// G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
 #include "../App/DebugUIState.h"
@@ -11,6 +11,7 @@
 
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
+#include "Vk_DeferredLightingPass.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
@@ -20,14 +21,11 @@
 #include "Vk_Types.h"
 
 #include <array>
-#include <vector>
 
 namespace {
 
-constexpr const char* kGBufferVertSpv   = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
-constexpr const char* kGBufferFragSpv   = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
-constexpr const char* kCompositeVertSpv = "VulkanDesktop/Shader_Generated/CompositeAlbedoVert.spv";
-constexpr const char* kCompositeFragSpv = "VulkanDesktop/Shader_Generated/CompositeAlbedoFrag.spv";
+constexpr const char* kGBufferVertSpv = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
+constexpr const char* kGBufferFragSpv = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
 
 constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -40,27 +38,6 @@ void DestroyPipelines( Vk_Core& aCore ) {
     if ( aCore.myGBufferState.myGBufferPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, aCore.myGBufferState.myGBufferPipeline, nullptr );
         aCore.myGBufferState.myGBufferPipeline = VK_NULL_HANDLE;
-    }
-    if ( aCore.myGBufferState.myCompositePipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( device, aCore.myGBufferState.myCompositePipeline, nullptr );
-        aCore.myGBufferState.myCompositePipeline = VK_NULL_HANDLE;
-    }
-    if ( aCore.myGBufferState.myCompositePipelineLayout != VK_NULL_HANDLE ) {
-        vkDestroyPipelineLayout( device, aCore.myGBufferState.myCompositePipelineLayout, nullptr );
-        aCore.myGBufferState.myCompositePipelineLayout = VK_NULL_HANDLE;
-    }
-    if ( aCore.myGBufferState.myCompositeSetLayout != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorSetLayout( device, aCore.myGBufferState.myCompositeSetLayout, nullptr );
-        aCore.myGBufferState.myCompositeSetLayout = VK_NULL_HANDLE;
-    }
-    if ( aCore.myGBufferState.myCompositeDescriptorPool != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorPool( device, aCore.myGBufferState.myCompositeDescriptorPool, nullptr );
-        aCore.myGBufferState.myCompositeDescriptorPool = VK_NULL_HANDLE;
-    }
-    aCore.myGBufferState.myCompositeDescriptorSet = VK_NULL_HANDLE;
-    if ( aCore.myGBufferState.myCompositeSampler != VK_NULL_HANDLE ) {
-        vkDestroySampler( device, aCore.myGBufferState.myCompositeSampler, nullptr );
-        aCore.myGBufferState.myCompositeSampler = VK_NULL_HANDLE;
     }
 }
 
@@ -122,35 +99,6 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     VkPipeline pipeline = VK_NULL_HANDLE;
     UtilVulkanResult::ThrowOnFailure( vkCreateGraphicsPipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
                                       "vkCreateGraphicsPipelines GBuffer" );
-
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
-    return pipeline;
-}
-
-VkPipeline BuildCompositePipeline( Vk_Core& aCore, VkRenderPass aSwapchainRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
-    VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
-    VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
-    Vk_PipelineBuilder                   pipelineBuilder;
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-    pipelineBuilder.myVertexInputInfo               = vertexInputInfo;
-    pipelineBuilder.myInputAssembly                 = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport                      = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
-    pipelineBuilder.myScissor.offset                = { 0, 0 };
-    pipelineBuilder.myScissor.extent                = aCore.mySwapchainCtx.mySwapChainExtent;
-    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL );
-    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
-    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
-    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_FALSE;
-    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                = aLayout;
-    pipelineBuilder.SetDefaultDynamicStates();
-
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aSwapchainRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
 
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
@@ -285,92 +233,6 @@ void CreateGBufferFramebuffer( Vk_Core& aCore ) {
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
 }
 
-void CreateCompositeResources( Vk_Core& aCore, const std::string& aVertPath, const std::string& aFragPath ) {
-    VkDescriptorSetLayoutBinding samplerBinding{};
-    samplerBinding.binding         = 0;
-    samplerBinding.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerBinding.descriptorCount = 1;
-    samplerBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings    = &samplerBinding;
-    UtilVulkanResult::ThrowOnFailure( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &aCore.myGBufferState.myCompositeSetLayout ),
-                                      "vkCreateDescriptorSetLayout composite" );
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &aCore.myGBufferState.myCompositeSetLayout;
-    UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &aCore.myGBufferState.myCompositePipelineLayout ),
-                                      "vkCreatePipelineLayout composite" );
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_LINEAR;
-    samplerInfo.minFilter               = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    UtilVulkanResult::ThrowOnFailure( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &aCore.myGBufferState.myCompositeSampler ),
-                                      "vkCreateSampler composite" );
-
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSize.descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes    = &poolSize;
-    poolInfo.maxSets       = 1;
-    UtilVulkanResult::ThrowOnFailure( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &aCore.myGBufferState.myCompositeDescriptorPool ),
-                                      "vkCreateDescriptorPool composite" );
-
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = aCore.myGBufferState.myCompositeDescriptorPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts        = &aCore.myGBufferState.myCompositeSetLayout;
-    UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &aCore.myGBufferState.myCompositeDescriptorSet ),
-                                      "vkAllocateDescriptorSets composite" );
-
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler     = aCore.myGBufferState.myCompositeSampler;
-    imageInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write{};
-    write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet          = aCore.myGBufferState.myCompositeDescriptorSet;
-    write.descriptorCount = 1;
-    write.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo      = &imageInfo;
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
-
-    aCore.myGBufferState.myCompositePipeline =
-        BuildCompositePipeline( aCore, aCore.mySwapchainCtx.myRenderPass, aCore.myGBufferState.myCompositePipelineLayout, aVertPath, aFragPath );
-}
-
-// Rebind albedo view after extent rebuild (descriptor set allocation is stable; image view handle changes).
-void UpdateCompositeDescriptor( Vk_Core& aCore ) {
-    if ( aCore.myGBufferState.myCompositeDescriptorSet == VK_NULL_HANDLE ) {
-        return;
-    }
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler     = aCore.myGBufferState.myCompositeSampler;
-    imageInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    VkWriteDescriptorSet write{};
-    write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet          = aCore.myGBufferState.myCompositeDescriptorSet;
-    write.descriptorCount = 1;
-    write.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo      = &imageInfo;
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
-}
-
 void RebuildResources( Vk_Core& aCore ) {
     if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
@@ -381,13 +243,10 @@ void RebuildResources( Vk_Core& aCore ) {
 
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferVertSpv );
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragSpv );
-    const std::string compVert = UtilLoader::ResolvePath( aCore.EngineConfig(), kCompositeVertSpv );
-    const std::string compFrag = UtilLoader::ResolvePath( aCore.EngineConfig(), kCompositeFragSpv );
 
     CreateGBufferRenderPass( aCore );
     CreateGBufferImages( aCore );
     CreateGBufferFramebuffer( aCore );
-    CreateCompositeResources( aCore, compVert, compFrag );
 
     aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
 }
@@ -426,7 +285,7 @@ void Init( Vk_Core& aCore ) {
     if ( aCore.myGBufferState.myInitialized ) {
         return;
     }
-    UtilLogger::Info( "FG", "Vk_GBufferPass::Init (slice 1)." );
+    UtilLogger::Info( "FG", "Vk_GBufferPass::Init." );
     RebuildResources( aCore );
     aCore.myGBufferState.myInitialized = true;
 }
@@ -442,13 +301,13 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     static bool sTransparentSkipOnce  = false;
 
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> CompositeAlbedo (DeferredLighting deferred)" );
+        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting" );
         sChainLoggedOnce = true;
     }
 
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         if ( !sBindlessFallbackOnce ) {
-            UtilLogger::Warn( "FG", "HybridDeferred slice1 is batch-only; falling back to ForwardLit record." );
+            UtilLogger::Warn( "FG", "HybridDeferred is batch-only; falling back to ForwardLit record." );
             sBindlessFallbackOnce = true;
         }
         Vk_ScenePasses::RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
@@ -456,12 +315,12 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     }
 
     if ( aViewCount > 1 && !sMultiViewWarnOnce ) {
-        UtilLogger::Warn( "FG", "HybridDeferred slice1 uses view 0 only." );
+        UtilLogger::Warn( "FG", "HybridDeferred FG v0 uses view 0 only." );
         sMultiViewWarnOnce = true;
     }
 
     if ( !sTransparentSkipOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred slice1: transparent pass skipped." );
+        UtilLogger::Info( "FG", "HybridDeferred FG v0: transparent pass skipped." );
         sTransparentSkipOnce = true;
     }
 
@@ -510,8 +369,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
-    UpdateCompositeDescriptor( aCore );
-
+    // Swapchain RP: fullscreen DeferredLighting (caller owns begin/end).
     VkRenderPassBeginInfo swapBegin{};
     swapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     swapBegin.renderPass        = aCore.mySwapchainCtx.myRenderPass;
@@ -527,16 +385,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     vkCmdBeginRenderPass( aCommandBuffer, &swapBegin, VK_SUBPASS_CONTENTS_INLINE );
 
     aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex < aViewCount ? viewIndex : 0 ], aScissors[ viewIndex < aViewCount ? viewIndex : 0 ] );
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myGBufferState.myCompositePipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.myGBufferState.myCompositePipelineLayout, 0, 1,
-                             &aCore.myGBufferState.myCompositeDescriptorSet, 0, nullptr );
-    if ( emitDebugLabels ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=CompositeAlbedo" );
-    }
-    vkCmdDraw( aCommandBuffer, 3, 1, 0, 0 );
-    if ( emitDebugLabels ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
+    Vk_DeferredLightingPass::RecordDraw( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
     vkCmdEndRenderPass( aCommandBuffer );
 }
