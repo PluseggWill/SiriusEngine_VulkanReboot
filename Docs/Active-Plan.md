@@ -34,7 +34,6 @@ Pass topology diagram: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 
 M2 geometry closed via P2–P3 ([`Archived-Plan.md`](Archived-Plan.md)). Validate: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3.
 
-- [ ] M2 acceptance sign-off (`--gpu-cull` dogfood; G1 in CI; no per-object CPU `vkCmdDraw*` on gpu path)
 - [ ] FG v0: `GBufferOpaque -> ClusterBuild -> DeferredLighting` — [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md)
 - [ ] `ForwardLit` default; `HybridDeferred` opt-in
 - [ ] `LNK4098` linker warning *(optional)*

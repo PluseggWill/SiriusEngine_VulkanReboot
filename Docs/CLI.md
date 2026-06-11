@@ -50,6 +50,8 @@
 | `--perf-log` `<path>` | 文件路径 | 每个完成的 `DrawFrame` 追加一行 JSONL（`schemaVersion` 1：`frameIndex`, `frameMs`, `drawCalls`, `visibleDraws`, `activeViews`, `materialPath`）。`visibleDraws` 为当前帧各视图之和。路径相对 asset root；配合 `engine.benchmark.json`（`vsync: false`）。汇总：`Scripts/Perf-JsonlSummary.ps1`。 |
 | `--descriptor-layout-mismatch-test` | — | 开发用：在 `InitDeviceLayouts` 后对 Set 2 做一次故意的 `vkUpdateDescriptorSets` 类型不匹配，供 validation 报错（**必须**配合 `--validation`）。 |
 | `--renderdoc` | — | 启用 RenderDoc 运行时接入（启动门控）。仅在该参数存在时被动探测已注入进程的 `renderdoc.dll`（`GetModuleHandle`），并启用 draw/pass debug label 输出路径。推荐从 RenderDoc UI 启动程序。 |
+| `--gpu-cull` / `--no-gpu-cull` | — | 启用 compute frustum cull → per-entity-slot `VkDrawIndexedIndirectCommand`（`EntityCull.comp`）；默认 **off**。`Verify-Smoke.ps1` 第二遍自动加 `--gpu-cull`（M2 dogfood）；可用 `-SkipGpuCull` 跳过。 |
+| `--legacy-direct-draw` | — | 调试用：每 draw `vkCmdDrawIndexed`（非 indirect）；与 `--gpu-cull` 互斥于验收路径。 |
 
 **说明：**
 
@@ -83,7 +85,7 @@
 
 **基准捕获配置（Stage 1 golden / perf）：** [`Config/engine.benchmark.json`](../Config/engine.benchmark.json) — 见 [`forward-stage1.md`](forward-stage1.md) §1。
 
-**压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke 默认使用此组合。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
+**压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke 默认使用此组合（两遍：CPU indirect + `--gpu-cull`）。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
 
 ```powershell
 .\VulkanDesktop.exe --asset-root <repo> --config <repo>\Config\engine.benchmark.json --no-validation

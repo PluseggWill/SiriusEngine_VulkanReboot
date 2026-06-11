@@ -2,12 +2,18 @@
 <#
 .SYNOPSIS
   Assert graceful smoke log tokens and optional assetRoot under repo.
+
+.PARAMETER Profile
+  Default — baseline graceful smoke tokens.
+  GpuCull — Default + M2 gpu-cull dogfood tokens (Verify-Smoke pass 2).
 #>
 [CmdletBinding()]
 param(
     [string] $RepoRoot = "",
     [string] $LogPath = "",
-    [int] $ExitCode = 0
+    [int] $ExitCode = 0,
+    [ValidateSet("Default", "GpuCull")]
+    [string] $Profile = "Default"
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +45,15 @@ $required = @(
     '[APP] Engine exited run loop normally'
 )
 
+if ($Profile -eq "GpuCull") {
+    $required += @(
+        '[CONFIG] gpuCull=true',
+        '(gpu-deferred)',
+        'GPU cull dispatch',
+        'GPU-filled slot indirect'
+    )
+}
+
 $missing = @()
 foreach ($token in $required) {
     if ($logText -notmatch [regex]::Escape($token)) {
@@ -47,7 +62,7 @@ foreach ($token in $required) {
 }
 
 if ($missing.Count -gt 0) {
-    throw "Smoke log missing tokens: $($missing -join ', ') ($LogPath)"
+    throw "Smoke log missing tokens ($Profile): $($missing -join ', ') ($LogPath)"
 }
 
 if ($logText -match '\[CONFIG\] assetRoot=(.+)') {
@@ -64,5 +79,5 @@ if ($logText -match '\[CONFIG\] assetRoot=(.+)') {
     }
 }
 
-Write-Host "Smoke log OK: $LogPath" -ForegroundColor Green
+Write-Host "Smoke log OK ($Profile): $LogPath" -ForegroundColor Green
 exit 0

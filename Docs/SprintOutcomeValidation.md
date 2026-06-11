@@ -102,6 +102,35 @@ When closing **P1 peel** tasks (not required for P0 CI green): capture **one row
 - Draw count comes from GPU outputs (not per-object CPU draw loop).
 - Fixed-camera parity check against CPU cull is within agreed tolerance.
 
+### S3 closeout evidence (2026-06-11)
+
+**Plan:** [`Archived/plans/s3-m2-acceptance_Plan.md`](Archived/plans/s3-m2-acceptance_Plan.md).
+
+**G0 (G1 parity — no GPU readback):**
+
+```powershell
+pwsh -File Scripts/Verify-CI.ps1
+```
+
+GfxTests cases: `cpu/gpu cull parity: demo overview`, `demo close viking view`, `layer mask filter` (`GfxTests_Main.cpp`).
+
+**G0-smoke (CPU default + gpu-cull dogfood):**
+
+```powershell
+pwsh -File Scripts/Verify-Smoke.ps1
+```
+
+Pass 1 — CPU indirect (`engine.stress.json` + `stress.json`). Pass 2 — same scene with `--gpu-cull`.
+
+**GpuCull log tokens** (pass 2; `Assert-SmokeLog.ps1 -Profile GpuCull`):
+
+- `[CONFIG] gpuCull=true`
+- `[CULL] … (gpu-deferred)`
+- `GPU cull dispatch`
+- `Scene record using GPU-filled slot indirect`
+
+**Record path audit:** `--gpu-cull` without `--legacy-direct-draw` uses `vkCmdDrawIndexedIndirect` per draw from `myGpuCullIndirectBuffer` (`Vk_ScenePasses.cpp`); no `vkCmdDrawIndexed` on that path.
+
 <a id="validation-s4"></a>
 ## S4 validation (M3)
 

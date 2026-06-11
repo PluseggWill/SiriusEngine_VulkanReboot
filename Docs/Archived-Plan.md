@@ -242,6 +242,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — M2 acceptance (GPU indirect path) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `Verify-Smoke.ps1` dual pass (CPU indirect + `--gpu-cull`); `Assert-SmokeLog.ps1 -Profile GpuCull`; §S3 closeout evidence |
+| **Validation** | `Verify-CI.ps1` GfxTests G1 parity; `Verify-Smoke.ps1` pass 1 + pass 2 (~23s total) |
+| **Plan log** | [`Archived/plans/s3-m2-acceptance_Plan.md`](Archived/plans/s3-m2-acceptance_Plan.md) · [`s3-m2-acceptance_Progress.md`](Archived/plans/s3-m2-acceptance_Progress.md) |
+
+- [x] **[S3]** M2 acceptance sign-off (`--gpu-cull` dogfood; G1 in CI; slot indirect record path) — 2026-06-11
+
+---
+
 ## P3 — entity AABB + draw template SSBO (sync SoA) *(closed 2026-06-10)*
 
 | | |
