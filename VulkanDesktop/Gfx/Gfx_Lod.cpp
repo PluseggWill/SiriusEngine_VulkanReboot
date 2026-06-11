@@ -14,22 +14,31 @@ float EyeDistance( const glm::vec3& aEyeWorld, const glm::vec3& aWorldPoint ) {
     return glm::length( aWorldPoint - aEyeWorld );
 }
 
+uint32_t ResolveLodMeshIdForSlot( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, uint32_t aSlot ) {
+    const uint32_t      logicalId = aScene.GetLogicalMeshId( aSlot );
+    const Gfx_LodChain* chain     = aTable.GetChain( logicalId );
+    if ( chain == nullptr || chain->myMeshIds.empty() ) {
+        return logicalId;
+    }
+
+    aState.EnsureSlotCount( aSlot + 1 );
+    const float    eyeDist   = EyeDistance( aEyeWorld, Gfx_BoundsCenter( aScene.GetBounds( aSlot ) ) );
+    const float    lodBias   = aScene.GetLodBias( aSlot );
+    const uint32_t candidate = Gfx_SelectLodLevel( eyeDist, lodBias, *chain );
+    const uint32_t lodLevel  = Gfx_ApplyLodHysteresis( aSlot, candidate, *chain, eyeDist, lodBias, aState );
+    return aTable.GetResolvedMeshId( logicalId, lodLevel );
+}
+
 void ApplyLodToResult( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, Gfx_ExtractResult& aInOut ) {
     for ( Gfx_DrawInstance& draw : aInOut.myDrawInstances ) {
-        const uint32_t      slot      = draw.myEntityIndex;
-        const uint32_t      logicalId = aScene.GetLogicalMeshId( slot );
-        const float         lodBias   = aScene.GetLodBias( slot );
-        const Gfx_LodChain* chain     = aTable.GetChain( logicalId );
+        const uint32_t      slot  = draw.myEntityIndex;
+        const Gfx_LodChain* chain = aTable.GetChain( aScene.GetLogicalMeshId( slot ) );
         if ( chain == nullptr || chain->myMeshIds.empty() ) {
             continue;
         }
 
-        const float    eyeDist   = EyeDistance( aEyeWorld, Gfx_BoundsCenter( aScene.GetBounds( slot ) ) );
-        const uint32_t candidate = Gfx_SelectLodLevel( eyeDist, lodBias, *chain );
-        const uint32_t lodLevel  = Gfx_ApplyLodHysteresis( slot, candidate, *chain, eyeDist, lodBias, aState );
-        const uint32_t resolved  = aTable.GetResolvedMeshId( logicalId, lodLevel );
-
-        draw.myMeshId = resolved;
+        const uint32_t resolved = ResolveLodMeshIdForSlot( aScene, aEyeWorld, aTable, aState, slot );
+        draw.myMeshId           = resolved;
 
         const uint16_t permSlot    = static_cast< uint16_t >( ( draw.mySortKey >> 48 ) & 0xFFFFu );
         const uint16_t depthBucket = static_cast< uint16_t >( draw.mySortKey & 0xFFFFu );
@@ -148,4 +157,8 @@ void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aE
     aState.EnsureSlotCount( aScene.GetSlotCount() );
     ApplyLodToResult( aScene, aEyeWorld, aTable, aState, aInOut.myOpaque );
     ApplyLodToResult( aScene, aEyeWorld, aTable, aState, aInOut.myTransparent );
+}
+
+uint32_t Gfx_ResolveLodMeshIdForSlot( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, uint32_t aSlot ) {
+    return ResolveLodMeshIdForSlot( aScene, aEyeWorld, aTable, aState, aSlot );
 }

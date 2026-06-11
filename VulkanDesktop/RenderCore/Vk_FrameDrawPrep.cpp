@@ -164,7 +164,8 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
 }
 
 // CONTRACT (P3): Gfx_EntityGpuRecord[slot] mirrors SoA columns; inactive slots keep layerMask == 0.
-bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, uint32_t aCurrentFrame, std::vector< Vk_FrameData >& aFrameDatas ) {
+bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, const Gfx_EntityRecordLodParams& aLod, uint32_t aCurrentFrame,
+                                          std::vector< Vk_FrameData >& aFrameDatas ) {
     Vk_FrameData& frame = aFrameDatas[ aCurrentFrame ];
     if ( frame.myEntityRecordMapped == nullptr ) {
         UtilLogger::Error( "RESOURCE", "Entity-record buffer not mapped for frame " + std::to_string( aCurrentFrame ) );
@@ -180,9 +181,17 @@ bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_R
         return false;
     }
 
+    Gfx_LodState              lodSnapshot{};
+    Gfx_EntityRecordLodParams lodParams = aLod;
+    if ( aLod.myLodEnabled && aLod.myLodState != nullptr ) {
+        lodSnapshot          = *aLod.myLodState;
+        lodParams.myLodState = &lodSnapshot;
+    }
+
     auto* const recordBase = static_cast< Gfx_EntityGpuRecord* >( frame.myEntityRecordMapped );
     for ( uint32_t slot = 0; slot < slotCount; ++slot ) {
-        const uint32_t indexCount = aScene.IsSlotActive( slot ) ? aTables.GetMesh( aScene.GetLogicalMeshId( slot ) ).myIndexCount : 0u;
+        const uint32_t meshId     = Gfx_ResolveEntityRecordMeshId( aScene, slot, lodParams );
+        const uint32_t indexCount = aScene.IsSlotActive( slot ) ? aTables.GetMesh( meshId ).myIndexCount : 0u;
         Gfx_FillEntityGpuRecord( recordBase[ slot ], aScene, slot, indexCount );
     }
 

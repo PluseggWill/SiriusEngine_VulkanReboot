@@ -46,3 +46,6 @@ uint32_t Gfx_ApplyLodHysteresis( uint32_t aSlot, uint32_t aCandidateLod, const G
 
 // After cull: resolve mesh ids on draw instances; refresh opaque sort keys. Transparent sort keys unchanged (mesh not in key).
 void Gfx_ApplyLodToFrameExtract( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, Gfx_FrameExtract& aInOut );
+
+// Single-slot LOD resolve (same rules as Gfx_ApplyLodToFrameExtract). Mutates aState (use a snapshot when filling all slots).
+uint32_t Gfx_ResolveLodMeshIdForSlot( const Gfx_SceneSoA& aScene, const glm::vec3& aEyeWorld, const Gfx_LodTable& aTable, Gfx_LodState& aState, uint32_t aSlot );

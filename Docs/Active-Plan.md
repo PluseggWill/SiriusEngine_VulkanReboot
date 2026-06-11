@@ -37,10 +37,8 @@
 
 | Order | Phase | Focus |
 |-------|-------|--------|
-| 1 | **P3** | M2 GPU cull + automated parity (G1) |
-| 4 | **P3** | M2 GPU cull + automated parity |
-| 5 | **P4** | Vertical slice (objective + restart) |
-| *gate* | — | FG v0 / Stage 2 / Wishlist |
+| 1 | **P4** | Vertical slice (objective + restart) |
+| *gate* | — | FG v0 / Stage 2 / Wishlist (G1 met) |
 
 ```mermaid
 flowchart TB
@@ -159,13 +157,9 @@ Completed — [`Archived-Plan.md`](Archived-Plan.md) § P0 · design log [`Archi
 
 ---
 
-## P3 — M2 GPU cull
+## P3 — M2 GPU cull *(closed 2026-06-11)*
 
-**Plans:** [`Archived/plans/render-m2-prep_Plan.md`](Archived/plans/render-m2-prep_Plan.md) (GPU §), [`Archived/plans/render-m2-p3-a_Plan.md`](Archived/plans/render-m2-p3-a_Plan.md), [`Archived/plans/render-m2-p3-b_Plan.md`](Archived/plans/render-m2-p3-b_Plan.md), ci-verification (parity)  
-**Not in scope:** FG v0, MT v1, Stage 2 passes
-
-- [ ] Optional compaction
-- [ ] LOD GPU subset parity when `lodEnabled`
+Completed — [`Archived-Plan.md`](Archived-Plan.md) § P3 · plans [`Archived/plans/render-m2-p3-*.md`](Archived/plans/) · **G1 met** → FG v0 / hybrid epic.
 
 ---
 

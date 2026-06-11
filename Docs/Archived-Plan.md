@@ -278,6 +278,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## P3 — LOD GPU entity-record parity *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `FillEntityRecords` resolves LOD mesh `indexCount` when `lodEnabled` (primary-view eye); GfxTests `TestLodGpuEntityRecordParity` |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/render-m2-p3-close_Plan.md`](Archived/plans/render-m2-p3-close_Plan.md) · [`render-m2-p3-close_Progress.md`](Archived/plans/render-m2-p3-close_Progress.md) |
+| **Deferred** | Optional GPU compaction → [`Wishlist.md`](Wishlist.md) S3 |
+
+- [x] **[P3]** LOD GPU subset parity when `lodEnabled` (entity-record mesh resolve) — 2026-06-11
+
+---
+
 ## P3 — automated CPU vs GPU cull parity (G1) *(closed 2026-06-10)*
 
 | | |

@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Task** | **P3** — M2 GPU cull + G1 parity |
-| **Recommended next** | P3 optional compaction or LOD GPU parity; **G1 met** → FG v0 / hybrid epic |
-| **Plan / Progress** | [`Active-Plan.md`](Active-Plan.md) § P3 · last closeout [`Archived/plans/render-m2-p3-g1_Progress.md`](Archived/plans/render-m2-p3-g1_Progress.md) |
+| **Task** | **P4** — Vertical slice v0 |
+| **Recommended next** | Play/benchmark scene + objective + restart; **G1 met** → FG v0 / hybrid epic |
+| **Plan / Progress** | [`Active-Plan.md`](Active-Plan.md) § P4 |
 | **Do not @** | Completed tasks under [`Archived/plans/`](Archived/plans/) unless debugging history |
 
 *Update this table when opening or closing a vibe task.*
@@ -44,7 +44,7 @@ Canonical rules: `.cursor/rules/docs-roadmap-arch-sync.mdc` · workflow: `.curso
 | [`Archived/plans/shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) | Bindless dogfood (closed) |
 | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) | Mesh import, hot reload |
 
-Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`, `swapchain-recreation`).
+Closed: [`Archived/plans/`](Archived/plans/) (incl. `ci-verification`, `vk-core-world-peel`, `config-platform-hardening`, `swapchain-recreation`, `render-m2-p3-*`).
 
 ---
 

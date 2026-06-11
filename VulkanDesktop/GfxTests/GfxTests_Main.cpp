@@ -6,6 +6,7 @@
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_GpuCull.h"
+#include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -310,6 +311,44 @@ void TestCpuGpuCullParityLayerMask() {
     TestCpuGpuCullParity( scene, view, "cpu/gpu cull parity: layer mask filter" );
 }
 
+void TestLodGpuEntityRecordParity() {
+    Gfx_SceneSoA scene;
+    // Near entity: logical mesh 0 → LOD 0 (mesh 10). Far entity: logical mesh 0 → LOD 1 (mesh 20).
+    scene.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 2.0f ) ) );
+    scene.AllocEntity( 0, 0, glm::translate( glm::mat4( 1.0f ), glm::vec3( 0.0f, 0.0f, 40.0f ) ) );
+
+    Gfx_LodTable lodTable;
+    Gfx_LodChain chain{};
+    chain.myMeshIds            = { 10, 20 };
+    chain.myDistanceThresholds = { 15.0f };
+    lodTable.SetChain( 0, std::move( chain ) );
+
+    const glm::vec3    eye{ 0.0f, -5.0f, 2.0f };
+    Gfx_CullViewParams view = MakePerspectiveView( eye, glm::vec3( 0.0f, 0.0f, 2.0f ), 60.0f, 1.0f );
+
+    Gfx_LodState     cpuLodState;
+    Gfx_FrameExtract extract{};
+    Gfx_ExtractDrawInstances( scene, view, extract );
+    Gfx_ApplyLodToFrameExtract( scene, eye, lodTable, cpuLodState, extract );
+
+    Expect( extract.myOpaque.myDrawInstances.size() == 2, "lod gpu parity: two extracted draws" );
+
+    Gfx_EntityRecordLodParams entityLod{};
+    entityLod.myLodEnabled = true;
+    entityLod.myCameraEye  = eye;
+    entityLod.myLodTable   = &lodTable;
+    Gfx_LodState entityLodSnapshot;
+    entityLod.myLodState = &entityLodSnapshot;
+
+    Expect( Gfx_ResolveEntityRecordMeshId( scene, 0, entityLod ) == 10, "lod gpu parity: near slot selects LOD0 mesh" );
+    Expect( Gfx_ResolveEntityRecordMeshId( scene, 1, entityLod ) == 20, "lod gpu parity: far slot selects LOD1 mesh" );
+
+    for ( const Gfx_DrawInstance& draw : extract.myOpaque.myDrawInstances ) {
+        const uint32_t resolvedMesh = Gfx_ResolveEntityRecordMeshId( scene, draw.myEntityIndex, entityLod );
+        Expect( draw.myMeshId == resolvedMesh, "lod gpu parity: CPU draw mesh matches entity-record LOD resolve" );
+    }
+}
+
 void TestGpuCullSkipsCpuFrustumCull() {
     Gfx_SceneSoA scene;
     PopulateDemoSceneSoA( scene );
@@ -394,6 +433,7 @@ int main() {
     TestEntityIndirectSlot();
     TestCpuGpuCullParityDemoViews();
     TestCpuGpuCullParityLayerMask();
+    TestLodGpuEntityRecordParity();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

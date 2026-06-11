@@ -700,8 +700,19 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         cullParams.pad                       = 0;
     }
 
+    const bool lodEnabled = myDebugUI != nullptr ? myDebugUI->myRenderDebug.myLodEnabled : false;
+
+    Gfx_EntityRecordLodParams entityLodParams{};
+    entityLodParams.myLodEnabled = lodEnabled;
+    if ( lodEnabled && activeViewCount > 0 ) {
+        entityLodParams.myCameraEye = aViews[ 0 ].myCamera.myEye;
+        entityLodParams.myLodTable  = &aWorld.myLodTable;
+        entityLodParams.myLodState  = &aWorld.myLodState;
+    }
+
     // Scene-wide; FillEntityRecords logs on failure (fail-closed before per-view slab/template fill).
-    if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( aWorld.mySceneSoA, mySceneGpuCtx.myResourceTables, myFrameCtx.myCurrentFrame, myFrameCtx.myFrameDatas ) ) {
+    if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( aWorld.mySceneSoA, mySceneGpuCtx.myResourceTables, entityLodParams, myFrameCtx.myCurrentFrame,
+                                                      myFrameCtx.myFrameDatas ) ) {
         return false;
     }
 
@@ -718,7 +729,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         prepParams.myCamera                 = &aViews[ viewIndex ].myCamera;
         prepParams.myLodTable               = &aWorld.myLodTable;
         prepParams.myLodState               = lodStateForView;
-        prepParams.myLodEnabled             = myDebugUI != nullptr ? myDebugUI->myRenderDebug.myLodEnabled : false;
+        prepParams.myLodEnabled             = lodEnabled;
         prepParams.myLodDebugLogicalMeshId  = aWorld.myLodDebugLogicalMeshId;
         prepParams.myCurrentFrame           = myFrameCtx.myCurrentFrame;
         prepParams.myFrameDatas             = &myFrameCtx.myFrameDatas;

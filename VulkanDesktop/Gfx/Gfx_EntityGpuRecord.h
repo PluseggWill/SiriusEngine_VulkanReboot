@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "Gfx_DrawTemplate.h"
+#include "Gfx_Lod.h"
 #include "Gfx_SceneSoA.h"
 
 // Per SoA slot: world AABB + draw-template fields for GPU cull input (std430-friendly).
@@ -23,4 +24,14 @@ struct Gfx_EntityGpuRecord {
 static_assert( sizeof( Gfx_EntityGpuRecord ) == 80, "Gfx_EntityGpuRecord std430 stride" );
 static_assert( sizeof( Gfx_EntityGpuRecord ) % 16 == 0, "Gfx_EntityGpuRecord must be 16-byte aligned for std430 arrays" );
 
+// Optional LOD: when myLodEnabled, resolve physical mesh id from myLodTable (primary-view eye). myLodState is snapshotted by caller.
+struct Gfx_EntityRecordLodParams {
+    bool                myLodEnabled = false;
+    glm::vec3           myCameraEye{};
+    const Gfx_LodTable* myLodTable = nullptr;
+    Gfx_LodState*       myLodState = nullptr;
+};
+
 void Gfx_FillEntityGpuRecord( Gfx_EntityGpuRecord& aOut, const Gfx_SceneSoA& aScene, uint32_t aSlot, uint32_t aIndexCount );
+
+uint32_t Gfx_ResolveEntityRecordMeshId( const Gfx_SceneSoA& aScene, uint32_t aSlot, const Gfx_EntityRecordLodParams& aLod );
