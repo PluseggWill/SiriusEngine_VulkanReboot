@@ -303,6 +303,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — FG slice 5 (bindless hybrid) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `GBufferFrag_Bindless` + hybrid record on default bindless path (no ForwardLit fallback) |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred + `materialPath=Bindless` |
+| **Plan log** | [`Archived/plans/s3-fg-s5-bindless-hybrid_Plan.md`](Archived/plans/s3-fg-s5-bindless-hybrid_Plan.md) · [`s3-fg-s5-bindless-hybrid_Progress.md`](Archived/plans/s3-fg-s5-bindless-hybrid_Progress.md) |
+
+- [x] **[S3]** FG slice 5: bindless hybrid path — 2026-06-11
+
+---
+
 ## S3 — FG v0 opaque chain *(closed 2026-06-11)*
 
 | | |

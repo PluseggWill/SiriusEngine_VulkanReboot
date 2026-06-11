@@ -24,8 +24,9 @@
 
 namespace {
 
-constexpr const char* kGBufferVertSpv = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
-constexpr const char* kGBufferFragSpv = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
+constexpr const char* kGBufferVertSpv         = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
+constexpr const char* kGBufferFragSpv         = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
+constexpr const char* kGBufferFragBindlessSpv = "VulkanDesktop/Shader_Generated/GBufferFrag_Bindless.spv";
 
 constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -38,6 +39,10 @@ void DestroyPipelines( Vk_Core& aCore ) {
     if ( aCore.myGBufferState.myGBufferPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, aCore.myGBufferState.myGBufferPipeline, nullptr );
         aCore.myGBufferState.myGBufferPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myGBufferState.myGBufferPipelineBindless != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.myGBufferState.myGBufferPipelineBindless, nullptr );
+        aCore.myGBufferState.myGBufferPipelineBindless = VK_NULL_HANDLE;
     }
 }
 
@@ -245,6 +250,16 @@ VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
+// Bind Set 0 (+ Set 1 when bindless). Re-bind after DeferredLighting (different pipeline layout).
+void BindHybridSceneDescriptors( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aFrameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptor, 0, nullptr );
+    if ( aBindless ) {
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
+                                 &aCore.mySceneGpuCtx.myBindlessDescriptorSet, 0, nullptr );
+        aCore.myFrameStats.myMaterialSetBinds++;
+    }
+}
+
 // CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
 void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
@@ -293,6 +308,12 @@ void RebuildResources( Vk_Core& aCore ) {
     CreateGBufferFramebuffer( aCore );
 
     aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
+
+    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+        const std::string bindlessFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragBindlessSpv );
+        aCore.myGBufferState.myGBufferPipelineBindless =
+            BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myBindlessPipelineLayout, vertPath, bindlessFragPath );
+    }
 }
 
 }  // namespace
@@ -339,23 +360,18 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
-    static bool sChainLoggedOnce      = false;
-    static bool sBindlessFallbackOnce = false;
-    static bool sMultiViewWarnOnce    = false;
+    static bool sChainLoggedOnce   = false;
+    static bool sMultiViewWarnOnce = false;
 
     if ( !sChainLoggedOnce ) {
         UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
         sChainLoggedOnce = true;
     }
 
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        if ( !sBindlessFallbackOnce ) {
-            UtilLogger::Warn( "FG", "HybridDeferred is batch-only; falling back to ForwardLit record." );
-            sBindlessFallbackOnce = true;
-        }
-        Vk_ScenePasses::RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
-        return;
-    }
+    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
+    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
+    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+    const VkPipeline            gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
 
     if ( aViewCount > 1 && !sMultiViewWarnOnce ) {
         UtilLogger::Warn( "FG", "HybridDeferred FG v0 uses view 0 only." );
@@ -389,15 +405,14 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     if ( packet != nullptr ) {
         aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
-                                 &aFrameDescriptors[ viewIndex ], 0, nullptr );
+        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
 
         if ( Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
             }
             Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
-                                                     legacyDirectDraw, emitDebugLabels, aCore.myGBufferState.myGBufferPipeline );
+                                                     legacyDirectDraw, emitDebugLabels, gbufferPipeline );
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
@@ -430,8 +445,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipTransparentPass
          && !packet->myTransparentPass.myDraws.empty() ) {
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
-                                 &aFrameDescriptors[ viewIndex ], 0, nullptr );
+        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
         if ( emitDebugLabels ) {
             aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ForwardTransparent" );
         }

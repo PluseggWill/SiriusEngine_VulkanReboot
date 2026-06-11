@@ -18,9 +18,10 @@ struct Vk_GBufferState {
     Gfx_Texture      myAlbedo;
     Gfx_Texture      myNormalRoughness;
     Gfx_Texture      myDepth;
-    VkRenderPass     myRenderPass      = VK_NULL_HANDLE;
-    VkFramebuffer    myFramebuffer     = VK_NULL_HANDLE;
-    VkPipeline       myGBufferPipeline = VK_NULL_HANDLE;
+    VkRenderPass     myRenderPass              = VK_NULL_HANDLE;
+    VkFramebuffer    myFramebuffer             = VK_NULL_HANDLE;
+    VkPipeline       myGBufferPipeline         = VK_NULL_HANDLE;
+    VkPipeline       myGBufferPipelineBindless = VK_NULL_HANDLE;
     Vk_DeletionQueue myDeletionQueue;
     bool             myInitialized = false;
 };

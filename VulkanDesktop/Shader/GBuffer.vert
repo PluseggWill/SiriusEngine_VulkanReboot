@@ -20,6 +20,7 @@ layout(location = 0) out vec3 outColor;
 layout(location = 1) out vec2 outTexCoord;
 layout(location = 2) out vec3 outWorldNormal;
 layout(location = 3) out vec3 outWorldPos;
+layout(location = 4) flat out uint outMaterialIndex;
 
 void main()
 {
@@ -29,4 +30,5 @@ void main()
     outTexCoord = inTexCoord;
     outWorldNormal = normalize(mat3(objectData.model) * inNormal);
     outWorldPos = worldPosition.xyz;
+    outMaterialIndex = objectData.materialIndex;
 }

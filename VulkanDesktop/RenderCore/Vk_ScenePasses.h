@@ -30,11 +30,11 @@ public:
                                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );
 
-    // Opaque batch draws; aPipelineOverride = G-buffer MRT pipeline when non-null (batch material path only).
+    // Hybrid G-buffer opaque: aGBufferPipeline = batch or bindless MRT pipeline (see RecordPassDrawsFromPacket / M8).
     static void RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
-                                         VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels, VkPipeline aPipelineOverride );
+                                         VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels, VkPipeline aGBufferPipeline );
 
-    // HybridDeferred transparent sub-pass: batch materials only; reads swapchain depth after G-buffer copy.
+    // HybridDeferred transparent sub-pass; reads swapchain depth after G-buffer copy.
     static void RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                               VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels );
 

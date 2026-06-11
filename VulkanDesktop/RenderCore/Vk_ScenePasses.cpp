@@ -371,17 +371,26 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
 
 void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                               VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels,
-                                              VkPipeline aPipelineOverride ) {
+                                              VkPipeline aGBufferPipeline ) {
 
-    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", Vk_RenderMaterialPath::Batch, VK_NULL_HANDLE, aDrawBufferBaseIndex, aIndirectBuffer,
-                               aUseGpuCullIndirect, aUseLegacyDirectDraw, aEmitDebugLabels, aPipelineOverride );
+    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
+    if ( path == Vk_RenderMaterialPath::Bindless ) {
+        RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", path, aGBufferPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
+                                   aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
+    }
+    else {
+        RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", path, VK_NULL_HANDLE, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
+                                   aUseLegacyDirectDraw, aEmitDebugLabels, aGBufferPipeline );
+    }
 }
 
 void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
-    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "ForwardTransparent", Vk_RenderMaterialPath::Batch, VK_NULL_HANDLE, aDrawBufferBaseIndex, aIndirectBuffer,
-                               aUseGpuCullIndirect, aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
+    const Vk_RenderMaterialPath path                = aCore.myDeviceCtx.myMaterialPath;
+    const VkPipeline            transparentPipeline = path == Vk_RenderMaterialPath::Bindless ? aCore.mySceneGpuCtx.myTransparentPipelineBindless : VK_NULL_HANDLE;
+    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "ForwardTransparent", path, transparentPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
+                               aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
 }
 
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
