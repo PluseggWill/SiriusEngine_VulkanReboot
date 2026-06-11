@@ -291,13 +291,25 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — FG slice 4 (ForwardTransparent) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | G-buffer depth copy + hybrid resolve RP; `ForwardTransparent` after deferred lighting (batch path) |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` (ForwardLit); manual HybridDeferred + `FORCE_MATERIAL_BATCH=1` |
+| **Plan log** | [`Archived/plans/s3-fg-s4-forward-transparent_Plan.md`](Archived/plans/s3-fg-s4-forward-transparent_Plan.md) · [`s3-fg-s4-forward-transparent_Progress.md`](Archived/plans/s3-fg-s4-forward-transparent_Progress.md) |
+
+- [x] **[S3]** FG slice 4: transparent over deferred depth — 2026-06-11
+
+---
+
 ## S3 — FG v0 opaque chain *(closed 2026-06-11)*
 
 | | |
 |--|--|
-| **Outcome** | `GBufferOpaque → ClusterBuild → DeferredLighting` on HybridDeferred preset; ForwardLit default unchanged |
+| **Outcome** | `GBufferOpaque → ClusterBuild → DeferredLighting → ForwardTransparent` on HybridDeferred preset (batch); ForwardLit default unchanged |
 | **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred dogfood (`FORCE_MATERIAL_BATCH=1`) |
-| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–3 in [`Archived/plans/`](Archived/plans/) |
+| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–4 in [`Archived/plans/`](Archived/plans/) |
 
 - [x] **[S3]** FG v0: preset + G-buffer + cluster build + deferred lighting — 2026-06-11
 

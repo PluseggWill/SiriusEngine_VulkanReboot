@@ -1,5 +1,5 @@
 // Module: Vk_GBufferPass — FG v0 (HybridDeferred preset).
-// Chain: GBufferOpaque -> ClusterBuild -> DeferredLighting -> swapchain.
+// Chain: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> swapchain.
 // G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
@@ -123,7 +123,7 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     depth.format         = aCore.FindDepthFormat();
     depth.samples        = VK_SAMPLE_COUNT_1_BIT;
     depth.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth.storeOp        = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
     depth.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -195,8 +195,8 @@ void CreateGBufferImages( Vk_Core& aCore ) {
     createColorTarget( aCore.myGBufferState.myAlbedo, kAlbedoFormat );
     createColorTarget( aCore.myGBufferState.myNormalRoughness, kNormalRoughnessFormat );
 
-    aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
-                       aCore.myGBufferState.myDepth.AllocImage() );
+    aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+                       1, VK_SAMPLE_COUNT_1_BIT, aCore.myGBufferState.myDepth.AllocImage() );
     aCore.myGBufferState.myDepth.ImageView() = aCore.CreateImageView( aCore.myGBufferState.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     {
@@ -231,6 +231,50 @@ void CreateGBufferFramebuffer( Vk_Core& aCore ) {
     const VkDevice      device      = aCore.myDeviceCtx.myDevice;
     const VkFramebuffer framebuffer = aCore.myGBufferState.myFramebuffer;
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
+}
+
+VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout        = aOldLayout;
+    barrier.newLayout        = aNewLayout;
+    barrier.srcAccessMask    = aSrcAccess;
+    barrier.dstAccessMask    = aDstAccess;
+    barrier.image            = aImage;
+    barrier.subresourceRange = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+    return barrier;
+}
+
+// CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
+void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+    VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
+    VkImage          dstImage = aCore.mySwapchainCtx.myDepthTexture.Image();
+    const VkExtent2D extent   = aCore.mySwapchainCtx.mySwapChainExtent;
+
+    constexpr VkImageLayout kDepthAttachment = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    std::array< VkImageMemoryBarrier, 2 > toTransfer = {
+        DepthImageBarrier( srcImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT ),
+        DepthImageBarrier( dstImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT ),
+    };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( toTransfer.size() ), toTransfer.data() );
+
+    VkImageCopy region{};
+    region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    region.srcSubresource.layerCount = 1;
+    region.dstSubresource            = region.srcSubresource;
+    region.extent                    = { extent.width, extent.height, 1 };
+    vkCmdCopyImage( aCommandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
+
+    std::array< VkImageMemoryBarrier, 2 > toAttachment = {
+        DepthImageBarrier( srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT ),
+        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_WRITE_BIT,
+                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT ),
+    };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0, 0,
+                          nullptr, 0, nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
 void RebuildResources( Vk_Core& aCore ) {
@@ -298,10 +342,9 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     static bool sChainLoggedOnce      = false;
     static bool sBindlessFallbackOnce = false;
     static bool sMultiViewWarnOnce    = false;
-    static bool sTransparentSkipOnce  = false;
 
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting" );
+        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
         sChainLoggedOnce = true;
     }
 
@@ -319,17 +362,15 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         sMultiViewWarnOnce = true;
     }
 
-    if ( !sTransparentSkipOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred FG v0: transparent pass skipped." );
-        sTransparentSkipOnce = true;
-    }
-
     const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
     const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
     const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
     const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
+
+    constexpr uint32_t           viewIndex = 0;  // FG v0: single view
+    const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
 
     VkRenderPassBeginInfo gbufferBegin{};
     gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -346,19 +387,17 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     vkCmdBeginRenderPass( aCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
 
-    const uint32_t viewIndex = 0;
-    if ( viewIndex < aViewCount ) {
-        const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
+    if ( packet != nullptr ) {
         aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
                                  &aFrameDescriptors[ viewIndex ], 0, nullptr );
 
-        if ( Vk_RenderBackend::ValidateFramePacket( packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
             }
-            Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCommandBuffer, packet.myOpaquePass, packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw,
-                                                     emitDebugLabels, aCore.myGBufferState.myGBufferPipeline );
+            Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
+                                                     legacyDirectDraw, emitDebugLabels, aCore.myGBufferState.myGBufferPipeline );
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
             }
@@ -369,23 +408,39 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
-    // Swapchain RP: fullscreen DeferredLighting (caller owns begin/end).
+    CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
+
+    // Hybrid resolve RP: color clear + depth LOAD (opaque depth copied above).
     VkRenderPassBeginInfo swapBegin{};
     swapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    swapBegin.renderPass        = aCore.mySwapchainCtx.myRenderPass;
+    swapBegin.renderPass        = aCore.mySwapchainCtx.myHybridResolveRenderPass;
     swapBegin.framebuffer       = aCore.mySwapchainCtx.mySwapChainFrameBuffers[ anImageIndex ];
     swapBegin.renderArea.offset = { 0, 0 };
     swapBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
     std::array< VkClearValue, 2 > swapClears{};
     swapClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    swapClears[ 1 ].depthStencil = { 1.0f, 0 };
+    swapClears[ 1 ].depthStencil = { 1.0f, 0 };  // ignored when depth loadOp=LOAD
     swapBegin.clearValueCount    = static_cast< uint32_t >( swapClears.size() );
     swapBegin.pClearValues       = swapClears.data();
 
     vkCmdBeginRenderPass( aCommandBuffer, &swapBegin, VK_SUBPASS_CONTENTS_INLINE );
 
-    aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex < aViewCount ? viewIndex : 0 ], aScissors[ viewIndex < aViewCount ? viewIndex : 0 ] );
+    aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
     Vk_DeferredLightingPass::RecordDraw( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
+
+    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipTransparentPass
+         && !packet->myTransparentPass.myDraws.empty() ) {
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myPipelineLayout, VkDescriptorPolicy::kSetFrame, 1,
+                                 &aFrameDescriptors[ viewIndex ], 0, nullptr );
+        if ( emitDebugLabels ) {
+            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ForwardTransparent" );
+        }
+        Vk_ScenePasses::RecordTransparentPacketDraws( aCore, aCommandBuffer, packet->myTransparentPass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
+                                                      legacyDirectDraw, emitDebugLabels );
+        if ( emitDebugLabels ) {
+            aCore.CmdEndDebugLabel( aCommandBuffer );
+        }
+    }
 
     vkCmdEndRenderPass( aCommandBuffer );
 }

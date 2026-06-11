@@ -35,7 +35,7 @@ Pass topology diagram: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 M2 geometry closed via P2–P3 ([`Archived-Plan.md`](Archived-Plan.md)). Validate: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3.
 
 - [ ] `LNK4098` linker warning *(optional)*
-- [ ] Hybrid follow-ups: transparent over deferred depth, bindless hybrid, forward parity — [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · [`Wishlist.md`](Wishlist.md) S7
+- [ ] Hybrid follow-ups: bindless hybrid, forward parity — [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · [`Wishlist.md`](Wishlist.md) S7
 
 Compaction / MT v1 → [`Wishlist.md`](Wishlist.md) backlog.
 
@@ -53,7 +53,7 @@ Compaction / MT v1 → [`Wishlist.md`](Wishlist.md) backlog.
 
 | # | Landing | Where | Plan |
 |---|---------|-------|------|
-| 1 | FG v0 closed | S3 | [`Archived/plans/s3-fg-s3-deferred-lighting_Plan.md`](Archived/plans/s3-fg-s3-deferred-lighting_Plan.md) |
+| 1 | FG v0 + transparent slice | S3 | [`Archived/plans/s3-fg-s4-forward-transparent_Plan.md`](Archived/plans/s3-fg-s4-forward-transparent_Plan.md) |
 | 5 | Vertical slice = 3 tasks | P4 | § P4 |
 | 18 | Bindless layout codegen | Wishlist | shader-bindless-policy |
 | 19 | MeshImport v0 | Wishlist | content-pipeline §A |

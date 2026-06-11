@@ -485,9 +485,27 @@ void Vk_SwapchainHost::CreateRenderPass( Vk_Core& aCore ) {
         throw std::runtime_error( "failed to create render pass!" );
     }
 
-    const VkDevice     device = aCore.myDeviceCtx.myDevice;
-    const VkRenderPass render = aCore.mySwapchainCtx.myRenderPass;
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, render ]() { vkDestroyRenderPass( device, render, nullptr ); } );
+    // HybridDeferred: depth LOAD after G-buffer depth copy (ForwardTransparent reads opaque depth).
+    // Depth attachment is always index 1 (color/MSAA color at 0; resolve at 2 when MSAA).
+    std::vector< VkAttachmentDescription > hybridAttachments = attachments;
+    if ( hybridAttachments.size() >= 2 ) {
+        hybridAttachments[ 1 ].loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD;
+        hybridAttachments[ 1 ].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        renderPassInfo.pAttachments          = hybridAttachments.data();
+        if ( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.mySwapchainCtx.myHybridResolveRenderPass ) != VK_SUCCESS ) {
+            throw std::runtime_error( "failed to create hybrid resolve render pass!" );
+        }
+    }
+
+    const VkDevice     device       = aCore.myDeviceCtx.myDevice;
+    const VkRenderPass render       = aCore.mySwapchainCtx.myRenderPass;
+    const VkRenderPass hybridRender = aCore.mySwapchainCtx.myHybridResolveRenderPass;
+    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, render, hybridRender ]() {
+        vkDestroyRenderPass( device, render, nullptr );
+        if ( hybridRender != VK_NULL_HANDLE ) {
+            vkDestroyRenderPass( device, hybridRender, nullptr );
+        }
+    } );
 }
 
 void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
@@ -527,8 +545,9 @@ void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
 
 void Vk_SwapchainHost::CreateDepthResources( Vk_Core& aCore ) {
     const VkFormat depthFormat = aCore.FindDepthFormat();
-    aCore.CreateImage( aCore.mySwapchainCtx.mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       aCore.mySwapchainCtx.myMSAASamples, aCore.mySwapchainCtx.myDepthTexture.AllocImage() );
+    aCore.CreateImage( aCore.mySwapchainCtx.mySwapChainExtent, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, aCore.mySwapchainCtx.myMSAASamples,
+                       aCore.mySwapchainCtx.myDepthTexture.AllocImage() );
     aCore.mySwapchainCtx.myDepthTexture.ImageView() = aCore.CreateImageView( aCore.mySwapchainCtx.myDepthTexture.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
     aCore.TransitionImageLayout( aCore.mySwapchainCtx.myDepthTexture.Image(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 

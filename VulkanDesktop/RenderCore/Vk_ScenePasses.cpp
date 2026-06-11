@@ -377,6 +377,13 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aC
                                aUseGpuCullIndirect, aUseLegacyDirectDraw, aEmitDebugLabels, aPipelineOverride );
 }
 
+void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+                                                   VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
+
+    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "ForwardTransparent", Vk_RenderMaterialPath::Batch, VK_NULL_HANDLE, aDrawBufferBaseIndex, aIndirectBuffer,
+                               aUseGpuCullIndirect, aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
+}
+
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
 
     aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );

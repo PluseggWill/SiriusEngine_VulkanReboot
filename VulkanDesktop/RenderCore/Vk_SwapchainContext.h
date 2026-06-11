@@ -18,7 +18,8 @@ struct Vk_SwapchainContext {
     std::vector< VkImageView >   mySwapChainImageViews;
     std::vector< VkFramebuffer > mySwapChainFrameBuffers;
 
-    VkRenderPass myRenderPass = VK_NULL_HANDLE;
+    VkRenderPass myRenderPass              = VK_NULL_HANDLE;
+    VkRenderPass myHybridResolveRenderPass = VK_NULL_HANDLE;  // depth LOAD after G-buffer depth copy (HybridDeferred transparent)
 
     Gfx_Texture myDepthTexture;
     Gfx_Texture myColorTexture;
