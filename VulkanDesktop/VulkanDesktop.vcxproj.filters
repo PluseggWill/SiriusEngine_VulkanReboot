@@ -130,6 +130,9 @@
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ObjectiveRuntime.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -349,6 +352,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DemoSceneSim.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ObjectiveRuntime.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawExtract.h">

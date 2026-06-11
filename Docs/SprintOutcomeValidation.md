@@ -131,6 +131,32 @@ Pass 1 — CPU indirect (`engine.stress.json` + `stress.json`). Pass 2 — same 
 
 **Record path audit:** `--gpu-cull` without `--legacy-direct-draw` uses `vkCmdDrawIndexedIndirect` per draw from `myGpuCullIndirectBuffer` (`Vk_ScenePasses.cpp`); no `vkCmdDrawIndexed` on that path.
 
+<a id="validation-p4"></a>
+## P4 validation (vertical slice v0)
+
+**Plan:** [`Archived/plans/p4-vertical-slice-v0_Plan.md`](Archived/plans/p4-vertical-slice-v0_Plan.md).
+
+**CI:**
+
+```powershell
+pwsh -File Scripts/Verify-CI.ps1
+```
+
+GfxTests: `TestSliceSceneAssets` (slice JSON + on-disk asset paths).
+
+**Manual play:**
+
+```powershell
+$Repo = "<repo-root>"
+& "$Repo\x64\Debug\VulkanDesktop.exe" `
+  --asset-root $Repo `
+  --config "$Repo\Config\engine.slice.json"
+```
+
+- Fly to campfire (~`(3, 0, -4)`) → log `[SLICE] Objective won: reached target` + HUD **Complete!**
+- Wait 120s without reaching target → `[SLICE] Objective lost: time limit`
+- Press **R** or Scene panel **Restart current** → `[APP] Scene reload completed` (process stays open)
+
 <a id="validation-s4"></a>
 ## S4 validation (M3)
 

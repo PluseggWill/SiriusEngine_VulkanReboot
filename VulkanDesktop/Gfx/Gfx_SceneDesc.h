@@ -57,6 +57,18 @@ struct Gfx_SceneEntityEntry {
     float           myLodBias     = 0.0f;
 };
 
+enum class Gfx_SceneObjectiveType : uint8_t {
+    None  = 0,
+    Reach = 1,
+};
+
+struct Gfx_SceneObjectiveDesc {
+    Gfx_SceneObjectiveType myType = Gfx_SceneObjectiveType::None;
+    glm::vec3              myTargetPosition{ 0.0f };
+    float                  myRadius           = 4.0f;
+    float                  myTimeLimitSeconds = 120.0f;
+};
+
 struct Gfx_SceneCameraEntry {
     std::string myId;
     glm::vec3   myEye{ 0.0f, 0.0f, 0.0f };
@@ -78,6 +90,7 @@ struct Gfx_SceneDesc {
     std::vector< Gfx_SceneMaterialEntry >                  myMaterials;
     std::vector< Gfx_SceneEntityEntry >                    myEntities;
     std::vector< Gfx_SceneCameraEntry >                    myCameras;
+    Gfx_SceneObjectiveDesc                                 myObjective;
 };
 
 // Stable string-id → dense table index maps (array order in scene JSON).

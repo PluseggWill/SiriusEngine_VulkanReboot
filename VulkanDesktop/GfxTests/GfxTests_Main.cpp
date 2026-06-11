@@ -17,12 +17,14 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <nlohmann/json.hpp>
 
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #if defined( _WIN32 )
@@ -422,6 +424,41 @@ void TestClusterGridCount() {
     Expect( sizeof( Gfx_ClusterLighting::GpuClusterLightList ) == sizeof( uint32_t ) * ( 1 + Gfx_ClusterLighting::kMaxLightsPerCluster ), "GpuClusterLightList std430 size" );
 }
 
+void TestSliceSceneAssets( const std::filesystem::path& aRepoRoot ) {
+    const std::filesystem::path scenePath = aRepoRoot / "Data" / "Scenes" / "slice.json";
+    std::ifstream               file( scenePath );
+    Expect( file.good(), "slice.json readable" );
+    if ( !file.good() ) {
+        return;
+    }
+
+    nlohmann::json root = nlohmann::json::parse( file );
+    Expect( root.value( "name", "" ) == "slice", "slice scene name" );
+    Expect( root.contains( "objective" ) && root[ "objective" ].value( "type", "" ) == "reach", "slice reach objective" );
+    Expect( root[ "entities" ].is_array() && root[ "entities" ].size() == 7, "slice entity count" );
+
+    std::unordered_set< std::string > paths;
+    auto                              addPath = [ & ]( const std::string& aPath ) {
+        if ( !aPath.empty() ) {
+            paths.insert( aPath );
+        }
+    };
+    for ( const auto& mesh : root[ "meshes" ] ) {
+        addPath( mesh.value( "path", "" ) );
+    }
+    for ( const auto& texture : root[ "textures" ] ) {
+        addPath( texture.value( "path", "" ) );
+    }
+    const auto& lit = root[ "shaders" ][ "lit" ];
+    addPath( lit.value( "vert", "" ) );
+    addPath( lit.value( "frag", "" ) );
+
+    for ( const std::string& path : paths ) {
+        const std::filesystem::path full = aRepoRoot / std::filesystem::path( path );
+        Expect( std::filesystem::exists( full ), ( "slice asset exists: " + path ).c_str() );
+    }
+}
+
 void TestRenderPresetHybridDeferred() {
     Expect( Gfx_RenderPreset::IsHybridDeferred( "HybridDeferred" ), "HybridDeferred preset recognized" );
     Expect( !Gfx_RenderPreset::IsHybridDeferred( "ForwardLit" ), "ForwardLit is not hybrid deferred" );
@@ -457,6 +494,7 @@ int main() {
     Gfx_SetMaterialTableGenerationForExtract( 1 );
 
     TestConfigPrecedence( repoRoot );
+    TestSliceSceneAssets( repoRoot );
     TestSoAGeneration();
     TestTransparentSortStableUnderRotation();
     TestEntityGpuRecordSync();

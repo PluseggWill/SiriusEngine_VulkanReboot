@@ -194,6 +194,7 @@
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
     <ClCompile Include="Gfx\Gfx_Bounds.cpp" />
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
+    <ClCompile Include="Gfx\Gfx_ObjectiveRuntime.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawTemplate.cpp" />
     <ClCompile Include="Gfx\Gfx_EntityGpuRecord.cpp" />
@@ -272,6 +273,7 @@
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />
     <ClInclude Include="Gfx\Gfx_Bounds.h" />
     <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
+    <ClInclude Include="Gfx\Gfx_ObjectiveRuntime.h" />
     <ClInclude Include="Gfx\Gfx_DrawBatch.h" />
     <ClInclude Include="Gfx\Gfx_DrawTemplate.h" />
     <ClInclude Include="Gfx\Gfx_EntityGpuRecord.h" />

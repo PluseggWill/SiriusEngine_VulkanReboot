@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "name": "slice",
+  "shaders": {
+    "lit": {
+      "vert": "VulkanDesktop/Shader_Generated/TriangleVert.spv",
+      "frag": "VulkanDesktop/Shader_Generated/TrianglePix.spv"
+    }
+  },
+  "logicalMeshes": [
+    { "id": "viking", "lodMeshes": ["viking_room"] },
+    {
+      "id": "tree",
+      "lodMeshes": ["kenney_tree_detailed", "kenney_tree_simple"],
+      "lodDistances": [14.0]
+    },
+    { "id": "rock", "lodMeshes": ["kenney_rock_large"] },
+    { "id": "campfire", "lodMeshes": ["kenney_campfire"] },
+    { "id": "tent", "lodMeshes": ["kenney_tent"] },
+    { "id": "stump", "lodMeshes": ["kenney_stump"] }
+  ],
+  "meshes": [
+    { "id": "viking_room", "path": "Data/Models/viking_room.obj" },
+    { "id": "kenney_tree_detailed", "path": "Data/Models/kenney_tree_detailed.obj" },
+    { "id": "kenney_tree_simple", "path": "Data/Models/kenney_tree_simple.obj" },
+    { "id": "kenney_rock_large", "path": "Data/Models/kenney_rock_large_a.obj" },
+    { "id": "kenney_campfire", "path": "Data/Models/kenney_campfire_stones.obj" },
+    { "id": "kenney_tent", "path": "Data/Models/kenney_tent_closed.obj" },
+    { "id": "kenney_stump", "path": "Data/Models/kenney_stump_round.obj" }
+  ],
+  "textures": [
+    { "id": "viking_albedo", "path": "Data/Textures/viking_room.png" },
+    { "id": "tex_rock", "path": "Data/Textures/ph_rock_diff_1k.jpg" },
+    { "id": "tex_grass", "path": "Data/Textures/ph_grass_diff_1k.jpg" },
+    { "id": "tex_metal", "path": "Data/Textures/ph_metal_diff_1k.jpg" },
+    { "id": "tex_wood", "path": "Data/Textures/ph_wood_table_diff_1k.jpg" }
+  ],
+  "materials": [
+    { "id": "mat_viking", "shader": "lit", "texture": "viking_albedo" },
+    { "id": "mat_rock", "shader": "lit", "texture": "tex_rock" },
+    { "id": "mat_grass", "shader": "lit", "texture": "tex_grass" },
+    { "id": "mat_metal", "shader": "lit", "texture": "tex_metal" },
+    { "id": "mat_wood", "shader": "lit", "texture": "tex_wood" }
+  ],
+  "cameras": [
+    {
+      "id": "overview",
+      "eye": [10.0, 8.0, 10.0],
+      "center": [0.0, 0.0, -4.0],
+      "up": [0.0, 0.0, 1.0],
+      "fovDeg": 50.0,
+      "viewport": [0.66, 0.66, 0.32, 0.32]
+    }
+  ],
+  "objective": {
+    "type": "reach",
+    "position": [3.0, 0.0, -4.0],
+    "radius": 4.0,
+    "timeLimitSeconds": 120.0
+  },
+  "entities": [
+    {
+      "logicalMesh": "viking",
+      "material": "mat_viking",
+      "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -4, 0, 0, 1]
+    },
+    {
+      "logicalMesh": "tree",
+      "material": "mat_grass",
+      "transform": [4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, -6, 0, -1, 1]
+    },
+    {
+      "logicalMesh": "tree",
+      "material": "mat_grass",
+      "transform": [4, 0, 0, 0, 0, 4, 0, 0, 0, 0, 4, 0, 0, 0, -16, 1]
+    },
+    {
+      "logicalMesh": "rock",
+      "material": "mat_rock",
+      "transform": [3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3, 0, 0, 0, -6.5, 1]
+    },
+    {
+      "logicalMesh": "tent",
+      "material": "mat_wood",
+      "transform": [3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3, 0, -3, 0, -4, 1]
+    },
+    {
+      "logicalMesh": "campfire",
+      "material": "mat_metal",
+      "transform": [2.5, 0, 0, 0, 0, 2.5, 0, 0, 0, 0, 2.5, 0, 3, 0, -4, 1]
+    },
+    {
+      "logicalMesh": "stump",
+      "material": "mat_grass",
+      "transform": [2.5, 0, 0, 0, 0, 2.5, 0, 0, 0, 0, 2.5, 0, 6.5, 0, -3, 1]
+    }
+  ]
+}

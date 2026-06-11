@@ -31,6 +31,11 @@ int FindIndex( const std::vector< std::string >& aPaths, const std::string& aTar
 
 namespace UtilScenePanel {
 
+void RequestReload( State& aState, const std::string& aLogicalPath ) {
+    aState.myReloadTargetPath = aLogicalPath;
+    aState.myReloadRequested  = true;
+}
+
 void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState ) {
     aState.myAvailableScenes.clear();
 
@@ -100,13 +105,16 @@ void Build( const Util_EngineConfig& aConfig, State& aState ) {
             ImGui::BeginDisabled();
         }
         if ( ImGui::Button( "Load selected scene" ) ) {
-            aState.myReloadTargetPath = aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ];
-            aState.myReloadRequested  = true;
+            RequestReload( aState, aState.myAvailableScenes[ static_cast< size_t >( aState.mySelectedIndex ) ] );
         }
         if ( sameAsCurrent ) {
             ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::TextDisabled( "(already loaded)" );
+        }
+
+        if ( !aState.myCurrentScenePath.empty() && ImGui::Button( "Restart current (R)" ) ) {
+            RequestReload( aState, aState.myCurrentScenePath );
         }
     }
 

@@ -339,6 +339,27 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — hygiene *(closed 2026-06-11)*
+
+- [x] **[S3]** `LNK4098` linker warning — not reproducible on Debug\|x64 rebuild 2026-06-11; no action (optional task closed)
+
+---
+
+## P4 — Vertical slice v0 *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `slice.json` play scene; reach objective + HUD/log; in-process restart (R + Scene panel) |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; `Config/engine.slice.json` manual play |
+| **Plan log** | [`Archived/plans/p4-vertical-slice-v0_Plan.md`](Archived/plans/p4-vertical-slice-v0_Plan.md) · [`p4-vertical-slice-v0_Progress.md`](Archived/plans/p4-vertical-slice-v0_Progress.md) |
+| **Gate** | **G2** met — unlocks S8 simulation per roadmap |
+
+- [x] **[P4]** Play/benchmark scene + verified assets (`Data/Scenes/slice.json`) — 2026-06-11
+- [x] **[P4]** One objective with win/lose feedback (reach campfire / time limit) — 2026-06-11
+- [x] **[P4]** Restart without process exit — 2026-06-11
+
+---
+
 ## P3 — entity AABB + draw template SSBO (sync SoA) *(closed 2026-06-10)*
 
 | | |

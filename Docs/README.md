@@ -6,10 +6,10 @@
 
 | Field | Value |
 |-------|--------|
-| **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
-| **WIP task** | — *(S3 hybrid follow-ups closed 2026-06-11; optional LNK4098 remains)* |
-| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices [`Archived/plans/`](Archived/plans/) |
-| **Parallel** | P4 vertical slice — same Active-Plan file |
+| **Sprint** | **S4 prep** — gate **G3** (MeshImport v0) · [`Wishlist.md`](Wishlist.md) § S4 |
+| **WIP task** | — |
+| **Roadmap** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A · [`Wishlist.md`](Wishlist.md) |
+| **Last closed** | P4 vertical slice v0 · S3 FG + hygiene — [`Archived-Plan.md`](Archived-Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 

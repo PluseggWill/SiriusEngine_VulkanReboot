@@ -20,6 +20,9 @@ struct State {
 // Scan <assetRoot>/Data/Scenes/*.json; paths are repo-relative (e.g. Data/Scenes/demo.json).
 void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState );
 
+// Queue in-process reload (Application consumes on next frame).
+void RequestReload( State& aState, const std::string& aLogicalPath );
+
 void Build( const Util_EngineConfig& aConfig, State& aState );
 
 }  // namespace UtilScenePanel

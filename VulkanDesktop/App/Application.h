@@ -30,4 +30,5 @@ private:
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
     bool                       myRenderDocCaptureKeyDown = false;
+    bool                       myRestartKeyDown          = false;
 };

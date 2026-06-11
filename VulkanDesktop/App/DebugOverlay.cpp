@@ -1,6 +1,7 @@
 // Pre-record ImGui panels (phase 2 peel). RenderDebug stays in Application (needs prep draw counts).
 #include "DebugOverlay.h"
 
+#include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
@@ -13,6 +14,7 @@
 
 void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Core& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
     UtilCameraPanel::Build( aDebugUI.myCameraSettings );
+    Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime );
     UtilScenePanel::Build( aConfig, aDebugUI.myScenePanel );
 
     if ( ImGui::Begin( "Multi-view", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) {

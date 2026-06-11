@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include "../Gfx/Gfx_DemoSceneSim.h"
+#include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -9,6 +10,7 @@
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_RenderDebugPanel.h"
+#include "../Util/Util_ScenePanel.h"
 #include "ActiveViewsBuild.h"
 #include "DebugOverlay.h"
 #include <GLFW/glfw3.h>
@@ -34,6 +36,7 @@ int Application::Run( int argc, char** argv ) {
         UtilLogger::Info( "APP", "LoadSceneResources." );
         myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
         core.LoadSceneResources( std::move( mySceneDesc ), myLastLoadedScenePath );
+        Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
 
         RunMainLoop();
 
@@ -110,8 +113,16 @@ void Application::RunMainLoop() {
             core.TriggerRenderDocCapture();
         }
         myRenderDocCaptureKeyDown = f12Pressed;
+
+        const bool restartPressed = glfwGetKey( core.GetWindow(), GLFW_KEY_R ) == GLFW_PRESS;
+        if ( restartPressed && !myRestartKeyDown && !myLastLoadedScenePath.empty() ) {
+            UtilScenePanel::RequestReload( myDebugUI.myScenePanel, myLastLoadedScenePath );
+        }
+        myRestartKeyDown = restartPressed;
+
         Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
+        Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, core.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
         uint32_t              viewCount = 0;
         const auto            views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
@@ -173,6 +184,7 @@ void Application::TryProcessSceneReload() {
         core.UnloadScene();
         loadScene( reloadPath );
         Gfx_ResetDemoSceneSimTime();
+        Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
         UtilLogger::Info( "APP", "Scene reload completed: " + reloadPath );
     }
     catch ( const std::exception& e ) {

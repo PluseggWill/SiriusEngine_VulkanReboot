@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Util/Util_InputSnapshot.h"
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
@@ -15,4 +16,5 @@ struct DebugUIState {
     UtilScenePanel::State       myScenePanel;
     UtilRenderDebugPanel::State myRenderDebug;
     Util_CameraSettings         myCameraSettings;
+    Gfx_ObjectiveRuntimeState   myObjectiveRuntime;
 };

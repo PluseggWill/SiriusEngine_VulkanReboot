@@ -320,6 +320,36 @@ void ParseEntities( const Json& aRoot, Gfx_SceneDesc& aOut ) {
     }
 }
 
+void ParseObjective( const Json& aRoot, Gfx_SceneDesc& aOut ) {
+    if ( !aRoot.contains( "objective" ) ) {
+        return;
+    }
+    const Json& objective = aRoot[ "objective" ];
+    RequireObject( objective, "objective" );
+
+    const std::string type = RequireString( objective, "type", "objective" );
+    if ( type == "reach" ) {
+        aOut.myObjective.myType = Gfx_SceneObjectiveType::Reach;
+    }
+    else {
+        throw std::runtime_error( "[SCENE] objective.type '" + type + "' is not supported (expected 'reach')" );
+    }
+
+    aOut.myObjective.myTargetPosition = ParseVec3Field( objective, "position", "objective" );
+    if ( objective.contains( "radius" ) ) {
+        if ( !objective[ "radius" ].is_number() ) {
+            throw std::runtime_error( "[SCENE] objective.radius must be numeric" );
+        }
+        aOut.myObjective.myRadius = objective[ "radius" ].get< float >();
+    }
+    if ( objective.contains( "timeLimitSeconds" ) ) {
+        if ( !objective[ "timeLimitSeconds" ].is_number() ) {
+            throw std::runtime_error( "[SCENE] objective.timeLimitSeconds must be numeric" );
+        }
+        aOut.myObjective.myTimeLimitSeconds = objective[ "timeLimitSeconds" ].get< float >();
+    }
+}
+
 void ParseCameras( const Json& aRoot, Gfx_SceneDesc& aOut ) {
     if ( !aRoot.contains( "cameras" ) ) {
         return;
@@ -395,6 +425,7 @@ Gfx_SceneDesc Gfx_LoadSceneDesc( const Util_EngineConfig& aConfig, const std::st
     ParseTextures( root, scene );
     ParseMaterials( root, scene );
     ParseEntities( root, scene );
+    ParseObjective( root, scene );
     ParseCameras( root, scene );
 
     UtilLogger::Info( "SCENE", "Parsed scene v" + std::to_string( scene.myVersion ) + " name='" + scene.myName
