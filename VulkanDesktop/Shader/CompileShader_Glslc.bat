@@ -57,6 +57,34 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\EntityCull.spv"
 
+"%GLSLC%" "%SHADER_DIR%GBuffer.vert" -o "%GEN_DIR%GBufferVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: GBuffer.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\GBufferVert.spv"
+
+"%GLSLC%" "%SHADER_DIR%GBuffer.frag" -o "%GEN_DIR%GBufferFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: GBuffer.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\GBufferFrag.spv"
+
+"%GLSLC%" "%SHADER_DIR%CompositeAlbedo.vert" -o "%GEN_DIR%CompositeAlbedoVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: CompositeAlbedo.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\CompositeAlbedoVert.spv"
+
+"%GLSLC%" "%SHADER_DIR%CompositeAlbedo.frag" -o "%GEN_DIR%CompositeAlbedoFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: CompositeAlbedo.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\CompositeAlbedoFrag.spv"
+
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 
 REM Phase 2a (lit_batch) + 2d (lit_bindless): SPIRV-Reflect + descriptor contracts — stderr/log only; see shader-build.mdc.

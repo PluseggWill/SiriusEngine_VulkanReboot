@@ -23,5 +23,16 @@ public:
                              const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                              const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                              const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );
+
+    // Stage 1 forward path — single swapchain render pass (opaque + transparent).
+    static void RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+                                  const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
+                                  const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
+                                  const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );
+
+    // Opaque batch draws; aPipelineOverride = G-buffer MRT pipeline when non-null (batch material path only).
+    static void RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+                                         VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels, VkPipeline aPipelineOverride );
+
     static void RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
 };

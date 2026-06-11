@@ -8,6 +8,7 @@
 #include "../Gfx/Gfx_GpuCull.h"
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
+#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
@@ -406,6 +407,20 @@ void TestDemoCullAndBatch() {
     Expect( out.myExtract.myTransparent.myDrawInstances.size() == 1, "demo transparent draws" );
 }
 
+void TestRenderPresetHybridDeferred() {
+    Expect( Gfx_RenderPreset::IsHybridDeferred( "HybridDeferred" ), "HybridDeferred preset recognized" );
+    Expect( !Gfx_RenderPreset::IsHybridDeferred( "ForwardLit" ), "ForwardLit is not hybrid deferred" );
+    Expect( Gfx_RenderPreset::ToShaderPermutationName( "HybridDeferred" ) == "lit", "HybridDeferred maps to lit permutation for scene materials" );
+    bool threw = false;
+    try {
+        ( void )Gfx_RenderPreset::ToShaderPermutationName( "NotAPreset" );
+    }
+    catch ( const std::exception& ) {
+        threw = true;
+    }
+    Expect( threw, "unknown render preset throws" );
+}
+
 }  // namespace
 
 int main() {
@@ -434,6 +449,7 @@ int main() {
     TestCpuGpuCullParityDemoViews();
     TestCpuGpuCullParityLayerMask();
     TestLodGpuEntityRecordParity();
+    TestRenderPresetHybridDeferred();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

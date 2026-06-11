@@ -1,12 +1,14 @@
 #include "Vk_ScenePasses.h"
 
 #include "../App/DebugUIState.h"
+#include "../Gfx/Gfx_RenderPreset.h"
 
 #include "../Util/Util_Logger.h"
 
 #include "Vk_Bindless.h"
 
 #include "Vk_Core.h"
+#include "Vk_GBufferPass.h"
 
 #include "Vk_DescriptorPolicy.h"
 
@@ -86,7 +88,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
                                      uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
 
-                                     bool aEmitDebugLabels ) {
+                                     bool aEmitDebugLabels, VkPipeline aPipelineOverride ) {
 
     const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
 
@@ -100,7 +102,10 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
         aCore.myFrameStats.myPipelineBinds++;
 
-        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, material.myPipeline );
+        // G-buffer path: one MRT pipeline for all batches; forward path uses per-material pipeline.
+        const VkPipeline pipeline = aPipelineOverride != VK_NULL_HANDLE ? aPipelineOverride : material.myPipeline;
+        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
+
 
         const uint32_t materialId = firstDraw.myMaterialId;
 
@@ -168,7 +173,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
                                 Vk_RenderMaterialPath aMaterialPath, VkPipeline aBindlessPipeline, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
 
-                                bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
+                                bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels, VkPipeline aPipelineOverride ) {
 
     if ( aPass.myDraws.empty() ) {
 
@@ -184,7 +189,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
     else {
 
         RecordPassDrawsBatchFromPacket( aCore, aCommandBuffer, aPass, aPassName, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect, aUseLegacyDirectDraw,
-                                        aEmitDebugLabels );
+                                        aEmitDebugLabels, aPipelineOverride );
     }
 }
 
@@ -207,6 +212,28 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
                                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
 
                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
+
+    if ( Vk_GBufferPass::IsActive( aCore ) ) {
+        if ( !aCore.myGBufferState.myInitialized ) {
+            Vk_GBufferPass::Init( aCore );
+        }
+        Vk_GBufferPass::RecordFrame( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+        return;
+    }
+
+    RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+}
+
+
+void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+
+                                       const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
+
+                                       const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
+
+                                       const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
+
+                                       const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
     VkRenderPassBeginInfo renderPassInfo{};
 
@@ -292,7 +319,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "Opaque", materialPath, aCore.mySceneGpuCtx.myBasicPipelineBindless,
 
-                                       packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels );
+                                       packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels, VK_NULL_HANDLE );
 
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -308,7 +335,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
             RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "Transparent", materialPath,
 
                                        aCore.mySceneGpuCtx.myTransparentPipelineBindless, packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw,
-                                       emitDebugLabels );
+                                       emitDebugLabels, VK_NULL_HANDLE );
 
             if ( emitDebugLabels ) {
                 aCore.CmdEndDebugLabel( aCommandBuffer );
@@ -338,6 +365,14 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
     }
 
     vkCmdEndRenderPass( aCommandBuffer );
+}
+
+void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+                                              VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels,
+                                              VkPipeline aPipelineOverride ) {
+
+    RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", Vk_RenderMaterialPath::Batch, VK_NULL_HANDLE, aDrawBufferBaseIndex, aIndirectBuffer,
+                               aUseGpuCullIndirect, aUseLegacyDirectDraw, aEmitDebugLabels, aPipelineOverride );
 }
 
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {

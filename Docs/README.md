@@ -7,7 +7,8 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
-| **Next task** | FG v0 — [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) step 1 *(kickoff adds `_Progress.md`)* |
+| **WIP task** | [`s3-fg-s1-preset-gbuffer_Plan.md`](s3-fg-s1-preset-gbuffer_Plan.md) · [`_Progress.md`](s3-fg-s1-preset-gbuffer_Progress.md) |
+| **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) |
 | **Parallel** | P4 vertical slice — same Active-Plan file |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*

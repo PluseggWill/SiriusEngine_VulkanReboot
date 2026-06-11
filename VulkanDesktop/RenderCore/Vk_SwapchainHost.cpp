@@ -2,6 +2,7 @@
 
 #include "../Util/Util_Logger.h"
 #include "Vk_Core.h"
+#include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -175,6 +176,7 @@ void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Core& aCore, bool aIn
     CreateColorResources( aCore );
     CreateDepthResources( aCore );
     CreateFrameBuffers( aCore );
+    Vk_GBufferPass::RecreateForExtent( aCore );  // no-op unless HybridDeferred Init ran
 }
 
 void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Core& aCore ) {

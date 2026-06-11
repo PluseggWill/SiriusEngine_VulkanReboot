@@ -30,8 +30,8 @@ Spike **minimal hybrid-deferred topology** without full S7 frame-graph infra:
 
 ## Ordered steps
 
-1. **Preset hook:** `HybridDeferred` preset opt-in; default remains `ForwardLit`.
-2. **GBufferOpaque:** raster opaque from existing `Gfx_FrameRenderPacket` / indirect path; lock format policy (document in plan Progress, not Architecture unless policy lock).
+1. **Preset hook:** `HybridDeferred` preset opt-in; default remains `ForwardLit`. *(slice 1 — [`s3-fg-s1-preset-gbuffer_Plan.md`](s3-fg-s1-preset-gbuffer_Plan.md))*
+2. **GBufferOpaque:** raster opaque from existing `Gfx_FrameRenderPacket` / indirect path; lock format policy (document in plan Progress, not Architecture unless policy lock). *(slice 1 — albedo composite stub; no lighting)*
 3. **ClusterBuild:** compute pass stub — cluster grid + light index lists (minimal light count).
 4. **DeferredLighting:** fullscreen/cluster resolve → swapchain or HDR intermediate; bind G-buffer + cluster SSBO.
 5. **Record order:** insert chain before present; `ForwardLit` path unchanged when preset off.

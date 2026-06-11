@@ -229,6 +229,7 @@
     <ClCompile Include="RenderCore\Vk_RenderDevice.cpp" />
     <ClCompile Include="RenderCore\Vk_RenderBackend.cpp" />
     <ClCompile Include="RenderCore\Vk_SceneHost.cpp" />
+    <ClCompile Include="RenderCore\Vk_GBufferPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ScenePasses.cpp" />
     <ClCompile Include="RenderCore\Vk_SwapchainHost.cpp" />
     <ClCompile Include="RenderCore\Vk_Types.cpp" />
@@ -310,6 +311,7 @@
     <ClInclude Include="RenderCore\Vk_RenderDevice.h" />
     <ClInclude Include="RenderCore\Vk_RenderBackend.h" />
     <ClInclude Include="RenderCore\Vk_SceneHost.h" />
+    <ClInclude Include="RenderCore\Vk_GBufferPass.h" />
     <ClInclude Include="RenderCore\Vk_ScenePasses.h" />
     <ClInclude Include="RenderCore\Vk_SwapchainHost.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />

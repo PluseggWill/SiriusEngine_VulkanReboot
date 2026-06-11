@@ -220,6 +220,9 @@
     <ClCompile Include="RenderCore\Vk_RenderBackend.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_GBufferPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_ScenePasses.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -445,6 +448,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_RenderBackend.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_GBufferPass.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ScenePasses.h">

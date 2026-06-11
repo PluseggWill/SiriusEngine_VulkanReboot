@@ -6,6 +6,7 @@
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_GpuCull.h"
+#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -25,6 +26,7 @@
 #include "Vk_DescriptorSystem.h"
 #include "Vk_DevicePipelineCache.h"
 #include "Vk_FrameUniformUploader.h"
+#include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_GpuCull.h"
 #include "Vk_PipelineDiagnostics.h"
@@ -233,6 +235,10 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
+    if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
+        Vk_GBufferPass::Init( *this );  // slice 1: offscreen G-buffer targets + composite pipeline
+    }
+
     {
         Gfx_ResourceManifest manifest{};
         Gfx_BuildResourceManifestFromSceneDesc( World().myLoadedScene, World().mySceneIdTables, manifest );
@@ -267,6 +273,7 @@ void Vk_Core::UnloadScene() {
     }
 
     ShutdownImGui();
+    Vk_GBufferPass::Destroy( *this );
     Vk_GfxPipelineCache::DestroyScenePipelines( *this );
     mySceneGpuCtx.mySceneDeletionQueue.flush();
     mySceneGpuCtx.myResourceTables.Clear();
