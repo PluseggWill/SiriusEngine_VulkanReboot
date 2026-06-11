@@ -7,6 +7,7 @@
 
 #include "Vk_Bindless.h"
 
+#include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
 #include "Vk_GBufferPass.h"
 
@@ -105,7 +106,6 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
         // G-buffer path: one MRT pipeline for all batches; forward path uses per-material pipeline.
         const VkPipeline pipeline = aPipelineOverride != VK_NULL_HANDLE ? aPipelineOverride : material.myPipeline;
         vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline );
-
 
         const uint32_t materialId = firstDraw.myMaterialId;
 
@@ -216,6 +216,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
     if ( Vk_GBufferPass::IsActive( aCore ) ) {
         if ( !aCore.myGBufferState.myInitialized ) {
             Vk_GBufferPass::Init( aCore );
+            Vk_ClusterBuildPass::Init( aCore );
         }
         Vk_GBufferPass::RecordFrame( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
         return;
@@ -223,7 +224,6 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
 
     RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 }
-
 
 void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 

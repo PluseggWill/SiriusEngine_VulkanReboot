@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S3** — [`Active-Plan.md`](Active-Plan.md) § S3 |
-| **WIP task** | [`s3-fg-s1-preset-gbuffer_Plan.md`](s3-fg-s1-preset-gbuffer_Plan.md) · [`_Progress.md`](s3-fg-s1-preset-gbuffer_Progress.md) |
+| **WIP task** | [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md) · [`_Progress.md`](s3-fg-s2-cluster-build_Progress.md) |
 | **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) |
 | **Parallel** | P4 vertical slice — same Active-Plan file |
 

@@ -1,6 +1,7 @@
 #include "Vk_SwapchainHost.h"
 
 #include "../Util/Util_Logger.h"
+#include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
@@ -176,7 +177,8 @@ void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Core& aCore, bool aIn
     CreateColorResources( aCore );
     CreateDepthResources( aCore );
     CreateFrameBuffers( aCore );
-    Vk_GBufferPass::RecreateForExtent( aCore );  // no-op unless HybridDeferred Init ran
+    Vk_GBufferPass::RecreateForExtent( aCore );
+    Vk_ClusterBuildPass::RecreateForExtent( aCore );
 }
 
 void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Core& aCore ) {

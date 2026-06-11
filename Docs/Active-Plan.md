@@ -34,8 +34,7 @@ Pass topology diagram: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 
 M2 geometry closed via P2–P3 ([`Archived-Plan.md`](Archived-Plan.md)). Validate: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3.
 
-- [ ] FG v0: `GBufferOpaque -> ClusterBuild -> DeferredLighting` — [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md)
-- [ ] `ForwardLit` default; `HybridDeferred` opt-in
+- [ ] FG v0: `GBufferOpaque -> ClusterBuild -> DeferredLighting` — [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · WIP slice 2 [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md)
 - [ ] `LNK4098` linker warning *(optional)*
 
 Compaction / MT v1 → [`Wishlist.md`](Wishlist.md) backlog.

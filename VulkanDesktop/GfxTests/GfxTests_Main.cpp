@@ -1,5 +1,6 @@
 // GfxTests: CPU-only regression tests for Gfx draw-stream (no Vulkan / GLFW).
 
+#include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_DrawBatch.h"
 #include "../Gfx/Gfx_DrawCullSort.h"
 #include "../Gfx/Gfx_DrawExtract.h"
@@ -407,6 +408,15 @@ void TestDemoCullAndBatch() {
     Expect( out.myExtract.myTransparent.myDrawInstances.size() == 1, "demo transparent draws" );
 }
 
+void TestClusterGridCount() {
+    const uint32_t tilesW = Gfx_ClusterLighting::TilesForExtent( 1920 );
+    const uint32_t tilesH = Gfx_ClusterLighting::TilesForExtent( 1080 );
+    Expect( tilesW == 120, "cluster tilesX for 1920px @16" );
+    Expect( tilesH == 68, "cluster tilesY for 1080px @16" );
+    Expect( Gfx_ClusterLighting::ClusterCount( 1920, 1080 ) == tilesW * tilesH * Gfx_ClusterLighting::kDepthSlices, "cluster count = tilesX * tilesY * depthSlices" );
+    Expect( sizeof( Gfx_ClusterLighting::GpuClusterLightList ) == sizeof( uint32_t ) * ( 1 + Gfx_ClusterLighting::kMaxLightsPerCluster ), "GpuClusterLightList std430 size" );
+}
+
 void TestRenderPresetHybridDeferred() {
     Expect( Gfx_RenderPreset::IsHybridDeferred( "HybridDeferred" ), "HybridDeferred preset recognized" );
     Expect( !Gfx_RenderPreset::IsHybridDeferred( "ForwardLit" ), "ForwardLit is not hybrid deferred" );
@@ -449,6 +459,7 @@ int main() {
     TestCpuGpuCullParityDemoViews();
     TestCpuGpuCullParityLayerMask();
     TestLodGpuEntityRecordParity();
+    TestClusterGridCount();
     TestRenderPresetHybridDeferred();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();

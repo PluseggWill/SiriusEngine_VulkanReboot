@@ -254,6 +254,19 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S3 — FG slice 1 (HybridDeferred + GBufferOpaque) *(closed 2026-06-11)*
+
+| | |
+|--|--|
+| **Outcome** | `HybridDeferred` preset; offscreen G-buffer MRT + `CompositeAlbedo`; batch-only hybrid path |
+| **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1` (ForwardLit); manual HybridDeferred dogfood |
+| **Plan log** | [`Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md`](Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md) · [`s3-fg-s1-preset-gbuffer_Progress.md`](Archived/plans/s3-fg-s1-preset-gbuffer_Progress.md) |
+
+- [x] **[S3]** FG slice 1: preset hook + GBufferOpaque shell — 2026-06-11
+- [x] **[S3]** `ForwardLit` default; `HybridDeferred` opt-in (slice 1) — 2026-06-11
+
+---
+
 ## P3 — entity AABB + draw template SSBO (sync SoA) *(closed 2026-06-10)*
 
 | | |

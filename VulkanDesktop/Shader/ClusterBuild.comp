@@ -1,0 +1,50 @@
+#version 450
+
+// FG v0 slice 2: stub cluster light list build (assign all active lights to every cluster).
+// Slice 3 DeferredLighting consumes GpuClusterLightList[] from binding 1.
+// Keep in sync with Gfx_ClusterLighting.h (kClusterBuildWorkgroupSize, kMaxLightsPerCluster).
+
+const uint kMaxLightsPerCluster = 8u;
+
+layout( local_size_x = 64, local_size_y = 1, local_size_z = 1 ) in;
+
+struct ClusterLight {
+    vec4 direction;
+    vec4 color;
+};
+
+struct ClusterLightList {
+    uint lightCount;
+    uint lightIndices[kMaxLightsPerCluster];
+};
+
+layout( push_constant ) uniform PushConstants {
+    uint clusterCount;
+    uint lightCount;
+    uint pad0;
+    uint pad1;
+} pc;
+
+layout( set = 0, binding = 0 ) readonly buffer Lights {
+    ClusterLight lights[];
+};
+
+layout( set = 0, binding = 1 ) buffer ClusterLists {
+    ClusterLightList lists[];
+};
+
+void main() {
+    const uint clusterId = gl_GlobalInvocationID.x;
+    if ( clusterId >= pc.clusterCount ) {
+        return;
+    }
+
+    const uint count = min( pc.lightCount, kMaxLightsPerCluster );
+    lists[ clusterId ].lightCount = count;
+    for ( uint i = 0u; i < count; ++i ) {
+        lists[ clusterId ].lightIndices[ i ] = i;
+    }
+    for ( uint i = count; i < kMaxLightsPerCluster; ++i ) {
+        lists[ clusterId ].lightIndices[ i ] = 0u;
+    }
+}

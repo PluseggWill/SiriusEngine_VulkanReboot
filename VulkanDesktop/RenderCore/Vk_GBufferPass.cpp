@@ -1,5 +1,5 @@
 // Module: Vk_GBufferPass — FG v0 slice 1 (HybridDeferred preset).
-// Chain: GBufferOpaque (MRT) -> CompositeAlbedo -> swapchain. ClusterBuild / DeferredLighting deferred.
+// Chain: GBufferOpaque -> ClusterBuild -> CompositeAlbedo -> swapchain. DeferredLighting deferred (slice 3).
 // Format policy: Docs/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
@@ -9,6 +9,7 @@
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
+#include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
@@ -23,8 +24,8 @@
 
 namespace {
 
-constexpr const char* kGBufferVertSpv     = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
-constexpr const char* kGBufferFragSpv     = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
+constexpr const char* kGBufferVertSpv   = "VulkanDesktop/Shader_Generated/GBufferVert.spv";
+constexpr const char* kGBufferFragSpv   = "VulkanDesktop/Shader_Generated/GBufferFrag.spv";
 constexpr const char* kCompositeVertSpv = "VulkanDesktop/Shader_Generated/CompositeAlbedoVert.spv";
 constexpr const char* kCompositeFragSpv = "VulkanDesktop/Shader_Generated/CompositeAlbedoFrag.spv";
 
@@ -441,7 +442,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     static bool sTransparentSkipOnce  = false;
 
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> CompositeAlbedo (ClusterBuild/DeferredLighting deferred)" );
+        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> CompositeAlbedo (DeferredLighting deferred)" );
         sChainLoggedOnce = true;
     }
 
@@ -506,6 +507,8 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     }
 
     vkCmdEndRenderPass( aCommandBuffer );
+
+    Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
     UpdateCompositeDescriptor( aCore );
 

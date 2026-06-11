@@ -236,7 +236,8 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
-        Vk_GBufferPass::Init( *this );  // slice 1: offscreen G-buffer targets + composite pipeline
+        Vk_GBufferPass::Init( *this );
+        Vk_ClusterBuildPass::Init( *this );
     }
 
     {
@@ -273,6 +274,7 @@ void Vk_Core::UnloadScene() {
     }
 
     ShutdownImGui();
+    Vk_ClusterBuildPass::Destroy( *this );
     Vk_GBufferPass::Destroy( *this );
     Vk_GfxPipelineCache::DestroyScenePipelines( *this );
     mySceneGpuCtx.mySceneDeletionQueue.flush();

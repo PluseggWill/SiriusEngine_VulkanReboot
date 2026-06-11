@@ -57,6 +57,13 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\EntityCull.spv"
 
+"%GLSLC%" "%SHADER_DIR%ClusterBuild.comp" -o "%GEN_DIR%ClusterBuild.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ClusterBuild.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\ClusterBuild.spv"
+
 "%GLSLC%" "%SHADER_DIR%GBuffer.vert" -o "%GEN_DIR%GBufferVert.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: GBuffer.vert"
