@@ -1,0 +1,8 @@
+﻿{
+  "schemaVersion": 1,
+  "name": "default",
+  "irradiance": "irradiance",
+  "prefilter": "prefilter",
+  "brdfLut": "brdf_lut.png",
+  "sky": "sky"
+}
