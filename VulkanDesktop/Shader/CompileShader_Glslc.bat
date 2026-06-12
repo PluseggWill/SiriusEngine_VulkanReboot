@@ -114,6 +114,20 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\DeferredLightingFrag.spv"
 
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowMap.vert" -o "%GEN_DIR%ShadowMapVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: ShadowMap.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\ShadowMapVert.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowMap.frag" -o "%GEN_DIR%ShadowMapFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: ShadowMap.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\ShadowMapFrag.spv"
+
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 
 REM Phase 2a (lit_batch) + 2d (lit_bindless): SPIRV-Reflect + descriptor contracts — stderr/log only; see shader-build.mdc.

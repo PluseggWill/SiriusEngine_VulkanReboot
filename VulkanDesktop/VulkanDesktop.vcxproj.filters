@@ -229,6 +229,9 @@
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_IblResources.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -475,6 +478,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_ShadowMapPass.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_IblResources.h">

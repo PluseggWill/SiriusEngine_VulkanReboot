@@ -35,6 +35,7 @@
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -265,6 +266,8 @@ public:
     Vk_DeferredLightingState myDeferredLightingState;
 
     Vk_IblResourcesState myIblResourcesState;
+
+    Vk_ShadowMapState myShadowMapState;
 
     Vk_GpuCullState myGpuCullState;
 

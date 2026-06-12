@@ -17,6 +17,7 @@
 #include "Vk_Pipeline.h"
 #include "Vk_RenderBackend.h"
 #include "Vk_ScenePasses.h"
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_Types.h"
 
@@ -410,7 +411,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     static bool sGpuIndirectPathLoggedOnce = false;
 
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+        UtilLogger::Info( "FG", "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
         sChainLoggedOnce = true;
     }
 
@@ -435,6 +436,11 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
 
     constexpr uint32_t           viewIndex = 0;  // FG v0: single view
     const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
+
+    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw,
+                                      emitDebugLabels );
+    }
 
     VkRenderPassBeginInfo gbufferBegin{};
     gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

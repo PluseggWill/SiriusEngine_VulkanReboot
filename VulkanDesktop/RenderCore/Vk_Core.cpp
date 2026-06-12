@@ -26,6 +26,7 @@
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
+#include "Vk_ShadowMapPass.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
@@ -207,8 +208,9 @@ void Vk_Core::InitRenderDevice() {
     Vk_GpuCull::CreateFrameBuffers( *this );
     CreateUniformBuffers();
     SyncResourceContext();
-    Vk_IblResources::Init( *this, Vk_IblResources::kDefaultEnvironmentLogicalPath );
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
+    Vk_IblResources::Init( *this, Vk_IblResources::kDefaultEnvironmentLogicalPath );
+    Vk_ShadowMapPass::Init( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 

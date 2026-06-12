@@ -232,6 +232,7 @@
     <ClCompile Include="RenderCore\Vk_SceneHost.cpp" />
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
     <ClCompile Include="RenderCore\Vk_IblResources.cpp" />
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ScenePasses.cpp" />
@@ -320,6 +321,7 @@
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h" />
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />
+    <ClInclude Include="RenderCore\Vk_ShadowMapPass.h" />
     <ClInclude Include="RenderCore\Vk_IblResources.h" />
     <ClInclude Include="RenderCore\Vk_GBufferPass.h" />
     <ClInclude Include="RenderCore\Vk_ScenePasses.h" />
