@@ -4,7 +4,7 @@ layout(push_constant) uniform ShadowPush {
     mat4 lightViewProj;
 } pc;
 
-layout(set = 2, binding = 0) uniform ObjectData {
+layout(set = 0, binding = 0) uniform ObjectData {
     mat4 model;
     uint materialIndex;
 } objectData;

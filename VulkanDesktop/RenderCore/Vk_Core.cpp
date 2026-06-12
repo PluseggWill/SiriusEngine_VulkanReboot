@@ -3,6 +3,7 @@
 #include "Vk_Core.h"
 #include "../App/DebugUIState.h"
 #include "../App/WorldState.h"
+#include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_GpuCull.h"
@@ -94,6 +95,10 @@ const Util_EngineConfig& Vk_Core::EngineConfig() const {
         throw std::runtime_error( "Vk_Core: Util_EngineConfig not bound (call BindEngineConfig from Application)" );
     }
     return *myEngineConfig;
+}
+
+Gfx_Bounds Vk_Core::GetShadowCasterBounds() const {
+    return Gfx_ComputeActiveOpaqueSceneBounds( World().mySceneSoA );
 }
 
 WorldState& Vk_Core::World() const {
@@ -818,7 +823,7 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
     Vk_FrameData& frameData = *aPrep.myFrameData;
 
     // Env UBO after debug panels patch myEnvironmentData; camera slices already in PrepareFrameCpu.
-    Vk_FrameUniformUploader::UpdateLightingGlobals( *this, myFrameCtx.myCurrentFrame );
+    // LightingGlobals uploaded after shadow pass (or before resolve when shadows off).
     Vk_FrameUniformUploader::UpdateEnvironment( *this, myFrameCtx.myCurrentFrame );
 
     vkResetFences( myDeviceCtx.myDevice, 1, &frameData.myRenderFence );

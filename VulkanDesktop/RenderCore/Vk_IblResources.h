@@ -14,6 +14,8 @@ struct Vk_IblResourcesState {
     Gfx_Texture mySky{};
     Gfx_Texture myBrdfLut{};
 
+    float myPrefilterMaxMipLevel = 0.0f;
+
     VkSampler myCubemapSampler = VK_NULL_HANDLE;
     VkSampler myBrdfLutSampler = VK_NULL_HANDLE;
 };

@@ -13,6 +13,7 @@
 #include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_RenderBackend.h"
@@ -31,6 +32,7 @@ constexpr const char* kGBufferFragBindlessSpv = "VulkanDesktop/Shader_Generated/
 
 constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+constexpr VkFormat kWorldPositionFormat   = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 void DestroyPipelines( Vk_Core& aCore ) {
     const VkDevice device = aCore.myDeviceCtx.myDevice;
@@ -74,6 +76,7 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     pipelineBuilder.SetDefaultDynamicStates();
 
     std::vector< VkPipelineColorBlendAttachmentState > blendAttachments = {
+        VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
     };
@@ -125,6 +128,9 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     VkAttachmentDescription normalRoughness = albedo;
     normalRoughness.format                  = kNormalRoughnessFormat;
 
+    VkAttachmentDescription worldPosition = albedo;
+    worldPosition.format                  = kWorldPositionFormat;
+
     VkAttachmentDescription depth{};
     depth.format         = aCore.FindDepthFormat();
     depth.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -135,14 +141,16 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    std::array< VkAttachmentReference, 2 > colorRefs{};
+    std::array< VkAttachmentReference, 3 > colorRefs{};
     colorRefs[ 0 ].attachment = 0;
     colorRefs[ 0 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorRefs[ 1 ].attachment = 1;
     colorRefs[ 1 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorRefs[ 2 ].attachment = 2;
+    colorRefs[ 2 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthRef{};
-    depthRef.attachment = 2;
+    depthRef.attachment = 3;
     depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
@@ -159,7 +167,7 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    std::array< VkAttachmentDescription, 3 > attachments = { albedo, normalRoughness, depth };
+    std::array< VkAttachmentDescription, 4 > attachments = { albedo, normalRoughness, worldPosition, depth };
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -200,6 +208,7 @@ void CreateGBufferImages( Vk_Core& aCore ) {
 
     createColorTarget( aCore.myGBufferState.myAlbedo, kAlbedoFormat );
     createColorTarget( aCore.myGBufferState.myNormalRoughness, kNormalRoughnessFormat );
+    createColorTarget( aCore.myGBufferState.myWorldPosition, kWorldPositionFormat );
 
     aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
@@ -220,8 +229,8 @@ void CreateGBufferImages( Vk_Core& aCore ) {
 }
 
 void CreateGBufferFramebuffer( Vk_Core& aCore ) {
-    std::array< VkImageView, 3 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
-                                                 aCore.myGBufferState.myDepth.ImageView() };
+    std::array< VkImageView, 4 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
+                                                 aCore.myGBufferState.myWorldPosition.ImageView(), aCore.myGBufferState.myDepth.ImageView() };
 
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -278,12 +287,18 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
     constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkImageMemoryBarrier, 2 > barriers = {
+    std::array< VkImageMemoryBarrier, 3 > barriers = {
         ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
         ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myWorldPosition.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );
+}
+
+// Shadow pass depth must be visible to DeferredLighting fragment shader (separate render pass from hybrid resolve).
+void CmdBarrierShadowMapForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+    Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
 }
 
 // CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
@@ -383,6 +398,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
         return;
     }
     RebuildResources( aCore );
+    Vk_DeferredLightingPass::RecreateForExtent( aCore );
 }
 
 void RecreatePipelines( Vk_Core& aCore ) {
@@ -442,9 +458,16 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     constexpr uint32_t           viewIndex = 0;  // FG v0: single view
     const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
 
-    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
-        Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw,
-                                      emitDebugLabels );
+    if ( aCore.myShadowMapState.myInitialized && aCore.myLightingSettings.myShadowsEnabled ) {
+        if ( packet != nullptr && !packet->myShadowCasterPass.myDraws.empty() ) {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, packet->myShadowCasterPass, emitDebugLabels );
+        }
+        else {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, Gfx_PassDrawPacket{}, emitDebugLabels );
+        }
+    }
+    else {
+        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
     }
 
     VkRenderPassBeginInfo gbufferBegin{};
@@ -453,10 +476,11 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
     gbufferBegin.renderArea.offset = { 0, 0 };
     gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    std::array< VkClearValue, 3 > gbufferClears{};
+    std::array< VkClearValue, 4 > gbufferClears{};
     gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
     gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
-    gbufferClears[ 2 ].depthStencil = { 1.0f, 0 };
+    gbufferClears[ 2 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+    gbufferClears[ 3 ].depthStencil = { 1.0f, 0 };
     gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
     gbufferBegin.pClearValues       = gbufferClears.data();
 
@@ -483,6 +507,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
     CmdBarrierGBufferColorsForDeferredRead( aCore, aCommandBuffer );
+    CmdBarrierShadowMapForDeferredRead( aCore, aCommandBuffer );
     CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
 
     // Hybrid resolve RP: color clear + depth LOAD (opaque depth copied above).

@@ -149,8 +149,9 @@ bool UtilLoader::LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig,
     const VkDeviceSize faceBytes = static_cast< VkDeviceSize >( faceWidth ) * static_cast< VkDeviceSize >( faceHeight ) * 4;
     const VmaAllocator allocator = aContext.myAllocator;
 
-    aContext.CreateCubemapImage( { static_cast< uint32_t >( faceWidth ), static_cast< uint32_t >( faceHeight ) }, aFormat,
-                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, aMipLevels, aTextureOut.AllocImage() );
+    const VkImageUsageFlags cubemapUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    aContext.CreateCubemapImage( { static_cast< uint32_t >( faceWidth ), static_cast< uint32_t >( faceHeight ) }, aFormat, cubemapUsage, VMA_MEMORY_USAGE_GPU_ONLY, aMipLevels,
+                                 aTextureOut.AllocImage() );
     aContext.TransitionCubemapLayout( aTextureOut.Image(), aFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aMipLevels );
 
     for ( uint32_t faceIndex = 0; faceIndex < static_cast< uint32_t >( facePixels.size() ); ++faceIndex ) {
@@ -165,7 +166,13 @@ bool UtilLoader::LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig,
         vmaDestroyBuffer( allocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
     }
 
-    aContext.TransitionCubemapLayout( aTextureOut.Image(), aFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, aMipLevels );
+    if ( aMipLevels > 1 ) {
+        aContext.GenerateCubemapMipmaps( aTextureOut.Image(), aFormat, faceWidth, faceHeight, aMipLevels );
+    }
+    else {
+        aContext.TransitionCubemapLayout( aTextureOut.Image(), aFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, aMipLevels );
+    }
+
     aTextureOut.ImageView() = aContext.CreateCubemapImageView( aTextureOut.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT, aMipLevels );
     UtilLogger::Info( "RESOURCE", "Loaded cubemap faces from " + aDirectory + " size=" + std::to_string( faceWidth ) );
     return true;

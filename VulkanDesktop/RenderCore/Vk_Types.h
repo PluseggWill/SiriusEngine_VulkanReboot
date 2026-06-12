@@ -64,6 +64,7 @@ enum Gfx_DebugViewMode : uint32_t {
     Gfx_DebugViewMode_Lit         = 0,
     Gfx_DebugViewMode_Depth       = 1,
     Gfx_DebugViewMode_WorldNormal = 2,
+    Gfx_DebugViewMode_ShadowMap   = 3,
 };
 
 inline float Gfx_DebugViewModeToShaderPacked( Gfx_DebugViewMode aMode ) {

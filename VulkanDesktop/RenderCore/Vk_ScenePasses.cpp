@@ -10,7 +10,10 @@
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
+#include "Vk_FrameUniformUploader.h"
 #include "Vk_GBufferPass.h"
+
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_DescriptorPolicy.h"
 
@@ -259,6 +262,25 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
 
     renderPassInfo.pClearValues = clearValues.data();
 
+    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
+
+    constexpr uint32_t           shadowViewIndex = 0;
+    const Gfx_FrameRenderPacket* shadowPacket    = shadowViewIndex < aViewCount ? &aViewPackets[ shadowViewIndex ] : nullptr;
+    if ( aCore.myShadowMapState.myInitialized && aCore.myLightingSettings.myShadowsEnabled ) {
+        if ( shadowPacket != nullptr && !shadowPacket->myShadowCasterPass.myDraws.empty() ) {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, shadowPacket->myShadowCasterPass, emitDebugLabels );
+        }
+        else {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, Gfx_PassDrawPacket{}, emitDebugLabels );
+        }
+        Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
+    }
+    else {
+        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
+    }
+
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
     static bool sPacketPathLoggedOnce = false;
@@ -272,10 +294,6 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
     const Vk_RenderMaterialPath materialPath = aCore.myDeviceCtx.myMaterialPath;
 
     const bool bindless = materialPath == Vk_RenderMaterialPath::Bindless;
-
-    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     const VkPipelineLayout frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
 

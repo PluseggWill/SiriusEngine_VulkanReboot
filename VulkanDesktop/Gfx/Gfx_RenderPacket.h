@@ -23,6 +23,8 @@ struct Gfx_PassDrawPacket {
 struct Gfx_FrameRenderPacket {
     Gfx_PassDrawPacket myOpaquePass;
     Gfx_PassDrawPacket myTransparentPass;
+    // All active opaque entities (no view frustum cull) — shadow depth pass only.
+    Gfx_PassDrawPacket myShadowCasterPass;
     size_t             myDrawCountBeforeCull = 0;
     // Base slot in per-frame indirect/template buffers for this view (multi-view partition).
     uint32_t myDrawBufferBaseIndex = 0;

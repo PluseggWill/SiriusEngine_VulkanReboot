@@ -68,6 +68,11 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
     normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo worldPosInfo{};
+    worldPosInfo.sampler     = state.myGBufferSampler;
+    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
+    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkDescriptorBufferInfo lightsInfo{};
     lightsInfo.buffer = aCore.myClusterBuildState.myLightsBuffer.myBuffer;
     lightsInfo.offset = 0;
@@ -113,7 +118,12 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     skyInfo.imageView   = aCore.myIblResourcesState.mySky.ImageView();
     skyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkWriteDescriptorSet, 11 > writes = {
+    VkDescriptorImageInfo shadowDepthReadInfo{};
+    shadowDepthReadInfo.sampler     = aCore.myShadowMapState.myDepthReadSampler;
+    shadowDepthReadInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
+    shadowDepthReadInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 13 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
@@ -125,6 +135,8 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &prefilterInfo, 8, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &brdfLutInfo, 9, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, 10, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowDepthReadInfo, 11, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 12, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -136,7 +148,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
 
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 11 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 13 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
@@ -148,6 +160,8 @@ void CreatePipelineResources( Vk_Core& aCore ) {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 8 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 9 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 10 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 11 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 12 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -186,7 +200,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 8 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 10 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
     };
@@ -267,7 +281,11 @@ void Destroy( Vk_Core& aCore ) {
     if ( !aCore.myDeferredLightingState.myInitialized ) {
         return;
     }
+    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    }
     aCore.myDeferredLightingState.myDescriptorSets = {};
+    aCore.myDeferredLightingState.myPipeline       = VK_NULL_HANDLE;
     aCore.myDeferredLightingState.myInitialized    = false;
 }
 
@@ -295,6 +313,9 @@ void RecreateForExtent( Vk_Core& aCore ) {
 
 void Init( Vk_Core& aCore ) {
     if ( aCore.myDeferredLightingState.myInitialized ) {
+        for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+            UpdateDescriptorSet( aCore, i );
+        }
         return;
     }
     if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized ) {

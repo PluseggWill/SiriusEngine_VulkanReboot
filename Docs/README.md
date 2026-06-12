@@ -9,7 +9,7 @@
 | **Sprint** | **S6** — SSAO + Hi-Z · [`Wishlist.md`](Wishlist.md) § S6 |
 | **WIP task** | *(none — pick next from Active-Plan queue)* |
 | **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S6–S8 lighting |
-| **Last closed** | S5 IBL + shadows — [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) |
+| **Last closed** | S5 lighting/shadow refactor — [`Archived/plans/lighting-shadow-refactor_Plan.md`](Archived/plans/lighting-shadow-refactor_Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 

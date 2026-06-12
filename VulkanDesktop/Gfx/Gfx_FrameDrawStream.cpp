@@ -10,10 +10,12 @@ void Gfx_ResetFrameDrawStreamLogState( Gfx_FrameDrawStreamLogState& aLogs ) {
 void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_FrameDrawStreamOutput& aOut, Gfx_FrameDrawStreamLogState& aLogs ) {
     aOut.myOpaqueBatchRuns.clear();
     aOut.myTransparentBatchRuns.clear();
+    aOut.myShadowCasterBatchRuns.clear();
 
     Gfx_ExtractDrawInstances( *aParams.myScene, aParams.myView, aOut.myExtract );
 
     aOut.myDrawCountBeforeCull = aOut.myExtract.myOpaque.myDrawInstances.size() + aOut.myExtract.myTransparent.myDrawInstances.size();
+    aOut.myUnculledOpaque      = aOut.myExtract.myOpaque;
 
     if ( !aParams.myGpuCullEnabled ) {
         Gfx_CullDrawInstancesInPlace( *aParams.myScene, aParams.myView, aOut.myExtract.myOpaque );
@@ -38,8 +40,10 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     Gfx_SortOpaqueDrawInstances( aOut.myExtract.myOpaque );
     Gfx_SortTransparentDrawInstances( aOut.myExtract.myTransparent, *aParams.myScene, aParams.myCameraView );
+    Gfx_SortOpaqueDrawInstances( aOut.myUnculledOpaque );
     Gfx_BuildOpaqueDrawBatches( aOut.myExtract.myOpaque.myDrawInstances, aOut.myOpaqueBatchRuns );
     Gfx_BuildOpaqueDrawBatches( aOut.myExtract.myTransparent.myDrawInstances, aOut.myTransparentBatchRuns );
+    Gfx_BuildOpaqueDrawBatches( aOut.myUnculledOpaque.myDrawInstances, aOut.myShadowCasterBatchRuns );
 
     if ( !aLogs.myBatchLoggedOnce ) {
         UtilLogger::Info( "BATCH",

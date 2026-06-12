@@ -36,6 +36,7 @@ layout(location = 4) flat in uint inMaterialIndex;
 
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormalRoughness;
+layout(location = 2) out vec4 outWorldPosition;
 
 void main()
 {
@@ -48,4 +49,5 @@ void main()
     const vec2 mr = Pbr_ClampMetallicRoughness(mat.metallic, mat.roughness);
     outAlbedo = vec4(albedo, mr.x);
     outNormalRoughness = vec4(N, mr.y);
+    outWorldPosition = vec4(inWorldPos, 1.0);
 }

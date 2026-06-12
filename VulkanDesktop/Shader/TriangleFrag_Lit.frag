@@ -33,8 +33,9 @@ layout(location = 0) out vec4 outColor;
 const uint kAlphaModeMask = 1u;
 const uint kDebugViewDepth = 1u;
 const uint kDebugViewWorldNormal = 2u;
+const uint kDebugViewShadowMap = 3u;
 
-vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
+vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, vec3 aWorldPos)
 {
     const uint viewMode = uint(envData.fogDistances.w + 0.5);
     if (viewMode == kDebugViewDepth) {
@@ -42,6 +43,10 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
     }
     if (viewMode == kDebugViewWorldNormal) {
         return vec4(normalize(aWorldNormal) * 0.5 + 0.5, 1.0);
+    }
+    if (viewMode == kDebugViewShadowMap) {
+        const float visibility = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, aWorldPos, lightingGlobals.shadowParams);
+        return vec4(vec3(visibility), 1.0);
     }
     return aLitColor;
 }
@@ -56,13 +61,9 @@ void main()
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
     const vec2 mr = Pbr_ClampMetallicRoughness(material.metallic, material.roughness);
 
-    const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
-    vec3 color = Pbr_EvalIbl(N, V, albedo, mr.x, mr.y, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled);
-    if (iblEnabled == 0u) {
-        color = envData.ambientColor.rgb * albedo;
-    }
+    vec3 color = Pbr_EvalSceneAmbient(N, V, albedo, mr.x, mr.y, envData.ambientColor.rgb, inWorldPos);
 
-    const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(N, V, inWorldPos, envData.sunlightDirection.xyz, envData.sunlightColor.rgb);
+    const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(inWorldPos, envData.sunlightColor.rgb);
     color += Pbr_EvalDirect(N, V, normalize(envData.sunlightDirection.xyz), albedo, mr.x, mr.y, sunRadiance);
 
     outColor = vec4(color, clamp(material.alpha, 0.0, 1.0));
@@ -76,5 +77,5 @@ void main()
     }
 #endif
 
-    outColor = applyDebugView(outColor, N);
+    outColor = applyDebugView(outColor, N, inWorldPos);
 }

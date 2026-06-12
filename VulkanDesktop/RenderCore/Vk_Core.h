@@ -8,6 +8,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_RenderView.h"
 
@@ -171,6 +172,8 @@ public:
 
         return myCamera;
     }
+
+    Gfx_Bounds GetShadowCasterBounds() const;
 
     VkExtent2D GetSwapChainExtent() const {
 

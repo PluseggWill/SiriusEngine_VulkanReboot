@@ -66,12 +66,3 @@ vec3 Pbr_EvalDirect(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float r
 
     return (diffuse + specular) * lightColor * NdotL;
 }
-
-// Forward path: diffuse-only ambient (until S5 IBL) + one directional sun.
-vec3 Pbr_LitWithSunAndAmbient(vec3 N, vec3 V, vec3 sunDirection, vec3 sunColor, vec3 ambientColor,
-                              vec3 albedo, float metallic, float roughness)
-{
-    vec3 lit = ambientColor * albedo;
-    lit += Pbr_EvalDirect(N, V, normalize(sunDirection), albedo, metallic, roughness, sunColor);
-    return lit;
-}

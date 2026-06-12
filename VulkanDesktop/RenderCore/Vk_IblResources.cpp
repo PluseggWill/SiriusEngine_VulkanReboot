@@ -13,8 +13,9 @@
 
 namespace {
 
-constexpr VkFormat kCubemapFormat = VK_FORMAT_R8G8B8A8_SRGB;
-constexpr VkFormat kBrdfLutFormat = VK_FORMAT_R8G8B8A8_UNORM;
+constexpr VkFormat kCubemapFormat      = VK_FORMAT_R8G8B8A8_SRGB;
+constexpr VkFormat kBrdfLutFormat      = VK_FORMAT_R8G8B8A8_UNORM;
+constexpr uint32_t kPrefilterMipLevels = 5u;
 
 struct EnvironmentManifest {
     std::string myIrradianceDir;
@@ -125,9 +126,11 @@ void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath ) {
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myIrradiance,
                                               1 );
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myPrefilter,
-                                              1 );
+                                              kPrefilterMipLevels );
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
     UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.myResourceContext, kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
+
+    aCore.myIblResourcesState.myPrefilterMaxMipLevel = static_cast< float >( kPrefilterMipLevels - 1u );
 
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myIrradiance );
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myPrefilter );

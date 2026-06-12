@@ -45,6 +45,7 @@ struct Vk_ResourceContext {
     void        DestroyStagingBuffer( Vk_AllocatedBuffer& aBuffer ) const;
     void        CopyBufferOnGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     void        GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const;
+    void        GenerateCubemapMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aFaceWidth, int32_t aFaceHeight, uint32_t aMipLevel ) const;
     VkImageView CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel = 1 ) const;
     VkImageView CreateCubemapImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const;
 

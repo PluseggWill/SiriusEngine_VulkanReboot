@@ -357,9 +357,10 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 |--|--|
 | **Outcome** | Split-sum IBL + sky at far depth; 2048² directional shadow map (PCF); runtime toggles via `GpuLightingGlobals`; forward + deferred parity |
 | **Validation** | `Verify-Smoke.ps1` (stress shadows/IBL off); MSBuild Debug\|x64; manual Sponza checklist in archived plan §15 |
-| **Plan log** | [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) · [`s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md) |
+| **Plan log** | [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) · [`s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md) · refactor: [`lighting-shadow-refactor_Plan.md`](Archived/plans/lighting-shadow-refactor_Plan.md) |
 
 - [x] **[S5]** IBL + skybox + directional shadows (Lighting-2) — 2026-06-12
+- [x] **[S5]** Lighting/shadow refactor (caster pass, shader split, IBL mips) — 2026-06-13 · [`lighting-shadow-refactor_Progress.md`](Archived/plans/lighting-shadow-refactor_Progress.md)
 
 ---
 

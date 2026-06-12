@@ -33,9 +33,12 @@ struct Gfx_FrameDrawStreamLogState {
 };
 
 struct Gfx_FrameDrawStreamOutput {
-    Gfx_FrameExtract            myExtract;
+    Gfx_FrameExtract myExtract;
+    // Opaque list before frustum cull — used for shadow casters (all scene opaque geometry).
+    Gfx_ExtractResult           myUnculledOpaque;
     std::vector< Gfx_BatchRun > myOpaqueBatchRuns;
     std::vector< Gfx_BatchRun > myTransparentBatchRuns;
+    std::vector< Gfx_BatchRun > myShadowCasterBatchRuns;
     size_t                      myDrawCountBeforeCull = 0;
 };
 
