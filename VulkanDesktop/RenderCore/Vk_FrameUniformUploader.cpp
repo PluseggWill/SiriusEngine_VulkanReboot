@@ -39,9 +39,8 @@ void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Core& aCore, uint32_t 
 }
 
 void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    const glm::mat4   lightViewProj =
-        Gfx_LightingMath::ComputeDirectionalShadowMatrix( sunDir, aCore.myCamera, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
+    const glm::vec3 sunDir        = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const glm::mat4 lightViewProj = Gfx_LightingMath::ComputeDirectionalShadowMatrix( sunDir, aCore.myCamera, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
 
     GpuLightingGlobals globals = Gfx_BuildLightingGlobals( aCore.myLightingSettings, lightViewProj, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
 

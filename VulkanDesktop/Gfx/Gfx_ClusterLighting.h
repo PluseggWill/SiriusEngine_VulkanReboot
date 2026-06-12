@@ -54,7 +54,7 @@ struct Gfx_DeferredLightingPushConstants {
     float    legacyShininess        = 1.0f;
     float    debugView              = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
     float    legacyPad              = 0.0f;
-    float    invViewProj[ 16 ];            // column-major glm; inverse(proj * view) for depth reconstruct
+    float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct
 };
 
 static_assert( sizeof( GpuClusterLight ) == 32, "GpuClusterLight must match ClusterBuild.comp std430 layout" );

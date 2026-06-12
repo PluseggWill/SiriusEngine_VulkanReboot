@@ -130,34 +130,34 @@ void CreateShadowResources( Vk_Core& aCore ) {
     Vk_PipelineBuilder pipelineBuilder;
     pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
     pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-    pipelineBuilder.myVertexInputInfo                 = VkInit::Pipeline_VertexInputStateCreateInfo();
-    pipelineBuilder.myInputAssembly                   = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport                        = VkInit::ViewportCreateInfo( { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize } );
-    pipelineBuilder.myScissor.offset                  = { 0, 0 };
-    pipelineBuilder.myScissor.extent                  = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
-    pipelineBuilder.myRasterizer                      = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT );
-    pipelineBuilder.myMultisampling                   = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
-    pipelineBuilder.myDepthStencil                    = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthTestEnable    = VK_TRUE;
-    pipelineBuilder.myDepthStencil.depthWriteEnable   = VK_TRUE;
-    pipelineBuilder.myColorBlendAttachment            = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                  = state.myPipelineLayout;
+    pipelineBuilder.myVertexInputInfo               = VkInit::Pipeline_VertexInputStateCreateInfo();
+    pipelineBuilder.myInputAssembly                 = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+    pipelineBuilder.myViewport                      = VkInit::ViewportCreateInfo( { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize } );
+    pipelineBuilder.myScissor.offset                = { 0, 0 };
+    pipelineBuilder.myScissor.extent                = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
+    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT );
+    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
+    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
+    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_TRUE;
+    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_TRUE;
+    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
+    pipelineBuilder.myPipelineLayout                = state.myPipelineLayout;
     pipelineBuilder.SetDefaultDynamicStates();
     state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, state.myRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
 
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
 
-    const VkDevice        device      = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator    allocator   = aCore.myDeviceCtx.myAllocator;
-    const VkRenderPass    renderPass  = state.myRenderPass;
-    const VkFramebuffer   framebuffer = state.myFramebuffer;
-    const VkPipeline      pipeline    = state.myPipeline;
-    const VkPipelineLayout layout     = state.myPipelineLayout;
-    const VkSampler       sampler     = state.myCompareSampler;
-    const VkImageView     depthView   = state.myDepth.ImageView();
-    const VkImage         depthImage  = state.myDepth.Image();
-    const VmaAllocation   depthAlloc  = state.myDepth.Allocation();
+    const VkDevice         device      = aCore.myDeviceCtx.myDevice;
+    const VmaAllocator     allocator   = aCore.myDeviceCtx.myAllocator;
+    const VkRenderPass     renderPass  = state.myRenderPass;
+    const VkFramebuffer    framebuffer = state.myFramebuffer;
+    const VkPipeline       pipeline    = state.myPipeline;
+    const VkPipelineLayout layout      = state.myPipelineLayout;
+    const VkSampler        sampler     = state.myCompareSampler;
+    const VkImageView      depthView   = state.myDepth.ImageView();
+    const VkImage          depthImage  = state.myDepth.Image();
+    const VmaAllocation    depthAlloc  = state.myDepth.Allocation();
     aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, allocator, renderPass, framebuffer, pipeline, layout, sampler, depthView, depthImage, depthAlloc ]() {
         vkDestroySampler( device, sampler, nullptr );
         vkDestroyPipeline( device, pipeline, nullptr );
@@ -168,14 +168,14 @@ void CreateShadowResources( Vk_Core& aCore ) {
         vmaDestroyImage( allocator, depthImage, depthAlloc );
     } );
 
-    UtilLogger::Info( "PIPELINE", "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x"
-                                   + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
+    UtilLogger::Info( "PIPELINE",
+                      "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x" + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
 }
 
 void RecordShadowDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
                         bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
-    const VkDescriptorSet objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout  layout           = aCore.myShadowMapState.myPipelineLayout;
+    const VkDescriptorSet  objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
+    const VkPipelineLayout layout           = aCore.myShadowMapState.myPipelineLayout;
 
     ShadowPushConstants push{};
     push.lightViewProj = aCore.myShadowMapState.myLightViewProj;
@@ -186,8 +186,7 @@ void RecordShadowDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gf
             const uint32_t          absoluteDrawIndex = batch.myFirstDrawIndex + drawIndex;
             const Gfx_DrawInstance& draw              = aPass.myDraws[ absoluteDrawIndex ];
             const Gfx_Mesh&         mesh              = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
-            const uint32_t          slot              = ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, absoluteDrawIndex,
-                                                                                 draw.myEntityIndex );
+            const uint32_t slot = ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, absoluteDrawIndex, draw.myEntityIndex );
 
             if ( aEmitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ShadowMap" );
@@ -244,9 +243,8 @@ void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassD
         return;
     }
 
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    aCore.myShadowMapState.myLightViewProj =
-        Gfx_LightingMath::ComputeDirectionalShadowMatrix( sunDir, aCore.myCamera, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
+    const glm::vec3 sunDir                 = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    aCore.myShadowMapState.myLightViewProj = Gfx_LightingMath::ComputeDirectionalShadowMatrix( sunDir, aCore.myCamera, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
 
     Vk_ShadowMapState& state = aCore.myShadowMapState;
 
@@ -257,7 +255,7 @@ void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassD
     beginInfo.renderArea.offset = { 0, 0 };
     beginInfo.renderArea.extent = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
     VkClearValue clear{};
-    clear.depthStencil      = { 1.0f, 0 };
+    clear.depthStencil        = { 1.0f, 0 };
     beginInfo.clearValueCount = 1;
     beginInfo.pClearValues    = &clear;
 

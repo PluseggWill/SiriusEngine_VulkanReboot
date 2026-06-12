@@ -10,12 +10,11 @@
 namespace {
 
 void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
-    static bool     sInitialized = false;
-    static bool     sShadows     = true;
-    static bool     sIbl         = true;
-    static float    sIntensity   = 1.0f;
-    const bool      changed      = !sInitialized || sShadows != aSettings.myShadowsEnabled || sIbl != aSettings.myIblEnabled
-                                || sIntensity != aSettings.myIblIntensity;
+    static bool  sInitialized = false;
+    static bool  sShadows     = true;
+    static bool  sIbl         = true;
+    static float sIntensity   = 1.0f;
+    const bool   changed      = !sInitialized || sShadows != aSettings.myShadowsEnabled || sIbl != aSettings.myIblEnabled || sIntensity != aSettings.myIblIntensity;
     if ( !changed ) {
         return;
     }
@@ -24,8 +23,7 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
     sShadows     = aSettings.myShadowsEnabled;
     sIbl         = aSettings.myIblEnabled;
     sIntensity   = aSettings.myIblIntensity;
-    UtilLogger::Info( "LIGHTING", std::string( "shadows=" ) + ( sShadows ? "1" : "0" ) + " ibl=" + ( sIbl ? "1" : "0" )
-                                    + " iblIntensity=" + std::to_string( sIntensity ) );
+    UtilLogger::Info( "LIGHTING", std::string( "shadows=" ) + ( sShadows ? "1" : "0" ) + " ibl=" + ( sIbl ? "1" : "0" ) + " iblIntensity=" + std::to_string( sIntensity ) );
 }
 
 }  // namespace

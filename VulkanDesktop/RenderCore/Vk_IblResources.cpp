@@ -122,8 +122,10 @@ void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath ) {
 
     const EnvironmentManifest manifest = LoadManifest( aCore.EngineConfig(), aEnvironmentLogicalPath );
 
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myIrradiance, 1 );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myPrefilter, 1 );
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myIrradiance,
+                                              1 );
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.myPrefilter,
+                                              1 );
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.myResourceContext, kCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
     UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.myResourceContext, kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
 
@@ -132,9 +134,9 @@ void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath ) {
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.mySky );
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myBrdfLut );
 
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    const VkDevice device                      = aCore.myDeviceCtx.myDevice;
     aCore.myIblResourcesState.myCubemapSampler = CreateCubemapSampler( device );
-    aCore.myIblResourcesState.myBrdfLutSampler  = CreateBrdfLutSampler( device );
+    aCore.myIblResourcesState.myBrdfLutSampler = CreateBrdfLutSampler( device );
 
     const VkSampler cubemapSampler = aCore.myIblResourcesState.myCubemapSampler;
     const VkSampler brdfSampler    = aCore.myIblResourcesState.myBrdfLutSampler;

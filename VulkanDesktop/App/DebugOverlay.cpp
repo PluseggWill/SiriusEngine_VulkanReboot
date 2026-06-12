@@ -1,8 +1,8 @@
 // Pre-record ImGui panels (phase 2 peel). All debug UI orchestration lives here (App thread).
 #include "DebugOverlay.h"
 
-#include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"

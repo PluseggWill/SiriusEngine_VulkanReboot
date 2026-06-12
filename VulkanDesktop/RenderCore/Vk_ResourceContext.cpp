@@ -363,8 +363,8 @@ VkImageView Vk_ResourceContext::CreateImageView( VkImage anImage, VkFormat aForm
 }
 
 VkImageView Vk_ResourceContext::CreateCubemapImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
-    VkImageViewCreateInfo viewInfo = VkInit::ImageViewCreateInfo( aFormat, anImage, anAspect, aMipLevel );
-    viewInfo.viewType              = VK_IMAGE_VIEW_TYPE_CUBE;
+    VkImageViewCreateInfo viewInfo       = VkInit::ImageViewCreateInfo( aFormat, anImage, anAspect, aMipLevel );
+    viewInfo.viewType                    = VK_IMAGE_VIEW_TYPE_CUBE;
     viewInfo.subresourceRange.layerCount = 6;
 
     VkImageView imageView;

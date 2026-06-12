@@ -16,7 +16,7 @@
 |--------|-----------|--------|--------|
 | **S3** | M2 + FG v0 | GPU indirect + hybrid shell | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S4** | Lighting-1 | PBR + G-buffer contract | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S5** | Lighting-2 | IBL, skybox, shadows | [below](#s5--environment--shadows-lighting-2) |
+| **S5** | Lighting-2 | IBL, skybox, shadows | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S6** | Lighting-3 | SSAO + Hi-Z | [below](#s6--screen-space--hi-z-lighting-3) |
 | **S7** | Lighting-4 | Post + frame graph v1 | [below](#s7--post-processing--frame-graph-v1-lighting-4) |
 | **S8** | Lighting-5 | DDGI / GI (Stage 3) | [below](#s8--global-illumination-ddgi--stage-3) · gate **G4** |
@@ -37,22 +37,9 @@ Closed 2026-06-12 · Plan: [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/pl
 
 ---
 
-## S5 — Environment + shadows (Lighting-2)
+## S5 — Environment + shadows (Lighting-2) *(shipped — see Archived-Plan)*
 
-*Deps: **S4** (G-buffer + PBR BRDF).*
-
-### Open tasks
-
-- [ ] Skybox / background: cubemap pass or skydome draw (depth at far plane).
-- [ ] IBL: environment cubemap + diffuse irradiance + specular prefilter (or split-sum approximation).
-- [ ] Wire IBL into deferred lighting + transparent forward.
-- [ ] Directional shadow map v0 (single cascade); stable ortho frustum from sun direction.
-- [ ] Shadow map sample in deferred lighting (PCF v0).
-- [ ] ImGui / config toggles: shadows on/off, IBL intensity.
-
-### Acceptance
-
-- [ ] Sponza: sun shadow on ground/arch; sky visible at openings; IBL fills interiors without blowing exposure.
+Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md)
 
 ---
 

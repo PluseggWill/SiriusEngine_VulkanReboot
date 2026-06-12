@@ -11,8 +11,8 @@ enum eDescriptorSet : uint32_t {
 
 // Set 0 (Frame) - TriangleVertex.vert set 0; TriangleFrag_Lit.frag env only (no albedo).
 enum eDescriptorBinding {
-    eVk_CameraBinding     = 0,  // VERTEX | GpuCameraData (view, proj)
-    eVk_EnvBinding        = 1,  // FRAGMENT | GpuEnvironmentData (myFogDistance: xyz lighting, w debug view)
+    eVk_CameraBinding          = 0,  // VERTEX | GpuCameraData (view, proj)
+    eVk_EnvBinding             = 1,  // FRAGMENT | GpuEnvironmentData (myFogDistance: xyz lighting, w debug view)
     eVk_LightingGlobalsBinding = 2,  // FRAGMENT | GpuLightingGlobals (shadow + IBL toggles)
     eVk_ShadowMapBinding       = 3,  // FRAGMENT | sampler2DShadow depth compare
     eVk_IrradianceMapBinding   = 4,  // FRAGMENT | samplerCube irradiance

@@ -26,12 +26,12 @@
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
-#include "Vk_ShadowMapPass.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
 #include "Vk_SceneHost.h"
 #include "Vk_ScenePasses.h"
+#include "Vk_ShadowMapPass.h"
 #include "Vk_SwapchainHost.h"
 
 #include "Vk_Initializer.h"
@@ -652,9 +652,8 @@ void Vk_Core::CreateUniformBuffers() {
 
     const size_t lightingGlobalsSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuLightingGlobals ) );
     CreateBuffer( lightingGlobalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myLightingGlobalsBuffer, true );
-    myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
-        vmaDestroyBuffer( myDeviceCtx.myAllocator, myLightingGlobalsBuffer.myBuffer, myLightingGlobalsBuffer.myAllocation );
-    } );
+    myDeviceCtx.myDeletionQueue.pushFunction(
+        [ = ]() { vmaDestroyBuffer( myDeviceCtx.myAllocator, myLightingGlobalsBuffer.myBuffer, myLightingGlobalsBuffer.myAllocation ); } );
 }
 
 void Vk_Core::CreateCommandPool() {

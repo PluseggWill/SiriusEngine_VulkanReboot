@@ -1,7 +1,7 @@
 # Plan: s5-ibl-shadows — IBL, skybox, directional shadows (Lighting-2)
 
-**Status:** Planned  
-**Progress:** [`s5-ibl-shadows_Progress.md`](s5-ibl-shadows_Progress.md) *(kickoff — checkpoints during implement)*  
+**Status:** Closed (2026-06-12)  
+**Progress:** [`Archived/plans/s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md)  
 **Parent:** [`Active-Plan.md`](Active-Plan.md) queue #1 · [`Wishlist.md`](Wishlist.md) § S5  
 **Epic:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §C (IBL + environment)  
 **Depends on:** S4 PBR + G-buffer ✓ (2026-06-12)  

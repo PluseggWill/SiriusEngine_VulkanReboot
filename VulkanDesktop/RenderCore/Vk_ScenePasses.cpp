@@ -411,9 +411,9 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
 
     static bool sHybridPiPLoggedOnce = false;
 
-    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
-    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+    const Vk_RenderMaterialPath materialPath     = aCore.myDeviceCtx.myMaterialPath;
+    const bool                  bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
+    const VkPipelineLayout      frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
     const bool                  legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
     const bool                  gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
     const bool                  emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
@@ -421,10 +421,10 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
     Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
     const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
 
-    const VkPipeline opaqueBindlessPipeline = aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve;
-    const VkPipeline opaqueBatchPipeline      = aCore.mySceneGpuCtx.myBasicPipelineHybridResolve;
+    const VkPipeline opaqueBindlessPipeline      = aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve;
+    const VkPipeline opaqueBatchPipeline         = aCore.mySceneGpuCtx.myBasicPipelineHybridResolve;
     const VkPipeline transparentBindlessPipeline = aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve;
-    const VkPipeline transparentBatchPipeline      = aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve;
+    const VkPipeline transparentBatchPipeline    = aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve;
 
     if ( ( bindless && opaqueBindlessPipeline == VK_NULL_HANDLE ) || ( !bindless && opaqueBatchPipeline == VK_NULL_HANDLE ) ) {
         static bool sHybridPiPWarnOnce = false;
@@ -442,9 +442,9 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
         }
 
         std::array< VkClearAttachment, 2 > clearAttachments{};
-        clearAttachments[ 0 ].aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT;
-        clearAttachments[ 0 ].colorAttachment = 0;
-        clearAttachments[ 0 ].clearValue.color = { { 0.05f, 0.05f, 0.08f, 1.0f } };
+        clearAttachments[ 0 ].aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearAttachments[ 0 ].colorAttachment         = 0;
+        clearAttachments[ 0 ].clearValue.color        = { { 0.05f, 0.05f, 0.08f, 1.0f } };
         clearAttachments[ 1 ].aspectMask              = VK_IMAGE_ASPECT_DEPTH_BIT;
         clearAttachments[ 1 ].clearValue.depthStencil = { 1.0f, 0 };
 

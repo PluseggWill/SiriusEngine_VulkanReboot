@@ -49,13 +49,12 @@ DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Core& aCore ) {
     const uint32_t materialSets = bindless ? 1u : static_cast< uint32_t >( materialCount );
     const uint32_t baseSets     = frameSets + objectSets + materialSets;
 
-    const uint32_t uniformStatic    = WithPoolHeadroom( frameSets * 3 + static_cast< uint32_t >( materialCount ) );
-    const uint32_t uniformDynamic   = WithPoolHeadroom( static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) );
+    const uint32_t uniformStatic         = WithPoolHeadroom( frameSets * 3 + static_cast< uint32_t >( materialCount ) );
+    const uint32_t uniformDynamic        = WithPoolHeadroom( static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) );
     const uint32_t frameLightingSamplers = frameSets * 5;  // shadow + irradiance + prefilter + BRDF LUT + sky
-    const uint32_t combinedSamplers =
-        bindless ? WithPoolHeadroom( VkDescriptorPolicy::kMaxBindlessTextures + frameLightingSamplers )
-                 : WithPoolHeadroom( static_cast< uint32_t >( materialCount ) + frameLightingSamplers );
-    const uint32_t storageBuffers   = WithPoolHeadroom( bindless ? 2u : 1u );
+    const uint32_t combinedSamplers      = bindless ? WithPoolHeadroom( VkDescriptorPolicy::kMaxBindlessTextures + frameLightingSamplers )
+                                                    : WithPoolHeadroom( static_cast< uint32_t >( materialCount ) + frameLightingSamplers );
+    const uint32_t storageBuffers        = WithPoolHeadroom( bindless ? 2u : 1u );
 
     DescriptorPoolPlan plan{};
     plan.myPoolSizes[ 0 ].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -402,7 +401,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
             camBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) ) * viewIndex;
             camBufferInfo.range  = sizeof( GpuCameraData );
 
-            const VkDescriptorSet globalSet = aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ];
+            const VkDescriptorSet                                     globalSet        = aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ];
             std::array< VkWriteDescriptorSet, eVk_FrameBindingCount > descriptorWrites = {
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 ),
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 ),

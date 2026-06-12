@@ -270,13 +270,13 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
         pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
 
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        VkShaderModule bindlessFragModule = aCore.CreateShaderModule( bindlessFragShaderPath );
-        pipelineBuilder.myShaderStages[ 1 ] = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, bindlessFragModule, "main" );
-        pipelineBuilder.myPipelineLayout    = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
-        pipelineBuilder.myDepthStencil      = depthStencilInfo;
+        VkShaderModule bindlessFragModule      = aCore.CreateShaderModule( bindlessFragShaderPath );
+        pipelineBuilder.myShaderStages[ 1 ]    = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, bindlessFragModule, "main" );
+        pipelineBuilder.myPipelineLayout       = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
+        pipelineBuilder.myDepthStencil         = depthStencilInfo;
         pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-        diag.myLabel                        = "basic-lit-bindless-opaque-hybrid-resolve";
-        diag.myFragShaderPath               = bindlessFragShaderPath.c_str();
+        diag.myLabel                           = "basic-lit-bindless-opaque-hybrid-resolve";
+        diag.myFragShaderPath                  = bindlessFragShaderPath.c_str();
         aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve =
             pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
 

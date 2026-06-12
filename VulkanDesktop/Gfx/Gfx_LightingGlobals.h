@@ -6,7 +6,7 @@
 struct GpuLightingGlobals {
     alignas( 16 ) glm::mat4 myLightViewProj{};
     alignas( 16 ) glm::vec4 myShadowParams{ 0.0025f, 0.001f, 1.0f, 1.0f / 2048.0f };  // bias, normalOffset, enabled, texelSize
-    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.0f };                     // intensity, enabled, pad, pad
+    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.0f };                    // intensity, enabled, pad, pad
 };
 
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );

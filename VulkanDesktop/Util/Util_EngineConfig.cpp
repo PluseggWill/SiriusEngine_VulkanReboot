@@ -608,8 +608,8 @@ void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( myEnableRenderDoc ? "enabled" : "disabled" ) );
     UtilLogger::Info( "CONFIG", std::string( "legacyDirectDraw=" ) + ( myLegacyDirectDraw ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "gpuCull=" ) + ( myGpuCullEnabled ? "true" : "false" ) );
-    UtilLogger::Info( "CONFIG", std::string( "lighting shadows=" ) + ( myLightingSettings.myShadowsEnabled ? "1" : "0" ) + " ibl="
-                                    + ( myLightingSettings.myIblEnabled ? "1" : "0" ) + " iblIntensity=" + std::to_string( myLightingSettings.myIblIntensity )
+    UtilLogger::Info( "CONFIG", std::string( "lighting shadows=" ) + ( myLightingSettings.myShadowsEnabled ? "1" : "0" )
+                                    + " ibl=" + ( myLightingSettings.myIblEnabled ? "1" : "0" ) + " iblIntensity=" + std::to_string( myLightingSettings.myIblIntensity )
                                     + " environment=" + myEnvironmentPath );
 
     if ( myValidationResolved ) {

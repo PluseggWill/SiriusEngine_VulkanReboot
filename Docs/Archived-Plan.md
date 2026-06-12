@@ -351,6 +351,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S5 — IBL + skybox + directional shadows *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | Split-sum IBL + sky at far depth; 2048² directional shadow map (PCF); runtime toggles via `GpuLightingGlobals`; forward + deferred parity |
+| **Validation** | `Verify-Smoke.ps1` (stress shadows/IBL off); MSBuild Debug\|x64; manual Sponza checklist in archived plan §15 |
+| **Plan log** | [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) · [`s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md) |
+
+- [x] **[S5]** IBL + skybox + directional shadows (Lighting-2) — 2026-06-12
+
+---
+
 ## S3 — hygiene *(closed 2026-06-11)*
 
 - [x] **[S3]** `LNK4098` linker warning — not reproducible on Debug\|x64 rebuild 2026-06-11; no action (optional task closed)

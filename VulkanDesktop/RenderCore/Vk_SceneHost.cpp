@@ -43,18 +43,18 @@ void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
 void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
     const float aspect = static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height );
 
-    float       fovDeg   = 45.0f;
-    float       nearPlane = 0.1f;
-    float       farPlane  = 32.0f;
-    glm::vec3   eye{ 0.0f, 3.0f, 9.0f };
-    glm::vec3   center{ 0.0f, 0.5f, -2.0f };
-    glm::vec3   up{ 0.0f, 0.0f, 1.0f };
+    float     fovDeg    = 45.0f;
+    float     nearPlane = 0.1f;
+    float     farPlane  = 32.0f;
+    glm::vec3 eye{ 0.0f, 3.0f, 9.0f };
+    glm::vec3 center{ 0.0f, 0.5f, -2.0f };
+    glm::vec3 up{ 0.0f, 0.0f, 1.0f };
 
     if ( const Gfx_SceneCameraEntry* spawn = FindFlySpawnCamera( aWorld.myLoadedScene ) ) {
-        eye    = spawn->myEye;
-        center = spawn->myCenter;
-        up     = spawn->myUp;
-        fovDeg = spawn->myFovYDeg;
+        eye                      = spawn->myEye;
+        center                   = spawn->myCenter;
+        up                       = spawn->myUp;
+        fovDeg                   = spawn->myFovYDeg;
         const float lookDistance = glm::length( center - eye );
         farPlane                 = std::max( 32.0f, lookDistance * 10.0f );
     }

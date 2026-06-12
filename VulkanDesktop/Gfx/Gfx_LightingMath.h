@@ -13,11 +13,11 @@ namespace Gfx_LightingMath {
 
 inline std::array< glm::vec3, 8 > FrustumCornersWorld( const glm::mat4& aInvViewProj ) {
     std::array< glm::vec3, 8 > corners{};
-    size_t                       index = 0;
+    size_t                     index = 0;
     for ( int zSign : { -1, 1 } ) {
         for ( int ySign : { -1, 1 } ) {
             for ( int xSign : { -1, 1 } ) {
-                const glm::vec4 clip = glm::vec4( static_cast< float >( xSign ), static_cast< float >( ySign ), static_cast< float >( zSign ), 1.0f );
+                const glm::vec4 clip  = glm::vec4( static_cast< float >( xSign ), static_cast< float >( ySign ), static_cast< float >( zSign ), 1.0f );
                 const glm::vec4 world = aInvViewProj * clip;
                 corners[ index++ ]    = glm::vec3( world ) / world.w;
             }

@@ -94,7 +94,8 @@ bool UtilLoader::LoadTexture( const Util_EngineConfig& aConfig, const std::strin
     return uploaded;
 }
 
-bool UtilLoader::LoadImage2D( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, VkFormat aFormat, Gfx_Texture& aTextureOut ) {
+bool UtilLoader::LoadImage2D( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, VkFormat aFormat,
+                              Gfx_Texture& aTextureOut ) {
     const std::string resolvedPath = ResolvePath( aConfig, aFilename );
     UtilLogger::Info( "RESOURCE", "Loading 2D image: " + resolvedPath );
     int      texWidth    = 0;
@@ -138,7 +139,7 @@ bool UtilLoader::LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig,
             throw std::runtime_error( "cubemap face size mismatch: " + resolvedPath );
         }
 
-        const size_t byteCount = static_cast< size_t >( width ) * static_cast< size_t >( height ) * 4;
+        const size_t           byteCount = static_cast< size_t >( width ) * static_cast< size_t >( height ) * 4;
         std::vector< stbi_uc > copy( byteCount );
         memcpy( copy.data(), pixels, byteCount );
         stbi_image_free( pixels );
@@ -159,7 +160,8 @@ bool UtilLoader::LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig,
         vmaMapMemory( allocator, stagingBuffer.myAllocation, &data );
         memcpy( data, facePixels[ faceIndex ].data(), static_cast< size_t >( faceBytes ) );
         vmaUnmapMemory( allocator, stagingBuffer.myAllocation );
-        aContext.CopyBufferToCubemapFace( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( faceWidth ), static_cast< uint32_t >( faceHeight ), faceIndex );
+        aContext.CopyBufferToCubemapFace( stagingBuffer.myBuffer, aTextureOut.Image(), static_cast< uint32_t >( faceWidth ), static_cast< uint32_t >( faceHeight ),
+                                          faceIndex );
         vmaDestroyBuffer( allocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
     }
 
