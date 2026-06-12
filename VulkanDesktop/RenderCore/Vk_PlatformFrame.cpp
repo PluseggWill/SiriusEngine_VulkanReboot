@@ -27,5 +27,8 @@ void Vk_PlatformFrame::BeginFrame( Vk_Core& aCore, float& aOutDeltaSeconds ) {
     }
     aCore.myPlatformCtx.myLastFrameTime    = frameStart;
     aCore.myPlatformCtx.myHasLastFrameTime = true;
+}
+
+void Vk_PlatformFrame::BeginImGuiFrame( Vk_Core& aCore ) {
     aCore.myPlatformCtx.myImGuiLayer.NewFrame();
 }

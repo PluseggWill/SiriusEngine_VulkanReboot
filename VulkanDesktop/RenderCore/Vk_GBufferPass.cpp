@@ -275,12 +275,11 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 
 // G-buffer MRT colors must be shader-readable before DeferredLighting (depth is handled by CmdCopyGBufferDepthToSwapchain).
 void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
-    constexpr VkImageLayout kColorReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     std::array< VkImageMemoryBarrier, 2 > barriers = {
-        ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kColorReadLayout, kColorReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
-        ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kColorReadLayout, kColorReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                           VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );
@@ -321,6 +320,25 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
                           nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
+void RebuildGBufferPipelines( Vk_Core& aCore ) {
+    if ( aCore.myGBufferState.myRenderPass == VK_NULL_HANDLE || aCore.mySceneGpuCtx.myPipelineLayout == VK_NULL_HANDLE ) {
+        return;
+    }
+
+    DestroyPipelines( aCore );
+
+    const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferVertSpv );
+    const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragSpv );
+
+    aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
+
+    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless && aCore.mySceneGpuCtx.myBindlessPipelineLayout != VK_NULL_HANDLE ) {
+        const std::string bindlessFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragBindlessSpv );
+        aCore.myGBufferState.myGBufferPipelineBindless =
+            BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myBindlessPipelineLayout, vertPath, bindlessFragPath );
+    }
+}
+
 void RebuildResources( Vk_Core& aCore ) {
     if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
@@ -329,20 +347,11 @@ void RebuildResources( Vk_Core& aCore ) {
     DestroyPipelines( aCore );
     aCore.myGBufferState.myDeletionQueue.flush();
 
-    const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferVertSpv );
-    const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragSpv );
-
     CreateGBufferRenderPass( aCore );
     CreateGBufferImages( aCore );
     CreateGBufferFramebuffer( aCore );
 
-    aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
-
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        const std::string bindlessFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragBindlessSpv );
-        aCore.myGBufferState.myGBufferPipelineBindless =
-            BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myBindlessPipelineLayout, vertPath, bindlessFragPath );
-    }
+    RebuildGBufferPipelines( aCore );
 }
 
 }  // namespace
@@ -375,6 +384,13 @@ void RecreateForExtent( Vk_Core& aCore ) {
     RebuildResources( aCore );
 }
 
+void RecreatePipelines( Vk_Core& aCore ) {
+    if ( !aCore.myGBufferState.myInitialized ) {
+        return;
+    }
+    RebuildGBufferPipelines( aCore );
+}
+
 void Init( Vk_Core& aCore ) {
     if ( aCore.myGBufferState.myInitialized ) {
         return;
@@ -403,6 +419,13 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
     const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
     const VkPipeline            gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
+    if ( gbufferPipeline == VK_NULL_HANDLE ) {
+        static bool sNullPipelineWarnOnce = false;
+        if ( !sNullPipelineWarnOnce ) {
+            UtilLogger::Error( "FG", "G-buffer pipeline null; opaque skipped (stale layout after swapchain recreate?)" );
+            sNullPipelineWarnOnce = true;
+        }
+    }
 
     if ( aViewCount > 1 && !sMultiViewWarnOnce ) {
         UtilLogger::Warn( "FG", "HybridDeferred FG v0 uses view 0 only." );
@@ -438,7 +461,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
         BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
 
-        if ( Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( gbufferPipeline != VK_NULL_HANDLE && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
             }

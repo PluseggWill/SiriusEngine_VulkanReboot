@@ -1264,6 +1264,10 @@ void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
     Vk_PlatformFrame::BeginFrame( *this, aOutDeltaSeconds );
 }
 
+void Vk_Core::BeginImGuiFrame() {
+    Vk_PlatformFrame::BeginImGuiFrame( *this );
+}
+
 void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput ) {
     myCamera.ApplyInput( aDeltaSeconds, aInput, DebugUI().myCameraSettings );
 }

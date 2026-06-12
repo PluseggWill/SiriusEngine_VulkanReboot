@@ -12,7 +12,6 @@
 
 #include <array>
 #include <cstring>
-#include <iterator>
 #include <stdexcept>
 
 namespace {
@@ -252,8 +251,8 @@ void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
         WriteSunLightFromEnvironment( lights[ 0 ], aCore.myEnvironmentData );
     }
 
-    const VkBufferMemoryBarrier lightsBarrier = BufferBarrier( state.myLightsBuffer.myBuffer, VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    CmdPipelineBarrierBuffer( aCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, lightsBarrier );
+    const VkBufferMemoryBarrier lightsToCompute = BufferBarrier( state.myLightsBuffer.myBuffer, VK_ACCESS_HOST_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    CmdPipelineBarrierBuffer( aCommandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, lightsToCompute );
 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myComputePipeline );
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );
@@ -274,11 +273,11 @@ void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
         }
     }
 
-    const VkBufferMemoryBarrier listsBarrier  = BufferBarrier( state.myClusterListBuffers[ aFrameIndex ].myBuffer, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    const VkBufferMemoryBarrier lightsBarrier = BufferBarrier( state.myLightsBuffer.myBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
-    const VkBufferMemoryBarrier barriers[]    = { listsBarrier, lightsBarrier };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                          static_cast< uint32_t >( std::size( barriers ) ), barriers, 0, nullptr );
+    // Publish cluster lists + lights SSBO to DeferredLighting fragment (compute → fragment execution dependency).
+    const VkBufferMemoryBarrier listsBarrier     = BufferBarrier( state.myClusterListBuffers[ aFrameIndex ].myBuffer, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    const VkBufferMemoryBarrier lightsToFragment = BufferBarrier( state.myLightsBuffer.myBuffer, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
+    const VkBufferMemoryBarrier ssboBarriers[]   = { listsBarrier, lightsToFragment };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 2, ssboBarriers, 0, nullptr );
 
     if ( !sDispatchLoggedOnce ) {
         UtilLogger::Info( "CLUSTER",

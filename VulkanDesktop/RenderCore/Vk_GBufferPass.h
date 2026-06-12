@@ -27,6 +27,10 @@ struct Vk_GBufferState {
 };
 
 // HybridDeferred opaque path: offscreen G-buffer raster (resolve → Vk_DeferredLightingPass).
+//
+// Lifecycle:
+//   Init / RecreateForExtent — extent-sized attachments + pipelines (uses scene batch/bindless pipeline layouts).
+//   RecreatePipelines — pipelines only; call after Vk_GfxPipelineCache rebuilds scene layouts on swapchain recreate.
 namespace Vk_GBufferPass {
 
 bool IsActive( const Vk_Core& aCore );
@@ -34,6 +38,7 @@ bool IsActive( const Vk_Core& aCore );
 void Init( Vk_Core& aCore );
 void Destroy( Vk_Core& aCore );
 void RecreateForExtent( Vk_Core& aCore );
+void RecreatePipelines( Vk_Core& aCore );
 
 void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,

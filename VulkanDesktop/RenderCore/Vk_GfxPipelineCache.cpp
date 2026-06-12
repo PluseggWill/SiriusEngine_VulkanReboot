@@ -200,6 +200,7 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
 }
 
 void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
+    // ForwardTransparent over copied G-buffer depth — separate render pass from myRenderPass (ImGui overlay RP follows).
     if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) || aCore.mySwapchainCtx.myHybridResolveRenderPass == VK_NULL_HANDLE ) {
         return;
     }

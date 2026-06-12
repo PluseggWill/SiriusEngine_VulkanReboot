@@ -227,8 +227,13 @@ void Vk_SwapchainHost::Recreate( Vk_Core& aCore ) {
     RecreateWsiOnly( aCore, supersededSwapChain );
     RebuildExtentDependentResources( aCore, includeRenderPass );
 
+    // Scene lit pipelines (and myPipelineLayout) are recreated on extent/format change. G-buffer MRT pipelines
+    // embed that layout — refresh them after scene rebuild so opaque writes albedo + normal (not forward-lit RT0 only).
     if ( extentChanged || includeRenderPass ) {
         RebuildScenePipelinesIfNeeded( aCore );
+        if ( Vk_GBufferPass::IsActive( aCore ) ) {
+            Vk_GBufferPass::RecreatePipelines( aCore );
+        }
     }
 
     aCore.myCamera.SetAspect( static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );

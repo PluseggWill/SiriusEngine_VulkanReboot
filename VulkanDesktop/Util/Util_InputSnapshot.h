@@ -17,10 +17,8 @@ struct Util_CameraSettings {
     float myMouseSensitivity = 0.002f;
 };
 
-// Persistent state for cursor capture / delta (owned by application loop).
+// Persistent state for RMB fly look (owned by application InputSystem).
 struct Util_InputState {
-    bool  myMouseLookActive     = false;
-    bool  myFirstMouseLookFrame = true;
-    float myLastCursorX         = 0.0f;
-    float myLastCursorY         = 0.0f;
+    bool myMouseLookActive     = false;
+    bool myFirstMouseLookFrame = true;  // skip delta on capture frame (avoid grab jump)
 };

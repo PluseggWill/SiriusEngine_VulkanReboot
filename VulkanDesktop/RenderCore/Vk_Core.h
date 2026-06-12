@@ -122,6 +122,7 @@ public:
     void Shutdown();
 
     void BeginPlatformFrame( float& aOutDeltaSeconds );
+    void BeginImGuiFrame();  // after InputSystem::Sample; see Vk_PlatformFrame.h
 
     void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
 

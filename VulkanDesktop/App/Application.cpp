@@ -103,7 +103,8 @@ void Application::RunMainLoop() {
     while ( !core.ShouldClose() ) {
         float frameSeconds = 0.0f;
         core.BeginPlatformFrame( frameSeconds );
-        myInput.Sample( core.GetWindow() );
+        myInput.Sample( core.GetWindow() );  // before ImGui NewFrame (RMB look + cursor recenter)
+        core.BeginImGuiFrame();
         core.ApplyCameraInput( frameSeconds, myInput.GetSnapshot() );
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );

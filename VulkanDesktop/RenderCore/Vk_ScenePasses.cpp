@@ -388,7 +388,8 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
-    const bool                  hybridResolve =
+    // HybridDeferred transparent pass runs inside myHybridResolveRenderPass (depth LOAD from G-buffer copy).
+    const bool hybridResolve =
         Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE;
     const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
                                                                                                   : aCore.mySceneGpuCtx.myTransparentPipelineBindless )

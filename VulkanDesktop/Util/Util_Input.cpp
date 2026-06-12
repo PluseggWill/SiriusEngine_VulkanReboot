@@ -3,13 +3,29 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+namespace {
+
+void SetRawMouseMotionEnabled( GLFWwindow* aWindow, bool aEnabled ) {
+#ifdef GLFW_RAW_MOUSE_MOTION
+    if ( glfwRawMouseMotionSupported() ) {
+        glfwSetInputMode( aWindow, GLFW_RAW_MOUSE_MOTION, aEnabled ? GLFW_TRUE : GLFW_FALSE );
+    }
+#else
+    ( void )aWindow;
+    ( void )aEnabled;
+#endif
+}
+
+}  // namespace
+
 namespace UtilInput {
 
 void Sample( GLFWwindow* aWindow, Util_InputState& aState, Util_InputSnapshot& aOutSnapshot, bool aAllowKeyboard, bool aAllowMouseLook ) {
     aOutSnapshot = {};
 
-    if ( aWindow == nullptr )
+    if ( aWindow == nullptr ) {
         return;
+    }
 
     if ( aAllowKeyboard ) {
         aOutSnapshot.myMoveForward = glfwGetKey( aWindow, GLFW_KEY_W ) == GLFW_PRESS;
@@ -22,36 +38,44 @@ void Sample( GLFWwindow* aWindow, Util_InputState& aState, Util_InputSnapshot& a
 
     const bool wantMouseLook = aAllowMouseLook && glfwGetMouseButton( aWindow, GLFW_MOUSE_BUTTON_RIGHT ) == GLFW_PRESS;
 
-    // RMB: capture cursor for look; first frame after capture skips delta to avoid a jump.
     if ( wantMouseLook && !aState.myMouseLookActive ) {
         aState.myMouseLookActive     = true;
         aState.myFirstMouseLookFrame = true;
         glfwSetInputMode( aWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
+        SetRawMouseMotionEnabled( aWindow, true );
     }
     else if ( !wantMouseLook && aState.myMouseLookActive ) {
         aState.myMouseLookActive = false;
+        SetRawMouseMotionEnabled( aWindow, false );
         glfwSetInputMode( aWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL );
     }
 
-    if ( !wantMouseLook )
+    if ( !wantMouseLook ) {
         return;
+    }
+
+    int winW = 0;
+    int winH = 0;
+    glfwGetWindowSize( aWindow, &winW, &winH );
+    if ( winW <= 0 || winH <= 0 ) {
+        return;
+    }
+
+    // Cursor position is in window coordinates; recenter each frame so delta stays stable with CURSOR_DISABLED.
+    const double centerX = static_cast< double >( winW ) * 0.5;
+    const double centerY = static_cast< double >( winH ) * 0.5;
 
     double cursorX = 0.0;
     double cursorY = 0.0;
     glfwGetCursorPos( aWindow, &cursorX, &cursorY );
 
-    if ( aState.myFirstMouseLookFrame ) {
-        aState.myLastCursorX         = static_cast< float >( cursorX );
-        aState.myLastCursorY         = static_cast< float >( cursorY );
-        aState.myFirstMouseLookFrame = false;
+    if ( !aState.myFirstMouseLookFrame ) {
+        aOutSnapshot.myMouseDeltaX = static_cast< float >( cursorX - centerX );
+        aOutSnapshot.myMouseDeltaY = static_cast< float >( cursorY - centerY );
     }
-    else {
-        aOutSnapshot.myMouseDeltaX = static_cast< float >( cursorX ) - aState.myLastCursorX;
-        aOutSnapshot.myMouseDeltaY = static_cast< float >( cursorY ) - aState.myLastCursorY;
-    }
+    aState.myFirstMouseLookFrame = false;
 
-    aState.myLastCursorX = static_cast< float >( cursorX );
-    aState.myLastCursorY = static_cast< float >( cursorY );
+    glfwSetCursorPos( aWindow, centerX, centerY );
 }
 
 }  // namespace UtilInput

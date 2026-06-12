@@ -23,7 +23,7 @@ namespace {
 constexpr char kDeferredVertSpv[] = "VulkanDesktop/Shader_Generated/DeferredLightingVert.spv";
 constexpr char kDeferredFragSpv[] = "VulkanDesktop/Shader_Generated/DeferredLightingFrag.spv";
 
-VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aSwapchainRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
     VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
@@ -36,7 +36,7 @@ VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aSwapchainRende
     pipelineBuilder.myViewport        = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
     pipelineBuilder.myScissor.offset  = { 0, 0 };
     pipelineBuilder.myScissor.extent  = aCore.mySwapchainCtx.mySwapChainExtent;
-    // Fullscreen triangle: disable cull (Vulkan clip-space winding can cull the big tri with BACK).
+    // Fullscreen triangle (DeferredLighting.vert): clip-space winding can back-face cull with default BACK cull.
     pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
     pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
     pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
@@ -46,7 +46,7 @@ VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aSwapchainRende
     pipelineBuilder.myPipelineLayout                = aLayout;
     pipelineBuilder.SetDefaultDynamicStates();
 
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aSwapchainRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
+    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
 
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
@@ -210,7 +210,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
     push.specularStrength = aCore.myEnvironmentData.myFogDistance.x;
     push.shininess        = glm::max( aCore.myEnvironmentData.myFogDistance.y, 1.0f );
-    push.debugView        = aCore.myEnvironmentData.myFogDistance.w;  // UtilRenderDebugPanel::Build before DrawFrameGpu
+    push.debugView        = aCore.myEnvironmentData.myFogDistance.w;  // UtilRenderDebugPanel::Build (Application, before DrawFrameGpu)
 
     const glm::mat4 invViewProj = glm::inverse( aCore.myCamera.myProj * aCore.myCamera.myView );
     std::memcpy( push.invViewProj, glm::value_ptr( invViewProj ), sizeof( push.invViewProj ) );
