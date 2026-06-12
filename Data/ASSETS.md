@@ -101,7 +101,7 @@ Diffuse-only 1K JPGs; lit shader samples albedo only (`textureBlend` from env UB
 
 See [`LOD.md`](LOD.md) for demo + stress LOD chains.
 
-## Sponza benchmark (`Data/Scenes/sponza.json`) — fetch-on-demand
+## Sponza benchmark (`Data/Scenes/sponza.json`) — vendored in repo
 
 | Role | Repo path | Source | License |
 |------|-----------|--------|---------|
@@ -109,11 +109,11 @@ See [`LOD.md`](LOD.md) for demo + stress LOD chains.
 | Source mesh + textures | `Data/Models/sponza/source/` | [McGuire Graphics Archive — Crytek Sponza](https://casual-effects.com/data/) | **CC BY 3.0** (© Frank Meinl, Crytek) |
 | Split OBJ parts (25 materials) | `Data/Models/sponza/parts/` | Generated from source | — |
 
-**Not in git** (`Data/Models/sponza/` is gitignored, ~80 MB). Fetch once:
+**In git** (~80 MB). Re-download or refresh split parts:
 
 ```powershell
-powershell -File Scripts/Fetch-SponzaMcGuire.ps1        # download + split + sponza.json
-powershell -File Scripts/Generate-SponzaScene.ps1       # regenerate after editing generator
+powershell -File Scripts/Fetch-SponzaMcGuire.ps1        # re-download source if missing; regenerates sponza.json
+powershell -File Scripts/Generate-SponzaScene.ps1       # regenerate manifest after editing generator
 ```
 
 **Run:**
@@ -130,7 +130,7 @@ VulkanDesktop.exe --scene Data/Scenes/sponza.json --config Config/engine.sponza.
 
 | File | Purpose |
 |------|---------|
-| `Data/Scenes/sponza.json` | **Default** indoor lighting benchmark (McGuire Sponza; requires fetch) |
+| `Data/Scenes/sponza.json` | **Default** indoor lighting benchmark (McGuire Sponza; vendored) |
 | `Data/Scenes/stress.json` | Valley test scene (cull / LOD / batch; CI smoke) |
 | `Data/Scenes/demo.json` | Stage 1 forward golden baseline |
 | `Data/Scenes/smoke.json` | Minimal load (optional) |

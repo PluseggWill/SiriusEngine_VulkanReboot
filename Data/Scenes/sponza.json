@@ -367,101 +367,139 @@
                       {
                           "id":  "mat_sponza_arch",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_arch"
+                          "texture":  "tex_sponza_arch",
+                          "roughness":  0.72,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_bricks",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_bricks"
+                          "texture":  "tex_sponza_bricks",
+                          "roughness":  0.72,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_ceiling",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_ceiling"
+                          "texture":  "tex_sponza_ceiling",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_chain",
                           "shader":  "lit",
                           "texture":  "tex_sponza_chain",
                           "alpha":  0.85,
-                          "transparent":  true
+                          "transparent":  true,
+                          "roughness":  0.35,
+                          "metallic":  0.85
                       },
                       {
                           "id":  "mat_sponza_column_a",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_column_a"
+                          "texture":  "tex_sponza_column_a",
+                          "roughness":  0.72,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_column_b",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_column_b"
+                          "texture":  "tex_sponza_column_b",
+                          "roughness":  0.72,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_column_c",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_column_c"
+                          "texture":  "tex_sponza_column_c",
+                          "roughness":  0.72,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_details",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_details"
+                          "texture":  "tex_sponza_details",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_a",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_a"
+                          "texture":  "tex_sponza_fabric_a",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_c",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_c"
+                          "texture":  "tex_sponza_fabric_c",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_d",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_d"
+                          "texture":  "tex_sponza_fabric_d",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_e",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_e"
+                          "texture":  "tex_sponza_fabric_e",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_f",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_f"
+                          "texture":  "tex_sponza_fabric_f",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_fabric_g",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_fabric_g"
+                          "texture":  "tex_sponza_fabric_g",
+                          "roughness":  0.88,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_flagpole",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_flagpole"
+                          "texture":  "tex_sponza_flagpole",
+                          "roughness":  0.35,
+                          "metallic":  0.85
                       },
                       {
                           "id":  "mat_sponza_floor",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_floor"
+                          "texture":  "tex_sponza_floor",
+                          "roughness":  0.55,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_leaf",
                           "shader":  "lit",
                           "texture":  "tex_sponza_leaf",
                           "alpha":  0.85,
-                          "transparent":  true
+                          "transparent":  true,
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_material_25",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_material_25"
+                          "texture":  "tex_sponza_material_25",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_material_298",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_material_298"
+                          "texture":  "tex_sponza_material_298",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_material_47",
@@ -472,34 +510,46 @@
                                             0.52,
                                             0.48,
                                             1
-                                        ]
+                                        ],
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_material_57",
                           "shader":  "lit",
                           "texture":  "tex_sponza_material_57",
                           "alpha":  0.85,
-                          "transparent":  true
+                          "transparent":  true,
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_roof",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_roof"
+                          "texture":  "tex_sponza_roof",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_vase",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_vase"
+                          "texture":  "tex_sponza_vase",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_vase_hanging",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_vase_hanging"
+                          "texture":  "tex_sponza_vase_hanging",
+                          "roughness":  0.65,
+                          "metallic":  0
                       },
                       {
                           "id":  "mat_sponza_vase_round",
                           "shader":  "lit",
-                          "texture":  "tex_sponza_vase_round"
+                          "texture":  "tex_sponza_vase_round",
+                          "roughness":  0.35,
+                          "metallic":  0.85
                       }
                   ],
     "cameras":  [

@@ -33,6 +33,24 @@ function ConvertTo-SafeId {
     return "sponza_$safe"
 }
 
+function Get-SponzaMaterialMr {
+    param( [string]$Name )
+    $n = $Name.ToLower()
+    if ( $n -match 'fabric|curtain|carpet' ) {
+        return @{ roughness = 0.88; metallic = 0.0 }
+    }
+    if ( $n -match 'chain|vase_round|flagpole' ) {
+        return @{ roughness = 0.35; metallic = 0.85 }
+    }
+    if ( $n -match 'floor' ) {
+        return @{ roughness = 0.55; metallic = 0.0 }
+    }
+    if ( $n -match 'brick|arch|column' ) {
+        return @{ roughness = 0.72; metallic = 0.0 }
+    }
+    return @{ roughness = 0.65; metallic = 0.0 }
+}
+
 function Read-SponzaMtl {
     param( [string]$Path )
     $result  = @{}
@@ -283,6 +301,10 @@ foreach ( $matName in ( $facesByMat.Keys | Sort-Object ) ) {
         $matEntry.alpha       = 0.85
         $matEntry.transparent = $true
     }
+
+    $mr = Get-SponzaMaterialMr -Name $matName
+    $matEntry.roughness = $mr.roughness
+    $matEntry.metallic  = $mr.metallic
 
     $materials.Add( $matEntry )
     $entity = [ordered]@{
