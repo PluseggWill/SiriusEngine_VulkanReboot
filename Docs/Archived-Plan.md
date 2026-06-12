@@ -334,6 +334,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Outcome** | Full hybrid chain on batch + bindless; specular v0 in deferred; ForwardLit default unchanged |
 | **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred (bindless + batch) |
 | **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–6 in [`Archived/plans/`](Archived/plans/) |
+| **Retrospective (中文)** | [`Archived/S3-回顾总结.md`](Archived/S3-回顾总结.md) |
 
 - [x] **[S3]** FG v0: preset + G-buffer + cluster build + deferred lighting — 2026-06-11
 
@@ -346,6 +347,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Outcome** | G-buffer MR encode (RT0.a metallic, RT1.w roughness); Cook-Torrance direct sun in deferred + forward; McGuire Sponza vendored |
 | **Validation** | `Verify-Smoke.ps1`; MSBuild + GfxTests; [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S4 |
 | **Plan log** | [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md) · [`s4-pbr-gbuffer_Progress.md`](Archived/plans/s4-pbr-gbuffer_Progress.md) |
+| **Retrospective (中文)** | [`Archived/S4-S5-回顾总结.md`](Archived/S4-S5-回顾总结.md) *(S4+S5 合并)* |
 
 - [x] **[S4]** PBR material contract + deferred/forward Cook-Torrance BRDF — 2026-06-12
 
@@ -358,6 +360,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Outcome** | Split-sum IBL + sky at far depth; 2048² directional shadow map (PCF); runtime toggles via `GpuLightingGlobals`; forward + deferred parity |
 | **Validation** | `Verify-Smoke.ps1` (stress shadows/IBL off); MSBuild Debug\|x64; manual Sponza checklist in archived plan §15 |
 | **Plan log** | [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) · [`s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md) · refactor: [`lighting-shadow-refactor_Plan.md`](Archived/plans/lighting-shadow-refactor_Plan.md) |
+| **Retrospective (中文)** | [`Archived/S4-S5-回顾总结.md`](Archived/S4-S5-回顾总结.md) *(S4+S5 合并)* |
 
 - [x] **[S5]** IBL + skybox + directional shadows (Lighting-2) — 2026-06-12
 - [x] **[S5]** Lighting/shadow refactor (caster pass, shader split, IBL mips) — 2026-06-13 · [`lighting-shadow-refactor_Progress.md`](Archived/plans/lighting-shadow-refactor_Progress.md)
