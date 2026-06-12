@@ -2,17 +2,15 @@
 
 #include "PbrDirect.glsl"
 
-// Set 0 — frame (matches TriangleVertex.vert set 0 for camera; env here for fragment).
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
-    vec4 fogDistances;  // xyz lighting; w = debug view (0 lit, 1 depth, 2 world normal) — Gfx_DebugViewMode
+    vec4 fogDistances;  // z = texture blend; w = Gfx_DebugViewMode
     vec4 ambientColor;
     vec4 sunlightDirection;
     vec4 sunlightColor;
     vec4 viewWorldPos;
 } envData;
 
-// Set 1 — material batch (bound once per batch in RecordScenePass).
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
 layout(set = 1, binding = 1) uniform MaterialData {
     vec4 baseColorFactor;
@@ -26,16 +24,14 @@ layout(location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;
 layout(location = 2) in vec3 inWorldNormal;
 layout(location = 3) in vec3 inWorldPos;
-layout(location = 4) flat in uint inMaterialIndex;  // from Set 2; unused on batch material path
+layout(location = 4) flat in uint inMaterialIndex;  // unused on batch material path
 
 layout(location = 0) out vec4 outColor;
 
 const uint kAlphaModeMask = 1u;
-const uint kDebugViewLit = 0u;
 const uint kDebugViewDepth = 1u;
 const uint kDebugViewWorldNormal = 2u;
 
-// Overrides lit shading for forward parity checks (Util_RenderDebugPanel).
 vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
 {
     const uint viewMode = uint(envData.fogDistances.w + 0.5);
@@ -51,25 +47,20 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
 void main()
 {
     const float textureBlend = clamp(envData.fogDistances.z, 0.0, 1.0);
-
     const vec3 texAlbedo = texture(texSampler, inTexCoord).rgb;
+    // Albedo contract matches GBuffer.frag (baseColorFactor × vertex/tex blend).
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * material.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
-    const vec3 L = normalize(envData.sunlightDirection.xyz);
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
-    const float metallic = clamp(material.metallic, 0.0, 1.0);
-    const float roughness = clamp(material.roughness, 0.0, 1.0);
-    const float NdotL = max(dot(N, L), 0.0);
+    const vec2 mr = Pbr_ClampMetallicRoughness(material.metallic, material.roughness);
 
-    vec3 color = envData.ambientColor.rgb * albedo;
-    if (NdotL > 0.0) {
-        color += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, envData.sunlightColor.rgb) * NdotL;
-    }
+    const vec3 color = Pbr_LitWithSunAndAmbient(
+        N, V, envData.sunlightDirection.xyz, envData.sunlightColor.rgb, envData.ambientColor.rgb,
+        albedo, mr.x, mr.y);
 
     outColor = vec4(color, clamp(material.alpha, 0.0, 1.0));
 
-    // Per-material mask (scene JSON alphaMode); independent of ForwardLitAlphaClip permutation.
     if (material.alphaMode == kAlphaModeMask && outColor.a < 0.5) {
         discard;
     }

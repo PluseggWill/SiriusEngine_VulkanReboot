@@ -1,6 +1,8 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "PbrDirect.glsl"
+
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
     vec4 fogDistances;
@@ -43,8 +45,7 @@ void main()
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * mat.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
-    const float metallic = clamp(mat.metallic, 0.0, 1.0);
-    const float roughness = clamp(mat.roughness, 0.0, 1.0);
-    outAlbedo = vec4(albedo, metallic);
-    outNormalRoughness = vec4(N, roughness);
+    const vec2 mr = Pbr_ClampMetallicRoughness(mat.metallic, mat.roughness);
+    outAlbedo = vec4(albedo, mr.x);
+    outNormalRoughness = vec4(N, mr.y);
 }

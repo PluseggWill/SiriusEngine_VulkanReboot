@@ -1,5 +1,7 @@
 #version 450
 
+#include "PbrDirect.glsl"
+
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
     vec4 fogDistances;
@@ -33,8 +35,7 @@ void main()
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * material.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
-    const float metallic = clamp(material.metallic, 0.0, 1.0);
-    const float roughness = clamp(material.roughness, 0.0, 1.0);
-    outAlbedo = vec4(albedo, metallic);
-    outNormalRoughness = vec4(N, roughness);
+    const vec2 mr = Pbr_ClampMetallicRoughness(material.metallic, material.roughness);
+    outAlbedo = vec4(albedo, mr.x);
+    outNormalRoughness = vec4(N, mr.y);
 }

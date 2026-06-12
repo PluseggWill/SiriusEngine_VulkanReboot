@@ -1,6 +1,14 @@
-// PbrDirect.glsl — direct Cook-Torrance (metallic workflow). Included by lit + deferred fragments; no #version.
+// PbrDirect.glsl — direct Cook-Torrance (metallic workflow). Included by lit + deferred + G-buffer; no #version.
+// G-buffer contract: RT0.a = metallic, RT1.w = roughness (use Pbr_ClampMetallicRoughness before encode).
 
 const float PBR_PI = 3.14159265358979323846;
+const float PBR_MIN_ROUGHNESS = 0.04;
+const float PBR_DIELECTRIC_F0 = 0.04;
+
+vec2 Pbr_ClampMetallicRoughness(float metallic, float roughness)
+{
+    return vec2(clamp(metallic, 0.0, 1.0), clamp(max(roughness, PBR_MIN_ROUGHNESS), 0.0, 1.0));
+}
 
 float Pbr_DistributionGGX(vec3 N, vec3 H, float roughness)
 {
@@ -24,9 +32,7 @@ float Pbr_GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     const float NdotV = max(dot(N, V), 0.0);
     const float NdotL = max(dot(N, L), 0.0);
-    const float ggxV = Pbr_GeometrySchlickGGX(NdotV, roughness);
-    const float ggxL = Pbr_GeometrySchlickGGX(NdotL, roughness);
-    return ggxV * ggxL;
+    return Pbr_GeometrySchlickGGX(NdotV, roughness) * Pbr_GeometrySchlickGGX(NdotL, roughness);
 }
 
 vec3 Pbr_FresnelSchlick(float cosTheta, vec3 F0)
@@ -34,14 +40,18 @@ vec3 Pbr_FresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-// Returns (diffuse + specular) * radiance; multiply by NdotL at call site.
-vec3 Pbr_EvalDirect(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float roughness, vec3 radiance)
+// Full directional term including NdotL; returns vec3(0) when the surface faces away from L.
+vec3 Pbr_EvalDirect(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float roughness, vec3 lightColor)
 {
-    const vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    const float NdotL = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0) {
+        return vec3(0.0);
+    }
+
+    const vec3 F0 = mix(vec3(PBR_DIELECTRIC_F0), albedo, metallic);
     const vec3 H = normalize(V + L);
 
     const float NdotV = max(dot(N, V), 0.0);
-    const float NdotL = max(dot(N, L), 0.0);
     const float HdotV = max(dot(H, V), 0.0);
 
     const float D = Pbr_DistributionGGX(N, H, roughness);
@@ -51,11 +61,17 @@ vec3 Pbr_EvalDirect(vec3 N, vec3 V, vec3 L, vec3 albedo, float metallic, float r
     const vec3 kS = F;
     const vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
 
-    const vec3 numerator = D * G * F;
-    const float denom = 4.0 * NdotV * NdotL + 0.0001;
-    const vec3 specular = numerator / denom;
-
+    const vec3 specular = (D * G * F) / max(4.0 * NdotV * NdotL, 0.0001);
     const vec3 diffuse = kD * albedo / PBR_PI;
 
-    return (diffuse + specular) * radiance;
+    return (diffuse + specular) * lightColor * NdotL;
+}
+
+// Forward path: diffuse-only ambient (until S5 IBL) + one directional sun.
+vec3 Pbr_LitWithSunAndAmbient(vec3 N, vec3 V, vec3 sunDirection, vec3 sunColor, vec3 ambientColor,
+                              vec3 albedo, float metallic, float roughness)
+{
+    vec3 lit = ambientColor * albedo;
+    lit += Pbr_EvalDirect(N, V, normalize(sunDirection), albedo, metallic, roughness, sunColor);
+    return lit;
 }

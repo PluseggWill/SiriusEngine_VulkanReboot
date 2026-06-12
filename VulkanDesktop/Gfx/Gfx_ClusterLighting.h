@@ -42,7 +42,7 @@ struct Gfx_ClusterBuildPushConstants {
     uint32_t pad1         = 0;
 };
 
-// Push constants for DeferredLighting.frag (grid + ambient + PBR resolve; specParams.x/y legacy).
+// Push constants for DeferredLighting.frag (grid + ambient + PBR resolve).
 struct Gfx_DeferredLightingPushConstants {
     uint32_t tilesX     = 0;
     uint32_t tilesY     = 0;
@@ -50,11 +50,11 @@ struct Gfx_DeferredLightingPushConstants {
     uint32_t depthSlice = 0;  // slice 3 stub: always 0
     float    ambientColor[ 4 ];
     float    viewWorldPos[ 4 ];
-    float    specularStrength = 0.0f;
-    float    shininess        = 1.0f;
-    float    debugView        = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
-    float    pad1             = 0.0f;
-    float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct
+    float    legacySpecularStrength = 0.0f;  // unused under PBR; keeps vec4 layout for legacyAndDebug.xy
+    float    legacyShininess        = 1.0f;
+    float    debugView              = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
+    float    legacyPad              = 0.0f;
+    float    invViewProj[ 16 ];            // column-major glm; inverse(proj * view) for depth reconstruct
 };
 
 static_assert( sizeof( GpuClusterLight ) == 32, "GpuClusterLight must match ClusterBuild.comp std430 layout" );

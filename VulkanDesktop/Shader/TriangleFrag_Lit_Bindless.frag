@@ -5,25 +5,23 @@
 
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
-    vec4 fogDistances;  // xyz lighting; w = Gfx_DebugViewMode (see TriangleFrag_Lit.frag)
+    vec4 fogDistances;  // z = texture blend; w = Gfx_DebugViewMode
     vec4 ambientColor;
     vec4 sunlightDirection;
     vec4 sunlightColor;
     vec4 viewWorldPos;
 } envData;
 
-// Must match VkDescriptorPolicy::kMaxBindlessTextures (keep in sync with C++ / reflection_lit_bindless.json).
 #define VK_MAX_BINDLESS_TEXTURES 64
 layout(set = 1, binding = 0) uniform sampler2D u_Textures[VK_MAX_BINDLESS_TEXTURES];
 
-// std430 — must match GpuMaterialTableEntry in Vk_Types.h
 struct GpuMaterialEntry {
     uint textureIndex;
     float roughness;
     float metallic;
     float alpha;
     uint alphaMode;
-    vec4 baseColorFactor;  // offset 32 (implicit std430 padding after alphaMode)
+    vec4 baseColorFactor;
 };
 
 layout(set = 1, binding = 1) readonly buffer MaterialTable {
@@ -57,29 +55,22 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
 void main()
 {
     const float textureBlend = clamp(envData.fogDistances.z, 0.0, 1.0);
-
     const GpuMaterialEntry mat = materials.entries[inMaterialIndex];
-    const uint texIndex = mat.textureIndex;
-    const float alpha = mat.alpha;
 
-    const vec3 texAlbedo = texture(nonuniformEXT(u_Textures[texIndex]), inTexCoord).rgb;
+    const vec3 texAlbedo = texture(nonuniformEXT(u_Textures[mat.textureIndex]), inTexCoord).rgb;
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * mat.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
-    const vec3 L = normalize(envData.sunlightDirection.xyz);
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
-    const float metallic = clamp(mat.metallic, 0.0, 1.0);
-    const float roughness = clamp(mat.roughness, 0.0, 1.0);
-    const float NdotL = max(dot(N, L), 0.0);
+    const vec2 mr = Pbr_ClampMetallicRoughness(mat.metallic, mat.roughness);
 
-    vec3 color = envData.ambientColor.rgb * albedo;
-    if (NdotL > 0.0) {
-        color += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, envData.sunlightColor.rgb) * NdotL;
-    }
+    const vec3 color = Pbr_LitWithSunAndAmbient(
+        N, V, envData.sunlightDirection.xyz, envData.sunlightColor.rgb, envData.ambientColor.rgb,
+        albedo, mr.x, mr.y);
 
-    outColor = vec4(color, clamp(alpha, 0.0, 1.0));
+    outColor = vec4(color, clamp(mat.alpha, 0.0, 1.0));
 
-    if (mat.alphaMode == kAlphaModeMask && outColor.a < 0.5) {  // per-material mask
+    if (mat.alphaMode == kAlphaModeMask && outColor.a < 0.5) {
         discard;
     }
 

@@ -4,7 +4,6 @@
 #include "PbrDirect.glsl"
 
 const uint kMaxLightsPerCluster = 8u;
-const uint kDebugViewLit = 0u;
 const uint kDebugViewDepth = 1u;
 const uint kDebugViewWorldNormal = 2u;
 
@@ -19,10 +18,10 @@ struct ClusterLightList {
 };
 
 layout(push_constant) uniform PushConstants {
-    uvec4 grid;           // tilesX, tilesY, tileSize, depthSlice
+    uvec4 grid;              // tilesX, tilesY, tileSize, depthSlice
     vec4 ambientColor;
     vec4 viewWorldPos;
-    vec4 specParams;      // z=debugView (Gfx_DebugViewMode); x/y legacy (unused under PBR)
+    vec4 legacyAndDebug;     // x/y unused (layout pad); z = Gfx_DebugViewMode
     mat4 invViewProj;
 } pc;
 
@@ -48,7 +47,7 @@ vec3 reconstructWorldPos(vec2 aUV, float aDepth)
 
 vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth)
 {
-    const uint viewMode = uint(pc.specParams.z + 0.5);
+    const uint viewMode = uint(pc.legacyAndDebug.z + 0.5);
     if (viewMode == kDebugViewDepth) {
         return vec4(vec3(aDepth), 1.0);
     }
@@ -81,10 +80,7 @@ void main()
     for (uint i = 0u; i < lightCount; ++i) {
         const ClusterLight light = lights[cluster.lightIndices[i]];
         const vec3 L = normalize(light.direction.xyz);
-        const float NdotL = max(dot(N, L), 0.0);
-        if (NdotL > 0.0) {
-            lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, light.color.rgb) * NdotL;
-        }
+        lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, light.color.rgb);
     }
 
     outColor = applyDebugView(vec4(lit, 1.0), N, depth);
