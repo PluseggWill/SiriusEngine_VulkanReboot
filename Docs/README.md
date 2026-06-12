@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S5** — IBL + shadows · [`Wishlist.md`](Wishlist.md) § S5 · [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) |
-| **WIP task** | — |
+| **WIP task** | [`s5-ibl-shadows_Plan.md`](s5-ibl-shadows_Plan.md) + [`s5-ibl-shadows_Progress.md`](s5-ibl-shadows_Progress.md) |
 | **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S5–S8 lighting |
 | **Last closed** | S4 PBR + G-buffer — [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md) |
 
