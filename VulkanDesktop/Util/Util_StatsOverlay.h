@@ -3,5 +3,6 @@
 struct Util_FrameStats;
 
 namespace UtilStatsOverlay {
-void Build( const Util_FrameStats& aStats );
+// Parent window/tab must already be open (no Begin/End here).
+void BuildContents( const Util_FrameStats& aStats );
 }  // namespace UtilStatsOverlay

@@ -7,11 +7,7 @@
 
 namespace UtilRenderDebugPanel {
 
-void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws ) {
-    ImGui::SetNextWindowPos( ImVec2( 10.f, 420.f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowBgAlpha( 0.9f );
-    ImGui::Begin( "Render Debug", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
-
+void BuildContents( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws ) {
     const char* debugViewLabels[] = { "Lit", "Depth", "World normal" };
     int         debugViewIndex    = static_cast< int >( aState.myDebugViewMode );
     if ( ImGui::Combo( "Debug view", &debugViewIndex, debugViewLabels, IM_ARRAYSIZE( debugViewLabels ) ) ) {
@@ -34,8 +30,6 @@ void Build( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData&
 
     ImGui::Separator();
     ImGui::Text( "Visible draws: opaque %u  transparent %u", aVisibleOpaqueDraws, aVisibleTransparentDraws );
-
-    ImGui::End();
 
     // CONTRACT: fogDistances.w encodes Gfx_DebugViewMode for TriangleFrag_Lit*.frag (xyz = lighting tunables).
     anEnvironment.myFogDistance.w = Gfx_DebugViewModeToShaderPacked( aState.myDebugViewMode );

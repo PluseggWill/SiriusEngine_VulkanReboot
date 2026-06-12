@@ -23,6 +23,7 @@ void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState );
 // Queue in-process reload (Application consumes on next frame).
 void RequestReload( State& aState, const std::string& aLogicalPath );
 
-void Build( const Util_EngineConfig& aConfig, State& aState );
+// Parent window/tab must already be open (no Begin/End here).
+void BuildContents( const Util_EngineConfig& aConfig, State& aState );
 
 }  // namespace UtilScenePanel

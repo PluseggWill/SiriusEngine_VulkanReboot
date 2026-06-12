@@ -61,11 +61,7 @@ void RefreshSceneList( const Util_EngineConfig& aConfig, State& aState ) {
     aState.myLastError.clear();
 }
 
-void Build( const Util_EngineConfig& aConfig, State& aState ) {
-    ImGui::SetNextWindowPos( ImVec2( 10.f, 520.f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowBgAlpha( 0.9f );
-    ImGui::Begin( "Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
-
+void BuildContents( const Util_EngineConfig& aConfig, State& aState ) {
     ImGui::Text( "Current: %s", aState.myCurrentScenePath.empty() ? "(none)" : aState.myCurrentScenePath.c_str() );
 
     if ( ImGui::Button( "Refresh list" ) ) {
@@ -121,8 +117,6 @@ void Build( const Util_EngineConfig& aConfig, State& aState ) {
     ImGui::Separator();
     ImGui::TextDisabled( "assetVerify=%s (engine.json / startup)", aConfig.GetAssetVerifyPolicy() == Util_AssetVerifyPolicy::Strict ? "strict" : "warn" );
     ImGui::TextDisabled( "CLI reference: Docs/CLI.md" );
-
-    ImGui::End();
 }
 
 }  // namespace UtilScenePanel

@@ -4,12 +4,43 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
+#include <string>
+
+#ifdef _MSC_VER
+#include <stdlib.h>
+#endif
 
 namespace {
 void CheckVkResult( VkResult aResult ) {
     if ( aResult != VK_SUCCESS )
         throw std::runtime_error( "Vulkan call failed for ImGui backend." );
+}
+
+void ConfigureImGuiPersistence( ImGuiIO& aIO ) {
+#if defined( _WIN32 )
+    std::string localAppData;
+#ifdef _MSC_VER
+    char*  envValue = nullptr;
+    size_t envLen   = 0;
+    if ( _dupenv_s( &envValue, &envLen, "LOCALAPPDATA" ) == 0 && envValue != nullptr ) {
+        localAppData.assign( envValue );
+        free( envValue );
+    }
+#else
+    if ( const char* envValue = std::getenv( "LOCALAPPDATA" ) ) {
+        localAppData = envValue;
+    }
+#endif
+    if ( !localAppData.empty() ) {
+        static const std::string iniPath = ( std::filesystem::path( localAppData ) / "SiriusEngine" / "imgui.ini" ).string();
+        std::error_code          ec;
+        std::filesystem::create_directories( std::filesystem::path( localAppData ) / "SiriusEngine", ec );
+        aIO.IniFilename = iniPath.c_str();
+    }
+#endif
 }
 }  // namespace
 
@@ -26,6 +57,7 @@ void Util_ImGuiLayer::Init( GLFWwindow* aWindow, VkInstance anInstance, VkPhysic
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ConfigureImGuiPersistence( ImGui::GetIO() );
     ImGui::StyleColorsDark();
 
     ImGui_ImplGlfw_InitForVulkan( myWindow, true );

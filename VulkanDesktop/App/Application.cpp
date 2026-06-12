@@ -9,15 +9,40 @@
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
-#include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "ActiveViewsBuild.h"
 #include "DebugOverlay.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdlib>
+#include <imgui.h>
 #include <iostream>
 #include <stdexcept>
+
+namespace {
+
+void ProcessAppKeyboardShortcuts( GLFWwindow* aWindow, DebugUIState& aDebugUI, const std::string& aLoadedScenePath, bool& aRenderDocCaptureKeyDown, bool& aRestartKeyDown,
+                                  Vk_Core& aCore ) {
+    if ( ImGui::GetIO().WantCaptureKeyboard ) {
+        aRenderDocCaptureKeyDown = false;
+        aRestartKeyDown          = false;
+        return;
+    }
+
+    const bool f12Pressed = glfwGetKey( aWindow, GLFW_KEY_F12 ) == GLFW_PRESS;
+    if ( f12Pressed && !aRenderDocCaptureKeyDown ) {
+        aCore.TriggerRenderDocCapture();
+    }
+    aRenderDocCaptureKeyDown = f12Pressed;
+
+    const bool restartPressed = glfwGetKey( aWindow, GLFW_KEY_R ) == GLFW_PRESS;
+    if ( restartPressed && !aRestartKeyDown && !aLoadedScenePath.empty() ) {
+        UtilScenePanel::RequestReload( aDebugUI.myScenePanel, aLoadedScenePath );
+    }
+    aRestartKeyDown = restartPressed;
+}
+
+}  // namespace
 
 void Application::Configure( const std::vector< const char* >& someDeviceExtensions ) {
     myDeviceExtensions = someDeviceExtensions;
@@ -109,17 +134,6 @@ void Application::RunMainLoop() {
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
-        const bool f12Pressed = glfwGetKey( core.GetWindow(), GLFW_KEY_F12 ) == GLFW_PRESS;
-        if ( f12Pressed && !myRenderDocCaptureKeyDown ) {
-            core.TriggerRenderDocCapture();
-        }
-        myRenderDocCaptureKeyDown = f12Pressed;
-
-        const bool restartPressed = glfwGetKey( core.GetWindow(), GLFW_KEY_R ) == GLFW_PRESS;
-        if ( restartPressed && !myRestartKeyDown && !myLastLoadedScenePath.empty() ) {
-            UtilScenePanel::RequestReload( myDebugUI.myScenePanel, myLastLoadedScenePath );
-        }
-        myRestartKeyDown = restartPressed;
 
         Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
@@ -129,8 +143,9 @@ void Application::RunMainLoop() {
         const auto            views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
         Vk_FrameCpuPrepResult prep{};
         if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
-            UtilRenderDebugPanel::Build( myConfig, myDebugUI.myRenderDebug, core.GetEnvironmentData(), prep.myTotalOpaqueDraws, prep.myTotalTransparentDraws );
             BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, core, prep );
+            ProcessAppKeyboardShortcuts( core.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, core );
+
             if ( core.DrawFrameGpu( myDebugUI, prep ) == Vk_FrameResult::RequestShutdown ) {
                 glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
             }

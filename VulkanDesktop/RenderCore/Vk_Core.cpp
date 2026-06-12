@@ -10,16 +10,12 @@
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
-#include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_EngineConfig.h"
-#include "../Util/Util_LightingPanel.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_PerfLog.h"
-#include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
-#include "../Util/Util_StatsOverlay.h"
 #include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_Bindless.h"
@@ -825,9 +821,6 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
 
     Vk_ScenePasses::RecordScene( *this, aDebugUI, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
                                  aPrep.myActiveViewCount, aPrep.myViewPackets );
-
-    // Lighting tuning applies next frame (unchanged contract).
-    UtilLightingPanel::Build( myEnvironmentData );
 
     ImGui::Render();
     Vk_ScenePasses::RecordImGui( *this, frameData.myCommandBuffer, aPrep.myImageIndex );

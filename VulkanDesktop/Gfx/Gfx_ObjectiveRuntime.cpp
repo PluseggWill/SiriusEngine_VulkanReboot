@@ -51,12 +51,13 @@ void Gfx_TickObjectiveRuntime( const Gfx_SceneObjectiveDesc& aObjective, const g
     }
 }
 
-void Gfx_BuildObjectiveHud( const Gfx_SceneObjectiveDesc& aObjective, const Gfx_ObjectiveRuntimeState& aState ) {
-    if ( aObjective.myType == Gfx_SceneObjectiveType::None ) {
+void Gfx_BuildObjectiveHud( const Gfx_SceneObjectiveDesc& aObjective, const Gfx_ObjectiveRuntimeState& aState, bool aShowHud ) {
+    if ( aObjective.myType == Gfx_SceneObjectiveType::None || !aShowHud ) {
         return;
     }
 
-    ImGui::SetNextWindowPos( ImVec2( 10.f, 10.f ), ImGuiCond_FirstUseEver );
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowPos( ImVec2( display.x * 0.5f, 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.5f, 0.f ) );
     ImGui::SetNextWindowBgAlpha( 0.85f );
     ImGui::Begin( "Objective", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoNav );
 

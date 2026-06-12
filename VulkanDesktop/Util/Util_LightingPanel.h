@@ -3,5 +3,6 @@
 struct GpuEnvironmentData;
 
 namespace UtilLightingPanel {
-void Build( GpuEnvironmentData& anEnvironment );
+// Parent window/tab must already be open (no Begin/End here).
+void BuildContents( GpuEnvironmentData& anEnvironment );
 }  // namespace UtilLightingPanel

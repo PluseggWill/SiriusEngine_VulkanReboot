@@ -20,4 +20,4 @@ void Gfx_ResetObjectiveRuntime( Gfx_ObjectiveRuntimeState& aState );
 
 void Gfx_TickObjectiveRuntime( const Gfx_SceneObjectiveDesc& aObjective, const glm::vec3& aCameraPosition, float aDeltaSeconds, Gfx_ObjectiveRuntimeState& aState );
 
-void Gfx_BuildObjectiveHud( const Gfx_SceneObjectiveDesc& aObjective, const Gfx_ObjectiveRuntimeState& aState );
+void Gfx_BuildObjectiveHud( const Gfx_SceneObjectiveDesc& aObjective, const Gfx_ObjectiveRuntimeState& aState, bool aShowHud );
