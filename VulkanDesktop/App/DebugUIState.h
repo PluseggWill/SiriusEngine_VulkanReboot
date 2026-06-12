@@ -5,7 +5,7 @@
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 
-// Application-owned ImGui / debug toggles (P1 peel phase 2). RenderCore reads skip flags via BindDebugUI.
+// Application-owned ImGui / debug toggles. Per-frame skip/LOD flags copied into Gfx_FrameDebugToggles for RenderCore.
 struct DebugUIState {
     struct PanelVisibility {
         bool myShowPerformance  = true;

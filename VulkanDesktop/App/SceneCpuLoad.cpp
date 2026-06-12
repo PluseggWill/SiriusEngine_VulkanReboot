@@ -1,9 +1,10 @@
-#include "Vk_SceneHost.h"
-
-#include "../App/WorldState.h"
-#include "Vk_Core.h"
+// Module: SceneCpuLoad - App-owned scene CPU bootstrap and initial fly-camera / env defaults.
+#include "SceneCpuLoad.h"
 
 #include "../Gfx/Gfx_SceneApply.h"
+#include "../RenderCore/Vk_Core.h"
+#include "WorldState.h"
+
 #include <algorithm>
 #include <glm/glm.hpp>
 
@@ -29,8 +30,7 @@ const Gfx_SceneCameraEntry* FindFlySpawnCamera( const Gfx_SceneDesc& aScene ) {
 
 }  // namespace
 
-void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
-    ( void )aCore;  // InitScenePresentation still needs swapchain extent on core (Phase 1).
+void App_LoadSceneCpuState( WorldState& aWorld ) {
     aWorld.mySceneIdTables = Gfx_BuildSceneIdTables( aWorld.myLoadedScene );
     Gfx_PopulateSceneSoAFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, aWorld.mySceneSoA, aWorld.mySceneTransformState );
     Gfx_BuildLodTableFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, aWorld.myLodTable );
@@ -40,7 +40,7 @@ void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
     aWorld.myLodDebugLogicalMeshId = treeIt != aWorld.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
-void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
+void App_InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
     const float aspect = static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height );
 
     float     fovDeg    = 45.0f;

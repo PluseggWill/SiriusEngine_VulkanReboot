@@ -39,7 +39,7 @@ if (-not (Test-Path $LogPath)) {
 $logText = Get-Content -Path $LogPath -Raw -Encoding UTF8
 $required = @(
     '[CONFIG] assetRoot=',
-    '[SCENE] LoadSceneResources completed',
+    '[SCENE] LoadSceneGpuResources completed',
     '[APP] Smoke dwell reached',
     '[SCENE] UnloadScene',
     '[APP] Engine exited run loop normally'

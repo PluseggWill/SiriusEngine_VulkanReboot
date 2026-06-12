@@ -14,7 +14,7 @@
 
 class Vk_ResourceTables;
 
-// Per-frame draw prep: Gfx draw stream + instance slab CPU write (before vkCmd record).
+// Per-view GPU upload prep: Gfx_BuildViewFramePacket (in Build) + instance slab / draw templates / entity SSBO.
 
 struct Vk_FrameDrawPrepBuildParams {
     Gfx_SceneSoA*                myScene                  = nullptr;

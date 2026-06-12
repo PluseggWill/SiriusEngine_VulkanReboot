@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 
+#include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_RenderView.h"
 #include "Vk_DataStruct.h"
@@ -11,7 +12,7 @@
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Core;
-struct DebugUIState;
+struct Gfx_FrameDebugToggles;
 
 // Offscreen G-buffer pass state (extent-sized; recreated on swapchain resize when hybrid active).
 struct Vk_GBufferState {
@@ -41,7 +42,7 @@ void Destroy( Vk_Core& aCore );
 void RecreateForExtent( Vk_Core& aCore );
 void RecreatePipelines( Vk_Core& aCore );
 
-void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );

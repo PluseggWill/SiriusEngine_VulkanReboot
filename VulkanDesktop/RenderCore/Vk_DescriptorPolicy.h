@@ -45,6 +45,6 @@ inline constexpr uint32_t kMaxSceneTextures  = 512;
 // LoadScene: InitSceneDescriptors -> pool, per-frame Set 0/2 descriptors, then CreateMaterialDescriptorSets (batch)
 //   or CreateBindlessDescriptorResources (bindless). Gfx_Material stores pipeline + layout handles from manifest load.
 // Swapchain recreate: RefreshMaterialPipelinesAfterSwapchainRecreate updates Gfx_Material pipeline handles only.
-// Material count, texture views, or bindless table content change: UnloadScene then LoadSceneResources (full GPU teardown).
+// Material count, texture views, or bindless table content change: UnloadSceneGpuResources then LoadSceneGpuResources (full GPU teardown).
 
 }  // namespace VkDescriptorPolicy

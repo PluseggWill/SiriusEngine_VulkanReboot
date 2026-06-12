@@ -1,10 +1,11 @@
-// Module: Vk_FrameDrawPrep — Gfx draw stream + CPU uploads before record (instance slab, draw templates).
+// Module: Vk_FrameDrawPrep - view packet (Gfx) + CPU GPU-buffer uploads before vkCmd record.
 // Fill order: instance slab first (myInstanceDataOffset), then draw templates (indirect + SSBO metadata).
 #include "Vk_FrameDrawPrep.h"
 
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_RenderPacket.h"
+#include "../Gfx/Gfx_ViewPacketBuild.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_RenderBackend.h"
@@ -29,25 +30,19 @@ void Vk_FrameDrawPrep::ResetLogState() {
 }
 
 bool Vk_FrameDrawPrep::Build( const Vk_FrameDrawPrepBuildParams& aParams ) {
-    Gfx_FrameDrawStreamParams streamParams{};
-    streamParams.myScene                 = aParams.myScene;
-    streamParams.myView.myView           = aParams.myCamera->myView;
-    streamParams.myView.myProj           = aParams.myCamera->myProj;
-    streamParams.myView.myViewLayerMask  = aParams.myViewLayerMask;
-    streamParams.myCameraEye             = aParams.myCamera->myEye;
-    streamParams.myCameraView            = aParams.myCamera->myView;
-    streamParams.myLodTable              = aParams.myLodTable;
-    streamParams.myLodState              = aParams.myLodState;
-    streamParams.myLodEnabled            = aParams.myLodEnabled;
-    streamParams.myLodDebugLogicalMeshId = aParams.myLodDebugLogicalMeshId;
-    streamParams.myGpuCullEnabled        = aParams.myGpuCullEnabled;
+    Gfx_ViewPacketBuildParams packetParams{};
+    packetParams.myScene                 = aParams.myScene;
+    packetParams.myView                  = aParams.myCamera->myView;
+    packetParams.myProj                  = aParams.myCamera->myProj;
+    packetParams.myCameraEye             = aParams.myCamera->myEye;
+    packetParams.myViewLayerMask         = aParams.myViewLayerMask;
+    packetParams.myLodTable              = aParams.myLodTable;
+    packetParams.myLodState              = aParams.myLodState;
+    packetParams.myLodEnabled            = aParams.myLodEnabled;
+    packetParams.myLodDebugLogicalMeshId = aParams.myLodDebugLogicalMeshId;
+    packetParams.myGpuCullEnabled        = aParams.myGpuCullEnabled;
 
-    Gfx_FrameDrawStreamOutput streamOut{};
-    Gfx_BuildFrameDrawStream( streamParams, streamOut, myStreamLogs );
-
-    myDrawCountBeforeCull = streamOut.myDrawCountBeforeCull;
-
-    Gfx_BuildFrameRenderPacketFromStream( streamOut, myFramePacket );
+    Gfx_BuildViewFramePacket( packetParams, myStreamLogs, myFramePacket, myDrawCountBeforeCull );
 
     const bool slabOk = FillInstanceSlab( aParams, myFramePacket );
     if ( !slabOk && !myInstanceSlabOverflowLogged ) {

@@ -1,6 +1,6 @@
 #include "WorldState.h"
 
-// CPU half of scene unload — mirrors Vk_Core::UnloadScene before GPU teardown (no Vulkan calls).
+// CPU half of scene unload - call before Vk_Core::UnloadSceneGpuResources (no Vulkan).
 void WorldState::ClearCpuSceneState() {
     mySceneSoA.Clear();
     myLodTable = Gfx_LodTable{};

@@ -3,8 +3,9 @@
 // G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
-#include "../App/DebugUIState.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_RenderPreset.h"
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
@@ -20,7 +21,7 @@
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
 
-#include "Vk_Types.h"
+#include "Vk_VertexLayout.h"
 
 #include <array>
 
@@ -54,8 +55,8 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );
@@ -417,7 +418,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myGBufferState.myInitialized = true;
 }
 
-void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
@@ -490,7 +491,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
         BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
 
-        if ( gbufferPipeline != VK_NULL_HANDLE && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( gbufferPipeline != VK_NULL_HANDLE && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aToggles.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
             }
@@ -528,8 +529,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
     Vk_DeferredLightingPass::RecordDraw( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
-    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipTransparentPass
-         && !packet->myTransparentPass.myDraws.empty() ) {
+    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aToggles.mySkipTransparentPass && !packet->myTransparentPass.myDraws.empty() ) {
         BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
         if ( emitDebugLabels ) {
             aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ForwardTransparent" );
@@ -551,7 +551,7 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         sIndirectPathLoggedOnce = true;
     }
 
-    Vk_ScenePasses::RecordHybridPiPViews( aCore, aDebugUI, aCommandBuffer, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+    Vk_ScenePasses::RecordHybridPiPViews( aCore, aToggles, aCommandBuffer, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 
     vkCmdEndRenderPass( aCommandBuffer );
 }

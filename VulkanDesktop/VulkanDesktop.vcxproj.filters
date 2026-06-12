@@ -157,13 +157,19 @@
     <ClCompile Include="Gfx\Gfx_SceneTransform.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ViewPacketBuild.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
-    <ClCompile Include="Gfx\Gfx_ViewData.cpp">
+    <ClCompile Include="App\SceneCpuLoad.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_MeshCpu.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Camera.cpp">
@@ -241,13 +247,13 @@
     <ClCompile Include="RenderCore\Vk_ScenePasses.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_SceneHost.cpp">
+    <ClCompile Include="RenderCore\Vk_SceneResourceTypes.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_SwapchainHost.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Types.cpp">
+    <ClCompile Include="RenderCore\Vk_VertexLayout.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Window.cpp">
@@ -393,7 +399,25 @@
     <ClInclude Include="Gfx\Gfx_SceneTransform.h">
       <Filter>Gfx</Filter>
     </ClInclude>
-    <ClInclude Include="Gfx\Gfx_ViewData.h">
+    <ClInclude Include="Gfx\Gfx_Vertex.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ViewPacketBuild.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="App\SceneCpuLoad.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_FrameDebugToggles.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_FramePrepInput.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_MaterialTypes.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_MeshCpu.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Camera.h">
@@ -492,7 +516,13 @@
     <ClInclude Include="RenderCore\Vk_ScenePasses.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_SceneHost.h">
+    <ClInclude Include="RenderCore\Vk_AllocatedResource.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_VertexLayout.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_SwapchainHost.h">

@@ -53,7 +53,7 @@ void Vk_ResourceContext::EndSceneUploadBatch() const {
 
     const auto   waitEnd = std::chrono::steady_clock::now();
     const double waitMs  = std::chrono::duration< double, std::milli >( waitEnd - waitStart ).count();
-    UtilLogger::Info( "RESOURCE", "LoadSceneResources upload waitMs=" + std::to_string( waitMs ) );
+    UtilLogger::Info( "RESOURCE", "Scene upload batch waitMs=" + std::to_string( waitMs ) );
 
     myUploadBatch = UploadBatchState{};
 }

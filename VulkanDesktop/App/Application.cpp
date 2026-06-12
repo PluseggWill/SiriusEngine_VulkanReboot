@@ -1,6 +1,8 @@
 #include "Application.h"
 
 #include "../Gfx/Gfx_DemoSceneSim.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
@@ -12,6 +14,7 @@
 #include "../Util/Util_ScenePanel.h"
 #include "ActiveViewsBuild.h"
 #include "DebugOverlay.h"
+#include "SceneCpuLoad.h"
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <cstdlib>
@@ -42,6 +45,30 @@ void ProcessAppKeyboardShortcuts( GLFWwindow* aWindow, DebugUIState& aDebugUI, c
     aRestartKeyDown = restartPressed;
 }
 
+Gfx_FramePrepInput BuildFramePrepInput( WorldState& aWorld ) {
+    Gfx_FramePrepInput input{};
+    input.myScene                 = &aWorld.mySceneSoA;
+    input.myLodTable              = &aWorld.myLodTable;
+    input.myLodState              = &aWorld.myLodState;
+    input.myLodDebugLogicalMeshId = aWorld.myLodDebugLogicalMeshId;
+    return input;
+}
+
+void CommitSceneToWorld( WorldState& aWorld, Gfx_SceneDesc aScene, std::string aLogicalPath ) {
+    aWorld.myLoadedScene    = std::move( aScene );
+    aWorld.myLogicalPath    = std::move( aLogicalPath );
+    aWorld.myHasLoadedScene = true;
+    App_LoadSceneCpuState( aWorld );
+}
+
+// CPU scene already in WorldState - load GPU tables/pipelines and reset fly camera + env defaults.
+void ActivateSceneGpu( Vk_Core& aCore, WorldState& aWorld, DebugUIState& aDebugUI, const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
+    aDebugUI.myScenePanel.myCurrentScenePath = aLogicalPath;
+    UtilScenePanel::RefreshSceneList( aConfig, aDebugUI.myScenePanel );
+    aCore.LoadSceneGpuResources( aWorld );
+    App_InitScenePresentation( aCore, aWorld );
+}
+
 }  // namespace
 
 void Application::Configure( const std::vector< const char* >& someDeviceExtensions ) {
@@ -58,15 +85,18 @@ int Application::Run( int argc, char** argv ) {
         core.InitWindow();
         UtilLogger::Info( "APP", "InitRenderDevice." );
         core.InitRenderDevice();
-        UtilLogger::Info( "APP", "LoadSceneResources." );
+        UtilLogger::Info( "APP", "LoadScene." );
         myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
-        core.LoadSceneResources( std::move( mySceneDesc ), myLastLoadedScenePath );
+        CommitSceneToWorld( myWorld, std::move( mySceneDesc ), myLastLoadedScenePath );
+        ActivateSceneGpu( core, myWorld, myDebugUI, myConfig, myLastLoadedScenePath );
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
 
         RunMainLoop();
 
         UtilLogger::Info( "APP", "UnloadScene." );
-        core.UnloadScene();
+        core.UnloadSceneGpuResources();
+        myWorld.ClearCpuSceneState();
+        myDebugUI.myScenePanel.myCurrentScenePath.clear();
         UtilLogger::Info( "APP", "Shutdown." );
         core.Shutdown();
         UtilLogger::Info( "APP", "Engine exited run loop normally." );
@@ -90,8 +120,6 @@ void Application::InitApp( int argc, char** argv ) {
 
     UtilLogger::Info( "APP", "InitApp." );
 
-    core.BindWorldState( &myWorld );
-    core.BindDebugUI( &myDebugUI );
     core.SetSize( myConfig.GetWindowWidth(), myConfig.GetWindowHeight() );
     core.SetVsync( myConfig.GetVsync() );
     core.SetRequiredExtension( myDeviceExtensions );
@@ -128,9 +156,9 @@ void Application::RunMainLoop() {
     while ( !core.ShouldClose() ) {
         float frameSeconds = 0.0f;
         core.BeginPlatformFrame( frameSeconds );
-        myInput.Sample( core.GetWindow() );  // before ImGui NewFrame (RMB look + cursor recenter)
+        myInput.Sample( core.GetWindow() );
         core.BeginImGuiFrame();
-        core.ApplyCameraInput( frameSeconds, myInput.GetSnapshot() );
+        core.ApplyCameraInput( frameSeconds, myInput.GetSnapshot(), myDebugUI.myCameraSettings );
         if ( myInput.HasLastSampleTime() ) {
             core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
@@ -139,14 +167,17 @@ void Application::RunMainLoop() {
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
         Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, core.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
-        uint32_t              viewCount = 0;
-        const auto            views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
-        Vk_FrameCpuPrepResult prep{};
-        if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
+        uint32_t                    viewCount = 0;
+        const auto                  views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
+        Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
+        const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,
+                                                                                      myDebugUI.myRenderDebug.myLodEnabled );
+        Vk_FrameCpuPrepResult       prep{};
+        if ( core.PrepareFrameCpu( prepInput, toggles, views, viewCount, prep ) ) {
             BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, core, prep );
             ProcessAppKeyboardShortcuts( core.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, core );
 
-            if ( core.DrawFrameGpu( myDebugUI, prep ) == Vk_FrameResult::RequestShutdown ) {
+            if ( core.DrawFrameGpu( toggles, prep ) == Vk_FrameResult::RequestShutdown ) {
                 glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
             }
         }
@@ -192,12 +223,14 @@ void Application::TryProcessSceneReload() {
     auto loadScene = [ & ]( const std::string& aPath ) {
         Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig, aPath );
         Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
-        core.LoadSceneResources( std::move( desc ), aPath );
+        CommitSceneToWorld( myWorld, std::move( desc ), aPath );
+        ActivateSceneGpu( core, myWorld, myDebugUI, myConfig, aPath );
         myLastLoadedScenePath = aPath;
     };
 
     try {
-        core.UnloadScene();
+        core.UnloadSceneGpuResources();
+        myWorld.ClearCpuSceneState();
         loadScene( reloadPath );
         Gfx_ResetDemoSceneSimTime();
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );

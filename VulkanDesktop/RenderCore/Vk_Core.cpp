@@ -1,7 +1,6 @@
 // Module: Vk_Core - device, swapchain, frame loop (acquire -> prep -> record -> present).
-// Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
+// Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Core.h"
-#include "../App/DebugUIState.h"
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
@@ -16,7 +15,6 @@
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_PerfLog.h"
-#include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_ValidationLayers.h"
 #include "../Util/Util_VulkanResult.h"
 #include "Vk_Bindless.h"
@@ -30,7 +28,6 @@
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
-#include "Vk_SceneHost.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
 #include "Vk_SwapchainHost.h"
@@ -78,14 +75,6 @@ Vk_Core& Vk_Core::GetInstance() {
 }
 
 // Called once from Application before scene load / main loop (non-owning; must outlive Vk_Core).
-void Vk_Core::BindWorldState( WorldState* aWorld ) {
-    myWorld = aWorld;
-}
-
-void Vk_Core::BindDebugUI( DebugUIState* aDebugUI ) {
-    myDebugUI = aDebugUI;
-}
-
 void Vk_Core::BindEngineConfig( const Util_EngineConfig* aConfig ) {
     myEngineConfig = aConfig;
 }
@@ -98,29 +87,18 @@ const Util_EngineConfig& Vk_Core::EngineConfig() const {
 }
 
 Gfx_Bounds Vk_Core::GetShadowCasterBounds() const {
-    return Gfx_ComputeActiveOpaqueSceneBounds( World().mySceneSoA );
-}
-
-WorldState& Vk_Core::World() const {
-    if ( myWorld == nullptr ) {
-        throw std::runtime_error( "Vk_Core: WorldState not bound (call BindWorldState from Application)" );
+    if ( myBoundSceneSoA == nullptr ) {
+        return {};
     }
-    return *myWorld;
+    return Gfx_ComputeActiveOpaqueSceneBounds( *myBoundSceneSoA );
 }
 
 const std::string& Vk_Core::GetLoadedSceneLogicalPath() const {
-    return World().myLogicalPath;
+    return myLoadedSceneLogicalPath;
 }
 
 bool Vk_Core::HasLoadedScene() const {
-    return World().myHasLoadedScene;
-}
-
-DebugUIState& Vk_Core::DebugUI() const {
-    if ( myDebugUI == nullptr ) {
-        throw std::runtime_error( "Vk_Core: DebugUIState not bound (call BindDebugUI from Application)" );
-    }
-    return *myDebugUI;
+    return mySceneGpuLoaded;
 }
 
 void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
@@ -220,30 +198,27 @@ void Vk_Core::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
 
-// Scene-load orchestration: scene description -> CPU scene state -> pipelines -> GPU resource tables -> descriptors.
-void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath ) {
-    if ( World().myHasLoadedScene ) {
-        throw std::runtime_error( "LoadSceneResources: scene already loaded; call UnloadScene first." );
+// Scene-load orchestration: GPU pipelines + resource tables + descriptors (CPU scene state is App-owned).
+void Vk_Core::LoadSceneGpuResources( WorldState& aWorld ) {
+    if ( mySceneGpuLoaded ) {
+        throw std::runtime_error( "LoadSceneGpuResources: scene already loaded; call UnloadSceneGpuResources first." );
+    }
+    if ( !aWorld.myHasLoadedScene ) {
+        throw std::runtime_error( "LoadSceneGpuResources: WorldState has no loaded scene." );
     }
 
-    UtilLogger::Info( "SCENE", "LoadSceneResources." );
-    World().myLoadedScene    = std::move( aScene );
-    World().myLogicalPath    = std::move( aLogicalScenePath );
-    World().myHasLoadedScene = true;
+    UtilLogger::Info( "SCENE", "LoadSceneGpuResources." );
+    myLoadedSceneLogicalPath = aWorld.myLogicalPath;
+    myBoundSceneSoA          = &aWorld.mySceneSoA;
 
-    DebugUI().myScenePanel.myCurrentScenePath = World().myLogicalPath;
-    UtilScenePanel::RefreshSceneList( EngineConfig(), DebugUI().myScenePanel );
-
-    ( void )Gfx_GetSceneShader( World().myLoadedScene, "lit" );  // Scene JSON contract; SPIR-V paths come from active permutation registry.
+    ( void )Gfx_GetSceneShader( aWorld.myLoadedScene, "lit" );
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
     vertShaderPath                             = activePerm.myVertSpvLogicalPath;
     fragShaderPath                             = activePerm.myFragSpvLogicalPath;
-    Vk_SceneHost::LoadCpuState( World(), *this );
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
-        // FG v0 chain: GBufferOpaque -> ClusterBuild -> DeferredLighting (init order matters).
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
         Vk_DeferredLightingPass::Init( *this );
@@ -251,7 +226,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
 
     {
         Gfx_ResourceManifest manifest{};
-        Gfx_BuildResourceManifestFromSceneDesc( World().myLoadedScene, World().mySceneIdTables, manifest );
+        Gfx_BuildResourceManifestFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, manifest );
         mySceneGpuCtx.myTextureImageMipLevels = 1;
         const VkPipeline opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
         const VkPipeline transPipe =
@@ -261,23 +236,23 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
         SyncResourceContext();
         mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myResourceContext, mySceneGpuCtx.mySceneDeletionQueue,
                                                          mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
-        Gfx_ApplyMeshLocalBoundsToSceneSoA( World().myLoadedScene, World().mySceneIdTables, mySceneGpuCtx.myResourceTables.CollectMeshLocalBounds(), World().mySceneSoA );
+        Gfx_ApplyMeshLocalBoundsToSceneSoA( aWorld.myLoadedScene, aWorld.mySceneIdTables, mySceneGpuCtx.myResourceTables.CollectMeshLocalBounds(), aWorld.mySceneSoA );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
     Gfx_SetMaterialTableGenerationForExtract( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() );
-    Vk_SceneHost::InitScenePresentation( *this, World() );
     InitImGui();
-    UtilLogger::Info( "SCENE", "LoadSceneResources completed." );
+    mySceneGpuLoaded = true;
+    UtilLogger::Info( "SCENE", "LoadSceneGpuResources completed." );
 }
 
-void Vk_Core::UnloadScene() {
-    if ( !World().myHasLoadedScene ) {
-        UtilLogger::Info( "SCENE", "UnloadScene: no scene loaded (skipped)." );
+void Vk_Core::UnloadSceneGpuResources() {
+    if ( !mySceneGpuLoaded ) {
+        UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: no scene loaded (skipped)." );
         return;
     }
 
-    UtilLogger::Info( "SCENE", "UnloadScene: releasing scene CPU + GPU resources." );
+    UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: releasing GPU scene resources." );
     if ( myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( myDeviceCtx.myDevice );
     }
@@ -305,14 +280,15 @@ void Vk_Core::UnloadScene() {
     mySceneGpuCtx.myDrawPrep.ResetLogState();
     Gfx_SetMaterialTableGenerationForExtract( 0 );
 
-    World().ClearCpuSceneState();
-    DebugUI().myScenePanel.myCurrentScenePath.clear();
+    myLoadedSceneLogicalPath.clear();
+    myBoundSceneSoA  = nullptr;
+    mySceneGpuLoaded = false;
 
     myMaterialBindLoggedOnce = false;
     myBindlessLoggedOnce     = false;
     myM1PerfLoggedOnce       = false;
 
-    UtilLogger::Info( "SCENE", "UnloadScene: GPU scene resources released." );
+    UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: GPU scene resources released." );
 }
 
 void Vk_Core::InitImGui() {
@@ -648,7 +624,7 @@ void Vk_Core::CreateEntityRecordBuffers() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // Device-scoped env UBO slab (CPU defaults at scene load; Vk_SceneHost::InitScenePresentation).
+    // Device-scoped env UBO slab (CPU defaults at scene load; App_InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
@@ -685,7 +661,11 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
 
 }  // namespace
 
-bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews, uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut ) {
+bool Vk_Core::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews,
+                               uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut ) {
+    if ( aInput.myScene == nullptr || aInput.myLodTable == nullptr || aInput.myLodState == nullptr ) {
+        throw std::runtime_error( "PrepareFrameCpu: invalid Gfx_FramePrepInput (null scene/lod pointers)" );
+    }
     aOut = Vk_FrameCpuPrepResult{};
 
     myPlatformCtx.myRenderDoc.BeginFrameCaptureIfRequested();
@@ -714,7 +694,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     const uint32_t perViewMaxEntries  = std::max( 1u, VkDescriptorPolicy::kMaxInstanceSlabEntries / slabPartitionCount );
     const uint32_t perViewEntitySlots = std::max( 1u, VkDescriptorPolicy::kMaxEntitySlots / slabPartitionCount );
 
-    aOut.mySceneSlotCount = static_cast< uint32_t >( aWorld.mySceneSoA.GetSlotCount() );
+    aOut.mySceneSlotCount = static_cast< uint32_t >( aInput.myScene->GetSlotCount() );
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         Gfx_GpuCullPushConstants& cullParams = aOut.myGpuCullViews[ viewIndex ];
         cullParams.viewProj                  = aViews[ viewIndex ].myCamera.myProj * aViews[ viewIndex ].myCamera.myView;
@@ -724,37 +704,36 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
         cullParams.pad                       = 0;
     }
 
-    const bool lodEnabled = myDebugUI != nullptr ? myDebugUI->myRenderDebug.myLodEnabled : false;
+    const bool lodEnabled = aToggles.myLodEnabled;
 
     Gfx_EntityRecordLodParams entityLodParams{};
     entityLodParams.myLodEnabled = lodEnabled;
     if ( lodEnabled && activeViewCount > 0 ) {
         entityLodParams.myCameraEye = aViews[ 0 ].myCamera.myEye;
-        entityLodParams.myLodTable  = &aWorld.myLodTable;
-        entityLodParams.myLodState  = &aWorld.myLodState;
+        entityLodParams.myLodTable  = aInput.myLodTable;
+        entityLodParams.myLodState  = aInput.myLodState;
     }
 
-    // Scene-wide; FillEntityRecords logs on failure (fail-closed before per-view slab/template fill).
-    if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( aWorld.mySceneSoA, mySceneGpuCtx.myResourceTables, entityLodParams, myFrameCtx.myCurrentFrame,
+    if ( !mySceneGpuCtx.myDrawPrep.FillEntityRecords( *aInput.myScene, mySceneGpuCtx.myResourceTables, entityLodParams, myFrameCtx.myCurrentFrame,
                                                       myFrameCtx.myFrameDatas ) ) {
         return false;
     }
 
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         Gfx_LodState  secondaryViewLodState;
-        Gfx_LodState* lodStateForView = &aWorld.myLodState;
+        Gfx_LodState* lodStateForView = aInput.myLodState;
         if ( viewIndex > 0 ) {
-            secondaryViewLodState = aWorld.myLodState;
+            secondaryViewLodState = *aInput.myLodState;
             lodStateForView       = &secondaryViewLodState;
         }
 
         Vk_FrameDrawPrepBuildParams prepParams{};
-        prepParams.myScene                  = &aWorld.mySceneSoA;
+        prepParams.myScene                  = aInput.myScene;
         prepParams.myCamera                 = &aViews[ viewIndex ].myCamera;
-        prepParams.myLodTable               = &aWorld.myLodTable;
+        prepParams.myLodTable               = aInput.myLodTable;
         prepParams.myLodState               = lodStateForView;
         prepParams.myLodEnabled             = lodEnabled;
-        prepParams.myLodDebugLogicalMeshId  = aWorld.myLodDebugLogicalMeshId;
+        prepParams.myLodDebugLogicalMeshId  = aInput.myLodDebugLogicalMeshId;
         prepParams.myCurrentFrame           = myFrameCtx.myCurrentFrame;
         prepParams.myFrameDatas             = &myFrameCtx.myFrameDatas;
         prepParams.myInstanceSlabStride     = InstanceSlabStride();
@@ -788,7 +767,7 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
 
     aOut.myTotalOpaqueDraws      = totalOpaqueDraws;
     aOut.myTotalTransparentDraws = totalTransDraws;
-    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( aWorld.mySceneSoA.GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
+    myFrameStats.SetDrawStreamMetrics( static_cast< uint32_t >( aInput.myScene->GetActiveCount() ), totalOpaqueDraws, totalTransDraws, totalOpaqueRuns, totalTransRuns );
 
     const uint32_t visibleDrawsForPerf = totalOpaqueDraws + totalTransDraws;
     UtilPerfLog::AppendFrame( EngineConfig(), static_cast< uint64_t >( myFrameCtx.myFrameNumber ), myFrameStats.myFrameMs, myFrameStats.myDrawCalls, visibleDrawsForPerf,
@@ -814,8 +793,8 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
     return true;
 }
 
-Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep ) {
-    ( void )aDebugUI;
+Vk_FrameResult Vk_Core::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep ) {
+    ( void )aToggles;
     if ( !aPrep.myOk || aPrep.myFrameData == nullptr ) {
         return Vk_FrameResult::SkipFrame;
     }
@@ -836,7 +815,7 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
 
     Vk_GpuCull::RecordDispatches( *this, frameData.myCommandBuffer, aPrep );
 
-    Vk_ScenePasses::RecordScene( *this, aDebugUI, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
+    Vk_ScenePasses::RecordScene( *this, aToggles, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
                                  aPrep.myActiveViewCount, aPrep.myViewPackets );
 
     ImGui::Render();
@@ -1284,8 +1263,8 @@ void Vk_Core::BeginImGuiFrame() {
     Vk_PlatformFrame::BeginImGuiFrame( *this );
 }
 
-void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput ) {
-    myCamera.ApplyInput( aDeltaSeconds, aInput, DebugUI().myCameraSettings );
+void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings ) {
+    myCamera.ApplyInput( aDeltaSeconds, aInput, aCameraSettings );
 }
 
 void Vk_Core::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {

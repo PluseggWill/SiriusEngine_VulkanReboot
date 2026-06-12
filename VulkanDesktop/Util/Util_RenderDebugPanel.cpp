@@ -1,5 +1,6 @@
 #include "Util_RenderDebugPanel.h"
 
+#include "../RenderCore/Vk_Types.h"
 #include "Util_EngineConfig.h"
 
 #include <algorithm>

@@ -63,8 +63,8 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const s
     }
 
     Gfx_Mesh& mesh = myMeshes[ aMeshId ];
-    mesh.LoadMesh( resolvedPath );
-    mesh.BuildBuffers( aContext );
+    mesh.myCpu.LoadFromPath( resolvedPath );
+    mesh.BuildGpuBuffers( aContext );
 
     const VmaAllocator allocator = aContext.myAllocator;
     aSceneDeletionQueue.pushFunction( [ allocator, aMeshId, this ]() {
@@ -143,7 +143,7 @@ Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint
 }
 
 const Gfx_Mesh& Vk_ResourceTables::GetMesh( uint32_t aMeshId ) const {
-    if ( aMeshId >= myMeshes.size() || myMeshes[ aMeshId ].myIndices.empty() ) {
+    if ( aMeshId >= myMeshes.size() || myMeshes[ aMeshId ].myCpu.myIndices.empty() ) {
         throw std::runtime_error( "Vk_ResourceTables: invalid mesh id " + std::to_string( aMeshId ) );
     }
     return myMeshes[ aMeshId ];
@@ -153,7 +153,7 @@ std::vector< Gfx_Bounds > Vk_ResourceTables::CollectMeshLocalBounds() const {
     std::vector< Gfx_Bounds > bounds;
     bounds.reserve( myMeshes.size() );
     for ( const Gfx_Mesh& mesh : myMeshes ) {
-        bounds.push_back( mesh.myLocalBounds );
+        bounds.push_back( mesh.myLocalBounds() );
     }
     return bounds;
 }

@@ -10,7 +10,7 @@
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
-#include "Vk_Types.h"
+#include "Vk_VertexLayout.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -137,8 +137,8 @@ void CreateShadowResources( Vk_Core& aCore ) {
     pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );

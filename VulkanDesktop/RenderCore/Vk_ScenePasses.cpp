@@ -1,8 +1,9 @@
 #include "Vk_ScenePasses.h"
 
-#include "../App/DebugUIState.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include "Vk_Bindless.h"
@@ -207,7 +208,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
 
-void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -223,14 +224,14 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
             Vk_ClusterBuildPass::Init( aCore );
             Vk_DeferredLightingPass::Init( aCore );
         }
-        Vk_GBufferPass::RecordFrame( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+        Vk_GBufferPass::RecordFrame( aCore, aToggles, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
         return;
     }
 
-    RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+    RecordForwardLit( aCore, aToggles, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 }
 
-void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                        const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -331,7 +332,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
             aCore.myFrameStats.myMaterialSetBinds++;
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( !aToggles.mySkipOpaquePass ) {
 
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
@@ -346,7 +347,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
             }
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
+        if ( !aToggles.mySkipTransparentPass ) {
 
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
@@ -418,7 +419,7 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                aUseLegacyDirectDraw, aEmitDebugLabels, batchPipelineOverride );
 }
 
-void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer,
+void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer,
                                            const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                                            const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                            const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
@@ -481,7 +482,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
             aCore.myFrameStats.myMaterialSetBinds++;
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( !aToggles.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Opaque" );
             }
@@ -492,7 +493,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
             }
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
+        if ( !aToggles.mySkipTransparentPass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Transparent" );
             }

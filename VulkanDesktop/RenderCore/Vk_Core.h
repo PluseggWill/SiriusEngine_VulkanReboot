@@ -9,6 +9,8 @@
 #include <vk_mem_alloc.h>
 
 #include "../Gfx/Gfx_Bounds.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_RenderView.h"
 
@@ -56,21 +58,9 @@ struct Vk_AllocatedImage;
 
 struct Vk_AllocatedBuffer;
 
-struct Gfx_Texture;
-
-struct Gfx_Material;
-
-class Gfx_Vertex;
-
-class Gfx_Mesh;
-
-class Gfx_RenderObject;
-
 struct GLFWwindow;
 
 struct WorldState;
-
-struct DebugUIState;
 
 struct Gfx_SceneDesc;
 
@@ -91,10 +81,6 @@ public:
 
     Vk_Core& operator=( const Vk_Core& ) = delete;
 
-    void BindWorldState( WorldState* aWorld );
-
-    void BindDebugUI( DebugUIState* aDebugUI );
-
     // Non-owning; must outlive Vk_Core (Application::myConfig). Call from InitApp before RenderCore reads config.
     void BindEngineConfig( const Util_EngineConfig* aConfig );
 
@@ -110,9 +96,10 @@ public:
 
     void InitRenderDevice();
 
-    void LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScenePath = {} );
+    // Application must call App_LoadSceneCpuState first. Binds myBoundSceneSoA for shadow bounds.
+    void LoadSceneGpuResources( WorldState& aWorld );
 
-    void UnloadScene();
+    void UnloadSceneGpuResources();
 
     const std::string& GetLoadedSceneLogicalPath() const;
 
@@ -128,15 +115,16 @@ public:
     void BeginPlatformFrame( float& aOutDeltaSeconds );
     void BeginImGuiFrame();  // after InputSystem::Sample; see Vk_PlatformFrame.h
 
-    void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput );
+    void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings );
 
     void SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
 
     // aViews built by Application (BuildActiveRenderViews); core does not read scene JSON for PiP here.
 
-    bool PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews, uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut );
+    bool PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews,
+                          uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut );
 
-    Vk_FrameResult DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuPrepResult& aPrep );
+    Vk_FrameResult DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep );
 
     GpuEnvironmentData& GetEnvironmentData() {
 
@@ -303,6 +291,12 @@ public:
 
     bool myPrepareFrameSlabOverflowLogged = false;
 
+    bool mySceneGpuLoaded = false;
+
+    std::string myLoadedSceneLogicalPath;
+
+    const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
+
 private:
     Vk_Core();
 
@@ -326,10 +320,6 @@ private:
 
     void ShutdownImGui();
 
-    WorldState& World() const;
-
-    DebugUIState& DebugUI() const;
-
     void LogM1PerfSnapshot() const;
 
     size_t InstanceSlabStride() const;
@@ -351,10 +341,6 @@ private:
     VkFormat FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
 
     VkSampleCountFlagBits GetMaxUsableSampleCount() const;
-
-    WorldState* myWorld = nullptr;
-
-    DebugUIState* myDebugUI = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
 };

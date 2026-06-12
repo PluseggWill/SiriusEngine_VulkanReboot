@@ -7,7 +7,7 @@
 #include "WorldState.h"
 #include <vector>
 
-// Application lifecycle: config → scene verify → render device → load resources → loop → unload.
+// Application lifecycle: config → scene verify → device init → CPU/GPU scene load → loop → unload.
 class Application {
 public:
     void Configure( const std::vector< const char* >& someDeviceExtensions );

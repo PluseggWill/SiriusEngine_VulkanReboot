@@ -1,11 +1,8 @@
-#include <array>
-#include <unordered_map>
-#include <vector>
+#include "Gfx_MeshCpu.h"
 
 #include <glm/glm.hpp>
-
-#include "Vk_ResourceContext.h"
-#include "Vk_Types.h"
+#include <stdexcept>
+#include <unordered_map>
 
 #ifndef TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -67,41 +64,7 @@ Gfx_Bounds ComputeLocalBoundsFromVertices( const std::vector< Gfx_Vertex >& aVer
 
 }  // namespace
 
-VkVertexInputBindingDescription Gfx_Vertex::getBindingDescription() {
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding   = 0;
-    bindingDescription.stride    = sizeof( Gfx_Vertex );
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    return bindingDescription;
-}
-
-std::array< VkVertexInputAttributeDescription, 4 > Gfx_Vertex::getAttributeDescriptions() {
-    std::array< VkVertexInputAttributeDescription, 4 > attributeDescriptions{};
-    attributeDescriptions[ 0 ].binding  = 0;
-    attributeDescriptions[ 0 ].location = 0;
-    attributeDescriptions[ 0 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 0 ].offset   = offsetof( Gfx_Vertex, pos );
-
-    attributeDescriptions[ 1 ].binding  = 0;
-    attributeDescriptions[ 1 ].location = 1;
-    attributeDescriptions[ 1 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 1 ].offset   = offsetof( Gfx_Vertex, color );
-
-    attributeDescriptions[ 2 ].binding  = 0;
-    attributeDescriptions[ 2 ].location = 2;
-    attributeDescriptions[ 2 ].format   = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[ 2 ].offset   = offsetof( Gfx_Vertex, texCoord );
-
-    attributeDescriptions[ 3 ].binding  = 0;
-    attributeDescriptions[ 3 ].location = 3;
-    attributeDescriptions[ 3 ].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[ 3 ].offset   = offsetof( Gfx_Vertex, normal );
-
-    return attributeDescriptions;
-}
-
-void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
+void Gfx_MeshCpu::LoadFromPath( const std::string& aPath ) {
     tinyobj::attrib_t                          attrib;
     std::vector< tinyobj::shape_t >            shapes;
     std::vector< tinyobj::material_t >         materials;
@@ -120,7 +83,6 @@ void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
             Gfx_Vertex vertex{};
             vertex.pos   = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
             vertex.color = { 1.0f, 1.0f, 1.0f };
-            // WARNING: tinyobj uses texcoord_index == -1 when UVs are missing; do not index attrib.texcoords blindly.
             if ( index.texcoord_index >= 0 && !attrib.texcoords.empty() ) {
                 vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
             }
@@ -144,50 +106,4 @@ void Gfx_Mesh::LoadMesh( const std::string& aPath ) {
     }
 
     myLocalBounds = ComputeLocalBoundsFromVertices( myVertices );
-}
-
-void Gfx_Mesh::BuildBuffers( const Vk_ResourceContext& aContext ) {
-    BuildVertexBuffer( aContext );
-    BuildIndexBuffer( aContext );
-}
-
-void Gfx_Mesh::BuildVertexBuffer( const Vk_ResourceContext& aContext ) {
-    const VkDeviceSize bufferSize = sizeof( Gfx_Vertex ) * myVertices.size();
-
-    Vk_AllocatedBuffer stagingBuffer;
-
-    // Staging (CPU) -> device-local vertex buffer via CopyBuffer on transfer queue.
-    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
-
-    void* data;
-    vmaMapMemory( aContext.myAllocator, stagingBuffer.myAllocation, &data );
-    memcpy( data, myVertices.data(), bufferSize );
-    vmaUnmapMemory( aContext.myAllocator, stagingBuffer.myAllocation );
-
-    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myVertexBuffer, false );
-
-    aContext.CopyBuffer( stagingBuffer.myBuffer, myVertexBuffer.myBuffer, bufferSize );
-
-    // Staging must outlive batched CopyBuffer; DestroyStagingBuffer frees after EndSceneUploadBatch.
-    aContext.DestroyStagingBuffer( stagingBuffer );
-}
-
-void Gfx_Mesh::BuildIndexBuffer( const Vk_ResourceContext& aContext ) {
-    myIndexCount                  = static_cast< uint32_t >( myIndices.size() );
-    const VkDeviceSize bufferSize = sizeof( uint32_t ) * static_cast< size_t >( myIndexCount );
-
-    Vk_AllocatedBuffer stagingBuffer;
-
-    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBuffer, true );
-
-    void* data;
-    vmaMapMemory( aContext.myAllocator, stagingBuffer.myAllocation, &data );
-    memcpy( data, myIndices.data(), bufferSize );
-    vmaUnmapMemory( aContext.myAllocator, stagingBuffer.myAllocation );
-
-    aContext.CreateBuffer( bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, myIndexBuffer, false );
-
-    aContext.CopyBuffer( stagingBuffer.myBuffer, myIndexBuffer.myBuffer, bufferSize );
-
-    aContext.DestroyStagingBuffer( stagingBuffer );
 }

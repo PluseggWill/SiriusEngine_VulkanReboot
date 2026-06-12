@@ -61,7 +61,27 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
-**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application` (passed into Util/Gfx/RenderCore, bound on `Vk_Core`). Per frame App builds active views, runs CPU prep (`PrepareFrameCpu`), then GPU draw. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths. Design logs: [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md), [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md).
+**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Core::LoadSceneGpuResources`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+
+### Frame / naming glossary (RenderCore)
+
+| Symbol | Role | Lifetime |
+|--------|------|----------|
+| `Vk_FrameContext` | In-flight ring (`myCurrentFrame`, fences, command buffers) | Process |
+| `Vk_FrameData` | One in-flight slot: CB, instance slab map, descriptor sets | Per ring index |
+| `Vk_FrameCpuPrepResult` | Cross-layer DTO: acquire index + view packets + GPU cull params | One frame (App panels → GPU) |
+| `Vk_FrameDrawPrep` | GPU upload prep: entity SSBO + instance slab + draw templates | Owned on `Vk_SceneGpuContext` |
+| `Gfx_ViewPacketBuild` | CPU extract → batch → `Gfx_FrameRenderPacket` (no Vulkan) | Called inside `Vk_FrameDrawPrep::Build` |
+| `Gfx_FramePrepInput` | Scene SoA / LOD pointers for prep (replaces `WorldState&` in RenderCore) | App stack each frame |
+
+### Resource type ownership
+
+| Layer | Types |
+|-------|--------|
+| **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
+| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles + aliases `Gfx_Mesh` etc.) |
+| **Gpu*** UBO structs | `Vk_Types.h` / `Vk_Camera.h` (shader contract) |
+
 
 ---
 

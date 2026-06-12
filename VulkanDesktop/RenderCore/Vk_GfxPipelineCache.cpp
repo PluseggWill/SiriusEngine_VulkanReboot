@@ -6,6 +6,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PipelineDiagnostics.h"
+#include "Vk_VertexLayout.h"
 
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
@@ -76,8 +77,8 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Core& aCore ) {
     VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );
@@ -153,8 +154,8 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
     VkShaderModule fragShaderModule = aCore.CreateShaderModule( bindlessFragShaderPath );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );
@@ -219,8 +220,8 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
     VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );

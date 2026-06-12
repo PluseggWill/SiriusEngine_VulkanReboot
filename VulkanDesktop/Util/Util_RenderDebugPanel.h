@@ -2,7 +2,7 @@
 
 // Util_RenderDebugPanel - Stage 1 forward parity hooks: skip sub-passes, depth/normal debug view.
 
-#include "../RenderCore/Vk_Types.h"
+#include "../Gfx/Gfx_MaterialTypes.h"
 #include "Util_EngineConfig.h"
 
 struct GpuEnvironmentData;
