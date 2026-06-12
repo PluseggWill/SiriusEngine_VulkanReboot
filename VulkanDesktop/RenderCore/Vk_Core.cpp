@@ -209,7 +209,8 @@ void Vk_Core::InitRenderDevice() {
     CreateUniformBuffers();
     SyncResourceContext();
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
-    Vk_IblResources::Init( *this, Vk_IblResources::kDefaultEnvironmentLogicalPath );
+    myLightingSettings = EngineConfig().GetLightingSettings();
+    Vk_IblResources::Init( *this, EngineConfig().GetEnvironmentPath() );
     Vk_ShadowMapPass::Init( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }

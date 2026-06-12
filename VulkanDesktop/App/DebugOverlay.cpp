@@ -2,6 +2,7 @@
 #include "DebugOverlay.h"
 
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
@@ -75,7 +76,7 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
 }
 
 void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, GpuEnvironmentData& anEnvironment,
-                             const Vk_FrameCpuPrepResult& aPrep ) {
+                             Gfx_LightingSettings& aLightingSettings, const Vk_FrameCpuPrepResult& aPrep ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
@@ -93,7 +94,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
             if ( ImGui::BeginTabItem( "Render" ) ) {
                 UtilRenderDebugPanel::BuildContents( aConfig, aDebugUI.myRenderDebug, anEnvironment, aPrep.myTotalOpaqueDraws, aPrep.myTotalTransparentDraws );
                 ImGui::Separator();
-                UtilLightingPanel::BuildContents( anEnvironment );
+                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {
@@ -116,5 +117,5 @@ void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aD
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aPrep );
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aPrep );
 }

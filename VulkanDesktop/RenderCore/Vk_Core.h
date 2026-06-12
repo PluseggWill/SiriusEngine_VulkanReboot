@@ -142,6 +142,11 @@ public:
         return myEnvironmentData;
     }
 
+    Gfx_LightingSettings& GetLightingSettings() {
+
+        return myLightingSettings;
+    }
+
     void ConfigureRenderDoc( bool aEnableRenderDoc );
 
     void TriggerRenderDocCapture();

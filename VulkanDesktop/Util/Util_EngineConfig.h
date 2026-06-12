@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "Util_AssetManifest.h"
 #include "Util_Logger.h"
 
@@ -41,6 +42,8 @@ struct Util_EngineConfig {
     bool                              GetGpuCullEnabled() const;
     const std::string&                GetShaderPermutationName() const;
     const std::string&                GetRenderPresetName() const;
+    const Gfx_LightingSettings&       GetLightingSettings() const;
+    const std::string&                GetEnvironmentPath() const;
     bool                              ResolveValidationEnabled( bool aBuildDefault ) const;
     bool                              IsValidationEnabled() const;
     const std::vector< const char* >& GetValidationLayerNames() const;
@@ -65,6 +68,10 @@ private:
         std::optional< std::string >           myShaderPermutation;
         std::optional< std::string >           myRenderPreset;
         std::optional< std::string >           myPerfLog;
+        std::optional< bool >                  myShadowsEnabled;
+        std::optional< bool >                  myIblEnabled;
+        std::optional< float >                 myIblIntensity;
+        std::optional< std::string >           myEnvironment;
     };
 
     CliOverrides ParseCliOverrides( int aArgc, char** aArgv );
@@ -97,6 +104,8 @@ private:
     std::optional< bool >        myConfigValidation;
     mutable bool                 myValidationResolved = false;
     mutable bool                 myValidationEnabled  = false;
+    Gfx_LightingSettings         myLightingSettings{};
+    std::string                  myEnvironmentPath = "Data/Environments/default";
     std::vector< const char* >   myValidationLayers{ "VK_LAYER_KHRONOS_validation" };
 };
 

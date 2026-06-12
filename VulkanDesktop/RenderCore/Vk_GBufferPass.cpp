@@ -411,7 +411,12 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
     static bool sGpuIndirectPathLoggedOnce = false;
 
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+        if ( aCore.myLightingSettings.myShadowsEnabled ) {
+            UtilLogger::Info( "FG", "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+        }
+        else {
+            UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+        }
         sChainLoggedOnce = true;
     }
 
