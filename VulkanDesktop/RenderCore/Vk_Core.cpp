@@ -25,6 +25,7 @@
 #include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_GpuCull.h"
+#include "Vk_IblResources.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
@@ -205,6 +206,8 @@ void Vk_Core::InitRenderDevice() {
     Vk_GpuCull::Init( *this );
     Vk_GpuCull::CreateFrameBuffers( *this );
     CreateUniformBuffers();
+    SyncResourceContext();
+    Vk_IblResources::Init( *this, Vk_IblResources::kDefaultEnvironmentLogicalPath );
     Vk_DescriptorSystem::InitDeviceLayouts( *this );
     UtilLogger::Info( "VULKAN", "InitRenderDevice completed." );
 }
@@ -643,6 +646,12 @@ void Vk_Core::CreateUniformBuffers() {
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
     myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myDeviceCtx.myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
+
+    const size_t lightingGlobalsSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuLightingGlobals ) );
+    CreateBuffer( lightingGlobalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myLightingGlobalsBuffer, true );
+    myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() {
+        vmaDestroyBuffer( myDeviceCtx.myAllocator, myLightingGlobalsBuffer.myBuffer, myLightingGlobalsBuffer.myAllocation );
+    } );
 }
 
 void Vk_Core::CreateCommandPool() {

@@ -8,6 +8,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_RenderView.h"
 
 #include "../Util/Util_FrameStats.h"
@@ -33,6 +34,7 @@
 #include "Vk_FrameDrawPrep.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
+#include "Vk_IblResources.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -262,6 +264,8 @@ public:
 
     Vk_DeferredLightingState myDeferredLightingState;
 
+    Vk_IblResourcesState myIblResourcesState;
+
     Vk_GpuCullState myGpuCullState;
 
     Vk_PlatformContext myPlatformCtx;
@@ -272,7 +276,11 @@ public:
 
     GpuEnvironmentData myEnvironmentData;
 
+    Gfx_LightingSettings myLightingSettings;
+
     Vk_AllocatedBuffer myEnvDataBuffer;
+
+    Vk_AllocatedBuffer myLightingGlobalsBuffer;
 
     Vk_ResourceContext myResourceContext;
 
