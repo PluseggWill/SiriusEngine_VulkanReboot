@@ -20,7 +20,7 @@ vec3 Pbr_SamplePrefilter(samplerCube prefilterMap, vec3 R, float roughness)
     return textureLod(prefilterMap, normalize(R), lod).rgb;
 }
 
-float Pbr_ShadowVisibility(sampler2DShadow shadowMap, mat4 lightViewProj, vec3 worldPos, vec3 N, vec4 shadowParams)
+float Pbr_ShadowVisibility(sampler2DShadow shadowMap, mat4 lightViewProj, vec3 worldPos, vec3 N, vec3 L, vec4 shadowParams)
 {
     if (shadowParams.z < 0.5) {
         return 1.0;
@@ -35,7 +35,7 @@ float Pbr_ShadowVisibility(sampler2DShadow shadowMap, mat4 lightViewProj, vec3 w
         return 1.0;
     }
 
-    const float bias = shadowParams.x + shadowParams.y * (1.0 - max(dot(N, normalize(-V)), 0.0));
+    const float bias = shadowParams.x + shadowParams.y * (1.0 - max(dot(N, normalize(L)), 0.0));
     const float compareDepth = projCoords.z - bias;
 
     float visibility = 0.0;

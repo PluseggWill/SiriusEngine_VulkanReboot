@@ -27,6 +27,78 @@
           "stages": [
             "FRAGMENT"
           ]
+        },
+        {
+          "binding": 2,
+          "count": 1,
+          "descriptorType": "UNIFORM_BUFFER",
+          "name": "lightingGlobals",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 3,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "shadowMap",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 4,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "irradianceMap",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 5,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "prefilterMap",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 6,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "brdfLut",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
+        },
+        {
+          "binding": 7,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "skyMap",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
         }
       ],
       "set": 0

@@ -2,6 +2,8 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #include "PbrDirect.glsl"
+#include "PbrIbl.glsl"
+#include "LightingBindings.glsl"
 
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
@@ -64,9 +66,14 @@ void main()
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
     const vec2 mr = Pbr_ClampMetallicRoughness(mat.metallic, mat.roughness);
 
-    const vec3 color = Pbr_LitWithSunAndAmbient(
-        N, V, envData.sunlightDirection.xyz, envData.sunlightColor.rgb, envData.ambientColor.rgb,
-        albedo, mr.x, mr.y);
+    const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
+    vec3 color = Pbr_EvalIbl(N, V, albedo, mr.x, mr.y, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled);
+    if (iblEnabled == 0u) {
+        color = envData.ambientColor.rgb * albedo;
+    }
+
+    const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(N, V, inWorldPos, envData.sunlightDirection.xyz, envData.sunlightColor.rgb);
+    color += Pbr_EvalDirect(N, V, normalize(envData.sunlightDirection.xyz), albedo, mr.x, mr.y, sunRadiance);
 
     outColor = vec4(color, clamp(mat.alpha, 0.0, 1.0));
 

@@ -2,10 +2,12 @@
 
 #include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_Enum.h"
 #include "Vk_Initializer.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_ShaderEffectMeta.h"
 
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_RenderView.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
@@ -47,9 +49,12 @@ DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Core& aCore ) {
     const uint32_t materialSets = bindless ? 1u : static_cast< uint32_t >( materialCount );
     const uint32_t baseSets     = frameSets + objectSets + materialSets;
 
-    const uint32_t uniformStatic    = WithPoolHeadroom( frameSets * 2 + static_cast< uint32_t >( materialCount ) );
+    const uint32_t uniformStatic    = WithPoolHeadroom( frameSets * 3 + static_cast< uint32_t >( materialCount ) );
     const uint32_t uniformDynamic   = WithPoolHeadroom( static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) );
-    const uint32_t combinedSamplers = bindless ? WithPoolHeadroom( VkDescriptorPolicy::kMaxBindlessTextures ) : WithPoolHeadroom( static_cast< uint32_t >( materialCount ) );
+    const uint32_t frameLightingSamplers = frameSets * 5;  // shadow + irradiance + prefilter + BRDF LUT + sky
+    const uint32_t combinedSamplers =
+        bindless ? WithPoolHeadroom( VkDescriptorPolicy::kMaxBindlessTextures + frameLightingSamplers )
+                 : WithPoolHeadroom( static_cast< uint32_t >( materialCount ) + frameLightingSamplers );
     const uint32_t storageBuffers   = WithPoolHeadroom( bindless ? 2u : 1u );
 
     DescriptorPoolPlan plan{};
@@ -136,7 +141,7 @@ void Vk_DescriptorSystem::LogLayoutContract( const Vk_Core& aCore ) {
     const char* set1Summary  = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
                                                                                                    : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
     UtilLogger::Info( "DESCRIPTOR", std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
-                                        + "set0=camera+env (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) " + set1Summary
+                                        + "set0=camera+env+lighting+IBL+shadow (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) " + set1Summary
                                         + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
 }
 
@@ -342,11 +347,45 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
 }
 
 void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
+    if ( !aCore.myIblResourcesState.myInitialized || !aCore.myShadowMapState.myInitialized ) {
+        throw std::runtime_error( "CreateDescriptorSets requires IBL and shadow map resources (InitRenderDevice order)" );
+    }
+
+    VkDescriptorImageInfo shadowInfo{};
+    shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
+    shadowInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
+    shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo irradianceInfo{};
+    irradianceInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
+    irradianceInfo.imageView   = aCore.myIblResourcesState.myIrradiance.ImageView();
+    irradianceInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo prefilterInfo{};
+    prefilterInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
+    prefilterInfo.imageView   = aCore.myIblResourcesState.myPrefilter.ImageView();
+    prefilterInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo brdfLutInfo{};
+    brdfLutInfo.sampler     = aCore.myIblResourcesState.myBrdfLutSampler;
+    brdfLutInfo.imageView   = aCore.myIblResourcesState.myBrdfLut.ImageView();
+    brdfLutInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo skyInfo{};
+    skyInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
+    skyInfo.imageView   = aCore.myIblResourcesState.mySky.ImageView();
+    skyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = aCore.myEnvDataBuffer.myBuffer;
         envBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
         envBufferInfo.range  = sizeof( GpuEnvironmentData );
+
+        VkDescriptorBufferInfo lightingBufferInfo{};
+        lightingBufferInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
+        lightingBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuLightingGlobals ) ) * i;
+        lightingBufferInfo.range  = sizeof( GpuLightingGlobals );
 
         for ( uint32_t viewIndex = 0; viewIndex < kGfxMaxRenderViews; ++viewIndex ) {
             VkDescriptorSetAllocateInfo allocInfo{};
@@ -358,15 +397,22 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
                 throw std::runtime_error( "failed to allocate descriptor sets!" );
             }
 
-            std::array< VkWriteDescriptorSet, 2 > descriptorWrites{};
-            VkDescriptorBufferInfo                camBufferInfo{};
-            camBufferInfo.buffer  = aCore.myFrameCtx.myFrameDatas[ i ].myCameraBuffer.myBuffer;
-            camBufferInfo.offset  = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) ) * viewIndex;
-            camBufferInfo.range   = sizeof( GpuCameraData );
-            descriptorWrites[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ],
-                                                                          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 );
-            descriptorWrites[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ],
-                                                                          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 );
+            VkDescriptorBufferInfo camBufferInfo{};
+            camBufferInfo.buffer = aCore.myFrameCtx.myFrameDatas[ i ].myCameraBuffer.myBuffer;
+            camBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) ) * viewIndex;
+            camBufferInfo.range  = sizeof( GpuCameraData );
+
+            const VkDescriptorSet globalSet = aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ];
+            std::array< VkWriteDescriptorSet, eVk_FrameBindingCount > descriptorWrites = {
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &camBufferInfo, eVk_CameraBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &envBufferInfo, eVk_EnvBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightingBufferInfo, eVk_LightingGlobalsBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowInfo, eVk_ShadowMapBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &irradianceInfo, eVk_IrradianceMapBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &prefilterInfo, eVk_PrefilterMapBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &brdfLutInfo, eVk_BrdfLutBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, eVk_SkyMapBinding, 1 ),
+            };
             vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
         }
 

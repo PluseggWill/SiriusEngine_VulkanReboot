@@ -10,4 +10,5 @@ class Vk_FrameUniformUploader {
 public:
     static void UpdateForView( const Vk_Core& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera );
     static void UpdateEnvironment( const Vk_Core& aCore, uint32_t aCurrentFrame );
+    static void UpdateLightingGlobals( const Vk_Core& aCore, uint32_t aCurrentFrame );
 };

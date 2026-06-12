@@ -1,7 +1,8 @@
 #version 450
 
-// FG v0: clustered deferred resolve — Cook-Torrance direct PBR (S4). Keep in sync with Gfx_ClusterLighting.h.
+// FG v0: clustered deferred resolve — Cook-Torrance direct PBR + IBL + shadow (S5).
 #include "PbrDirect.glsl"
+#include "PbrIbl.glsl"
 
 const uint kMaxLightsPerCluster = 8u;
 const uint kDebugViewDepth = 1u;
@@ -35,6 +36,18 @@ layout(set = 0, binding = 3) readonly buffer ClusterLists {
 };
 layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 
+layout(set = 0, binding = 5) uniform LightingGlobals {
+    mat4 lightViewProj;
+    vec4 shadowParams;
+    vec4 iblParams;
+} lightingGlobals;
+
+layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
+layout(set = 0, binding = 7) uniform samplerCube irradianceMap;
+layout(set = 0, binding = 8) uniform samplerCube prefilterMap;
+layout(set = 0, binding = 9) uniform sampler2D brdfLut;
+layout(set = 0, binding = 10) uniform samplerCube skyMap;
+
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
 
@@ -67,20 +80,31 @@ void main()
     const float roughness = normalRoughness.w;
     const float depth = texture(gbufferDepth, vUV).r;
     const vec3 worldPos = reconstructWorldPos(vUV, depth);
+    const vec3 V = normalize(pc.viewWorldPos.xyz - worldPos);
+
+    if (depth >= 0.999) {
+        outColor = vec4(Pbr_SampleSky(skyMap, worldPos, pc.viewWorldPos.xyz), 1.0);
+        return;
+    }
 
     const uint tileX = uint(gl_FragCoord.x) / pc.grid.z;
     const uint tileY = uint(gl_FragCoord.y) / pc.grid.z;
     const uint clusterId = tileX + tileY * pc.grid.x + pc.grid.w * pc.grid.x * pc.grid.y;
 
-    vec3 lit = pc.ambientColor.rgb * albedo;
-    const vec3 V = normalize(pc.viewWorldPos.xyz - worldPos);
+    const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
+    vec3 lit = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled);
+    if (iblEnabled == 0u) {
+        lit = pc.ambientColor.rgb * albedo;
+    }
 
     const ClusterLightList cluster = lists[clusterId];
     const uint lightCount = min(cluster.lightCount, kMaxLightsPerCluster);
     for (uint i = 0u; i < lightCount; ++i) {
         const ClusterLight light = lights[cluster.lightIndices[i]];
         const vec3 L = normalize(light.direction.xyz);
-        lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, light.color.rgb);
+        vec3 radiance = light.color.rgb;
+        radiance *= Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, worldPos, N, L, lightingGlobals.shadowParams);
+        lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, radiance);
     }
 
     outColor = applyDebugView(vec4(lit, 1.0), N, depth);

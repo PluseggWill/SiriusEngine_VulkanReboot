@@ -2,6 +2,10 @@
 
 #include "Vk_Core.h"
 
+#include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Gfx/Gfx_LightingMath.h"
+#include "Vk_ShadowMapPass.h"
+
 #include <cstring>
 
 #include <glm/glm.hpp>
@@ -32,4 +36,18 @@ void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Core& aCore, uint32_t 
     mapGpuEnvData += aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * aCurrentFrame;
     memcpy( mapGpuEnvData, &env, sizeof( GpuEnvironmentData ) );
     vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.myEnvDataBuffer.myAllocation );
+}
+
+void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const glm::mat4   lightViewProj =
+        Gfx_LightingMath::ComputeDirectionalShadowMatrix( sunDir, aCore.myCamera, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
+
+    GpuLightingGlobals globals = Gfx_BuildLightingGlobals( aCore.myLightingSettings, lightViewProj, static_cast< float >( Vk_ShadowMapState::kMapSize ) );
+
+    char* mapData = nullptr;
+    vmaMapMemory( aCore.myDeviceCtx.myAllocator, aCore.myLightingGlobalsBuffer.myAllocation, ( void** )&mapData );
+    mapData += aCore.PadUniformBufferSize( sizeof( GpuLightingGlobals ) ) * aCurrentFrame;
+    memcpy( mapData, &globals, sizeof( GpuLightingGlobals ) );
+    vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.myLightingGlobalsBuffer.myAllocation );
 }
