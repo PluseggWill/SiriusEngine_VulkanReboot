@@ -375,6 +375,9 @@ imgui.ini
 # Local dev tool bootstrap (Assert-ClangFormat.ps1 -BootstrapTools)
 .tools/
 
+# McGuire Sponza (~80 MB fetch-on-demand; Scripts/Fetch-SponzaMcGuire.ps1)
+Data/Models/sponza/
+
 # Cursor IDE local state (track shared rules and skills)
 .cursor/*
 !.cursor/rules/

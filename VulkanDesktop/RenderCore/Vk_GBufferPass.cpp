@@ -406,7 +406,6 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
     static bool sChainLoggedOnce           = false;
-    static bool sMultiViewWarnOnce         = false;
     static bool sIndirectPathLoggedOnce    = false;
     static bool sGpuIndirectPathLoggedOnce = false;
 
@@ -425,11 +424,6 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
             UtilLogger::Error( "FG", "G-buffer pipeline null; opaque skipped (stale layout after swapchain recreate?)" );
             sNullPipelineWarnOnce = true;
         }
-    }
-
-    if ( aViewCount > 1 && !sMultiViewWarnOnce ) {
-        UtilLogger::Warn( "FG", "HybridDeferred FG v0 uses view 0 only." );
-        sMultiViewWarnOnce = true;
     }
 
     const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
@@ -520,6 +514,8 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         UtilLogger::Info( "RENDER", "Scene record using CPU vkCmdDrawIndexedIndirect (draw templates uploaded each frame)." );
         sIndirectPathLoggedOnce = true;
     }
+
+    Vk_ScenePasses::RecordHybridPiPViews( aCore, aDebugUI, aCommandBuffer, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 
     vkCmdEndRenderPass( aCommandBuffer );
 }

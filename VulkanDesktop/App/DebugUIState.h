@@ -8,8 +8,8 @@
 // Application-owned ImGui / debug toggles (P1 peel phase 2). RenderCore reads skip flags via BindDebugUI.
 struct DebugUIState {
     struct MultiViewState {
-        bool     myEnablePiP            = true;
-        uint32_t mySecondaryCameraIndex = 0;
+        bool     myEnablePiP            = false;
+        uint32_t mySecondaryCameraIndex = 1;
     };
 
     MultiViewState              myMultiView;

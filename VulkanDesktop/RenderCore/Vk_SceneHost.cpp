@@ -4,7 +4,30 @@
 #include "Vk_Core.h"
 
 #include "../Gfx/Gfx_SceneApply.h"
+#include <algorithm>
 #include <glm/glm.hpp>
+
+namespace {
+
+bool IsFullViewportCamera( const Gfx_SceneCameraEntry& aCamera ) {
+    return aCamera.myViewport.z >= 0.95f && aCamera.myViewport.w >= 0.95f;
+}
+
+const Gfx_SceneCameraEntry* FindFlySpawnCamera( const Gfx_SceneDesc& aScene ) {
+    for ( const Gfx_SceneCameraEntry& camera : aScene.myCameras ) {
+        if ( camera.myId == "spawn" ) {
+            return &camera;
+        }
+    }
+    for ( const Gfx_SceneCameraEntry& camera : aScene.myCameras ) {
+        if ( IsFullViewportCamera( camera ) ) {
+            return &camera;
+        }
+    }
+    return nullptr;
+}
+
+}  // namespace
 
 void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
     ( void )aCore;  // InitScenePresentation still needs swapchain extent on core (Phase 1).
@@ -17,11 +40,27 @@ void Vk_SceneHost::LoadCpuState( WorldState& aWorld, Vk_Core& aCore ) {
     aWorld.myLodDebugLogicalMeshId = treeIt != aWorld.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
-void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore ) {
-    // Demo defaults until scene JSON environment blocks exist (lighting epic).
-    aCore.myCamera.SetLens( 45.0f, 0.1f, 32.0f,
-                            static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );
-    aCore.myCamera.LookAt( glm::vec3( 0.0f, 3.0f, 9.0f ), glm::vec3( 0.0f, 0.5f, -2.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+void Vk_SceneHost::InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
+    const float aspect = static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height );
+
+    float       fovDeg   = 45.0f;
+    float       nearPlane = 0.1f;
+    float       farPlane  = 32.0f;
+    glm::vec3   eye{ 0.0f, 3.0f, 9.0f };
+    glm::vec3   center{ 0.0f, 0.5f, -2.0f };
+    glm::vec3   up{ 0.0f, 0.0f, 1.0f };
+
+    if ( const Gfx_SceneCameraEntry* spawn = FindFlySpawnCamera( aWorld.myLoadedScene ) ) {
+        eye    = spawn->myEye;
+        center = spawn->myCenter;
+        up     = spawn->myUp;
+        fovDeg = spawn->myFovYDeg;
+        const float lookDistance = glm::length( center - eye );
+        farPlane                 = std::max( 32.0f, lookDistance * 10.0f );
+    }
+
+    aCore.myCamera.SetLens( fovDeg, nearPlane, farPlane, aspect );
+    aCore.myCamera.LookAt( eye, center, up );
 
     aCore.myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };
     aCore.myEnvironmentData.myFogColor          = { 1.0f, 1.0f, 1.0f, 1.0f };

@@ -400,6 +400,98 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                aUseLegacyDirectDraw, aEmitDebugLabels, batchPipelineOverride );
 }
 
+void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer,
+                                           const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
+                                           const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
+                                           const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
+
+    if ( aViewCount <= 1 ) {
+        return;
+    }
+
+    static bool sHybridPiPLoggedOnce = false;
+
+    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
+    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
+    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+    const bool                  legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool                  gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool                  emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
+
+    Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
+    const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
+
+    const VkPipeline opaqueBindlessPipeline = aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve;
+    const VkPipeline opaqueBatchPipeline      = aCore.mySceneGpuCtx.myBasicPipelineHybridResolve;
+    const VkPipeline transparentBindlessPipeline = aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve;
+    const VkPipeline transparentBatchPipeline      = aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve;
+
+    if ( ( bindless && opaqueBindlessPipeline == VK_NULL_HANDLE ) || ( !bindless && opaqueBatchPipeline == VK_NULL_HANDLE ) ) {
+        static bool sHybridPiPWarnOnce = false;
+        if ( !sHybridPiPWarnOnce ) {
+            UtilLogger::Warn( "FG", "HybridDeferred PiP skipped: hybrid-resolve forward pipelines unavailable." );
+            sHybridPiPWarnOnce = true;
+        }
+        return;
+    }
+
+    for ( uint32_t viewIndex = 1; viewIndex < aViewCount; ++viewIndex ) {
+        const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
+        if ( !Vk_RenderBackend::ValidateFramePacket( packet ) ) {
+            continue;
+        }
+
+        std::array< VkClearAttachment, 2 > clearAttachments{};
+        clearAttachments[ 0 ].aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearAttachments[ 0 ].colorAttachment = 0;
+        clearAttachments[ 0 ].clearValue.color = { { 0.05f, 0.05f, 0.08f, 1.0f } };
+        clearAttachments[ 1 ].aspectMask              = VK_IMAGE_ASPECT_DEPTH_BIT;
+        clearAttachments[ 1 ].clearValue.depthStencil = { 1.0f, 0 };
+
+        VkClearRect clearRect{};
+        clearRect.rect           = aScissors[ viewIndex ];
+        clearRect.baseArrayLayer = 0;
+        clearRect.layerCount     = 1;
+        vkCmdClearAttachments( aCommandBuffer, static_cast< uint32_t >( clearAttachments.size() ), clearAttachments.data(), 1, &clearRect );
+
+        aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptors[ viewIndex ], 0,
+                                 nullptr );
+        if ( bindless ) {
+            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
+                                     &aCore.mySceneGpuCtx.myBindlessDescriptorSet, 0, nullptr );
+            aCore.myFrameStats.myMaterialSetBinds++;
+        }
+
+        if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+            if ( emitDebugLabels ) {
+                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Opaque" );
+            }
+            RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myOpaquePass, "HybridPiP-Opaque", materialPath, opaqueBindlessPipeline, packet.myDrawBufferBaseIndex,
+                                       indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels, opaqueBatchPipeline );
+            if ( emitDebugLabels ) {
+                aCore.CmdEndDebugLabel( aCommandBuffer );
+            }
+        }
+
+        if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
+            if ( emitDebugLabels ) {
+                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Transparent" );
+            }
+            RecordPassDrawsFromPacket( aCore, aCommandBuffer, packet.myTransparentPass, "HybridPiP-Transparent", materialPath, transparentBindlessPipeline,
+                                       packet.myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels, transparentBatchPipeline );
+            if ( emitDebugLabels ) {
+                aCore.CmdEndDebugLabel( aCommandBuffer );
+            }
+        }
+    }
+
+    if ( !sHybridPiPLoggedOnce ) {
+        UtilLogger::Info( "FG", "HybridDeferred PiP: forward-lit overlay for secondary scene cameras." );
+        sHybridPiPLoggedOnce = true;
+    }
+}
+
 void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
 
     aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );

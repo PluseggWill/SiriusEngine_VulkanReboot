@@ -16,6 +16,30 @@ glm::vec4 ClampNormalizedViewport( const glm::vec4& aViewport ) {
     return { x, y, w, h };
 }
 
+bool IsPiPViewport( const glm::vec4& aViewportNorm ) {
+    return aViewportNorm.z < 0.95f || aViewportNorm.w < 0.95f;
+}
+
+uint32_t ResolvePiPCameraIndex( const WorldState& aWorld, uint32_t aRequestedIndex ) {
+    const auto& cameras = aWorld.myLoadedScene.myCameras;
+    if ( cameras.empty() ) {
+        return 0;
+    }
+
+    const uint32_t clamped = std::min( aRequestedIndex, static_cast< uint32_t >( cameras.size() - 1 ) );
+    if ( IsPiPViewport( ClampNormalizedViewport( cameras[ clamped ].myViewport ) ) ) {
+        return clamped;
+    }
+
+    for ( uint32_t i = 0; i < static_cast< uint32_t >( cameras.size() ); ++i ) {
+        if ( IsPiPViewport( ClampNormalizedViewport( cameras[ i ].myViewport ) ) ) {
+            return i;
+        }
+    }
+
+    return clamped;
+}
+
 VkViewport ToViewport( const VkExtent2D& aExtent, const glm::vec4& aViewportNorm ) {
     const float x      = aViewportNorm.x * static_cast< float >( aExtent.width );
     const float y      = aViewportNorm.y * static_cast< float >( aExtent.height );
@@ -55,7 +79,7 @@ std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( ui
     // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so Vk_Core prep stays JSON-free.
     if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
         aOutViewCount              = 2;
-        const uint32_t cameraIndex = std::min( aDebugUI.myMultiView.mySecondaryCameraIndex, static_cast< uint32_t >( aWorld.myLoadedScene.myCameras.size() - 1 ) );
+        const uint32_t cameraIndex = ResolvePiPCameraIndex( aWorld, aDebugUI.myMultiView.mySecondaryCameraIndex );
         const Gfx_SceneCameraEntry& sceneCamera  = aWorld.myLoadedScene.myCameras[ cameraIndex ];
         const glm::vec4             viewportNorm = ClampNormalizedViewport( sceneCamera.myViewport );
 

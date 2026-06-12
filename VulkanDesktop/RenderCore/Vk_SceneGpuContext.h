@@ -23,7 +23,9 @@ struct Vk_SceneGpuContext {
     VkPipeline myTransparentPipeline         = VK_NULL_HANDLE;
     VkPipeline myBasicPipelineBindless       = VK_NULL_HANDLE;
     VkPipeline myTransparentPipelineBindless = VK_NULL_HANDLE;
-    // ForwardTransparent in HybridDeferred resolve RP (depth LOAD; incompatible with myRenderPass pipelines).
+    // Forward lit in HybridDeferred resolve RP (depth LOAD; incompatible with myRenderPass pipelines).
+    VkPipeline myBasicPipelineHybridResolve               = VK_NULL_HANDLE;
+    VkPipeline myBasicPipelineBindlessHybridResolve       = VK_NULL_HANDLE;
     VkPipeline myTransparentPipelineHybridResolve         = VK_NULL_HANDLE;
     VkPipeline myTransparentPipelineBindlessHybridResolve = VK_NULL_HANDLE;
 

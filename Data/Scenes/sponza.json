@@ -1,0 +1,1112 @@
+{
+    "version":  1,
+    "name":  "sponza",
+    "shaders":  {
+                    "lit":  {
+                                "vert":  "VulkanDesktop/Shader_Generated/TriangleVert.spv",
+                                "frag":  "VulkanDesktop/Shader_Generated/TrianglePix.spv"
+                            }
+                },
+    "logicalMeshes":  [
+                          {
+                              "id":  "sponza_arch",
+                              "lodMeshes":  [
+                                                "sponza_arch"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_bricks",
+                              "lodMeshes":  [
+                                                "sponza_bricks"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_ceiling",
+                              "lodMeshes":  [
+                                                "sponza_ceiling"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_chain",
+                              "lodMeshes":  [
+                                                "sponza_chain"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_column_a",
+                              "lodMeshes":  [
+                                                "sponza_column_a"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_column_b",
+                              "lodMeshes":  [
+                                                "sponza_column_b"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_column_c",
+                              "lodMeshes":  [
+                                                "sponza_column_c"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_details",
+                              "lodMeshes":  [
+                                                "sponza_details"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_a",
+                              "lodMeshes":  [
+                                                "sponza_fabric_a"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_c",
+                              "lodMeshes":  [
+                                                "sponza_fabric_c"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_d",
+                              "lodMeshes":  [
+                                                "sponza_fabric_d"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_e",
+                              "lodMeshes":  [
+                                                "sponza_fabric_e"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_f",
+                              "lodMeshes":  [
+                                                "sponza_fabric_f"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_fabric_g",
+                              "lodMeshes":  [
+                                                "sponza_fabric_g"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_flagpole",
+                              "lodMeshes":  [
+                                                "sponza_flagpole"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_floor",
+                              "lodMeshes":  [
+                                                "sponza_floor"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_leaf",
+                              "lodMeshes":  [
+                                                "sponza_leaf"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_material_25",
+                              "lodMeshes":  [
+                                                "sponza_material_25"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_material_298",
+                              "lodMeshes":  [
+                                                "sponza_material_298"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_material_47",
+                              "lodMeshes":  [
+                                                "sponza_material_47"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_material_57",
+                              "lodMeshes":  [
+                                                "sponza_material_57"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_roof",
+                              "lodMeshes":  [
+                                                "sponza_roof"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_vase",
+                              "lodMeshes":  [
+                                                "sponza_vase"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_vase_hanging",
+                              "lodMeshes":  [
+                                                "sponza_vase_hanging"
+                                            ]
+                          },
+                          {
+                              "id":  "sponza_vase_round",
+                              "lodMeshes":  [
+                                                "sponza_vase_round"
+                                            ]
+                          }
+                      ],
+    "meshes":  [
+                   {
+                       "id":  "sponza_arch",
+                       "path":  "Data/Models/sponza/parts/sponza_arch.obj"
+                   },
+                   {
+                       "id":  "sponza_bricks",
+                       "path":  "Data/Models/sponza/parts/sponza_bricks.obj"
+                   },
+                   {
+                       "id":  "sponza_ceiling",
+                       "path":  "Data/Models/sponza/parts/sponza_ceiling.obj"
+                   },
+                   {
+                       "id":  "sponza_chain",
+                       "path":  "Data/Models/sponza/parts/sponza_chain.obj"
+                   },
+                   {
+                       "id":  "sponza_column_a",
+                       "path":  "Data/Models/sponza/parts/sponza_column_a.obj"
+                   },
+                   {
+                       "id":  "sponza_column_b",
+                       "path":  "Data/Models/sponza/parts/sponza_column_b.obj"
+                   },
+                   {
+                       "id":  "sponza_column_c",
+                       "path":  "Data/Models/sponza/parts/sponza_column_c.obj"
+                   },
+                   {
+                       "id":  "sponza_details",
+                       "path":  "Data/Models/sponza/parts/sponza_details.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_a",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_a.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_c",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_c.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_d",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_d.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_e",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_e.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_f",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_f.obj"
+                   },
+                   {
+                       "id":  "sponza_fabric_g",
+                       "path":  "Data/Models/sponza/parts/sponza_fabric_g.obj"
+                   },
+                   {
+                       "id":  "sponza_flagpole",
+                       "path":  "Data/Models/sponza/parts/sponza_flagpole.obj"
+                   },
+                   {
+                       "id":  "sponza_floor",
+                       "path":  "Data/Models/sponza/parts/sponza_floor.obj"
+                   },
+                   {
+                       "id":  "sponza_leaf",
+                       "path":  "Data/Models/sponza/parts/sponza_leaf.obj"
+                   },
+                   {
+                       "id":  "sponza_material_25",
+                       "path":  "Data/Models/sponza/parts/sponza_material_25.obj"
+                   },
+                   {
+                       "id":  "sponza_material_298",
+                       "path":  "Data/Models/sponza/parts/sponza_material_298.obj"
+                   },
+                   {
+                       "id":  "sponza_material_47",
+                       "path":  "Data/Models/sponza/parts/sponza_material_47.obj"
+                   },
+                   {
+                       "id":  "sponza_material_57",
+                       "path":  "Data/Models/sponza/parts/sponza_material_57.obj"
+                   },
+                   {
+                       "id":  "sponza_roof",
+                       "path":  "Data/Models/sponza/parts/sponza_roof.obj"
+                   },
+                   {
+                       "id":  "sponza_vase",
+                       "path":  "Data/Models/sponza/parts/sponza_vase.obj"
+                   },
+                   {
+                       "id":  "sponza_vase_hanging",
+                       "path":  "Data/Models/sponza/parts/sponza_vase_hanging.obj"
+                   },
+                   {
+                       "id":  "sponza_vase_round",
+                       "path":  "Data/Models/sponza/parts/sponza_vase_round.obj"
+                   }
+               ],
+    "textures":  [
+                     {
+                         "id":  "tex_sponza_arch",
+                         "path":  "Data/Models/sponza/source/textures/sponza_arch_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_bricks",
+                         "path":  "Data/Models/sponza/source/textures/spnza_bricks_a_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_ceiling",
+                         "path":  "Data/Models/sponza/source/textures/sponza_ceiling_a_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_chain",
+                         "path":  "Data/Models/sponza/source/textures/chain_texture.png"
+                     },
+                     {
+                         "id":  "tex_sponza_column_a",
+                         "path":  "Data/Models/sponza/source/textures/sponza_column_a_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_column_b",
+                         "path":  "Data/Models/sponza/source/textures/sponza_column_b_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_column_c",
+                         "path":  "Data/Models/sponza/source/textures/sponza_column_c_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_details",
+                         "path":  "Data/Models/sponza/source/textures/sponza_details_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_a",
+                         "path":  "Data/Models/sponza/source/textures/sponza_fabric_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_c",
+                         "path":  "Data/Models/sponza/source/textures/sponza_curtain_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_d",
+                         "path":  "Data/Models/sponza/source/textures/sponza_fabric_blue_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_e",
+                         "path":  "Data/Models/sponza/source/textures/sponza_fabric_green_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_f",
+                         "path":  "Data/Models/sponza/source/textures/sponza_curtain_green_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_fabric_g",
+                         "path":  "Data/Models/sponza/source/textures/sponza_curtain_blue_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_flagpole",
+                         "path":  "Data/Models/sponza/source/textures/sponza_flagpole_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_floor",
+                         "path":  "Data/Models/sponza/source/textures/sponza_floor_a_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_leaf",
+                         "path":  "Data/Models/sponza/source/textures/sponza_thorn_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_material_25",
+                         "path":  "Data/Models/sponza/source/textures/lion.png"
+                     },
+                     {
+                         "id":  "tex_sponza_material_298",
+                         "path":  "Data/Models/sponza/source/textures/background.png"
+                     },
+                     {
+                         "id":  "tex_sponza_material_57",
+                         "path":  "Data/Models/sponza/source/textures/vase_plant.png"
+                     },
+                     {
+                         "id":  "tex_sponza_roof",
+                         "path":  "Data/Models/sponza/source/textures/sponza_roof_diff.png"
+                     },
+                     {
+                         "id":  "tex_sponza_vase",
+                         "path":  "Data/Models/sponza/source/textures/vase_dif.png"
+                     },
+                     {
+                         "id":  "tex_sponza_vase_hanging",
+                         "path":  "Data/Models/sponza/source/textures/vase_hanging.png"
+                     },
+                     {
+                         "id":  "tex_sponza_vase_round",
+                         "path":  "Data/Models/sponza/source/textures/vase_round.png"
+                     },
+                     {
+                         "id":  "tex_fallback_stone",
+                         "path":  "Data/Models/sponza/source/textures/spnza_bricks_a_diff.png"
+                     }
+                 ],
+    "materials":  [
+                      {
+                          "id":  "mat_sponza_arch",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_arch"
+                      },
+                      {
+                          "id":  "mat_sponza_bricks",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_bricks"
+                      },
+                      {
+                          "id":  "mat_sponza_ceiling",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_ceiling"
+                      },
+                      {
+                          "id":  "mat_sponza_chain",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_chain",
+                          "alpha":  0.85,
+                          "transparent":  true
+                      },
+                      {
+                          "id":  "mat_sponza_column_a",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_column_a"
+                      },
+                      {
+                          "id":  "mat_sponza_column_b",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_column_b"
+                      },
+                      {
+                          "id":  "mat_sponza_column_c",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_column_c"
+                      },
+                      {
+                          "id":  "mat_sponza_details",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_details"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_a",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_a"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_c",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_c"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_d",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_d"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_e",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_e"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_f",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_f"
+                      },
+                      {
+                          "id":  "mat_sponza_fabric_g",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_fabric_g"
+                      },
+                      {
+                          "id":  "mat_sponza_flagpole",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_flagpole"
+                      },
+                      {
+                          "id":  "mat_sponza_floor",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_floor"
+                      },
+                      {
+                          "id":  "mat_sponza_leaf",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_leaf",
+                          "alpha":  0.85,
+                          "transparent":  true
+                      },
+                      {
+                          "id":  "mat_sponza_material_25",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_material_25"
+                      },
+                      {
+                          "id":  "mat_sponza_material_298",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_material_298"
+                      },
+                      {
+                          "id":  "mat_sponza_material_47",
+                          "shader":  "lit",
+                          "texture":  "tex_fallback_stone",
+                          "baseColor":  [
+                                            0.55,
+                                            0.52,
+                                            0.48,
+                                            1
+                                        ]
+                      },
+                      {
+                          "id":  "mat_sponza_material_57",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_material_57",
+                          "alpha":  0.85,
+                          "transparent":  true
+                      },
+                      {
+                          "id":  "mat_sponza_roof",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_roof"
+                      },
+                      {
+                          "id":  "mat_sponza_vase",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_vase"
+                      },
+                      {
+                          "id":  "mat_sponza_vase_hanging",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_vase_hanging"
+                      },
+                      {
+                          "id":  "mat_sponza_vase_round",
+                          "shader":  "lit",
+                          "texture":  "tex_sponza_vase_round"
+                      }
+                  ],
+    "cameras":  [
+                    {
+                        "id":  "spawn",
+                        "eye":  [
+                                    0,
+                                    0,
+                                    1.75
+                                ],
+                        "up":  [
+                                   0,
+                                   0,
+                                   1
+                               ],
+                        "viewport":  [
+                                         0,
+                                         0,
+                                         1,
+                                         1
+                                     ],
+                        "fovDeg":  60,
+                        "center":  [
+                                       0,
+                                       7.32,
+                                       2.55
+                                   ]
+                    },
+                    {
+                        "id":  "overview",
+                        "eye":  [
+                                    0,
+                                    0,
+                                    8.56
+                                ],
+                        "up":  [
+                                   0,
+                                   0,
+                                   1
+                               ],
+                        "viewport":  [
+                                         0.66,
+                                         0.66,
+                                         0.32,
+                                         0.32
+                                     ],
+                        "fovDeg":  55,
+                        "center":  [
+                                       0,
+                                       7.32,
+                                       7.7793784999999991
+                                   ]
+                    }
+                ],
+    "entities":  [
+                     {
+                         "logicalMesh":  "sponza_arch",
+                         "material":  "mat_sponza_arch",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_bricks",
+                         "material":  "mat_sponza_bricks",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_ceiling",
+                         "material":  "mat_sponza_ceiling",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_chain",
+                         "material":  "mat_sponza_chain",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ],
+                         "renderFlags":  "transparent"
+                     },
+                     {
+                         "logicalMesh":  "sponza_column_a",
+                         "material":  "mat_sponza_column_a",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_column_b",
+                         "material":  "mat_sponza_column_b",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_column_c",
+                         "material":  "mat_sponza_column_c",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_details",
+                         "material":  "mat_sponza_details",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_a",
+                         "material":  "mat_sponza_fabric_a",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_c",
+                         "material":  "mat_sponza_fabric_c",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_d",
+                         "material":  "mat_sponza_fabric_d",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_e",
+                         "material":  "mat_sponza_fabric_e",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_f",
+                         "material":  "mat_sponza_fabric_f",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_fabric_g",
+                         "material":  "mat_sponza_fabric_g",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_flagpole",
+                         "material":  "mat_sponza_flagpole",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_floor",
+                         "material":  "mat_sponza_floor",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_leaf",
+                         "material":  "mat_sponza_leaf",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ],
+                         "renderFlags":  "transparent"
+                     },
+                     {
+                         "logicalMesh":  "sponza_material_25",
+                         "material":  "mat_sponza_material_25",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_material_298",
+                         "material":  "mat_sponza_material_298",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_material_47",
+                         "material":  "mat_sponza_material_47",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_material_57",
+                         "material":  "mat_sponza_material_57",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ],
+                         "renderFlags":  "transparent"
+                     },
+                     {
+                         "logicalMesh":  "sponza_roof",
+                         "material":  "mat_sponza_roof",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_vase",
+                         "material":  "mat_sponza_vase",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_vase_hanging",
+                         "material":  "mat_sponza_vase_hanging",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     },
+                     {
+                         "logicalMesh":  "sponza_vase_round",
+                         "material":  "mat_sponza_vase_round",
+                         "transform":  [
+                                           0.01,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0,
+                                           0.01,
+                                           0,
+                                           0,
+                                           -0.01,
+                                           0,
+                                           0,
+                                           0.60518899999999931,
+                                           0.38690550000000012,
+                                           14.294331999999999,
+                                           1
+                                       ]
+                     }
+                 ]
+}

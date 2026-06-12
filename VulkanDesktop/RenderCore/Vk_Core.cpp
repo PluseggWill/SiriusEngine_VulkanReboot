@@ -259,7 +259,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
     Gfx_SetMaterialTableGenerationForExtract( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() );
-    Vk_SceneHost::InitScenePresentation( *this );
+    Vk_SceneHost::InitScenePresentation( *this, World() );
     InitImGui();
     UtilLogger::Info( "SCENE", "LoadSceneResources completed." );
 }
@@ -691,12 +691,8 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
 
     myFrameStats.ResetPerFrameCounters();
 
-    aOut.myActiveViewCount = std::min( aViewCount, kGfxMaxRenderViews );
-    // FG v0 HybridDeferred records view 0 only; skip PiP prep/cull to avoid wasted CPU/GPU work.
-    if ( Vk_GBufferPass::IsActive( *this ) ) {
-        aOut.myActiveViewCount = std::min( aOut.myActiveViewCount, 1u );
-    }
-    const uint32_t activeViewCount = aOut.myActiveViewCount;
+    const uint32_t activeViewCount = std::min( aViewCount, kGfxMaxRenderViews );
+    aOut.myActiveViewCount         = activeViewCount;
 
     uint32_t       totalOpaqueDraws   = 0;
     uint32_t       totalTransDraws    = 0;

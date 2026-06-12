@@ -6,6 +6,7 @@ Scene files for VulkanDesktop (JSON v1).
 |------|---------|
 | [`demo.json`](demo.json) | Default Kenney camp + viking/monkey demo; **Stage 1 forward baseline** ([`forward-stage1.md`](../../Docs/forward-stage1.md) §1) |
 | [`stress.json`](stress.json) | **Valley settlement** (~108 entities): grass meadow, north cliff + waterfall, river, stone bridge, east-bank longhouse, west forest; [`Config/engine.stress.json`](../../Config/engine.stress.json) |
+| [`sponza.json`](sponza.json) | **McGuire Sponza** indoor benchmark (25 material splits); fetch [`Scripts/Fetch-SponzaMcGuire.ps1`](../../Scripts/Fetch-SponzaMcGuire.ps1) · [`Config/engine.sponza.json`](../../Config/engine.sponza.json) |
 | [`smoke.json`](smoke.json) | Minimal load test (single viking entity) |
 
 **Authoring:** [EN](../../Docs/SceneJSON.en.md) · [中文](../../Docs/SceneJSON.md)
@@ -15,6 +16,7 @@ Scene files for VulkanDesktop (JSON v1).
 ```text
 VulkanDesktop.exe --scene Data/Scenes/demo.json
 VulkanDesktop.exe --scene Data/Scenes/stress.json --config Config/engine.stress.json
+VulkanDesktop.exe --config Config/engine.sponza.json
 VulkanDesktop.exe --scene Data/Scenes/smoke.json
 ```
 
