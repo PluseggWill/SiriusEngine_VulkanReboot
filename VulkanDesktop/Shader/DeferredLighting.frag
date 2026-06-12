@@ -1,7 +1,7 @@
 #version 450
 
-// FG v0: clustered deferred resolve (diffuse + ambient + Blinn-Phong specular v0).
-// Keep in sync with Gfx_ClusterLighting.h.
+// FG v0: clustered deferred resolve — Cook-Torrance direct PBR (S4). Keep in sync with Gfx_ClusterLighting.h.
+#include "PbrDirect.glsl"
 
 const uint kMaxLightsPerCluster = 8u;
 const uint kDebugViewLit = 0u;
@@ -22,7 +22,7 @@ layout(push_constant) uniform PushConstants {
     uvec4 grid;           // tilesX, tilesY, tileSize, depthSlice
     vec4 ambientColor;
     vec4 viewWorldPos;
-    vec4 specParams;      // x=specularStrength, y=shininess, z=debugView (Gfx_DebugViewMode), w=unused
+    vec4 specParams;      // z=debugView (Gfx_DebugViewMode); x/y legacy (unused under PBR)
     mat4 invViewProj;
 } pc;
 
@@ -60,9 +60,12 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth)
 
 void main()
 {
-    const vec3 albedo = texture(gbufferAlbedo, vUV).rgb;
+    const vec4 albedoMetallic = texture(gbufferAlbedo, vUV);
+    const vec3 albedo = albedoMetallic.rgb;
+    const float metallic = albedoMetallic.a;
     const vec4 normalRoughness = texture(gbufferNormalRoughness, vUV);
     const vec3 N = normalize(normalRoughness.xyz);
+    const float roughness = normalRoughness.w;
     const float depth = texture(gbufferDepth, vUV).r;
     const vec3 worldPos = reconstructWorldPos(vUV, depth);
 
@@ -71,9 +74,6 @@ void main()
     const uint clusterId = tileX + tileY * pc.grid.x + pc.grid.w * pc.grid.x * pc.grid.y;
 
     vec3 lit = pc.ambientColor.rgb * albedo;
-
-    const float specularStrength = pc.specParams.x;
-    const float shininess = max(pc.specParams.y, 1.0);
     const vec3 V = normalize(pc.viewWorldPos.xyz - worldPos);
 
     const ClusterLightList cluster = lists[clusterId];
@@ -81,12 +81,10 @@ void main()
     for (uint i = 0u; i < lightCount; ++i) {
         const ClusterLight light = lights[cluster.lightIndices[i]];
         const vec3 L = normalize(light.direction.xyz);
-        const float ndotl = max(dot(N, L), 0.0);
-        lit += light.color.rgb * albedo * ndotl;
-
-        const vec3 H = normalize(L + V);
-        const float spec = specularStrength * pow(max(dot(N, H), 0.0), shininess);
-        lit += light.color.rgb * spec;
+        const float NdotL = max(dot(N, L), 0.0);
+        if (NdotL > 0.0) {
+            lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, light.color.rgb) * NdotL;
+        }
     }
 
     outColor = applyDebugView(vec4(lit, 1.0), N, depth);

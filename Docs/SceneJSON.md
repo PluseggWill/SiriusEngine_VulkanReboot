@@ -150,8 +150,8 @@ JSON 对象内键顺序不影响解析；上表顺序便于人工阅读和对照
 | `shader` | 是 | — | 须存在于 `shaders` |
 | `texture` | 是 | — | 须存在于 `textures` |
 | `baseColor` | 否 | `[1,1,1,1]` | 3 或 4 个 float（RGB 或 RGBA），写入 `GpuMaterialParams.baseColorFactor` |
-| `roughness` | 否 | `0.5` | PBR 预留（当前着色仍用环境 UBO 高光参数） |
-| `metallic` | 否 | `0.0` | PBR 预留 |
+| `roughness` | 否 | `0.5` | 感知粗糙度 [0,1]；G-buffer RT1.w + forward/deferred PBR |
+| `metallic` | 否 | `0.0` | 金属度 [0,1]；G-buffer RT0.a + forward/deferred PBR |
 | `alpha` | 否 | `1.0` | 材质 alpha（透明材质常用 &lt; 1） |
 | `alphaMode` | 否 | `opaque` | `opaque` / `mask` / `blend`；与 `transparent: true` 同时出现时未写 `alphaMode` 时默认为 `blend` |
 | `transparent` | 否 | `false` | `true` → 走透明 pass（与 `renderFlags: transparent` 一致） |

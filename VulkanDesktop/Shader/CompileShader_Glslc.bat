@@ -29,21 +29,22 @@ if not exist "%SHADER_DIR%TriangleFrag_Lit.frag" (
     exit /b 1
 )
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%PS_OUT%"
+REM -I path: no quotes around %SHADER_DIR% (trailing backslash breaks -I"%SHADER_DIR%").
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%PS_OUT%"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit.frag"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix.spv"
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%GEN_DIR%TrianglePix_AlphaClip.spv" -DALPHA_CLIP=1
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%GEN_DIR%TrianglePix_AlphaClip.spv" -DALPHA_CLIP=1
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit.frag (ALPHA_CLIP)"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix_AlphaClip.spv"
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit_Bindless.frag" -o "%GEN_DIR%TrianglePix_Bindless.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit_Bindless.frag" -o "%GEN_DIR%TrianglePix_Bindless.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit_Bindless.frag"
     exit /b 1
@@ -106,7 +107,7 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\DeferredLightingVert.spv"
 
-"%GLSLC%" "%SHADER_DIR%DeferredLighting.frag" -o "%GEN_DIR%DeferredLightingFrag.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%DeferredLighting.frag" -o "%GEN_DIR%DeferredLightingFrag.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: DeferredLighting.frag"
     exit /b 1

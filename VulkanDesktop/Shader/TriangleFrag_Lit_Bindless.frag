@@ -1,6 +1,8 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#include "PbrDirect.glsl"
+
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
     vec4 fogDistances;  // xyz lighting; w = Gfx_DebugViewMode (see TriangleFrag_Lit.frag)
@@ -54,8 +56,6 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
 
 void main()
 {
-    const float specularStrength = envData.fogDistances.x;
-    const float shininess = max(envData.fogDistances.y, 1.0);
     const float textureBlend = clamp(envData.fogDistances.z, 0.0, 1.0);
 
     const GpuMaterialEntry mat = materials.entries[inMaterialIndex];
@@ -63,21 +63,21 @@ void main()
     const float alpha = mat.alpha;
 
     const vec3 texAlbedo = texture(nonuniformEXT(u_Textures[texIndex]), inTexCoord).rgb;
-    const vec3 albedo = mix(inColor, texAlbedo, textureBlend);
+    const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * mat.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
     const vec3 L = normalize(envData.sunlightDirection.xyz);
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
-    const vec3 H = normalize(L + V);
+    const float metallic = clamp(mat.metallic, 0.0, 1.0);
+    const float roughness = clamp(mat.roughness, 0.0, 1.0);
+    const float NdotL = max(dot(N, L), 0.0);
 
-    const vec3 ambient = envData.ambientColor.rgb * albedo;
-    const float ndotl = max(dot(N, L), 0.0);
-    const vec3 diffuse = envData.sunlightColor.rgb * albedo * ndotl;
+    vec3 color = envData.ambientColor.rgb * albedo;
+    if (NdotL > 0.0) {
+        color += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, envData.sunlightColor.rgb) * NdotL;
+    }
 
-    const float spec = specularStrength * pow(max(dot(N, H), 0.0), shininess);
-    const vec3 specular = envData.sunlightColor.rgb * spec;
-
-    outColor = vec4(ambient + diffuse + specular, clamp(alpha, 0.0, 1.0));
+    outColor = vec4(color, clamp(alpha, 0.0, 1.0));
 
     if (mat.alphaMode == kAlphaModeMask && outColor.a < 0.5) {  // per-material mask
         discard;

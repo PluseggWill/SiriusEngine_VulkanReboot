@@ -42,7 +42,7 @@ struct Gfx_ClusterBuildPushConstants {
     uint32_t pad1         = 0;
 };
 
-// Push constants for DeferredLighting.frag (grid + ambient + specular v0 via depth reconstruct).
+// Push constants for DeferredLighting.frag (grid + ambient + PBR resolve; specParams.x/y legacy).
 struct Gfx_DeferredLightingPushConstants {
     uint32_t tilesX     = 0;
     uint32_t tilesY     = 0;

@@ -18,7 +18,15 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment ) {
     }
 
     ImGui::Separator();
-    ImGui::SliderFloat( "Specular strength", &anEnvironment.myFogDistance.x, 0.f, 2.f );
-    ImGui::SliderFloat( "Shininess", &anEnvironment.myFogDistance.y, 1.f, 256.f );
+    ImGui::BeginDisabled();
+    ImGui::SliderFloat( "Specular strength (legacy)", &anEnvironment.myFogDistance.x, 0.f, 2.f );
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        ImGui::SetTooltip( "No effect under PBR (S4); roughness/metallic come from material." );
+    }
+    ImGui::SliderFloat( "Shininess (legacy)", &anEnvironment.myFogDistance.y, 1.f, 256.f );
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) {
+        ImGui::SetTooltip( "No effect under PBR (S4); roughness/metallic come from material." );
+    }
+    ImGui::EndDisabled();
     ImGui::SliderFloat( "Gfx_Texture blend", &anEnvironment.myFogDistance.z, 0.f, 1.f );
 }

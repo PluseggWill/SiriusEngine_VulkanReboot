@@ -1,5 +1,7 @@
 #version 450
 
+#include "PbrDirect.glsl"
+
 // Set 0 — frame (matches TriangleVertex.vert set 0 for camera; env here for fragment).
 layout(set = 0, binding = 1) uniform EnvironmentData {
     vec4 fogColor;
@@ -12,7 +14,6 @@ layout(set = 0, binding = 1) uniform EnvironmentData {
 
 // Set 1 — material batch (bound once per batch in RecordScenePass).
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
-// Stage 1 forward contract (std140). PBR fields uploaded; shading still Blinn-Phong until PBR perm lands.
 layout(set = 1, binding = 1) uniform MaterialData {
     vec4 baseColorFactor;
     float roughness;
@@ -49,26 +50,24 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal)
 
 void main()
 {
-    const float specularStrength = envData.fogDistances.x;
-    const float shininess = max(envData.fogDistances.y, 1.0);
     const float textureBlend = clamp(envData.fogDistances.z, 0.0, 1.0);
 
     const vec3 texAlbedo = texture(texSampler, inTexCoord).rgb;
-    const vec3 albedo = mix(inColor, texAlbedo, textureBlend);
+    const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * material.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
     const vec3 L = normalize(envData.sunlightDirection.xyz);
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
-    const vec3 H = normalize(L + V);
+    const float metallic = clamp(material.metallic, 0.0, 1.0);
+    const float roughness = clamp(material.roughness, 0.0, 1.0);
+    const float NdotL = max(dot(N, L), 0.0);
 
-    const vec3 ambient = envData.ambientColor.rgb * albedo;
-    const float ndotl = max(dot(N, L), 0.0);
-    const vec3 diffuse = envData.sunlightColor.rgb * albedo * ndotl;
+    vec3 color = envData.ambientColor.rgb * albedo;
+    if (NdotL > 0.0) {
+        color += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, envData.sunlightColor.rgb) * NdotL;
+    }
 
-    const float spec = specularStrength * pow(max(dot(N, H), 0.0), shininess);
-    const vec3 specular = envData.sunlightColor.rgb * spec;
-
-    outColor = vec4(ambient + diffuse + specular, clamp(material.alpha, 0.0, 1.0));
+    outColor = vec4(color, clamp(material.alpha, 0.0, 1.0));
 
     // Per-material mask (scene JSON alphaMode); independent of ForwardLitAlphaClip permutation.
     if (material.alphaMode == kAlphaModeMask && outColor.a < 0.5) {

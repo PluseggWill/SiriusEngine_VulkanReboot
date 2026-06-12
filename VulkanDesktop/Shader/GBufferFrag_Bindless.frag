@@ -43,6 +43,8 @@ void main()
     const vec3 albedo = mix(inColor, texAlbedo, textureBlend) * mat.baseColorFactor.rgb;
 
     const vec3 N = normalize(inWorldNormal);
-    outAlbedo = vec4(albedo, 1.0);
-    outNormalRoughness = vec4(N, mat.roughness);
+    const float metallic = clamp(mat.metallic, 0.0, 1.0);
+    const float roughness = clamp(mat.roughness, 0.0, 1.0);
+    outAlbedo = vec4(albedo, metallic);
+    outNormalRoughness = vec4(N, roughness);
 }

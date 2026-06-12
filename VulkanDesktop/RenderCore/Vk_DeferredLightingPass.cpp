@@ -208,6 +208,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.depthSlice                                               = 0;
     std::memcpy( push.ambientColor, glm::value_ptr( aCore.myEnvironmentData.myAmbientColor ), sizeof( float ) * 4 );
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
+    // Legacy Blinn-Phong tunables — still uploaded; DeferredLighting.frag ignores under PBR (S4).
     push.specularStrength = aCore.myEnvironmentData.myFogDistance.x;
     push.shininess        = glm::max( aCore.myEnvironmentData.myFogDistance.y, 1.0f );
     push.debugView        = aCore.myEnvironmentData.myFogDistance.w;  // UtilRenderDebugPanel::Build (Application, before DrawFrameGpu)
