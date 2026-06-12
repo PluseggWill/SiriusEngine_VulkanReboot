@@ -6,9 +6,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Sprint** | **S4 prep** — gate **G3** (MeshImport v0) · [`Wishlist.md`](Wishlist.md) § S4 |
+| **Sprint** | **S4** — PBR + G-buffer · [`Wishlist.md`](Wishlist.md) § S4 · [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) |
 | **WIP task** | — |
-| **Roadmap** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A · [`Wishlist.md`](Wishlist.md) |
+| **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S4–S8 lighting |
 | **Last closed** | ImGui layout (scheme A) — [`Archived/plans/imgui-layout_Plan.md`](Archived/plans/imgui-layout_Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*

@@ -14,7 +14,7 @@
 | 项 | 规则 |
 |----|------|
 | **目录** | `Data/Scenes/<name>.json`（repo 相对路径） |
-| **默认场景** | `Data/Scenes/stress.json`（Stage 1 golden 仍用 [`demo.json`](../Data/Scenes/demo.json)） |
+| **默认场景** | `Data/Scenes/sponza.json`（需 fetch；CI 冒烟用 [`stress.json`](../Data/Scenes/stress.json)；Stage 1 golden 仍用 [`demo.json`](../Data/Scenes/demo.json)） |
 | **CLI** | `VulkanDesktop.exe --scene Data/Scenes/your_scene.json` |
 | **资产根** | 所有 `path` 相对 **asset root**（`Config/engine.json` 的 `assetRoot` 或 `--asset-root`），由 `UtilLoader::ResolvePath` 解析 |
 | **启动校验** | 启动前 `Util_VerifyManifest` 检查 manifest；`Config/engine.json` 的 `"assetVerify": "strict"`（缺文件退出）或 `"warn"`（缺文件 `[STARTUP] WARN` 后继续） |

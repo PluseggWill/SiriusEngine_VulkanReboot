@@ -81,7 +81,7 @@ flowchart LR
 
 - [ ] DDGI is selectable per preset and disabled by default unless explicitly chosen.
 - [ ] Hybrid deferred remains stable and visually correct with DDGI off.
-- [ ] DDGI on-path passes validation and documented perf thresholds on benchmark scenes.
+- [ ] DDGI on-path passes validation and documented perf thresholds on benchmark scenes (Sponza; see [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S8 after **G4**).
 
 ## Exit criteria
 

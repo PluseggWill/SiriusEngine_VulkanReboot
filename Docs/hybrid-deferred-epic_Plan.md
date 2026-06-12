@@ -78,7 +78,7 @@ flowchart LR
 
 ### D. Compatibility and parity
 
-**Deps:** A/B/C complete; uses S7 benchmark/preset tooling for A/B validation.
+**Deps:** A/B/C complete; uses **S7** benchmark/preset tooling for A/B validation; **G4** Stage 2 acceptance (see [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §G4).
 
 - [ ] Keep `ForwardLit` preset as debug/fallback path.
 - [ ] Add parity checklist (visual + perf) between forward baseline and hybrid path on fixed scenes.

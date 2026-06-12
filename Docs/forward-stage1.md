@@ -62,7 +62,7 @@ Run ≥2 s; read first `[PERF]` in `Logs/engine_runtime_log.txt`.
 [PERF] frameMs=16.568899 fps=60.354038 entities=9 visibleDraws=9 batchRuns=9 (opaque=8 transparent=1) materialSetBinds=9 pipelineBinds=9 drawCalls=9 materialPath=Batch
 ```
 
-Formal CSV / GPU timestamps → S7 benchmark harness.
+Formal CSV / GPU timestamps → **S7** benchmark harness (Sponza default scene).
 
 ### Smoke (CI / task close)
 
@@ -119,19 +119,19 @@ Not blockers if §2 is satisfied.
 
 | Gap | Target | Notes |
 |-----|--------|-------|
-| PBR BRDF | Stage 2 §C | `roughness`/`metallic` uploaded, unused |
-| IBL / shadows perms | Stage 2+ / S7 | Bits only |
-| `HybridDeferred` preset | Stage 2 | `ForwardLit` / `ForwardLitAlphaClip` only |
-| Clustered deferred | Stage 2 §B | No G-buffer yet |
+| PBR BRDF | **S4** / Stage 2 §C | FG v0 shell done; MR encode + BRDF in S4 |
+| IBL / shadows | **S5** | Perm bits exist; implementation S5 |
+| `HybridDeferred` preset | S3 ✓ | Default in `engine.json`; forward fallback kept |
+| Clustered deferred | S3 ✓ stub | ClusterBuild + DeferredLighting v0 landed |
 
 ### Pipeline / passes
 
 | Gap | Target | Notes |
 |-----|--------|-------|
-| Frame graph | S7 / S3 FG v0 | Inline opaque+transparent in `Vk_ScenePasses` |
-| `ForwardTransparent` FG node | Stage 2 §A | CONTRACT only |
-| GPU indirect | S3 M2 | CPU cull authoritative |
-| Mesh shader / meshlets | S4–S6 | Separate track |
+| Frame graph | **S7** | S3 FG v0 = handwritten chain; full FG builder S7 |
+| `ForwardTransparent` FG node | S3 ✓ | Over deferred depth; FG formalization S7 |
+| GPU indirect | S3 ✓ | G1 parity; `--gpu-cull` dogfood |
+| Mesh shader / meshlets | **S10–S12** | Geometry track (deferred) |
 
 ### Materials / alpha
 
@@ -146,10 +146,10 @@ Not blockers if §2 is satisfied.
 | Gap | Target | Notes |
 |-----|--------|-------|
 | Golden pixel CI | S7 | Manual PNG + §1 |
-| p50/p95 CSV, GPU timestamps | S7 | One `[PERF]` row in §1 |
-| Runtime preset hot-reload | S7 | Restart / CLI |
+| p50/p95 CSV, GPU timestamps | S7 | Benchmark runbook on Sponza |
+| Runtime preset hot-reload | S7 / Backlog | Restart / CLI |
 | Multi-view / `cameras[]` | S2 | See archived `multi-view` plan |
-| Dedicated benchmark scene pack | S7 | `demo.json` for Stage 1 |
+| Dedicated benchmark scene pack | S4+ | `sponza.json` default; `stress.json` for CI |
 
 ---
 

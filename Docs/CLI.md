@@ -9,7 +9,7 @@
 ## 快速示例
 
 ```powershell
-# 默认：读 Config/engine.json，场景 Data/Scenes/stress.json，从 x64\Debug 或仓库根解析 assetRoot
+# 默认：读 Config/engine.json，场景 Data/Scenes/sponza.json（需先 Fetch-SponzaMcGuire.ps1），从 x64\Debug 或仓库根解析 assetRoot
 .\VulkanDesktop.exe
 
 # 指定场景与资源根（cwd 任意）
@@ -33,7 +33,7 @@
 | `--help` / `-h` / `/?` | — | 打印用法到 stderr 并**立即退出**（不创建窗口、不初始化 Vulkan）。 |
 | `--config` `<file>` | 路径 | 指定 JSON 配置文件；默认 `<repo>/Config/engine.json`。文件不存在且显式传入 `--config` 时报错。 |
 | `--asset-root` `<dir>` | 目录 | **资源根目录**（含 `Data/`、`VulkanDesktop/`）。未指定时：config 里 `assetRoot` 非空则用其值，否则自动向上查找含 `VulkanDesktop.sln` 的目录。 |
-| `--scene` `<path>` | 仓库相对路径 | 启动时加载的场景 JSON，默认 `Data/Scenes/stress.json`。仅影响**首次** `LoadSceneResources`；运行中改场景用 ImGui Scene 面板。 |
+| `--scene` `<path>` | 仓库相对路径 | 启动时加载的场景 JSON，默认 `Data/Scenes/sponza.json`（`Config/engine.json` 可覆盖）。仅影响**首次** `LoadSceneResources`；运行中改场景用 ImGui Scene 面板。 |
 | `--width` `<n>` | 正整数 | 窗口宽度（像素），覆盖 config。 |
 | `--height` `<n>` | 正整数 | 窗口高度（像素），覆盖 config。 |
 | `--vsync` | — | 交换链优先 FIFO（垂直同步）。 |
@@ -68,7 +68,7 @@
 | 字段 | 类型 | 默认 / 说明 |
 |------|------|-------------|
 | `assetRoot` | string | 空 = 自动探测仓库根；非空则作为资源根（可为绝对或相对 cwd 的路径）。 |
-| `scene` | string | 启动场景，默认 `Data/Scenes/stress.json`。 |
+| `scene` | string | 启动场景，默认 `Data/Scenes/sponza.json`。 |
 | `window.width` / `window.height` | number | 窗口尺寸，默认 1600×1200。 |
 | `vsync` | bool | 默认 `false`（MAILBOX）；`true` = FIFO 垂直同步。 |
 | `logLevel` | string | `debug` \| `info` \| `warn` \| `error`。 |
@@ -85,7 +85,9 @@
 
 **基准捕获配置（Stage 1 golden / perf）：** [`Config/engine.benchmark.json`](../Config/engine.benchmark.json) — 见 [`forward-stage1.md`](forward-stage1.md) §1。
 
-**压力 / 功能测试场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落（地面、北崖瀑布、河道、石桥、东岸长屋、西岸森林），~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke 默认使用此组合（两遍：CPU indirect + `--gpu-cull`）。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
+**默认基准场景（Sponza）：** [`Data/Scenes/sponza.json`](../Data/Scenes/sponza.json) — McGuire Crytek Sponza（~25 子网格）；模型需 `powershell -File Scripts/Fetch-SponzaMcGuire.ps1`。可选 [`Config/engine.sponza.json`](../Config/engine.sponza.json)。
+
+**压力 / CI 冒烟场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落，~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke **固定**使用此组合（两遍：CPU indirect + `--gpu-cull`），与默认 `sponza.json` 无关。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
 
 **HybridDeferred（默认）：** `renderPreset` 为 `HybridDeferred`；bindless + batch 双路径（见 slice 5）。回退 forward：`--render-preset ForwardLit`。batch-only 验证时设 `FORCE_MATERIAL_BATCH=1`（见 [`Platform.md`](Platform.md)）。
 

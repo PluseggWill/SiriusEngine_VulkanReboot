@@ -10,7 +10,7 @@ Stop treating OBJ + hand-edited JSON as sufficient for meshlet/mesh-shader miles
 
 ---
 
-## A. MeshImport v0 (#19) — gate for S4
+## A. MeshImport v0 (#19) — gate for S10 (geometry track)
 
 **Landing:**
 
@@ -20,11 +20,11 @@ Stop treating OBJ + hand-edited JSON as sufficient for meshlet/mesh-shader miles
 | Scene JSON | References blob id, not raw OBJ path in hot path |
 | Verify | Manifest checks blob hash + bounds |
 
-**Unlocks:** Wishlist S4 meshlets (see [`Wishlist.md`](Wishlist.md)).
+**Unlocks:** Wishlist **S10** meshlets (see [`Wishlist.md`](Wishlist.md) § Geometry track). Lighting track S4–S8 does **not** require MeshImport.
 
 ---
 
-## B. Material hot reload (#24) — post-M2 / pre-S7 presets
+## B. Material hot reload (#24) — parallel / lighting iteration
 
 **Landing:**
 

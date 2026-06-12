@@ -12,9 +12,8 @@ Spike **minimal hybrid-deferred topology** without full S7 frame-graph infra:
 
 ## Non-goals
 
-- Full `FrameGraphBuilder` / transient RT pool (S7)
-- Transparent deferred; `ForwardTransparent` wiring (S7)
-- Full PBR / IBL parity (hybrid epic §C)
+- Full `FrameGraphBuilder` / transient RT pool (**Wishlist S7**)
+- Full PBR / IBL / shadow / post (**Wishlist S4–S7**; hybrid epic §C)
 - DDGI (Stage 3)
 - `EngineArchitecture.md` policy change unless descriptor/pass contract shifts (sync rule)
 
@@ -51,5 +50,5 @@ Spike **minimal hybrid-deferred topology** without full S7 frame-graph infra:
 
 ## References
 
-- Validation: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3 (M2) + future Stage 2 gate in S7
+- Validation: [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S3 (closed) · Stage 2 gate **G4** in §G4 / S7
 - Architecture pass diagram: [`EngineArchitecture.md`](EngineArchitecture.md) §7
