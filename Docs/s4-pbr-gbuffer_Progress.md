@@ -24,4 +24,9 @@
 
 - **Outcome:** G-buffer RT0.a = metallic, RT1.w = roughness; shared Cook-Torrance `PbrDirect.glsl` in deferred + forward; legacy spec/shininess ImGui disabled; Sponza MR generator ready.
 - **Verification:** `powershell -File Scripts/Verify-Smoke.ps1` exit 0; MSBuild + GfxTests green.
-- **Deviations:** Sponza JSON not regenerated on this machine (asset fetch prereq); full `Verify-CI` clang-format blocked by unrelated file; manual Sponza visual parity not run (no full asset pack).
+- **Deviations:** full `Verify-CI` clang-format blocked by unrelated `ActiveViewsBuild.cpp`; manual Sponza visual parity optional post-push.
+
+## 2026-06-12 — Assets vendored + pushed
+
+- **Outcome:** McGuire Sponza (~109 MB) under `Data/Models/sponza/`; `.gitignore` un-ignores `sponza/**/*.obj`; `sponza.json` with MR heuristics; pushed `origin/S4` (`a0bba6d` data, `8454bce` lighting).
+- **Verification:** `Fetch-SponzaMcGuire.ps1` + `Generate-SponzaScene.ps1` exit 0; `git push origin S4` OK.
