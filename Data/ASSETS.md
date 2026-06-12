@@ -130,8 +130,8 @@ VulkanDesktop.exe --scene Data/Scenes/sponza.json --config Config/engine.sponza.
 
 | File | Purpose |
 |------|---------|
-| `Data/Scenes/stress.json` | **Default** valley test scene (cull / LOD / batch) |
-| `Data/Scenes/sponza.json` | Indoor lighting benchmark (McGuire Sponza; requires fetch) |
+| `Data/Scenes/sponza.json` | **Default** indoor lighting benchmark (McGuire Sponza; requires fetch) |
+| `Data/Scenes/stress.json` | Valley test scene (cull / LOD / batch; CI smoke) |
 | `Data/Scenes/demo.json` | Stage 1 forward golden baseline |
 | `Data/Scenes/smoke.json` | Minimal load (optional) |
 

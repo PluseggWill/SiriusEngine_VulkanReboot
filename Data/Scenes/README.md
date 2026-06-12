@@ -20,7 +20,7 @@ VulkanDesktop.exe --config Config/engine.sponza.json
 VulkanDesktop.exe --scene Data/Scenes/smoke.json
 ```
 
-Default scene path if `--scene` is omitted: `Data/Scenes/stress.json` (`kGfxDefaultSceneLogicalPath`). Stage 1 golden baseline still uses [`demo.json`](demo.json).
+Default scene path if `--scene` is omitted: `Data/Scenes/sponza.json` (`kGfxDefaultSceneLogicalPath`; requires [`Fetch-SponzaMcGuire.ps1`](../../Scripts/Fetch-SponzaMcGuire.ps1)). CI smoke still uses [`stress.json`](stress.json). Stage 1 golden baseline still uses [`demo.json`](demo.json).
 
 ### `stress.json` world layout (top-down, -Y = ahead of default fly camera)
 

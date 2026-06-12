@@ -573,7 +573,7 @@ void PrintUsage( const char* aProgramName ) {
     std::cerr << "Usage: " << name << " [options]\n"
               << "  --config <file>        JSON config (default Config/engine.json under repo root)\n"
               << "  --asset-root <dir>     Repository / content root (contains Data/, VulkanDesktop/)\n"
-              << "  --scene <path>         Scene JSON (repo-relative; default Data/Scenes/stress.json)\n"
+              << "  --scene <path>         Scene JSON (repo-relative; default Data/Scenes/sponza.json)\n"
               << "  --width <n>            Window width (overrides config)\n"
               << "  --height <n>           Window height (overrides config)\n"
               << "  --vsync / --no-vsync   Swapchain present mode preference\n"
