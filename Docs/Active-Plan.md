@@ -13,15 +13,14 @@ Done → move line to Archived-Plan; no `[x]` here.
 
 | # | Sprint | Focus | Epic / plan | Blocked by |
 |---|--------|--------|-------------|------------|
-| 1 | **S4** | PBR material contract + deferred BRDF | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §B–C | S3 FG v0 ✓ |
-| 2 | **S5** | Skybox / IBL + directional shadows | hybrid-deferred §C · Wishlist §S5 | S4 |
-| 3 | **S6** | SSAO + Hi-Z depth pyramid | Wishlist §S6 | S4 · S5 recommended |
-| 4 | **S7** | Post (tonemap/exposure/bloom) + FG builder v1 | hybrid-deferred §A · Wishlist §S7 | S4–S6 |
-| 5 | **S8** | DDGI / GI preset (Stage 3) | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | **G4** |
+| 1 | **S5** | Skybox / IBL + directional shadows | hybrid-deferred §C · Wishlist §S5 | S4 ✓ |
+| 2 | **S6** | SSAO + Hi-Z depth pyramid | Wishlist §S6 | S5 recommended |
+| 3 | **S7** | Post (tonemap/exposure/bloom) + FG builder v1 | hybrid-deferred §A · Wishlist §S7 | S4–S6 |
+| 4 | **S8** | DDGI / GI preset (Stage 3) | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | **G4** |
 | — | **S9** | Simulation | [`Wishlist.md`](Wishlist.md) §S9 | **G2** ✓ (parallel) |
 | — | **S10–S12** | Meshlet → mesh shader → GPU mesh *(deferred)* | Wishlist § Geometry track | **G3** (S10 only) |
 
-**Default benchmark scene:** `Data/Scenes/sponza.json` (after fetch). CI smoke remains `stress.json`.
+**Default benchmark scene:** `Data/Scenes/sponza.json` (vendored). CI smoke remains `stress.json`.
 
 ---
 
@@ -30,7 +29,7 @@ Done → move line to Archived-Plan; no `[x]` here.
 ```mermaid
 flowchart TB
   S3[S3 FG v0 + GPU indirect — done]
-  S4[S4 PBR + G-buffer contract]
+  S4[S4 PBR + G-buffer — done]
   S5[S5 IBL + skybox + shadows]
   S6[S6 SSAO + Hi-Z]
   S7[S7 Post + frame graph v1]

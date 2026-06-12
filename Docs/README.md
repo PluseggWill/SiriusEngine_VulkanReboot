@@ -6,10 +6,10 @@
 
 | Field | Value |
 |-------|--------|
-| **Sprint** | **S4** — PBR + G-buffer · [`Wishlist.md`](Wishlist.md) § S4 · [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) |
-| **WIP task** | [`s4-pbr-gbuffer_Plan.md`](s4-pbr-gbuffer_Plan.md) + [`s4-pbr-gbuffer_Progress.md`](s4-pbr-gbuffer_Progress.md) |
-| **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S4–S8 lighting |
-| **Last closed** | ImGui layout (scheme A) — [`Archived/plans/imgui-layout_Plan.md`](Archived/plans/imgui-layout_Plan.md) |
+| **Sprint** | **S5** — IBL + shadows · [`Wishlist.md`](Wishlist.md) § S5 · [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) |
+| **WIP task** | — |
+| **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S5–S8 lighting |
+| **Last closed** | S4 PBR + G-buffer — [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 

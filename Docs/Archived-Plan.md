@@ -339,6 +339,18 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S4 — PBR + G-buffer contract *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | G-buffer MR encode (RT0.a metallic, RT1.w roughness); Cook-Torrance direct sun in deferred + forward; McGuire Sponza vendored |
+| **Validation** | `Verify-Smoke.ps1`; MSBuild + GfxTests; [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S4 |
+| **Plan log** | [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md) · [`s4-pbr-gbuffer_Progress.md`](Archived/plans/s4-pbr-gbuffer_Progress.md) |
+
+- [x] **[S4]** PBR material contract + deferred/forward Cook-Torrance BRDF — 2026-06-12
+
+---
+
 ## S3 — hygiene *(closed 2026-06-11)*
 
 - [x] **[S3]** `LNK4098` linker warning — not reproducible on Debug\|x64 rebuild 2026-06-11; no action (optional task closed)

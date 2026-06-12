@@ -15,7 +15,7 @@
 | Sprint | Milestone | Theme | Tasks |
 |--------|-----------|--------|--------|
 | **S3** | M2 + FG v0 | GPU indirect + hybrid shell | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S4** | Lighting-1 | PBR + G-buffer contract | [below](#s4--pbr--g-buffer-contract-lighting-1) |
+| **S4** | Lighting-1 | PBR + G-buffer contract | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S5** | Lighting-2 | IBL, skybox, shadows | [below](#s5--environment--shadows-lighting-2) |
 | **S6** | Lighting-3 | SSAO + Hi-Z | [below](#s6--screen-space--hi-z-lighting-3) |
 | **S7** | Lighting-4 | Post + frame graph v1 | [below](#s7--post-processing--frame-graph-v1-lighting-4) |
@@ -31,27 +31,9 @@
 
 ---
 
-## S4 — PBR + G-buffer contract (Lighting-1)
+## S4 — PBR + G-buffer contract (Lighting-1) *(shipped — see Archived-Plan)*
 
-*Build on S3 FG v0: `GBufferOpaque → ClusterBuild → DeferredLighting → ForwardTransparent`.*
-
-**Validation:** [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S4 (Sponza + `ForwardLit`/`HybridDeferred` parity).
-
-**Epic:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §B–C (partial).
-
-### Open tasks
-
-- [ ] Lock G-buffer format/packing (albedo, normal, metallic-roughness, optional AO channel) — document bandwidth tradeoffs.
-- [ ] Encode material `roughness` / `metallic` / `baseColor` from scene tables into G-buffer (batch + bindless paths).
-- [ ] DeferredLighting: Cook-Torrance (or agreed) PBR BRDF — direct sun term from env UBO.
-- [ ] Clustered light list: consume real light count (sun v0); stub point lights OK.
-- [ ] Transparent forward: sample same sun/env inputs as deferred (no PBR split required v1).
-- [ ] Parity checklist on Sponza: hybrid vs forward opaque within agreed tolerance.
-
-### Acceptance
-
-- [ ] Opaque hybrid path shows correct MR response on Sponza (not flat albedo-only).
-- [ ] `Verify-CI.ps1` green; manual smoke on `sponza.json` after asset fetch.
+Closed 2026-06-12 · Plan: [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md)
 
 ---
 

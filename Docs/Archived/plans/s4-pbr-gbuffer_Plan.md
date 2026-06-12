@@ -1,7 +1,7 @@
 # Plan: s4-pbr-gbuffer — PBR material contract + deferred BRDF (Lighting-1)
 
-**Status:** Open  
-**Progress:** [`s4-pbr-gbuffer_Progress.md`](s4-pbr-gbuffer_Progress.md)  
+**Status:** Closed (2026-06-12)  
+**Progress:** [`s4-pbr-gbuffer_Progress.md`](s4-pbr-gbuffer_Progress.md) *(same folder)*  
 **Parent:** [`Active-Plan.md`](Active-Plan.md) queue #1 · [`Wishlist.md`](Wishlist.md) § S4  
 **Epic:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §B–C (partial — direct sun only, no IBL)  
 **Depends on:** S3 FG v0 ✓  
