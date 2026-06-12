@@ -458,4 +458,28 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## Present wait stats *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | Present wait ms + Work ms breakdown; vsync overlay section with plots |
+| **Validation** | `Verify-CI.ps1`, `Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/present-wait-stats_Plan.md`](Archived/plans/present-wait-stats_Plan.md), [`present-wait-stats_Progress.md`](Archived/plans/present-wait-stats_Progress.md) |
+
+- [x] Present wait timing + vsync Work/Present overlay — 2026-06-12
+
+---
+
+## Frame pacing fix *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | 3-frame-in-flight pacing; stats ring-buffer fix; fence-wait overlay; HybridDeferred PiP prep trim |
+| **Validation** | `Verify-CI.ps1`, `Verify-Smoke.ps1` |
+| **Plan log** | [`Archived/plans/frame-pacing-fix_Plan.md`](Archived/plans/frame-pacing-fix_Plan.md), [`frame-pacing-fix_Progress.md`](Archived/plans/frame-pacing-fix_Progress.md) |
+
+- [x] Frame pacing — dense FPS wave / 1% Low drop (fence beat, stats, overlay) — 2026-06-12
+
+---
+
 *When closing a task: move here, tag sprint (`[S0]`…`[S8]`, `[parallel]`), note verification. Update `EngineArchitecture.md` when boundaries or render target change.*

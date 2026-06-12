@@ -70,7 +70,7 @@
 | `assetRoot` | string | 空 = 自动探测仓库根；非空则作为资源根（可为绝对或相对 cwd 的路径）。 |
 | `scene` | string | 启动场景，默认 `Data/Scenes/stress.json`。 |
 | `window.width` / `window.height` | number | 窗口尺寸，默认 1600×1200。 |
-| `vsync` | bool | `true` = FIFO；`false` = MAILBOX。 |
+| `vsync` | bool | 默认 `false`（MAILBOX）；`true` = FIFO 垂直同步。 |
 | `logLevel` | string | `debug` \| `info` \| `warn` \| `error`。 |
 | `logFile` | string | 可选；空则 `Logs/engine_runtime_log.txt`（相对资源根或仓库）。 |
 | `assetVerify` | string | `strict`（缺文件则启动失败）或 `warn`（缺文件 `[STARTUP] WARN` 后继续）。 |

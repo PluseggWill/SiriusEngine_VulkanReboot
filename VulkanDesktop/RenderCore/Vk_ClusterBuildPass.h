@@ -2,10 +2,8 @@
 
 #include <array>
 
+#include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
-
-// Must match MAX_FRAMES_IN_FLIGHT in Vk_Core.h (avoid circular include).
-constexpr uint32_t kClusterBuildFramesInFlight = 2u;
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
@@ -20,8 +18,8 @@ struct Vk_ClusterBuildState {
     Vk_AllocatedBuffer myLightsBuffer{};
     void*              myLightsMapped = nullptr;
 
-    std::array< Vk_AllocatedBuffer, kClusterBuildFramesInFlight > myClusterListBuffers{};
-    std::array< VkDescriptorSet, kClusterBuildFramesInFlight >    myDescriptorSets{};
+    std::array< Vk_AllocatedBuffer, MAX_FRAMES_IN_FLIGHT > myClusterListBuffers{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT >    myDescriptorSets{};
 
     uint32_t myClusterCount = 0;
     bool     myInitialized  = false;

@@ -143,19 +143,19 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kDeferredLightingFramesInFlight * 3 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kDeferredLightingFramesInFlight * 2 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 3 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    poolInfo.maxSets       = kDeferredLightingFramesInFlight;
+    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
     if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor pool" );
     }
 
-    for ( uint32_t i = 0; i < kDeferredLightingFramesInFlight; ++i ) {
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool     = state.myDescriptorPool;
@@ -241,7 +241,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
         }
     }
 
-    for ( uint32_t i = 0; i < kDeferredLightingFramesInFlight; ++i ) {
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdateDescriptorSet( aCore, i );
     }
 
@@ -265,7 +265,7 @@ void Init( Vk_Core& aCore ) {
 
 void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    if ( !state.myInitialized || aFrameIndex >= kDeferredLightingFramesInFlight ) {
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;
     }
 

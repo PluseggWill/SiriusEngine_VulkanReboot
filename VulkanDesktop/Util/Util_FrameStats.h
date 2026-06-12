@@ -5,11 +5,17 @@
 
 constexpr int FRAME_HISTORY_COUNT = 120;
 
+// Rolling frame metrics for ImGui Performance overlay and optional --perf-log.
+// CONTRACT: DrawFrameGpu calls SetPendingFrameBreakdown; next PushFrameTime (BeginPlatformFrame) commits
+// Frame / Work / Present / Fence samples to the same ring slot.
 struct Util_FrameStats {
     float    myFps              = 0.f;
     float    myAvgFps           = 0.f;
     float    myFps1PercentLow   = 0.f;
     float    myFrameMs          = 0.f;
+    float    myFrameWorkMs      = 0.f;  // loop start -> present call (excludes present block).
+    float    myPresentWaitMs    = 0.f;  // vkQueuePresentKHR wall time (last committed frame).
+    bool     myVsyncFifo        = false;
     uint32_t myDrawCalls        = 0;
     uint32_t myPipelineBinds    = 0;
     uint32_t myMaterialSetBinds = 0;
@@ -29,16 +35,25 @@ struct Util_FrameStats {
     float mySmoothedTotalLagMs    = 0.f;  // EMA for overlay plot.
 
     std::array< float, FRAME_HISTORY_COUNT > myFrameHistory{};
+    std::array< float, FRAME_HISTORY_COUNT > myFrameWorkHistory{};
+    std::array< float, FRAME_HISTORY_COUNT > myPresentWaitHistory{};
+    std::array< float, FRAME_HISTORY_COUNT > myGpuFenceWaitHistory{};
     std::array< float, FRAME_HISTORY_COUNT > myInputLagHistory{};
     int                                      myFrameHistoryIndex  = 0;
     int                                      myHistorySampleCount = 0;
 
     void ResetPerFrameCounters();
     void PushFrameTime( float aFrameMs );
+    // Called at end of DrawFrameGpu; values land in ring on the following PushFrameTime.
+    void SetPendingFrameBreakdown( float aWorkMs, float aPresentWaitMs, float aGpuFenceWaitMs, bool aVsyncFifo );
     void SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws, uint32_t aOpaqueBatchRuns,
                                uint32_t aTransparentBatchRuns );
     void RecordInputLatency( float aInputToPresentMs, float aGpuFenceWaitMs, bool aVsyncFifo, float aFrameMs );
 
 private:
     void UpdateAggregates();
+
+    float myPendingFrameWorkMs    = 0.f;
+    float myPendingPresentWaitMs  = 0.f;
+    float myPendingGpuFenceWaitMs = 0.f;
 };

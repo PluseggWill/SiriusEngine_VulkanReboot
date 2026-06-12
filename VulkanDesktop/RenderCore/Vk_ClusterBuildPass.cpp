@@ -37,7 +37,7 @@ void DestroyClusterListBuffers( Vk_Core& aCore, bool aClearDescriptorSets ) {
     Vk_ClusterBuildState& state     = aCore.myClusterBuildState;
     const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
 
-    for ( uint32_t i = 0; i < kClusterBuildFramesInFlight; ++i ) {
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         if ( state.myClusterListBuffers[ i ].myBuffer != VK_NULL_HANDLE ) {
             vmaDestroyBuffer( allocator, state.myClusterListBuffers[ i ].myBuffer, state.myClusterListBuffers[ i ].myAllocation );
             state.myClusterListBuffers[ i ] = {};
@@ -85,7 +85,7 @@ void AllocateClusterListBuffers( Vk_Core& aCore, bool aAllocateDescriptors ) {
 
     const VkDeviceSize listBytes = static_cast< VkDeviceSize >( state.myClusterCount ) * sizeof( Gfx_ClusterLighting::GpuClusterLightList );
 
-    for ( uint32_t i = 0; i < kClusterBuildFramesInFlight; ++i ) {
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.CreateBuffer( listBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, state.myClusterListBuffers[ i ], false );
 
         if ( aAllocateDescriptors ) {
@@ -151,11 +151,11 @@ void CreatePipeline( Vk_Core& aCore ) {
 
     VkDescriptorPoolSize poolSize{};
     poolSize.type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSize.descriptorCount = kClusterBuildFramesInFlight * 2;
+    poolSize.descriptorCount = MAX_FRAMES_IN_FLIGHT * 2;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = kClusterBuildFramesInFlight;
+    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes    = &poolSize;
     if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
@@ -239,7 +239,7 @@ void Init( Vk_Core& aCore ) {
 
 void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
-    if ( !state.myInitialized || state.myClusterCount == 0 || aFrameIndex >= kClusterBuildFramesInFlight ) {
+    if ( !state.myInitialized || state.myClusterCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;
     }
 

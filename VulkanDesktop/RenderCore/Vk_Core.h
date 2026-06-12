@@ -44,7 +44,7 @@
 
 #include <optional>
 
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;  // swapchain frames in flight; also env UBO slice count
+#include "Vk_FrameLimits.h"
 
 constexpr bool FILL_MODE_LINE = false;  // debug wireframe via polygon mode
 
@@ -244,7 +244,7 @@ public:
 
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
-    bool myVsync = true;
+    bool myVsync = false;
 
     Util_FrameStats myFrameStats;
 

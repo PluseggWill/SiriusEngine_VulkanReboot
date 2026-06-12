@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -271,8 +272,11 @@ bool Vk_SwapchainHost::AcquireNextImage( Vk_Core& aCore, const Vk_FrameData& aFr
     return true;
 }
 
-Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex ) {
-    static bool  sPresentPathLogged = false;
+Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_FrameData& aFrameData, uint32_t anImageIndex, float* aOutPresentWaitMs ) {
+    static bool sPresentPathLogged = false;
+    if ( aOutPresentWaitMs != nullptr ) {
+        *aOutPresentWaitMs = 0.f;
+    }
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -304,7 +308,12 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Core& aCore, const Vk_Fram
     presentInfo.pImageIndices   = &anImageIndex;
     presentInfo.pResults        = nullptr;
 
-    const VkResult result = vkQueuePresentKHR( aCore.myDeviceCtx.myPresentQueue, &presentInfo );
+    // Wall-clock block inside vkQueuePresentKHR (FIFO vsync wait; optional Util_FrameStats breakdown).
+    const auto     presentStart = std::chrono::high_resolution_clock::now();
+    const VkResult result       = vkQueuePresentKHR( aCore.myDeviceCtx.myPresentQueue, &presentInfo );
+    if ( aOutPresentWaitMs != nullptr ) {
+        *aOutPresentWaitMs = std::chrono::duration< float, std::milli >( std::chrono::high_resolution_clock::now() - presentStart ).count();
+    }
     if ( result == VK_ERROR_SURFACE_LOST_KHR ) {
         HandleSurfaceLost( aCore );
         return Vk_FrameResult::SkipFrame;

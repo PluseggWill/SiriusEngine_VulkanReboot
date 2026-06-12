@@ -100,7 +100,7 @@ call VulkanDesktop\Scripts\RotateEngineLogs.bat
 After a normal startup (not `--help`), expect lines similar to:
 
 ```text
-[INFO] [CONFIG] window=1600x1200 vsync=on
+[INFO] [CONFIG] window=1600x1200 vsync=off
 [INFO] [CONFIG] assetRoot=<canonical repo path>
 [INFO] [STARTUP] Verifying scene asset manifest
 [INFO] [VULKAN] Vulkan instance created.

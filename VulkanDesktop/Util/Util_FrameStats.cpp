@@ -21,6 +21,7 @@ void Util_FrameStats::SetDrawStreamMetrics( uint32_t aActiveEntities, uint32_t a
 void Util_FrameStats::RecordInputLatency( float aInputToPresentMs, float aGpuFenceWaitMs, bool aVsyncFifo, float aFrameMs ) {
     myInputToPresentMs      = aInputToPresentMs;
     myGpuFenceWaitMs        = aGpuFenceWaitMs;
+    myVsyncFifo             = aVsyncFifo;
     myEstimatedDisplayLagMs = aVsyncFifo ? aFrameMs : 0.f;
     myEstimatedTotalLagMs   = aInputToPresentMs + myEstimatedDisplayLagMs;
 
@@ -38,14 +39,29 @@ void Util_FrameStats::RecordInputLatency( float aInputToPresentMs, float aGpuFen
     }
 }
 
+void Util_FrameStats::SetPendingFrameBreakdown( float aWorkMs, float aPresentWaitMs, float aGpuFenceWaitMs, bool aVsyncFifo ) {
+    myPendingFrameWorkMs    = aWorkMs;
+    myPendingPresentWaitMs  = aPresentWaitMs;
+    myPendingGpuFenceWaitMs = aGpuFenceWaitMs;
+    myVsyncFifo             = aVsyncFifo;
+}
+
 void Util_FrameStats::PushFrameTime( float aFrameMs ) {
     myFrameMs = aFrameMs;
     if ( aFrameMs > 0.f )
         myFps = 1000.f / aFrameMs;
 
-    myFrameHistory[ static_cast< size_t >( myFrameHistoryIndex ) ] = aFrameMs;
-    myFrameHistoryIndex                                            = ( myFrameHistoryIndex + 1 ) % FRAME_HISTORY_COUNT;
-    myHistorySampleCount                                           = std::min( myHistorySampleCount + 1, FRAME_HISTORY_COUNT );
+    myFrameWorkMs   = myPendingFrameWorkMs;
+    myPresentWaitMs = myPendingPresentWaitMs;
+
+    // Commit wall-clock + breakdown for the frame that just finished (pending set in prior DrawFrameGpu).
+    const int index                                         = myFrameHistoryIndex;
+    myFrameHistory[ static_cast< size_t >( index ) ]        = aFrameMs;
+    myFrameWorkHistory[ static_cast< size_t >( index ) ]    = myPendingFrameWorkMs;
+    myPresentWaitHistory[ static_cast< size_t >( index ) ]  = myPendingPresentWaitMs;
+    myGpuFenceWaitHistory[ static_cast< size_t >( index ) ] = myPendingGpuFenceWaitMs;
+    myFrameHistoryIndex                                     = ( myFrameHistoryIndex + 1 ) % FRAME_HISTORY_COUNT;
+    myHistorySampleCount                                    = std::min( myHistorySampleCount + 1, FRAME_HISTORY_COUNT );
 
     UpdateAggregates();
 }
@@ -60,8 +76,10 @@ void Util_FrameStats::UpdateAggregates() {
 
     std::array< float, FRAME_HISTORY_COUNT > frameTimesMs{};
     float                                    sumMs = 0.f;
+    // Ring buffer: myFrameHistoryIndex is next write slot; walk backward for chronological aggregates.
     for ( int i = 0; i < sampleCount; i++ ) {
-        frameTimesMs[ static_cast< size_t >( i ) ] = myFrameHistory[ static_cast< size_t >( i ) ];
+        const int ringIndex                        = ( myFrameHistoryIndex - sampleCount + i + FRAME_HISTORY_COUNT ) % FRAME_HISTORY_COUNT;
+        frameTimesMs[ static_cast< size_t >( i ) ] = myFrameHistory[ static_cast< size_t >( ringIndex ) ];
         sumMs += frameTimesMs[ static_cast< size_t >( i ) ];
     }
 

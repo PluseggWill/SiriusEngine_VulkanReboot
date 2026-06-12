@@ -2,9 +2,8 @@
 
 #include <array>
 
+#include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
-
-constexpr uint32_t kDeferredLightingFramesInFlight = 2u;
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
@@ -17,7 +16,7 @@ struct Vk_DeferredLightingState {
     VkDescriptorPool      myDescriptorPool = VK_NULL_HANDLE;
     VkSampler             myGBufferSampler = VK_NULL_HANDLE;
 
-    std::array< VkDescriptorSet, kDeferredLightingFramesInFlight > myDescriptorSets{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
 
     bool myInitialized = false;
 };

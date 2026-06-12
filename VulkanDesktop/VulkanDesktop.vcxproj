@@ -309,6 +309,7 @@
     <ClInclude Include="RenderCore\Vk_ResourceTables.h" />
     <ClInclude Include="RenderCore\Vk_Enum.h" />
     <ClInclude Include="RenderCore\Vk_FrameData.h" />
+    <ClInclude Include="RenderCore\Vk_FrameLimits.h" />
     <ClInclude Include="RenderCore\Vk_Initializer.h" />
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
     <ClInclude Include="RenderCore\Vk_PipelineDiagnostics.h" />

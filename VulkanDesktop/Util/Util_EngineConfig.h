@@ -79,7 +79,7 @@ private:
     std::string                  myPerfLogPath;
     uint32_t                     myWindowWidth  = 1600;
     uint32_t                     myWindowHeight = 1200;
-    bool                         myVsync        = true;
+    bool                         myVsync        = false;
     UtilLogger::LogLevel         myMinLogLevel  = UtilLogger::LogLevel::Info;
     FeatureFlags                 myFeatures{};
     Util_AssetVerifyPolicy       myAssetVerifyPolicy            = Util_AssetVerifyPolicy::Strict;

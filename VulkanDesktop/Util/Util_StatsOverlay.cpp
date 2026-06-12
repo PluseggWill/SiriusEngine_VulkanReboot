@@ -17,6 +17,16 @@ void UtilStatsOverlay::Build( const Util_FrameStats& aStats ) {
     ImGui::Text( "1%% Low: %.1f", aStats.myFps1PercentLow );
     ImGui::Text( "Frame: %.2f ms", aStats.myFrameMs );
     ImGui::PlotLines( "Frame ms", aStats.myFrameHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 33.f, ImVec2( 0.f, 80.f ) );
+    if ( aStats.myVsyncFifo ) {
+        ImGui::Separator();
+        ImGui::Text( "Vsync breakdown (last frame)" );
+        ImGui::Text( "Work ms: %.2f   Present wait ms: %.2f", aStats.myFrameWorkMs, aStats.myPresentWaitMs );
+        ImGui::TextDisabled( "Work = loop start through submit; Present = vkQueuePresentKHR block." );
+        ImGui::TextDisabled( "Frame ms ~ Work + Present (+ small gap before next loop)." );
+        ImGui::PlotLines( "Work ms", aStats.myFrameWorkHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 20.f, ImVec2( 0.f, 48.f ) );
+        ImGui::PlotLines( "Present wait ms", aStats.myPresentWaitHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 20.f, ImVec2( 0.f, 48.f ) );
+    }
+    ImGui::PlotLines( "GPU fence wait ms", aStats.myGpuFenceWaitHistory.data(), FRAME_HISTORY_COUNT, aStats.myFrameHistoryIndex, nullptr, 0.f, 20.f, ImVec2( 0.f, 48.f ) );
     ImGui::Separator();
     ImGui::Text( "Input latency (est.)" );
     ImGui::Text( "  sample -> present: %.2f ms", aStats.myInputToPresentMs );

@@ -447,6 +447,9 @@
     <ClInclude Include="RenderCore\Vk_FrameData.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameLimits.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Initializer.h">
       <Filter>RenderCore</Filter>
     </ClInclude>

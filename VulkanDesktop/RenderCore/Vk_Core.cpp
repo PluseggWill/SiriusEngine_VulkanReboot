@@ -1,4 +1,4 @@
-// Module: Vk_Core ? Vulkan device/swapchain, frame orchestration (acquire ? prep ? record ? present).
+// Module: Vk_Core - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Draw-list CPU build: Gfx_FrameDrawStream + Vk_FrameDrawPrep; demo transforms: Gfx_DemoSceneSim (Application).
 #include "Vk_Core.h"
 #include "../App/DebugUIState.h"
@@ -236,7 +236,7 @@ void Vk_Core::LoadSceneResources( Gfx_SceneDesc aScene, std::string aLogicalScen
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
     if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
-        // FG v0 chain: GBufferOpaque → ClusterBuild → DeferredLighting (init order matters).
+        // FG v0 chain: GBufferOpaque -> ClusterBuild -> DeferredLighting (init order matters).
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
         Vk_DeferredLightingPass::Init( *this );
@@ -578,7 +578,7 @@ void Vk_Core::CreateInstanceSlabs() {
                                       + " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
 }
 
-// M2 prep §A: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
+// M2 prep: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
 void Vk_Core::CreateDrawTemplateBuffers() {
     static_assert( sizeof( Gfx_DrawIndirectCommand ) == sizeof( VkDrawIndexedIndirectCommand ), "Gfx_DrawIndirectCommand must match Vulkan" );
 
@@ -641,7 +641,7 @@ void Vk_Core::CreateEntityRecordBuffers() {
 }
 
 void Vk_Core::CreateUniformBuffers() {
-    // Device-scoped env UBO slab (CPU defaults written at scene load ??Vk_SceneHost::InitScenePresentation).
+    // Device-scoped env UBO slab (CPU defaults at scene load; Vk_SceneHost::InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
@@ -691,7 +691,11 @@ bool Vk_Core::PrepareFrameCpu( WorldState& aWorld, const std::array< Vk_ActiveRe
 
     myFrameStats.ResetPerFrameCounters();
 
-    aOut.myActiveViewCount         = std::min( aViewCount, kGfxMaxRenderViews );
+    aOut.myActiveViewCount = std::min( aViewCount, kGfxMaxRenderViews );
+    // FG v0 HybridDeferred records view 0 only; skip PiP prep/cull to avoid wasted CPU/GPU work.
+    if ( Vk_GBufferPass::IsActive( *this ) ) {
+        aOut.myActiveViewCount = std::min( aOut.myActiveViewCount, 1u );
+    }
     const uint32_t activeViewCount = aOut.myActiveViewCount;
 
     uint32_t       totalOpaqueDraws   = 0;
@@ -836,7 +840,13 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const DebugUIState& aDebugUI, Vk_FrameCpuP
         throw std::runtime_error( "failed to record command buffer!" );
     }
 
-    const Vk_FrameResult frameResult = Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex );
+    // Wall-clock breakdown for overlay: Work ends before present; PresentWait measured inside SubmitAndPresent.
+    // Committed on next BeginPlatformFrame via SetPendingFrameBreakdown + PushFrameTime (same ring index as Frame ms).
+    const auto           workEnd       = std::chrono::high_resolution_clock::now();
+    float                presentWaitMs = 0.f;
+    const Vk_FrameResult frameResult   = Vk_SwapchainHost::SubmitAndPresent( *this, frameData, aPrep.myImageIndex, &presentWaitMs );
+    const float          workMs        = ElapsedMs( myPlatformCtx.myLastFrameTime, workEnd );
+    myFrameStats.SetPendingFrameBreakdown( workMs, presentWaitMs, aPrep.myGpuFenceWaitMs, myVsync );
 
     if ( myPlatformCtx.myHasFrameInputSampleTime ) {
         const float inputToPresentMs = ElapsedMs( myPlatformCtx.myFrameInputSampleTime, std::chrono::high_resolution_clock::now() );
