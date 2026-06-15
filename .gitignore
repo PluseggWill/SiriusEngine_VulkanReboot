@@ -372,6 +372,9 @@ FodyWeavers.xsd
 imgui.ini
 **/imgui.ini
 
+# Downloaded Poly Haven HDR cache (regenerate via Scripts/Generate-DefaultIblAssets.ps1).
+Data/Environments/default/source/
+
 # Vulkan pipeline cache blobs (regenerated locally)
 /Cache/*.bin
 

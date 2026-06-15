@@ -230,15 +230,11 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myHybridResolveRenderPass, state.myPipelineLayout, vertPath, fragPath );
 
     const VkDevice              device         = aCore.myDeviceCtx.myDevice;
-    const VkPipeline            pipeline       = state.myPipeline;
     const VkPipelineLayout      pipelineLayout = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout      = state.mySetLayout;
     const VkDescriptorPool      descriptorPool = state.myDescriptorPool;
     const VkSampler             sampler        = state.myGBufferSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, pipeline, pipelineLayout, setLayout, descriptorPool, sampler ]() {
-        if ( pipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, pipeline, nullptr );
-        }
+    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, pipelineLayout, setLayout, descriptorPool, sampler ]() {
         if ( pipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
         }
@@ -283,6 +279,9 @@ void Destroy( Vk_Core& aCore ) {
     }
     if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+        if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
+            vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
+        }
     }
     aCore.myDeferredLightingState.myDescriptorSets = {};
     aCore.myDeferredLightingState.myPipeline       = VK_NULL_HANDLE;

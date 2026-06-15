@@ -66,14 +66,16 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const s
     mesh.myCpu.LoadFromPath( resolvedPath );
     mesh.BuildGpuBuffers( aContext );
 
-    const VmaAllocator allocator = aContext.myAllocator;
-    aSceneDeletionQueue.pushFunction( [ allocator, aMeshId, this ]() {
-        if ( aMeshId >= myMeshes.size() ) {
-            return;
+    const VmaAllocator       allocator    = aContext.myAllocator;
+    const Vk_AllocatedBuffer vertexBuffer = mesh.myVertexBuffer;
+    const Vk_AllocatedBuffer indexBuffer  = mesh.myIndexBuffer;
+    aSceneDeletionQueue.pushFunction( [ allocator, vertexBuffer, indexBuffer ]() {
+        if ( vertexBuffer.myBuffer != VK_NULL_HANDLE ) {
+            vmaDestroyBuffer( allocator, vertexBuffer.myBuffer, vertexBuffer.myAllocation );
         }
-        Gfx_Mesh& toDestroy = myMeshes[ aMeshId ];
-        vmaDestroyBuffer( allocator, toDestroy.myVertexBuffer.myBuffer, toDestroy.myVertexBuffer.myAllocation );
-        vmaDestroyBuffer( allocator, toDestroy.myIndexBuffer.myBuffer, toDestroy.myIndexBuffer.myAllocation );
+        if ( indexBuffer.myBuffer != VK_NULL_HANDLE ) {
+            vmaDestroyBuffer( allocator, indexBuffer.myBuffer, indexBuffer.myAllocation );
+        }
     } );
 
     return &mesh;
@@ -92,17 +94,19 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, c
     if ( UtilLoader::LoadTexture( aConfig, aPath, aContext, texture, aMipLevels ) != true ) {
         throw std::runtime_error( "failed to load texture!" );
     }
-    texture.ImageView() = aContext.CreateImageView( texture.Image(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, aMipLevels );
 
-    const VmaAllocator allocator = aContext.myAllocator;
-    const VkDevice     device    = aContext.myDevice;
-    aSceneDeletionQueue.pushFunction( [ allocator, device, aTextureId, this ]() {
-        if ( aTextureId >= myTextures.size() ) {
-            return;
+    const VmaAllocator  allocator  = aContext.myAllocator;
+    const VkDevice      device     = aContext.myDevice;
+    const VkImageView   imageView  = texture.ImageView();
+    const VkImage       image      = texture.Image();
+    const VmaAllocation allocation = texture.Allocation();
+    aSceneDeletionQueue.pushFunction( [ allocator, device, imageView, image, allocation ]() {
+        if ( imageView != VK_NULL_HANDLE ) {
+            vkDestroyImageView( device, imageView, nullptr );
         }
-        Gfx_Texture& toDestroy = myTextures[ aTextureId ];
-        vmaDestroyImage( allocator, toDestroy.Image(), toDestroy.Allocation() );
-        vkDestroyImageView( device, toDestroy.ImageView(), nullptr );
+        if ( image != VK_NULL_HANDLE ) {
+            vmaDestroyImage( allocator, image, allocation );
+        }
     } );
 
     return &texture;

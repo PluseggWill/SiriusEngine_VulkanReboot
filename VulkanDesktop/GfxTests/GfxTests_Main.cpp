@@ -7,6 +7,7 @@
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_GpuCull.h"
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_RenderPreset.h"
@@ -19,6 +20,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <nlohmann/json.hpp>
 
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -240,6 +242,49 @@ void TestTransparentSortStableUnderRotation() {
     Expect( rotatedOrder.size() == 2, "transparent sort: rotated case count" );
     Expect( rotatedOrder[ 0 ].myEntityIndex == referenceOrder[ 0 ].myEntityIndex && rotatedOrder[ 1 ].myEntityIndex == referenceOrder[ 1 ].myEntityIndex,
             "transparent sort stable when entity rotates around pivot (bounds-center eye Z)" );
+}
+
+void TestDirectionalLightViewOrientation() {
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( 0.3f, 0.2f, 0.9f ) );
+    const glm::vec3 focus( 5.0f, -2.0f, 1.0f );
+
+    const glm::mat4 lightView = Gfx_LightingMath::Gfx_ComputeDirectionalLightView( sunDir, focus, 64.0f );
+
+    // Scene-side point (opposite sun) must lie in front of the light camera so depth is captured along incoming light.
+    const glm::vec3 sceneSide      = focus - sunDir * 80.0f;
+    const float     sceneSideViewZ = ( lightView * glm::vec4( sceneSide, 1.0f ) ).z;
+    Expect( sceneSideViewZ < 0.0f, "scene-side point should be in front of directional light view" );
+
+    // A point beyond the virtual light eye (sun side) should be behind the camera.
+    const glm::vec3 beyondEye      = focus + sunDir * 80.0f;
+    const float     beyondEyeViewZ = ( lightView * glm::vec4( beyondEye, 1.0f ) ).z;
+    Expect( beyondEyeViewZ > 0.0f, "point beyond light eye should be behind directional light view" );
+}
+
+void TestShadowCompareDepthViewportMap() {
+    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( -1.0f ) == 0.0f, "clip z -1 maps to compare 0" );
+    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( 0.0f ) == 0.5f, "clip z 0 maps to compare 0.5" );
+    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( 1.0f ) == 1.0f, "clip z 1 maps to compare 1" );
+}
+
+void TestDirectionalShadowSetupForSmallScene() {
+    const glm::vec3 defaultSun = Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight();
+    Expect( defaultSun.z > 0.5f, "default sun should be mostly overhead (+Z) for Z-up scenes" );
+
+    Gfx_Bounds scene{};
+    scene.myMin = glm::vec3( -0.08f, -0.12f, 0.0f );
+    scene.myMax = glm::vec3( 0.08f, 0.12f, 0.16f );
+
+    constexpr uint32_t                                 shadowMapSize = 2048u;
+    const Gfx_LightingMath::Gfx_DirectionalShadowSetup setup         = Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( defaultSun, scene, shadowMapSize );
+
+    Expect( setup.myLightSpaceDepthRange < 2.0f, "Sponza-scale shadow ortho depth range should stay scene-sized" );
+
+    const float bias = Gfx_LightingMath::Gfx_ComputeShadowDepthBiasConstant( setup.myLightSpaceDepthRange );
+    Expect( bias == -1.4f, "directional shadow depth bias should use Khronos fixed constant" );
+
+    const Gfx_LightingMath::Gfx_DirectionalShadowSetup setupAgain = Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( defaultSun, scene, shadowMapSize );
+    Expect( setup.myLightViewProj == setupAgain.myLightViewProj, "scene-only shadow matrix must be stable across recomputation" );
 }
 
 void TestEntityGpuRecordSync() {
@@ -497,6 +542,9 @@ int main() {
     TestSliceSceneAssets( repoRoot );
     TestSoAGeneration();
     TestTransparentSortStableUnderRotation();
+    TestDirectionalLightViewOrientation();
+    TestShadowCompareDepthViewportMap();
+    TestDirectionalShadowSetupForSmallScene();
     TestEntityGpuRecordSync();
     TestEntityIndirectSlot();
     TestCpuGpuCullParityDemoViews();

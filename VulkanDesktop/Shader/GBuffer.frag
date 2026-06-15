@@ -24,6 +24,7 @@ layout(location = 0) in vec3 inColor;
 layout(location = 1) in vec2 inTexCoord;
 layout(location = 2) in vec3 inWorldNormal;
 layout(location = 3) in vec3 inWorldPos;
+layout(location = 4) flat in uint inMaterialIndex;
 
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormalRoughness;

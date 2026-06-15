@@ -23,6 +23,7 @@ constexpr char kShadowVertSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapVert.
 constexpr char kShadowFragSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapFrag.spv";
 
 // Khronos Vulkan-Samples multithreading_render_passes shadow subpass defaults.
+// Bias is in depth-buffer units (not world light-space range) — use Khronos constants verbatim.
 constexpr float kKhronosDepthBiasConstant = -1.4f;
 constexpr float kKhronosDepthBiasSlope    = -1.7f;
 
@@ -148,15 +149,16 @@ void CreateShadowResources( Vk_Core& aCore ) {
     pipelineBuilder.myViewport                                = VkInit::ViewportCreateInfo( { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize } );
     pipelineBuilder.myScissor.offset                          = { 0, 0 };
     pipelineBuilder.myScissor.extent                          = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
-    pipelineBuilder.myRasterizer                              = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT );
-    pipelineBuilder.myRasterizer.depthBiasEnable              = VK_TRUE;
-    pipelineBuilder.myMultisampling                           = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
-    pipelineBuilder.myDepthStencil                            = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthTestEnable            = VK_TRUE;
-    pipelineBuilder.myDepthStencil.depthWriteEnable           = VK_TRUE;
-    pipelineBuilder.myDepthStencil.depthCompareOp             = VK_COMPARE_OP_GREATER;
-    pipelineBuilder.myColorBlendAttachment                    = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                          = state.myPipelineLayout;
+    // BACK cull: front-face depth (closest to light). FRONT cull stores back faces and causes light leak.
+    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT );
+    pipelineBuilder.myRasterizer.depthBiasEnable    = VK_TRUE;
+    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
+    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
+    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_TRUE;
+    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_TRUE;
+    pipelineBuilder.myDepthStencil.depthCompareOp   = VK_COMPARE_OP_GREATER;
+    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
+    pipelineBuilder.myPipelineLayout                = state.myPipelineLayout;
     pipelineBuilder.SetDynamicStates( { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_DEPTH_BIAS } );
     state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, state.myRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
 
@@ -301,9 +303,13 @@ void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassD
         return;
     }
 
-    const glm::vec3  sunDir                = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    const Gfx_Bounds sceneBounds           = aCore.GetShadowCasterBounds();
-    aCore.myShadowMapState.myLightViewProj = Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowMatrixFromScene( sunDir, sceneBounds );
+    const glm::vec3  sunDir      = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const Gfx_Bounds sceneBounds = aCore.GetShadowCasterBounds();
+
+    const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
+        Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
+
+    aCore.myShadowMapState.myLightViewProj = shadowSetup.myLightViewProj;
 
     Vk_ShadowMapState& state = aCore.myShadowMapState;
 

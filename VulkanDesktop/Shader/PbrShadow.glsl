@@ -8,7 +8,8 @@ void Pbr_ShadowProject(mat4 lightViewProj, vec3 worldPos, out vec2 shadowUv, out
     vec4 projectedCoord = lightViewProj * vec4(worldPos, 1.0);
     projectedCoord /= projectedCoord.w;
     shadowUv = projectedCoord.xy * 0.5 + 0.5;
-    compareDepth = projectedCoord.z;
+    // GLM clip Z is [-1, 1]; hardware depth compare uses the same viewport mapping as the shadow pass write.
+    compareDepth = projectedCoord.z * 0.5 + 0.5;
 }
 
 float Pbr_ShadowVisibility(sampler2DShadow shadowMap, mat4 lightViewProj, vec3 worldPos, vec4 shadowParams)
@@ -21,7 +22,7 @@ float Pbr_ShadowVisibility(sampler2DShadow shadowMap, mat4 lightViewProj, vec3 w
     float compareDepth;
     Pbr_ShadowProject(lightViewProj, worldPos, shadowUv, compareDepth);
 
-    // Border-white compare sampler handles out-of-frustum (CLAMP_TO_BORDER + white).
+    // GREATER_OR_EQUAL + border white: out-of-frustum samples resolve to shadow (Khronos contract).
     return texture(shadowMap, vec3(shadowUv, compareDepth));
 }
 

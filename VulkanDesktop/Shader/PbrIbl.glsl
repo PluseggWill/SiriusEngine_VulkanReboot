@@ -11,7 +11,8 @@ vec2 Pbr_BrdfLut(float NdotV, float roughness, sampler2D brdfLut)
 
 vec3 Pbr_SampleIrradiance(samplerCube irradianceMap, vec3 N)
 {
-    return texture(irradianceMap, normalize(N)).rgb;
+    // Offline irradiance PNGs store cosine-weighted average radiance (LDR); scale to ∫ L cos θ dω.
+    return texture(irradianceMap, normalize(N)).rgb * PBR_PI;
 }
 
 vec3 Pbr_SamplePrefilter(samplerCube prefilterMap, vec3 R, float roughness, float maxMipLevel)

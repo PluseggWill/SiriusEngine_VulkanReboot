@@ -1,6 +1,7 @@
 // Module: SceneCpuLoad - App-owned scene CPU bootstrap and initial fly-camera / env defaults.
 #include "SceneCpuLoad.h"
 
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../RenderCore/Vk_Core.h"
 #include "WorldState.h"
@@ -65,7 +66,7 @@ void App_InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
     aCore.myEnvironmentData.myAmbientColor      = { 0.15f, 0.15f, 0.18f, 1.0f };
     aCore.myEnvironmentData.myFogColor          = { 1.0f, 1.0f, 1.0f, 1.0f };
     aCore.myEnvironmentData.myFogDistance       = { 0.45f, 32.0f, 1.0f, 0.0f };
-    aCore.myEnvironmentData.mySunlightDirection = { glm::normalize( glm::vec3( -0.35f, -0.85f, -0.4f ) ), 0.0f };
+    aCore.myEnvironmentData.mySunlightDirection = { glm::vec4( Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight(), 0.0f ) };
     aCore.myEnvironmentData.mySunlightColor     = { 0.9f, 0.88f, 0.82f, 1.0f };
     aCore.myEnvironmentData.myViewWorldPos      = { aCore.myCamera.myEye, 1.0f };
 }

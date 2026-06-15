@@ -3,6 +3,7 @@
 #include "Vk_Core.h"
 
 #include "Vk_IblResources.h"
+#include "Vk_ShadowMapPass.h"
 
 #include "../Gfx/Gfx_LightingGlobals.h"
 
@@ -80,7 +81,8 @@ void Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( const Vk_Core& aCo
 
     const Gfx_Bounds sceneBounds = aCore.GetShadowCasterBounds();
 
-    const glm::mat4 lightViewProj = Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowMatrixFromScene( sunDir, sceneBounds );
+    const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
+        Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
 
-    UpdateLightingGlobals( aCore, aCurrentFrame, lightViewProj );
+    UpdateLightingGlobals( aCore, aCurrentFrame, shadowSetup.myLightViewProj );
 }

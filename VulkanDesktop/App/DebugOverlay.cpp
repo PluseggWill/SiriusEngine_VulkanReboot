@@ -76,7 +76,7 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
 }
 
 void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, GpuEnvironmentData& anEnvironment,
-                             Gfx_LightingSettings& aLightingSettings, const Vk_FrameCpuPrepResult& aPrep ) {
+                             Gfx_LightingSettings& aLightingSettings, const Vk_FrameCpuPrepResult& aPrep, const Vk_Camera& aFlyCamera ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
@@ -98,7 +98,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {
-                UtilCameraPanel::BuildContents( aDebugUI.myCameraSettings );
+                UtilCameraPanel::BuildContents( aDebugUI.myCameraSettings, aFlyCamera );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Views" ) ) {
@@ -117,5 +117,6 @@ void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aD
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aPrep );
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aPrep, aCore.GetFlyCamera() );
+    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetFlyCamera() );
 }

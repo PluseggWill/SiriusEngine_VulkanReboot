@@ -1,6 +1,12 @@
-﻿{
-  "schemaVersion": 1,
+{
+  "schemaVersion": 2,
   "name": "default",
+  "sourceHdri": {
+    "provider": "Poly Haven (CC0)",
+    "slug": "kloppenheim_02",
+    "resolution": "1k",
+    "url": "https://polyhaven.com/a/kloppenheim_02"
+  },
   "irradiance": "irradiance",
   "prefilter": "prefilter",
   "brdfLut": "brdf_lut.png",
