@@ -146,7 +146,8 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::Separator();
     ImGui::Text( "Screen-space AO" );
     {
-        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ) };
+        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ),
+                                 Gfx_AoMethodLabel( Gfx_AoMethod::Gtao ) };
         int           method = static_cast< int >( aAoSettings.myMethod );
         if ( ImGui::Combo( "AO method", &method, labels, IM_ARRAYSIZE( labels ) ) ) {
             aAoSettings.myMethod = static_cast< Gfx_AoMethod >( method );
@@ -169,6 +170,19 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
         if ( ImGui::SliderInt( "HBAO steps", &steps, 1, 8 ) ) {
             aAoSettings.myHbaoSteps = static_cast< uint32_t >( steps );
         }
+        ImGui::SliderFloat( "Upsample depth edge", &aAoSettings.myUpsampleDepthSigma, 0.01f, 0.06f );
+    }
+    else if ( aAoSettings.myMethod == Gfx_AoMethod::Gtao ) {
+        int slices = static_cast< int >( aAoSettings.myGtaoSlices );
+        int steps  = static_cast< int >( aAoSettings.myGtaoStepsPerSlice );
+        if ( ImGui::SliderInt( "GTAO slices", &slices, 1, 16 ) ) {
+            aAoSettings.myGtaoSlices = static_cast< uint32_t >( slices );
+        }
+        if ( ImGui::SliderInt( "GTAO steps / slice", &steps, 1, 16 ) ) {
+            aAoSettings.myGtaoStepsPerSlice = static_cast< uint32_t >( steps );
+        }
+        ImGui::SliderFloat( "GTAO thickness", &aAoSettings.myGtaoThickness, 0.05f, 2.0f );
+        ImGui::SliderFloat( "GTAO falloff", &aAoSettings.myGtaoFalloff, 0.5f, 4.0f );
         ImGui::SliderFloat( "Upsample depth edge", &aAoSettings.myUpsampleDepthSigma, 0.01f, 0.06f );
     }
 

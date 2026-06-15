@@ -1,6 +1,6 @@
 #version 450
 
-// HBAO+ v0 — half-res slice-organized SSAO (same depth test as Ssao.comp; horizon integration deferred to v1).
+// GTAO v0 — Jimenez slice horizon integration (half-res); shares upsample with HBAO+.
 #include "AoCommon.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -8,7 +8,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(push_constant) uniform PushConstants {
     mat4 view;
     mat4 proj;
-    vec4 params; // x=radius, y=bias, z=enabled (0/1), w=unused
+    vec4 params; // x=radius, y=thickness, z=enabled (0/1), w=falloff power
     uvec2 sliceCount;
     uvec2 stepsPerSlice;
     vec2 halfScreenSize;
@@ -43,6 +43,7 @@ void main()
     const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
     const vec3 fragPos = (pc.view * vec4(worldPos, 1.0)).xyz;
     const vec3 Nworld = normalize(texture(gbufferNormalRoughness, uv).xyz);
+    const vec3 Nview = Ao_WorldNormalToView(Nworld, pc.view);
 
     vec3 tangentW;
     vec3 bitangentW;
@@ -51,21 +52,27 @@ void main()
     const float viewZ = max(abs(fragPos.z), 0.05);
     const float depthScale = clamp(viewZ * 0.35, 0.35, 2.5);
     const float sampleRadius = pc.params.x * depthScale;
+    const float thickness = max(pc.params.y, 1e-4);
+    const float falloffPower = max(pc.params.w, 0.5);
 
-    const int numDirs = int(clamp(pc.sliceCount.x, 1u, 8u));
-    const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 8u));
+    const int numSlices = int(clamp(pc.sliceCount.x, 1u, 16u));
+    const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 16u));
 
-    float occlusion = 0.0;
-    float sampleCount = 0.0;
+    float visibility = 0.0;
 
-    for (int d = 0; d < numDirs; ++d) {
-        const float sliceAngle = (float(d) / float(numDirs)) * 3.14159265;
+    for (int s = 0; s < numSlices; ++s) {
+        const float sliceAngle = (float(s) + 0.5) / float(numSlices) * 3.14159265;
         const vec3 sliceDirW = cos(sliceAngle) * tangentW + sin(sliceAngle) * bitangentW;
-        const vec3 sliceDir = normalize((pc.view * vec4(sliceDirW, 0.0)).xyz);
+        const vec3 sliceDirView = normalize((pc.view * vec4(sliceDirW, 0.0)).xyz);
+        const vec3 sliceBitangentView = normalize(cross(Nview, sliceDirView));
 
-        for (int s = 1; s <= numSteps; ++s) {
-            const float t = float(s) / float(numSteps);
-            const vec3 samplePosView = fragPos + sliceDir * (sampleRadius * t);
+        const float nAngle = asin(clamp(dot(Nview, sliceBitangentView), -1.0, 1.0));
+        float h1 = -1.5707963;
+        float h2 = -1.5707963;
+
+        for (int step = 1; step <= numSteps; ++step) {
+            const float t = float(step) / float(numSteps);
+            const vec3 samplePosView = fragPos + sliceDirView * (sampleRadius * t);
 
             const vec4 offsetClip = pc.proj * vec4(samplePosView, 1.0);
             const vec3 offsetNdc = offsetClip.xyz / offsetClip.w;
@@ -75,18 +82,35 @@ void main()
             }
 
             const vec3 sampleWorld = texture(gbufferWorldPosition, sampleUV).rgb;
-            const float sampleViewZ = (pc.view * vec4(sampleWorld, 1.0)).z;
-            const float rangeCheck = smoothstep(0.0, 1.0, sampleRadius / max(abs(fragPos.z - sampleViewZ), 1e-4));
+            const vec3 sampleView = (pc.view * vec4(sampleWorld, 1.0)).xyz;
+            const vec3 delta = sampleView - fragPos;
+            const float dist = length(delta);
+            if (dist < 1e-4) {
+                continue;
+            }
 
-            sampleCount += 1.0;
-            if (sampleViewZ >= samplePosView.z + pc.params.y) {
-                occlusion += rangeCheck;
+            const float falloff = Ao_GtaoDistanceFalloff(dist, sampleRadius, falloffPower);
+            if (falloff <= 0.0) {
+                continue;
+            }
+
+            const float height = dot(delta, sliceBitangentView);
+            if (abs(height) > thickness) {
+                continue;
+            }
+
+            const float projected = dot(delta, sliceDirView);
+            const float horizon = atan(height, abs(projected));
+            if (projected > 0.0) {
+                h1 = max(h1, horizon);
+            } else {
+                h2 = max(h2, horizon);
             }
         }
+
+        visibility += Ao_GtaoIntegrateArc(h1, h2, nAngle);
     }
 
-    const float ao = (sampleCount > 0.5)
-        ? (1.0 - clamp(occlusion / sampleCount, 0.0, 1.0))
-        : 1.0;
+    const float ao = clamp(visibility / float(numSlices), 0.0, 1.0);
     imageStore(aoHalfOut, pix, vec4(ao));
 }

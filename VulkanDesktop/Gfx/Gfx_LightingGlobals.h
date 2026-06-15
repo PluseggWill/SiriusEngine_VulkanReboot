@@ -18,7 +18,7 @@ static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be s
 struct Gfx_LightingSettings {
     bool  myShadowsEnabled = true;
     bool  myIblEnabled     = true;
-    float myIblIntensity   = 1.0f;
+    float myIblIntensity   = 1.35f;
 };
 
 inline GpuLightingGlobals Gfx_BuildLightingGlobals( const Gfx_LightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,

@@ -349,6 +349,22 @@ void Init( Vk_Core& aCore ) {
     aCore.myDeferredLightingState.myInitialized = true;
 }
 
+static void UpdateAoDescriptorBinding( Vk_Core& aCore, uint32_t aFrameIndex ) {
+    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+    if ( aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE ) {
+        return;
+    }
+
+    VkDescriptorImageInfo aoInfo{};
+    aoInfo.sampler     = state.myGBufferSampler;
+    aoInfo.imageView   = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
+    aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const VkWriteDescriptorSet write =
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 );
+    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
+}
+
 void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
     if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
@@ -356,6 +372,8 @@ void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrame
     }
 
     static bool sDrawLoggedOnce = false;
+
+    UpdateAoDescriptorBinding( aCore, aFrameIndex );
 
     const Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants push = BuildPushConstants( aCore );
 

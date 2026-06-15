@@ -11,7 +11,7 @@ layout(push_constant) uniform PushConstants {
 
 layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 1) uniform sampler2D gbufferWorldPosition;
-layout(set = 0, binding = 2, r8) uniform readonly image2D rawAo;
+layout(set = 0, binding = 2) uniform sampler2D rawAo;
 layout(set = 0, binding = 3) uniform sampler2DShadow shadowMap;
 layout(set = 0, binding = 4) uniform LightingGlobals {
     mat4 lightViewProj;
@@ -32,7 +32,7 @@ void main() {
 
     float ao = 1.0;
     if (depth < 0.999 && pc.params.x > 0.5) {
-        ao = imageLoad(rawAo, pix).r;
+        ao = texture(rawAo, uv).r;
     }
 
     float shadow = 1.0;

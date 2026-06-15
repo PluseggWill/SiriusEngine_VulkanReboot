@@ -149,6 +149,13 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\HbaoPlus.spv"
 
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%Gtao.comp" -o "%GEN_DIR%Gtao.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: Gtao.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\Gtao.spv"
+
 "%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%AoUpsample.comp" -o "%GEN_DIR%AoUpsample.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: AoUpsample.comp"

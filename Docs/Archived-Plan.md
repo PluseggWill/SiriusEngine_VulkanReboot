@@ -376,6 +376,7 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Plan log** | [`Archived/plans/s6-ssao-hiz_Plan.md`](Archived/plans/s6-ssao-hiz_Plan.md) · [`s6-ssao-hiz_Progress.md`](Archived/plans/s6-ssao-hiz_Progress.md) |
 
 - [x] **[S6]** SSAO + Hi-Z (Lighting-3) — 2026-06-15
+- [x] **GTAO v0** — modular `Vk_AoPass` slice integration + shared half-res upsample — 2026-06-16 · [`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md)
 
 ---
 

@@ -1,5 +1,6 @@
 // Module: Vk_ShadowAoSoftPass — pack raw AO + screen-space sun shadow into RG8, bilateral blur.
-// Runs after Vk_AoPass; deferred reads soft ping via GetDeferredContactMapView().#include "Vk_ShadowAoSoftPass.h"
+// Runs after Vk_AoPass; deferred reads soft ping via GetDeferredContactMapView().
+#include "Vk_ShadowAoSoftPass.h"
 
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
@@ -16,6 +17,7 @@
 
 #include <glm/glm.hpp>
 
+#include <cstring>
 #include <array>
 #include <stdexcept>
 #include <string>
@@ -82,31 +84,34 @@ void DestroyFallbackImages( Vk_Core& aCore ) {
 }
 
 void CreateFallbackImages( Vk_Core& aCore ) {
-    Vk_ShadowAoSoftState& state   = aCore.myShadowAoSoftState;
-    const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
-    const VkExtent2D      one{ 1, 1 };
+    Vk_ShadowAoSoftState&   state    = aCore.myShadowAoSoftState;
+    const Vk_ResourceContext& resource = aCore.GetResourceContext();
+    const VkExtent2D        one{ 1, 1 };
 
-    auto uploadIdentity = [&]( VkFormat aFormat, Gfx_Texture& aOut ) {
-        aCore.CreateImage( one, aFormat, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_CPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
-                           aOut.AllocImage() );
+    auto uploadIdentity1x1 = [&]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Gfx_Texture& aOut ) {
+        aCore.CreateImage( one, aFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                           VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aOut.AllocImage() );
         aOut.ImageView() = aCore.CreateImageView( aOut.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-        void* mapped     = nullptr;
-        if ( vmaMapMemory( allocator, aOut.Allocation(), &mapped ) != VK_SUCCESS || mapped == nullptr ) {
-            throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to map fallback image" );
+
+        Vk_AllocatedBuffer staging{};
+        resource.CreateBuffer( aByteCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, staging, true );
+        void* mapped = nullptr;
+        if ( vmaMapMemory( aCore.myDeviceCtx.myAllocator, staging.myAllocation, &mapped ) != VK_SUCCESS || mapped == nullptr ) {
+            throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to map fallback staging buffer" );
         }
-        if ( aFormat == VK_FORMAT_R8_UNORM ) {
-            *static_cast< uint8_t* >( mapped ) = 255u;
-        }
-        else {
-            auto* rg                 = static_cast< uint8_t* >( mapped );
-            rg[ 0 ]                  = 255u;
-            rg[ 1 ]                  = 255u;
-        }
-        vmaUnmapMemory( allocator, aOut.Allocation() );
+        std::memcpy( mapped, aBytes, aByteCount );
+        vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, staging.myAllocation );
+
+        resource.TransitionImageLayout( aOut.Image(), aFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
+        resource.CopyBufferToImage( staging.myBuffer, aOut.Image(), 1, 1 );
+        resource.TransitionImageLayout( aOut.Image(), aFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+        resource.DestroyStagingBuffer( staging );
     };
 
-    uploadIdentity( VK_FORMAT_R8_UNORM, state.myFallbackAo );
-    uploadIdentity( kSoftFormat, state.myFallbackContact );
+    const uint8_t aoWhite[]      = { 255u };
+    const uint8_t contactWhite[] = { 255u, 255u };
+    uploadIdentity1x1( VK_FORMAT_R8_UNORM, aoWhite, sizeof( aoWhite ), state.myFallbackAo );
+    uploadIdentity1x1( kSoftFormat, contactWhite, sizeof( contactWhite ), state.myFallbackContact );
 }
 
 void CreateSoftImage( Vk_Core& aCore, Gfx_Texture& aTexture ) {
@@ -143,8 +148,9 @@ void UpdatePackDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptor
     worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo rawAoInfo{};
+    rawAoInfo.sampler     = state.myGBufferSampler;
     rawAoInfo.imageView   = aRawAoView;
-    rawAoInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    rawAoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo shadowInfo{};
     shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
@@ -163,7 +169,7 @@ void UpdatePackDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptor
     std::array< VkWriteDescriptorSet, 6 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &rawAoInfo, 2, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &rawAoInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowInfo, 3, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightingGlobalsInfo, 4, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &softOutInfo, 5, 1 ),
@@ -241,7 +247,7 @@ void CreatePipelines( Vk_Core& aCore ) {
     const std::array< VkDescriptorSetLayoutBinding, 6 > packBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5 ),
@@ -488,6 +494,17 @@ void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFr
     const bool useAoRaw = aAoPassRan && aoSettings.myEnabled;
     const VkDescriptorSet packSet =
         useAoRaw ? state.myPackDescriptorSets[ aFrameIndex ] : state.myPackNoAoDescriptorSets[ aFrameIndex ];
+
+    if ( useAoRaw ) {
+        const VkImageLayout rawLayout = Vk_AoPass::GetRawAoLayout();
+        if ( rawLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+            VkImageMemoryBarrier aoForPack =
+                ColorImageBarrier( aCore.myAoState.myAoRaw.Image(), rawLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+                                   VK_ACCESS_SHADER_READ_BIT );
+            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &aoForPack );
+            Vk_AoPass::NoteRawAoLayout( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+        }
+    }
 
     CmdBarrierSoftForComputeWrite( aCommandBuffer, state.mySoftPing.Image(), sSoftPingLayout );
     CmdBarrierSoftForComputeWrite( aCommandBuffer, state.mySoftPong.Image(), sSoftPongLayout );

@@ -3,41 +3,67 @@
 #include <array>
 
 #include "Vk_FrameLimits.h"
+
 #include "Vk_Types.h"
 
 struct VkCommandBuffer_T;
+
 using VkCommandBuffer = VkCommandBuffer_T*;
+
 class Vk_Core;
 
-// Screen-space ambient occlusion — pluggable algorithms (Classic SSAO, HBAO+).
+// Screen-space ambient occlusion — pluggable algorithms (Classic SSAO, HBAO+, GTAO).
+
 // Contract: myAoRaw (R8 full-res, linear) is consumed by ShadowAoSoft and/or deferred resolve.
+
+// Half-res methods (HBAO+, GTAO) write myAoHalf then reuse myUpsamplePipeline → myAoRaw.
+
 struct Vk_AoState {
-    VkPipeline myClassicPipeline   = VK_NULL_HANDLE;
-    VkPipeline myHbaoPipeline      = VK_NULL_HANDLE;
-    VkPipeline myUpsamplePipeline  = VK_NULL_HANDLE;
-    VkPipeline myBlurPipeline      = VK_NULL_HANDLE;
 
-    VkPipelineLayout myClassicPipelineLayout  = VK_NULL_HANDLE;
-    VkPipelineLayout myHbaoPipelineLayout     = VK_NULL_HANDLE;
+    VkPipeline myClassicPipeline = VK_NULL_HANDLE;
+
+    VkPipeline myHbaoPipeline = VK_NULL_HANDLE;
+
+    VkPipeline myGtaoPipeline = VK_NULL_HANDLE;
+
+    VkPipeline myUpsamplePipeline = VK_NULL_HANDLE;
+
+    VkPipeline myBlurPipeline = VK_NULL_HANDLE;
+
+    VkPipelineLayout myClassicPipelineLayout = VK_NULL_HANDLE;
+
+    VkPipelineLayout myHalfResPipelineLayout = VK_NULL_HANDLE;
+
     VkPipelineLayout myUpsamplePipelineLayout = VK_NULL_HANDLE;
-    VkPipelineLayout myBlurPipelineLayout     = VK_NULL_HANDLE;
 
-    VkDescriptorSetLayout myClassicSetLayout   = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myHbaoSetLayout      = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myUpsampleSetLayout  = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myBlurSetLayout      = VK_NULL_HANDLE;
+    VkPipelineLayout myBlurPipelineLayout = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout myClassicSetLayout = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout myHalfResSetLayout = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout myUpsampleSetLayout = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout myBlurSetLayout = VK_NULL_HANDLE;
 
     VkDescriptorPool myDescriptorPool = VK_NULL_HANDLE;
-    VkSampler        myGBufferSampler = VK_NULL_HANDLE;
 
-    Gfx_Texture myAoRaw{};   // full-res R8 — deferred / contact-soft input
-    Gfx_Texture myAoHalf{};  // half-res R8 — HBAO+ intermediate
+    VkSampler myGBufferSampler = VK_NULL_HANDLE;
+
+    Gfx_Texture myAoRaw{};  // full-res R8 — deferred / contact-soft input
+
+    Gfx_Texture myAoHalf{};  // half-res R8 — HBAO+ / GTAO intermediate
+
     Gfx_Texture myAoBlur{};  // classic SSAO separable blur ping-pong
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myClassicDescriptorSets{};
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myHbaoDescriptorSets{};
+
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myHalfResDescriptorSets{};
+
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myUpsampleDescriptorSets{};
+
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBlurHorizDescriptorSets{};
+
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBlurVertDescriptorSets{};
 
     bool myInitialized = false;
@@ -46,12 +72,17 @@ struct Vk_AoState {
 namespace Vk_AoPass {
 
 void Init( Vk_Core& aCore );
+
 void Destroy( Vk_Core& aCore );
+
 void RecreateForExtent( Vk_Core& aCore );
 
 void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
-// Raw linear AO (full-res R8) for ShadowAoSoft pack and deferred fallback binding.
 VkImageView GetRawAoImageView( const Vk_Core& aCore );
+
+void NoteRawAoLayout( VkImageLayout aLayout );
+
+VkImageLayout GetRawAoLayout();
 
 }  // namespace Vk_AoPass

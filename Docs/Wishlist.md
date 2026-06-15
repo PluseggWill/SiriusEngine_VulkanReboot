@@ -50,7 +50,7 @@ Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/pl
 ### Open tasks
 
 - [ ] Depth pyramid (Hi-Z) from G-buffer or resolve depth — document mip policy.
-- [ ] GTAO v0 — modular slot in `Vk_AoPass` ([`gtao_Plan.md`](gtao_Plan.md)); HBAO+ v0 closed ([`Archived/plans/hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md)).
+- [x] GTAO v0 — modular slot in `Vk_AoPass` ([`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md)); HBAO+ v0 closed ([`Archived/plans/hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md)).
 - [ ] Optional: normal-aware radius; temporal stability = backlog.
 - [ ] Debug viz: AO only, Hi-Z mip slice (dev overlay).
 

@@ -1,4 +1,4 @@
-// Module: Vk_AoPass — pluggable screen-space AO (Classic SSAO, HBAO+).
+// Module: Vk_AoPass — pluggable screen-space AO (Classic SSAO, HBAO+, GTAO).
 // Outputs linear R8 myAoRaw; ShadowAoSoft and deferred read via GetRawAoImageView().
 #include "Vk_AoPass.h"
 
@@ -11,7 +11,6 @@
 #include "Vk_Initializer.h"
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_inverse.hpp>
 
 #include <algorithm>
 #include <array>
@@ -22,6 +21,7 @@ namespace {
 
 constexpr char     kClassicShaderPath[]  = "VulkanDesktop/Shader_Generated/Ssao.spv";
 constexpr char     kHbaoShaderPath[]     = "VulkanDesktop/Shader_Generated/HbaoPlus.spv";
+constexpr char     kGtaoShaderPath[]     = "VulkanDesktop/Shader_Generated/Gtao.spv";
 constexpr char     kUpsampleShaderPath[] = "VulkanDesktop/Shader_Generated/AoUpsample.spv";
 constexpr char     kBlurShaderPath[]     = "VulkanDesktop/Shader_Generated/SsaoBlur.spv";
 constexpr VkFormat kAoFormat             = VK_FORMAT_R8_UNORM;
@@ -41,22 +41,22 @@ struct ClassicAoPushConstants {
 
 static_assert( sizeof( ClassicAoPushConstants ) == 224, "ClassicAoPushConstants must match Ssao.comp push block" );
 
-struct HbaoPushConstants {
+// Shared by HbaoPlus.comp and Gtao.comp (same binding layout and push block size).
+struct HalfResAoPushConstants {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
-    alignas( 16 ) glm::mat4 invProj;
     alignas( 16 ) glm::vec4 params;
-    alignas( 8 ) glm::uvec2 directionCount;
-    alignas( 8 ) glm::uvec2 stepCount;
+    alignas( 8 ) glm::uvec2 sliceCount;
+    alignas( 8 ) glm::uvec2 stepsPerSlice;
     alignas( 8 ) glm::vec2 halfScreenSize;
-    alignas( 8 ) glm::vec2 fullScreenSize;
+    alignas( 8 ) glm::vec2 pad;
 };
 
-static_assert( sizeof( HbaoPushConstants ) == 240, "HbaoPushConstants must match HbaoPlus.comp push block" );
+static_assert( sizeof( HalfResAoPushConstants ) == 176, "HalfResAoPushConstants must match half-res AO compute shaders" );
 
 struct AoUpsamplePushConstants {
     alignas( 8 ) glm::vec2 fullScreenSize;
-    float                  depthSigma;
+    float depthSigma;
     alignas( 8 ) glm::vec2 pad;
 };
 
@@ -123,9 +123,9 @@ void CreateAoImages( Vk_Core& aCore ) {
     CreateAoImage( aCore, full, aCore.myAoState.myAoBlur );
     CreateAoImage( aCore, HalfExtent( full.width, full.height ), aCore.myAoState.myAoHalf );
 
-    UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height ) + " half="
-                              + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
-                              + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM" );
+    UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
+                                + " half=" + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
+                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM" );
 }
 
 void UpdateClassicDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
@@ -159,7 +159,7 @@ void UpdateClassicDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void UpdateHbaoDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+void UpdateHalfResDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     Vk_AoState& state = aCore.myAoState;
 
     VkDescriptorImageInfo depthInfo{};
@@ -172,14 +172,20 @@ void UpdateHbaoDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
     normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo worldPosInfo{};
+    worldPosInfo.sampler     = state.myGBufferSampler;
+    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
+    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkDescriptorImageInfo aoHalfInfo{};
     aoHalfInfo.imageView   = state.myAoHalf.ImageView();
     aoHalfInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    std::array< VkWriteDescriptorSet, 3 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myHbaoDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHbaoDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHbaoDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoHalfInfo, 2, 1 ),
+    std::array< VkWriteDescriptorSet, 4 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoHalfInfo, 3, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -229,32 +235,36 @@ void UpdateAllDescriptorSets( Vk_Core& aCore ) {
     Vk_AoState& state = aCore.myAoState;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdateClassicDescriptorSet( aCore, i );
-        UpdateHbaoDescriptorSet( aCore, i );
+        UpdateHalfResDescriptorSet( aCore, i );
         UpdateUpsampleDescriptorSet( aCore, i );
         UpdateBlurDescriptorSet( aCore, i, state.myBlurHorizDescriptorSets[ i ], state.myAoRaw.ImageView(), state.myAoBlur.ImageView() );
         UpdateBlurDescriptorSet( aCore, i, state.myBlurVertDescriptorSets[ i ], state.myAoBlur.ImageView(), state.myAoRaw.ImageView() );
     }
 }
 
-VkPipeline CreateComputePipeline( Vk_Core& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
-                                  VkPushConstantRange aPushRange ) {
-    VkShaderModule computeModule = aCore.CreateShaderModule( aSpvPath );
-
+VkPipelineLayout CreateComputePipelineLayout( Vk_Core& aCore, VkDescriptorSetLayout aSetLayout, VkPushConstantRange aPushRange ) {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     pipelineLayoutInfo.setLayoutCount             = 1;
     pipelineLayoutInfo.pSetLayouts                = &aSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &aPushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &aOutLayout ) != VK_SUCCESS ) {
+
+    VkPipelineLayout layout = VK_NULL_HANDLE;
+    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &layout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create pipeline layout" );
     }
+    return layout;
+}
+
+VkPipeline CreateComputePipelineWithLayout( Vk_Core& aCore, const std::string& aSpvPath, VkPipelineLayout aLayout ) {
+    VkShaderModule computeModule = aCore.CreateShaderModule( aSpvPath );
 
     const VkPipelineShaderStageCreateInfo stageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, computeModule, "main" );
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.stage  = stageInfo;
-    pipelineInfo.layout = aOutLayout;
+    pipelineInfo.layout = aLayout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
@@ -263,6 +273,12 @@ VkPipeline CreateComputePipeline( Vk_Core& aCore, const std::string& aSpvPath, V
 
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
     return pipeline;
+}
+
+VkPipeline CreateComputePipeline( Vk_Core& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
+                                  VkPushConstantRange aPushRange ) {
+    aOutLayout = CreateComputePipelineLayout( aCore, aSetLayout, aPushRange );
+    return CreateComputePipelineWithLayout( aCore, aSpvPath, aOutLayout );
 }
 
 void CreatePipelines( Vk_Core& aCore ) {
@@ -282,17 +298,18 @@ void CreatePipelines( Vk_Core& aCore ) {
         throw std::runtime_error( "Vk_AoPass: failed to create classic AO descriptor set layout" );
     }
 
-    const std::array< VkDescriptorSetLayoutBinding, 3 > hbaoBindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 4 > halfResBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
     };
-    VkDescriptorSetLayoutCreateInfo hbaoLayoutInfo{};
-    hbaoLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    hbaoLayoutInfo.bindingCount = static_cast< uint32_t >( hbaoBindings.size() );
-    hbaoLayoutInfo.pBindings    = hbaoBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &hbaoLayoutInfo, nullptr, &state.myHbaoSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create HBAO+ descriptor set layout" );
+    VkDescriptorSetLayoutCreateInfo halfResLayoutInfo{};
+    halfResLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    halfResLayoutInfo.bindingCount = static_cast< uint32_t >( halfResBindings.size() );
+    halfResLayoutInfo.pBindings    = halfResBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &halfResLayoutInfo, nullptr, &state.myHalfResSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_AoPass: failed to create half-res AO descriptor set layout" );
     }
 
     const std::array< VkDescriptorSetLayoutBinding, 3 > upsampleBindings = {
@@ -324,17 +341,18 @@ void CreatePipelines( Vk_Core& aCore ) {
     state.myClassicPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kClassicShaderPath ), state.myClassicSetLayout,
                                                      state.myClassicPipelineLayout, classicPushRange );
 
-    VkPushConstantRange hbaoPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( HbaoPushConstants ) };
-    state.myHbaoPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kHbaoShaderPath ), state.myHbaoSetLayout,
-                                                  state.myHbaoPipelineLayout, hbaoPushRange );
+    VkPushConstantRange halfResPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( HalfResAoPushConstants ) };
+    state.myHalfResPipelineLayout = CreateComputePipelineLayout( aCore, state.myHalfResSetLayout, halfResPushRange );
+    state.myHbaoPipeline          = CreateComputePipelineWithLayout( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kHbaoShaderPath ), state.myHalfResPipelineLayout );
+    state.myGtaoPipeline          = CreateComputePipelineWithLayout( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kGtaoShaderPath ), state.myHalfResPipelineLayout );
 
     VkPushConstantRange upsamplePushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoUpsamplePushConstants ) };
     state.myUpsamplePipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kUpsampleShaderPath ), state.myUpsampleSetLayout,
                                                       state.myUpsamplePipelineLayout, upsamplePushRange );
 
     VkPushConstantRange blurPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoBlurPushConstants ) };
-    state.myBlurPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath ), state.myBlurSetLayout,
-                                                  state.myBlurPipelineLayout, blurPushRange );
+    state.myBlurPipeline =
+        CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath ), state.myBlurSetLayout, state.myBlurPipelineLayout, blurPushRange );
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -364,23 +382,24 @@ void CreatePipelines( Vk_Core& aCore ) {
     }
 
     const VkDevice              device                 = aCore.myDeviceCtx.myDevice;
-    const VkPipeline            classicPipeline          = state.myClassicPipeline;
-    const VkPipeline            hbaoPipeline             = state.myHbaoPipeline;
-    const VkPipeline            upsamplePipeline         = state.myUpsamplePipeline;
-    const VkPipeline            blurPipeline             = state.myBlurPipeline;
-    const VkPipelineLayout      classicPipelineLayout    = state.myClassicPipelineLayout;
-    const VkPipelineLayout      hbaoPipelineLayout       = state.myHbaoPipelineLayout;
-    const VkPipelineLayout      upsamplePipelineLayout   = state.myUpsamplePipelineLayout;
-    const VkPipelineLayout      blurPipelineLayout       = state.myBlurPipelineLayout;
-    const VkDescriptorSetLayout classicSetLayout         = state.myClassicSetLayout;
-    const VkDescriptorSetLayout hbaoSetLayout            = state.myHbaoSetLayout;
-    const VkDescriptorSetLayout upsampleSetLayout        = state.myUpsampleSetLayout;
-    const VkDescriptorSetLayout blurSetLayout            = state.myBlurSetLayout;
-    const VkDescriptorPool      descriptorPool           = state.myDescriptorPool;
-    const VkSampler             gbufferSampler           = state.myGBufferSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, upsamplePipeline, blurPipeline, classicPipelineLayout, hbaoPipelineLayout,
-                                                      upsamplePipelineLayout, blurPipelineLayout, classicSetLayout, hbaoSetLayout, upsampleSetLayout, blurSetLayout,
-                                                      descriptorPool, gbufferSampler ]() {
+    const VkPipeline            classicPipeline        = state.myClassicPipeline;
+    const VkPipeline            hbaoPipeline           = state.myHbaoPipeline;
+    const VkPipeline            gtaoPipeline           = state.myGtaoPipeline;
+    const VkPipeline            upsamplePipeline       = state.myUpsamplePipeline;
+    const VkPipeline            blurPipeline           = state.myBlurPipeline;
+    const VkPipelineLayout      classicPipelineLayout  = state.myClassicPipelineLayout;
+    const VkPipelineLayout      halfResPipelineLayout  = state.myHalfResPipelineLayout;
+    const VkPipelineLayout      upsamplePipelineLayout = state.myUpsamplePipelineLayout;
+    const VkPipelineLayout      blurPipelineLayout     = state.myBlurPipelineLayout;
+    const VkDescriptorSetLayout classicSetLayout       = state.myClassicSetLayout;
+    const VkDescriptorSetLayout halfResSetLayout       = state.myHalfResSetLayout;
+    const VkDescriptorSetLayout upsampleSetLayout      = state.myUpsampleSetLayout;
+    const VkDescriptorSetLayout blurSetLayout          = state.myBlurSetLayout;
+    const VkDescriptorPool      descriptorPool         = state.myDescriptorPool;
+    const VkSampler             gbufferSampler         = state.myGBufferSampler;
+    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, classicPipelineLayout,
+                                                      halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, classicSetLayout, halfResSetLayout, upsampleSetLayout,
+                                                      blurSetLayout, descriptorPool, gbufferSampler ]() {
         auto destroyPipe = [ device ]( VkPipeline p ) {
             if ( p != VK_NULL_HANDLE ) {
                 vkDestroyPipeline( device, p, nullptr );
@@ -388,13 +407,14 @@ void CreatePipelines( Vk_Core& aCore ) {
         };
         destroyPipe( classicPipeline );
         destroyPipe( hbaoPipeline );
+        destroyPipe( gtaoPipeline );
         destroyPipe( upsamplePipeline );
         destroyPipe( blurPipeline );
         if ( classicPipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, classicPipelineLayout, nullptr );
         }
-        if ( hbaoPipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, hbaoPipelineLayout, nullptr );
+        if ( halfResPipelineLayout != VK_NULL_HANDLE ) {
+            vkDestroyPipelineLayout( device, halfResPipelineLayout, nullptr );
         }
         if ( upsamplePipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, upsamplePipelineLayout, nullptr );
@@ -405,8 +425,8 @@ void CreatePipelines( Vk_Core& aCore ) {
         if ( classicSetLayout != VK_NULL_HANDLE ) {
             vkDestroyDescriptorSetLayout( device, classicSetLayout, nullptr );
         }
-        if ( hbaoSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, hbaoSetLayout, nullptr );
+        if ( halfResSetLayout != VK_NULL_HANDLE ) {
+            vkDestroyDescriptorSetLayout( device, halfResSetLayout, nullptr );
         }
         if ( upsampleSetLayout != VK_NULL_HANDLE ) {
             vkDestroyDescriptorSetLayout( device, upsampleSetLayout, nullptr );
@@ -422,7 +442,7 @@ void CreatePipelines( Vk_Core& aCore ) {
         }
     } );
 
-    UtilLogger::Info( "PIPELINE", "AO compute pipelines created (Classic SSAO, HBAO+, upsample, blur)." );
+    UtilLogger::Info( "PIPELINE", "AO compute pipelines created (Classic SSAO, HBAO+, GTAO, upsample, blur)." );
 }
 
 void AllocateDescriptorSets( Vk_Core& aCore ) {
@@ -437,9 +457,9 @@ void AllocateDescriptorSets( Vk_Core& aCore ) {
         if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myClassicDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate classic AO descriptor set" );
         }
-        allocInfo.pSetLayouts = &state.myHbaoSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myHbaoDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate HBAO+ descriptor set" );
+        allocInfo.pSetLayouts = &state.myHalfResSetLayout;
+        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myHalfResDescriptorSets[ i ] ) != VK_SUCCESS ) {
+            throw std::runtime_error( "Vk_AoPass: failed to allocate half-res AO descriptor set" );
         }
         allocInfo.pSetLayouts = &state.myUpsampleSetLayout;
         if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myUpsampleDescriptorSets[ i ] ) != VK_SUCCESS ) {
@@ -503,8 +523,7 @@ void RecordClassicSsao( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     Vk_AoState& state = aCore.myAoState;
 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myClassicPipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myClassicPipelineLayout, 0, 1, &state.myClassicDescriptorSets[ aFrameIndex ], 0,
-                             nullptr );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myClassicPipelineLayout, 0, 1, &state.myClassicDescriptorSets[ aFrameIndex ], 0, nullptr );
 
     ClassicAoPushConstants push{};
     push.view       = aCore.myCamera.myView;
@@ -523,38 +542,8 @@ void RecordClassicSsao( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     }
 }
 
-void RecordHbaoPlus( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
-    Vk_AoState& state   = aCore.myAoState;
-    const VkExtent2D half = HalfExtent( aWidth, aHeight );
-
-    CmdBarrierAoForComputeWrite( aCommandBuffer, state.myAoHalf.Image(), sAoHalfLayout );
-
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myHbaoPipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myHbaoPipelineLayout, 0, 1, &state.myHbaoDescriptorSets[ aFrameIndex ], 0, nullptr );
-
-    HbaoPushConstants push{};
-    push.view            = aCore.myCamera.myView;
-    push.proj            = aCore.myCamera.myProj;
-    push.invProj         = glm::inverse( aCore.myCamera.myProj );
-    push.params          = glm::vec4( ao.myRadius, ao.myBias, ao.myEnabled ? 1.0f : 0.0f, 2.0f );
-    push.directionCount  = glm::uvec2( std::clamp( ao.myHbaoDirections, 1u, 8u ), 0u );
-    push.stepCount       = glm::uvec2( std::clamp( ao.myHbaoSteps, 1u, 8u ), 0u );
-    push.halfScreenSize  = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
-    push.fullScreenSize  = glm::vec2( static_cast< float >( aWidth ), static_cast< float >( aHeight ) );
-    vkCmdPushConstants( aCommandBuffer, state.myHbaoPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
-
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=AO HBAO+" );
-    }
-    vkCmdDispatch( aCommandBuffer, ( half.width + 7 ) / 8, ( half.height + 7 ) / 8, 1 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
-
-    VkImageMemoryBarrier halfWritten =
-        ColorImageBarrier( state.myAoHalf.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &halfWritten );
-    sAoHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+void RecordHalfResUpsample( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
+    Vk_AoState& state = aCore.myAoState;
 
     CmdBarrierAoForComputeWrite( aCommandBuffer, state.myAoRaw.Image(), sAoRawLayout );
 
@@ -574,6 +563,63 @@ void RecordHbaoPlus( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
     if ( aCore.AreCommandDebugLabelsEnabled() ) {
         aCore.CmdEndDebugLabel( aCommandBuffer );
     }
+}
+
+void RecordHalfResCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, VkPipeline aPipeline,
+                           const HalfResAoPushConstants& aPush, const char* aDebugLabel ) {
+    Vk_AoState&      state = aCore.myAoState;
+    const VkExtent2D half  = HalfExtent( aWidth, aHeight );
+
+    CmdBarrierAoForComputeWrite( aCommandBuffer, state.myAoHalf.Image(), sAoHalfLayout );
+
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, aPipeline );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myHalfResPipelineLayout, 0, 1, &state.myHalfResDescriptorSets[ aFrameIndex ], 0, nullptr );
+    vkCmdPushConstants( aCommandBuffer, state.myHalfResPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( aPush ), &aPush );
+
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdBeginDebugLabel( aCommandBuffer, aDebugLabel );
+    }
+    vkCmdDispatch( aCommandBuffer, ( half.width + 7 ) / 8, ( half.height + 7 ) / 8, 1 );
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdEndDebugLabel( aCommandBuffer );
+    }
+
+    VkImageMemoryBarrier halfWritten =
+        ColorImageBarrier( state.myAoHalf.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &halfWritten );
+    sAoHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
+
+void RecordHbaoPlus( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
+    Vk_AoState&      state = aCore.myAoState;
+    const VkExtent2D half  = HalfExtent( aWidth, aHeight );
+
+    HalfResAoPushConstants push{};
+    push.view           = aCore.myCamera.myView;
+    push.proj           = aCore.myCamera.myProj;
+    push.params         = glm::vec4( ao.myRadius, ao.myBias, ao.myEnabled ? 1.0f : 0.0f, 0.0f );
+    push.sliceCount     = glm::uvec2( std::clamp( ao.myHbaoDirections, 1u, 8u ), 0u );
+    push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myHbaoSteps, 1u, 8u ), 0u );
+    push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
+
+    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myHbaoPipeline, push, "Pass=AO HBAO+" );
+    RecordHalfResUpsample( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, ao );
+}
+
+void RecordGtao( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
+    Vk_AoState&      state = aCore.myAoState;
+    const VkExtent2D half  = HalfExtent( aWidth, aHeight );
+
+    HalfResAoPushConstants push{};
+    push.view           = aCore.myCamera.myView;
+    push.proj           = aCore.myCamera.myProj;
+    push.params         = glm::vec4( ao.myRadius, ao.myGtaoThickness, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
+    push.sliceCount     = glm::uvec2( std::clamp( ao.myGtaoSlices, 1u, 16u ), 0u );
+    push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myGtaoStepsPerSlice, 1u, 16u ), 0u );
+    push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
+
+    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myGtaoPipeline, push, "Pass=AO GTAO" );
+    RecordHalfResUpsample( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, ao );
 }
 
 void RecordClassicBlur( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight ) {
@@ -615,7 +661,7 @@ void Destroy( Vk_Core& aCore ) {
     DestroyAoImages( aCore );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.myAoState.myClassicDescriptorSets[ i ]   = VK_NULL_HANDLE;
-        aCore.myAoState.myHbaoDescriptorSets[ i ]      = VK_NULL_HANDLE;
+        aCore.myAoState.myHalfResDescriptorSets[ i ]   = VK_NULL_HANDLE;
         aCore.myAoState.myUpsampleDescriptorSets[ i ]  = VK_NULL_HANDLE;
         aCore.myAoState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
         aCore.myAoState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
@@ -665,13 +711,16 @@ void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFr
     if ( ao.myMethod == Gfx_AoMethod::HbaoPlus ) {
         RecordHbaoPlus( aCore, aCommandBuffer, aFrameIndex, width, height, ao );
     }
+    else if ( ao.myMethod == Gfx_AoMethod::Gtao ) {
+        RecordGtao( aCore, aCommandBuffer, aFrameIndex, width, height, ao );
+    }
     else {
         RecordClassicSsao( aCore, aCommandBuffer, aFrameIndex, width, height, ao );
     }
 
     const bool contactSoft = ao.myContactSoftEnabled && aCore.myShadowAoSoftState.myInitialized;
     if ( contactSoft ) {
-        // Raw linear AO stays in GENERAL for ShadowAoSoft pack pass.
+        // Raw AO may be SHADER_READ_ONLY after prior frame; ShadowAoSoft pack reads via sampler.
         return;
     }
 
@@ -687,6 +736,14 @@ VkImageView GetRawAoImageView( const Vk_Core& aCore ) {
         return aCore.myAoState.myAoRaw.ImageView();
     }
     return VK_NULL_HANDLE;
+}
+
+void NoteRawAoLayout( VkImageLayout aLayout ) {
+    sAoRawLayout = aLayout;
+}
+
+VkImageLayout GetRawAoLayout() {
+    return sAoRawLayout;
 }
 
 }  // namespace Vk_AoPass

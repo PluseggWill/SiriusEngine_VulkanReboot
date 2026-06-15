@@ -7,6 +7,7 @@
 enum class Gfx_AoMethod : uint8_t {
     ClassicSsao = 0,  // 16-tap hemisphere SSAO (full-res)
     HbaoPlus,         // Horizon-based AO (half-res + depth-aware upsample)
+    Gtao,             // Ground-truth slice integration (half-res + upsample)
     Count
 };
 
@@ -16,12 +17,14 @@ inline const char* Gfx_AoMethodLabel( Gfx_AoMethod aMethod ) {
         return "Classic SSAO";
     case Gfx_AoMethod::HbaoPlus:
         return "HBAO+";
+    case Gfx_AoMethod::Gtao:
+        return "GTAO";
     default:
         return "Unknown";
     }
 }
 
-// Half-res compute + upsample (HBAO+). Classic SSAO is full-res only.
+// Half-res compute + shared AoUpsample.comp. Classic SSAO is full-res only.
 inline bool Gfx_AoMethodUsesHalfResTarget( Gfx_AoMethod aMethod ) {
-    return aMethod == Gfx_AoMethod::HbaoPlus;
+    return aMethod == Gfx_AoMethod::HbaoPlus || aMethod == Gfx_AoMethod::Gtao;
 }

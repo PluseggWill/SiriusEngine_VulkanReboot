@@ -1,6 +1,6 @@
 # Plan: gtao — Ground Truth Ambient Occlusion (roadmap)
 
-**Status:** Open (roadmap — not kicked off)  
+**Status:** Closed (2026-06-16)  
 **Deps:** `hbao-plus_Plan.md` (modular `Vk_AoPass` + `Gfx_AoMethod`)
 
 ## Problem

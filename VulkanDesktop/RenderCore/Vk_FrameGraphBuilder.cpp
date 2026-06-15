@@ -178,8 +178,16 @@ bool IsShadowPassEnabled( const Vk_FrameGraphContext& aCtx ) {
     return aCtx.myCore->myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCtx.myCore->myLightingSettings.myShadowsEnabled, sunDir );
 }
 
+bool IsDepthPyramidEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myDepthPyramidState.myInitialized;
+}
+
+bool IsAoPassEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && IsDepthPyramidEnabled( aCtx );
+}
+
 bool IsAoChainEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && aCtx.myCore->myDepthPyramidState.myInitialized;
+    return IsAoPassEnabled( aCtx );
 }
 
 bool IsShadowAoSoftEnabled( const Vk_FrameGraphContext& aCtx ) {
@@ -279,7 +287,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
     aOutNodes.push_back( FrameGraphNode{
         Vk_FrameGraphPassId::DepthPyramid,
         { Vk_FrameGraphPassId::ClusterBuild },
-        IsAoChainEnabled,
+        IsDepthPyramidEnabled,
         []( Vk_FrameGraphContext& aCtx ) {
             CmdBarrierGBufferColorsForDeferredRead( *aCtx.myCore, aCtx.myCommandBuffer );
             CmdBarrierGBufferDepthForShaderRead( *aCtx.myCore, aCtx.myCommandBuffer );
@@ -290,7 +298,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
     aOutNodes.push_back( FrameGraphNode{
         Vk_FrameGraphPassId::SSAO,
         { Vk_FrameGraphPassId::DepthPyramid },
-        IsAoChainEnabled,
+        IsAoPassEnabled,
         []( Vk_FrameGraphContext& aCtx ) { Vk_AoPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); },
     } );
 
@@ -299,7 +307,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         { Vk_FrameGraphPassId::GBuffer, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::SSAO },
         IsShadowAoSoftEnabled,
         []( Vk_FrameGraphContext& aCtx ) {
-            Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoChainEnabled( aCtx ) );
+            Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) );
         },
     } );
 
@@ -310,10 +318,8 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         []( Vk_FrameGraphContext& aCtx ) {
             Vk_Core& aCore = *aCtx.myCore;
 
-            if ( !IsAoChainEnabled( aCtx ) ) {
-                CmdBarrierGBufferColorsForDeferredRead( aCore, aCtx.myCommandBuffer );
-                CmdBarrierGBufferDepthForShaderRead( aCore, aCtx.myCommandBuffer );
-            }
+            // G-buffer color/depth barriers run in DepthPyramid (always before deferred). Re-barrier here when AO is off
+            // would use stale ATTACHMENT oldLayout after depth is already READ_ONLY (validation error).
 
             Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCtx.myCommandBuffer );
             CmdCopyGBufferDepthToSwapchain( aCore, aCtx.myCommandBuffer );

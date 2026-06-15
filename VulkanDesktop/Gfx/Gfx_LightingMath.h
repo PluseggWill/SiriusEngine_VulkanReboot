@@ -34,9 +34,9 @@ struct Gfx_LightSpaceBounds {
     glm::vec3 myMax{ std::numeric_limits< float >::lowest() };
 };
 
-// Default sun for Z-up outdoor scenes (surface → sun): elevated, slightly ahead of spawn look (+Y).
+// Default sun for Z-up outdoor scenes (surface → sun): high noon with slight +X/+Y bias.
 inline glm::vec3 Gfx_DefaultSunDirectionTowardLight() {
-    return glm::normalize( glm::vec3( 0.25f, 0.45f, 0.85f ) );
+    return glm::normalize( glm::vec3( 0.1f, 0.2f, 1.0f ) );
 }
 
 // Z-up v0 directional shadow map is fit for overhead sun only (Khronos outdoor contract).

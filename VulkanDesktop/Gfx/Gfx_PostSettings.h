@@ -2,7 +2,7 @@
 
 // CPU-side post-process tuning (HybridDeferred; ImGui via Util_PostProcessPanel).
 struct Gfx_PostSettings {
-    float myExposure       = 1.0f;
+    float myExposure       = 1.2f;
     bool  myTonemapEnabled = true;
     bool  myBloomEnabled   = false;
     float myBloomThreshold = 1.0f;
