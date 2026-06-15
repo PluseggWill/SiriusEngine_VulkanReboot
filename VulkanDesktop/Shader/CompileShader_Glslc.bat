@@ -149,6 +149,34 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\SsaoBlur.spv"
 
+"%GLSLC%" "%SHADER_DIR%Tonemap.vert" -o "%GEN_DIR%TonemapVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: Tonemap.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\TonemapVert.spv"
+
+"%GLSLC%" "%SHADER_DIR%Tonemap.frag" -o "%GEN_DIR%TonemapFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: Tonemap.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TonemapFrag.spv"
+
+"%GLSLC%" "%SHADER_DIR%BloomThreshold.comp" -o "%GEN_DIR%BloomThreshold.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: BloomThreshold.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\BloomThreshold.spv"
+
+"%GLSLC%" "%SHADER_DIR%BloomBlur.comp" -o "%GEN_DIR%BloomBlur.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: BloomBlur.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\BloomBlur.spv"
+
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 
 REM Phase 2a (lit_batch) + 2d (lit_bindless): SPIRV-Reflect + descriptor contracts — stderr/log only; see shader-build.mdc.

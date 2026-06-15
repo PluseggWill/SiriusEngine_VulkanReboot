@@ -367,6 +367,30 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## S6 — SSAO + Hi-Z depth pyramid *(closed 2026-06-15)*
+
+| | |
+|--|--|
+| **Outcome** | R32 Hi-Z mip chain; 16-tap SSAO + blur; AO modulates ambient/IBL in deferred; debug views AO/Hi-Z |
+| **Validation** | `Verify-CI.ps1`; manual Sponza AO checklist |
+| **Plan log** | [`Archived/plans/s6-ssao-hiz_Plan.md`](Archived/plans/s6-ssao-hiz_Plan.md) · [`s6-ssao-hiz_Progress.md`](Archived/plans/s6-ssao-hiz_Progress.md) |
+
+- [x] **[S6]** SSAO + Hi-Z (Lighting-3) — 2026-06-15
+
+---
+
+## S7 — Post + frame graph v1 *(closed 2026-06-15)*
+
+| | |
+|--|--|
+| **Outcome** | HDR intermediate; tonemap (ACES/Reinhard) + exposure; optional bloom; `Vk_FrameGraphBuilder` v1 |
+| **Validation** | `Verify-CI.ps1`; G4 contributor (shadow + post on hybrid chain) |
+| **Plan log** | [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/s7-post-fg_Plan.md) · [`s7-post-fg_Progress.md`](Archived/plans/s7-post-fg_Progress.md) |
+
+- [x] **[S7]** Post-processing + frame graph v1 (Lighting-4) — 2026-06-15
+
+---
+
 ## S3 — hygiene *(closed 2026-06-11)*
 
 - [x] **[S3]** `LNK4098` linker warning — not reproducible on Debug\|x64 rebuild 2026-06-11; no action (optional task closed)

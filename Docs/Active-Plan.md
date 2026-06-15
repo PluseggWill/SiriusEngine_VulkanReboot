@@ -13,9 +13,7 @@ Done → move line to Archived-Plan; no `[x]` here.
 
 | # | Sprint | Focus | Epic / plan | Blocked by |
 |---|--------|--------|-------------|------------|
-| 1 | **S6** | SSAO + Hi-Z depth pyramid | Wishlist §S6 | S5 ✓ |
-| 2 | **S7** | Post (tonemap/exposure/bloom) + FG builder v1 | hybrid-deferred §A · Wishlist §S7 | S4–S6 |
-| 3 | **S8** | DDGI / GI preset (Stage 3) | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | **G4** |
+| 1 | **S8** | DDGI / GI preset (Stage 3) | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | **G4** |
 | — | **S9** | Simulation | [`Wishlist.md`](Wishlist.md) §S9 | **G2** ✓ (parallel) |
 | — | **S10–S12** | Meshlet → mesh shader → GPU mesh *(deferred)* | Wishlist § Geometry track | **G3** (S10 only) |
 

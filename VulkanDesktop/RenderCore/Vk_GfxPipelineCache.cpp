@@ -6,6 +6,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PipelineDiagnostics.h"
+#include "Vk_PostProcessPass.h"
 #include "Vk_VertexLayout.h"
 
 #include "../Util/Util_Logger.h"
@@ -209,12 +210,32 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
 }
 
 void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
-    // ForwardTransparent over copied G-buffer depth — separate render pass from myRenderPass (ImGui overlay RP follows).
-    if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) || aCore.mySwapchainCtx.myHybridResolveRenderPass == VK_NULL_HANDLE ) {
+    // ForwardTransparent over copied G-buffer depth — HDR hybrid RP owned by Vk_PostProcessPass.
+    if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
         return;
     }
 
+    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    if ( aCore.mySceneGpuCtx.myBasicPipelineHybridResolve != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.mySceneGpuCtx.myBasicPipelineHybridResolve, nullptr );
+        aCore.mySceneGpuCtx.myBasicPipelineHybridResolve = VK_NULL_HANDLE;
+    }
+    if ( aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve, nullptr );
+        aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve = VK_NULL_HANDLE;
+    }
+    if ( aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve, nullptr );
+        aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve = VK_NULL_HANDLE;
+    }
+    if ( aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve, nullptr );
+        aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve = VK_NULL_HANDLE;
+    }
+
     UtilLogger::Info( "PIPELINE", "Creating hybrid-resolve transparent pipelines." );
+
+    const VkRenderPass hybridRenderPass = aCore.myPostProcessState.myHybridRenderPass;
 
     VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
     VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
@@ -234,7 +255,7 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
     scissor.extent = aCore.mySwapchainCtx.mySwapChainExtent;
 
     VkPipelineRasterizationStateCreateInfo rasterizer       = VkInit::Pipeline_RasterizationCreateInfo( FILL_MODE_LINE ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL );
-    VkPipelineMultisampleStateCreateInfo   multisampling    = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
+    VkPipelineMultisampleStateCreateInfo   multisampling    = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
     VkPipelineDepthStencilStateCreateInfo  depthStencilInfo = VkInit::Pipeline_DepthStencilCreateInfo();
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main" );
@@ -257,18 +278,17 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
     diag.myLabel          = "basic-lit-opaque-hybrid-resolve";
     diag.myVertShaderPath = vertShaderPath.c_str();
     diag.myFragShaderPath = fragShaderPath.c_str();
-    diag.myColorFormat    = aCore.mySwapchainCtx.mySwapChainImageFormat;
+    diag.myColorFormat    = kPostSceneColorFormat;
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
-    pipelineBuilder.myPipelineLayout = aCore.mySceneGpuCtx.myPipelineLayout;
-    aCore.mySceneGpuCtx.myBasicPipelineHybridResolve =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+    pipelineBuilder.myPipelineLayout                 = aCore.mySceneGpuCtx.myPipelineLayout;
+    aCore.mySceneGpuCtx.myBasicPipelineHybridResolve = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
 
     pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     diag.myLabel                           = "basic-lit-transparent-hybrid-resolve";
     aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
 
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         VkShaderModule bindlessFragModule      = aCore.CreateShaderModule( bindlessFragShaderPath );
@@ -279,13 +299,13 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
         diag.myLabel                           = "basic-lit-bindless-opaque-hybrid-resolve";
         diag.myFragShaderPath                  = bindlessFragShaderPath.c_str();
         aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve =
-            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
 
         pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
         pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
         diag.myLabel                           = "basic-lit-bindless-transparent-hybrid-resolve";
         aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve =
-            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
         vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, bindlessFragModule, nullptr );
     }
 

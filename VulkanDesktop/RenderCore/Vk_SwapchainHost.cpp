@@ -181,7 +181,6 @@ void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Core& aCore, bool aIn
     CreateFrameBuffers( aCore );
     Vk_GBufferPass::RecreateForExtent( aCore );
     Vk_ClusterBuildPass::RecreateForExtent( aCore );
-    Vk_DeferredLightingPass::RecreateForExtent( aCore );
 }
 
 void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Core& aCore ) {
@@ -499,36 +498,16 @@ void Vk_SwapchainHost::CreateRenderPass( Vk_Core& aCore ) {
         throw std::runtime_error( "failed to create render pass!" );
     }
 
-    // HybridDeferred: depth LOAD after G-buffer depth copy (ForwardTransparent reads opaque depth).
-    // Depth attachment is always index 1 (color/MSAA color at 0; resolve at 2 when MSAA).
-    std::vector< VkAttachmentDescription > hybridAttachments = attachments;
-    if ( hybridAttachments.size() >= 2 ) {
-        hybridAttachments[ 1 ].loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD;
-        hybridAttachments[ 1 ].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        renderPassInfo.pAttachments          = hybridAttachments.data();
-        if ( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.mySwapchainCtx.myHybridResolveRenderPass ) != VK_SUCCESS ) {
-            throw std::runtime_error( "failed to create hybrid resolve render pass!" );
-        }
-    }
-
-    const VkDevice     device       = aCore.myDeviceCtx.myDevice;
-    const VkRenderPass render       = aCore.mySwapchainCtx.myRenderPass;
-    const VkRenderPass hybridRender = aCore.mySwapchainCtx.myHybridResolveRenderPass;
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, render, hybridRender ]() {
-        vkDestroyRenderPass( device, render, nullptr );
-        if ( hybridRender != VK_NULL_HANDLE ) {
-            vkDestroyRenderPass( device, hybridRender, nullptr );
-        }
-    } );
+    // HybridDeferred hybrid resolve RP/FB now owned by Vk_PostProcessPass (HDR scene color).
+    const VkDevice     device = aCore.myDeviceCtx.myDevice;
+    const VkRenderPass render = aCore.mySwapchainCtx.myRenderPass;
+    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, render ]() { vkDestroyRenderPass( device, render, nullptr ); } );
 }
 
 void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
     const size_t imageCount = aCore.mySwapchainCtx.mySwapChainImageViews.size();
     aCore.mySwapchainCtx.mySwapChainFrameBuffers.resize( imageCount );
     aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.clear();
-    if ( aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE ) {
-        aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.resize( imageCount );
-    }
 
     const bool useMsaaResolve = ( aCore.mySwapchainCtx.myMSAASamples != VK_SAMPLE_COUNT_1_BIT );
     for ( size_t i = 0; i < imageCount; i++ ) {
@@ -553,23 +532,12 @@ void Vk_SwapchainHost::CreateFrameBuffers( Vk_Core& aCore ) {
         if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.mySwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to create framebuffer!" );
         }
-
-        if ( !aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers.empty() ) {
-            frameBufferInfo.renderPass = aCore.mySwapchainCtx.myHybridResolveRenderPass;
-            if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
-                throw std::runtime_error( "failed to create hybrid resolve framebuffer!" );
-            }
-        }
     }
 
-    const VkDevice device             = aCore.myDeviceCtx.myDevice;
-    const auto     frameBuffers       = aCore.mySwapchainCtx.mySwapChainFrameBuffers;
-    const auto     hybridFrameBuffers = aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers;
-    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, frameBuffers, hybridFrameBuffers ]() {
+    const VkDevice device       = aCore.myDeviceCtx.myDevice;
+    const auto     frameBuffers = aCore.mySwapchainCtx.mySwapChainFrameBuffers;
+    aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, frameBuffers ]() {
         for ( VkFramebuffer frameBuffer : frameBuffers ) {
-            vkDestroyFramebuffer( device, frameBuffer, nullptr );
-        }
-        for ( VkFramebuffer frameBuffer : hybridFrameBuffers ) {
             vkDestroyFramebuffer( device, frameBuffer, nullptr );
         }
     } );

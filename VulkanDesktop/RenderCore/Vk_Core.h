@@ -13,6 +13,7 @@
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Gfx/Gfx_PostSettings.h"
 #include "../Gfx/Gfx_RenderView.h"
 
 #include "../Util/Util_FrameStats.h"
@@ -37,9 +38,11 @@
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameDrawPrep.h"
+#include "Vk_FrameGraphBuilder.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
+#include "Vk_PostProcessPass.h"
 #include "Vk_ShadowMapPass.h"
 #include "Vk_SsaoPass.h"
 
@@ -142,6 +145,11 @@ public:
     Gfx_AoSettings& GetAoSettings() {
 
         return myAoSettings;
+    }
+
+    Gfx_PostSettings& GetPostSettings() {
+
+        return myPostSettings;
     }
 
     void ConfigureRenderDoc( bool aEnableRenderDoc );
@@ -273,6 +281,8 @@ public:
 
     Vk_SsaoState mySsaoState;
 
+    Vk_PostProcessState myPostProcessState;
+
     Vk_IblResourcesState myIblResourcesState;
 
     Vk_ShadowMapState myShadowMapState;
@@ -290,6 +300,8 @@ public:
     Gfx_LightingSettings myLightingSettings;
 
     Gfx_AoSettings myAoSettings;
+
+    Gfx_PostSettings myPostSettings;
 
     Vk_AllocatedBuffer myEnvDataBuffer;
 

@@ -1,5 +1,5 @@
-// Module: Vk_GBufferPass — FG v0 (HybridDeferred preset).
-// Chain: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> swapchain.
+// Module: Vk_GBufferPass — FG v1 (HybridDeferred preset).
+// Chain driven by Vk_FrameGraphBuilder: Shadow -> GBuffer -> Cluster -> HiZ/SSAO -> HDR hybrid -> Post.
 // G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
@@ -16,9 +16,12 @@
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_FrameGraphBuilder.h"
 #include "Vk_FrameUniformUploader.h"
+#include "Vk_GfxPipelineCache.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_PostProcessPass.h"
 #include "Vk_RenderBackend.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
@@ -413,7 +416,9 @@ void RecreateForExtent( Vk_Core& aCore ) {
     RebuildResources( aCore );
     Vk_DepthPyramidPass::RecreateForExtent( aCore );
     Vk_SsaoPass::RecreateForExtent( aCore );
+    Vk_PostProcessPass::RecreateForExtent( aCore );
     Vk_DeferredLightingPass::RecreateForExtent( aCore );
+    Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( aCore );
 }
 
 void RecreatePipelines( Vk_Core& aCore ) {
@@ -437,131 +442,27 @@ void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkComma
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
-    static bool sChainLoggedOnce           = false;
     static bool sIndirectPathLoggedOnce    = false;
     static bool sGpuIndirectPathLoggedOnce = false;
 
-    if ( !sChainLoggedOnce ) {
-        if ( aCore.myLightingSettings.myShadowsEnabled ) {
-            UtilLogger::Info( "FG",
-                              "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DepthPyramid -> SSAO -> DeferredLighting -> ForwardTransparent" );
-        }
-        else {
-            UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DepthPyramid -> SSAO -> DeferredLighting -> ForwardTransparent" );
-        }
-        sChainLoggedOnce = true;
-    }
+    Vk_FrameGraphContext fgCtx{};
+    fgCtx.myCore             = &aCore;
+    fgCtx.myToggles          = &aToggles;
+    fgCtx.myCommandBuffer    = aCommandBuffer;
+    fgCtx.myImageIndex       = anImageIndex;
+    fgCtx.myFrameIndex       = aCore.myFrameCtx.myCurrentFrame;
+    fgCtx.myViewports        = &aViewports;
+    fgCtx.myScissors         = &aScissors;
+    fgCtx.myFrameDescriptors = &aFrameDescriptors;
+    fgCtx.myViewCount        = aViewCount;
+    fgCtx.myViewPackets      = &aViewPackets;
 
-    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
-    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-    const VkPipeline            gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
-    if ( gbufferPipeline == VK_NULL_HANDLE ) {
-        static bool sNullPipelineWarnOnce = false;
-        if ( !sNullPipelineWarnOnce ) {
-            UtilLogger::Error( "FG", "G-buffer pipeline null; opaque skipped (stale layout after swapchain recreate?)" );
-            sNullPipelineWarnOnce = true;
-        }
-    }
+    Vk_FrameGraphBuilder::RecordHybridDeferred( fgCtx );
 
-    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
-
-    Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
-    const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
-
-    constexpr uint32_t           viewIndex = 0;  // FG v0: single view
-    const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
-
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    const bool      recordShadowPass =
-        aCore.myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir );
-
-    if ( recordShadowPass ) {
-        if ( packet != nullptr && !packet->myShadowCasterPass.myDraws.empty() ) {
-            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, packet->myShadowCasterPass, emitDebugLabels );
-        }
-        else {
-            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, Gfx_PassDrawPacket{}, emitDebugLabels );
-        }
-    }
-    else {
-        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
-    }
-
-    VkRenderPassBeginInfo gbufferBegin{};
-    gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    gbufferBegin.renderPass        = aCore.myGBufferState.myRenderPass;
-    gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
-    gbufferBegin.renderArea.offset = { 0, 0 };
-    gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    std::array< VkClearValue, 4 > gbufferClears{};
-    gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
-    gbufferClears[ 2 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    gbufferClears[ 3 ].depthStencil = { 1.0f, 0 };
-    gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
-    gbufferBegin.pClearValues       = gbufferClears.data();
-
-    vkCmdBeginRenderPass( aCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
-
-    if ( packet != nullptr ) {
-        aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
-        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
-
-        if ( gbufferPipeline != VK_NULL_HANDLE && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aToggles.mySkipOpaquePass ) {
-            if ( emitDebugLabels ) {
-                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
-            }
-            Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
-                                                     legacyDirectDraw, emitDebugLabels, gbufferPipeline );
-            if ( emitDebugLabels ) {
-                aCore.CmdEndDebugLabel( aCommandBuffer );
-            }
-        }
-    }
-
-    vkCmdEndRenderPass( aCommandBuffer );
-
-    Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-
-    CmdBarrierGBufferColorsForDeferredRead( aCore, aCommandBuffer );
-    CmdBarrierGBufferDepthForShaderRead( aCore, aCommandBuffer );
-    Vk_DepthPyramidPass::RecordBuild( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-    Vk_SsaoPass::RecordCompute( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-    CmdBarrierShadowMapForDeferredRead( aCore, aCommandBuffer );
-    CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
-
-    // Hybrid resolve RP: color clear + depth LOAD (opaque depth copied above).
-    VkRenderPassBeginInfo swapBegin{};
-    swapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    swapBegin.renderPass        = aCore.mySwapchainCtx.myHybridResolveRenderPass;
-    swapBegin.framebuffer       = aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers[ anImageIndex ];
-    swapBegin.renderArea.offset = { 0, 0 };
-    swapBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    std::array< VkClearValue, 2 > swapClears{};
-    swapClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    swapClears[ 1 ].depthStencil = { 1.0f, 0 };  // ignored when depth loadOp=LOAD
-    swapBegin.clearValueCount    = static_cast< uint32_t >( swapClears.size() );
-    swapBegin.pClearValues       = swapClears.data();
-
-    vkCmdBeginRenderPass( aCommandBuffer, &swapBegin, VK_SUBPASS_CONTENTS_INLINE );
-
-    aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
-    Vk_DeferredLightingPass::RecordDraw( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-
-    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aToggles.mySkipTransparentPass && !packet->myTransparentPass.myDraws.empty() ) {
-        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
-        if ( emitDebugLabels ) {
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ForwardTransparent" );
-        }
-        Vk_ScenePasses::RecordTransparentPacketDraws( aCore, aCommandBuffer, packet->myTransparentPass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
-                                                      legacyDirectDraw, emitDebugLabels );
-        if ( emitDebugLabels ) {
-            aCore.CmdEndDebugLabel( aCommandBuffer );
-        }
-    }
+    constexpr uint32_t           viewIndex        = 0;
+    const Gfx_FrameRenderPacket* packet           = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
+    const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
 
     if ( aViewCount > 0 && packet != nullptr && gpuCullRecord && !sGpuIndirectPathLoggedOnce ) {
         UtilLogger::Info( "RENDER", "Scene record using GPU-filled slot indirect (EntityCull.comp → myGpuCullIndirectBuffer)." );
@@ -572,10 +473,6 @@ void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkComma
         UtilLogger::Info( "RENDER", "Scene record using CPU vkCmdDrawIndexedIndirect (draw templates uploaded each frame)." );
         sIndirectPathLoggedOnce = true;
     }
-
-    Vk_ScenePasses::RecordHybridPiPViews( aCore, aToggles, aCommandBuffer, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
-
-    vkCmdEndRenderPass( aCommandBuffer );
 }
 
 }  // namespace Vk_GBufferPass

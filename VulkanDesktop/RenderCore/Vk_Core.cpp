@@ -223,6 +223,8 @@ void Vk_Core::LoadSceneGpuResources( WorldState& aWorld ) {
         Vk_ClusterBuildPass::Init( *this );
         Vk_DepthPyramidPass::Init( *this );
         Vk_SsaoPass::Init( *this );
+        Vk_PostProcessPass::Init( *this );
+        Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( *this );
         Vk_DeferredLightingPass::Init( *this );
     }
 
@@ -261,6 +263,7 @@ void Vk_Core::UnloadSceneGpuResources() {
 
     ShutdownImGui();
     Vk_DeferredLightingPass::Destroy( *this );
+    Vk_PostProcessPass::Destroy( *this );
     Vk_SsaoPass::Destroy( *this );
     Vk_DepthPyramidPass::Destroy( *this );
     Vk_ClusterBuildPass::Destroy( *this );

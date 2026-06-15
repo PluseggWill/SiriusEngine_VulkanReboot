@@ -1,9 +1,9 @@
 // Pre-record ImGui panels (phase 2 peel). All debug UI orchestration lives here (App thread).
 #include "DebugOverlay.h"
 
-#include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
+#include "../Gfx/Gfx_PostSettings.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_Core.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
@@ -77,7 +77,8 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
 }
 
 void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, GpuEnvironmentData& anEnvironment,
-                             Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings, const Vk_FrameCpuPrepResult& aPrep, const Vk_Camera& aFlyCamera ) {
+                             Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings, Gfx_PostSettings& aPostSettings, const Vk_FrameCpuPrepResult& aPrep,
+                             const Vk_Camera& aFlyCamera ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
@@ -96,7 +97,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 UtilRenderDebugPanel::BuildContents( aConfig, aDebugUI.myRenderDebug, anEnvironment, aPrep.myTotalOpaqueDraws, aPrep.myTotalTransparentDraws );
                 aAoSettings.myHiZDebugMip = aDebugUI.myRenderDebug.myHiZDebugMip;
                 ImGui::Separator();
-                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings );
+                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings, aPostSettings );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {
@@ -119,6 +120,7 @@ void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aD
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetAoSettings(), aPrep, aCore.GetFlyCamera() );
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetAoSettings(), aCore.GetPostSettings(), aPrep,
+                            aCore.GetFlyCamera() );
     UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetFlyCamera() );
 }

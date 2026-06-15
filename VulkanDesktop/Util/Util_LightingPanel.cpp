@@ -2,6 +2,7 @@
 
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Gfx/Gfx_PostSettings.h"
 #include "../RenderCore/Vk_Camera.h"
 #include "../RenderCore/Vk_Types.h"
 #include "Util_Logger.h"
@@ -112,7 +113,8 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
 
 }  // namespace
 
-void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings ) {
+void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings,
+                                       Gfx_PostSettings& aPostSettings ) {
     ImGui::ColorEdit3( "Ambient", &anEnvironment.myAmbientColor.x );
     ImGui::ColorEdit3( "Sun color", &anEnvironment.mySunlightColor.x );
     ImGui::DragFloat3( "Sun direction", &anEnvironment.mySunlightDirection.x, 0.02f, -1.f, 1.f );
@@ -149,6 +151,19 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::SliderFloat( "AO bias", &aAoSettings.myBias, 0.001f, 0.1f );
     ImGui::SliderFloat( "AO intensity", &aAoSettings.myIntensity, 0.f, 1.f );
     ImGui::SliderFloat( "AO power", &aAoSettings.myPower, 0.5f, 4.f );
+
+    ImGui::Separator();
+    ImGui::Text( "Post-process" );
+    ImGui::Checkbox( "Tonemap enabled", &aPostSettings.myTonemapEnabled );
+    ImGui::SliderFloat( "Exposure", &aPostSettings.myExposure, 0.1f, 4.f );
+    const char* tonemapModes[] = { "Reinhard", "ACES" };
+    int         tonemapMode    = aPostSettings.myTonemapMode;
+    if ( ImGui::Combo( "Tonemap mode", &tonemapMode, tonemapModes, 2 ) ) {
+        aPostSettings.myTonemapMode = tonemapMode;
+    }
+    ImGui::Checkbox( "Bloom enabled", &aPostSettings.myBloomEnabled );
+    ImGui::SliderFloat( "Bloom threshold", &aPostSettings.myBloomThreshold, 0.5f, 4.f );
+    ImGui::SliderFloat( "Bloom intensity", &aPostSettings.myBloomIntensity, 0.f, 2.f );
 
     ImGui::Separator();
     ImGui::TextDisabled( "Specular / shininess: unused under PBR (material roughness/metallic)" );

@@ -1,0 +1,682 @@
+// Module: Vk_PostProcessPass — HDR hybrid resolve target + tonemap/bloom to swapchain.
+#include "Vk_PostProcessPass.h"
+
+#include "../Gfx/Gfx_PostSettings.h"
+#include "../Gfx/Gfx_RenderPreset.h"
+#include "../Util/Util_EngineConfig.h"
+#include "../Util/Util_Loader.h"
+#include "../Util/Util_Logger.h"
+#include "../Util/Util_VulkanResult.h"
+
+#include "Vk_Core.h"
+#include "Vk_Initializer.h"
+#include "Vk_Pipeline.h"
+
+#include <array>
+#include <stdexcept>
+#include <string>
+
+namespace {
+
+constexpr char     kTonemapVertSpv[]    = "VulkanDesktop/Shader_Generated/TonemapVert.spv";
+constexpr char     kTonemapFragSpv[]    = "VulkanDesktop/Shader_Generated/TonemapFrag.spv";
+constexpr char     kBloomThresholdSpv[] = "VulkanDesktop/Shader_Generated/BloomThreshold.spv";
+constexpr char     kBloomBlurSpv[]      = "VulkanDesktop/Shader_Generated/BloomBlur.spv";
+constexpr VkFormat kBloomFormat         = VK_FORMAT_R16G16B16A16_SFLOAT;
+
+VkImageLayout sSceneColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sBloomPingLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sBloomPongLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+
+struct TonemapPushConstants {
+    float    exposure;
+    float    bloomIntensity;
+    uint32_t tonemapEnabled;
+    uint32_t bloomEnabled;
+    uint32_t tonemapMode;
+};
+
+static_assert( sizeof( TonemapPushConstants ) == 20, "TonemapPushConstants must match Tonemap.frag push block" );
+
+struct BloomThresholdPushConstants {
+    float threshold;
+    float pad0;
+    float pad1;
+    float pad2;
+};
+
+static_assert( sizeof( BloomThresholdPushConstants ) == 16, "BloomThresholdPushConstants must match BloomThreshold.comp push block" );
+
+struct BloomBlurPushConstants {
+    uint32_t axisX;
+    uint32_t axisY;
+};
+
+static_assert( sizeof( BloomBlurPushConstants ) == 8, "BloomBlurPushConstants must match BloomBlur.comp push block" );
+
+void DestroyTexture( Vk_Core& aCore, Gfx_Texture& aTexture ) {
+    const VkDevice     device    = aCore.myDeviceCtx.myDevice;
+    const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
+    if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
+        vkDestroyImageView( device, aTexture.ImageView(), nullptr );
+        aTexture.ImageView() = VK_NULL_HANDLE;
+    }
+    if ( aTexture.Image() != VK_NULL_HANDLE ) {
+        vmaDestroyImage( allocator, aTexture.Image(), aTexture.Allocation() );
+        aTexture.AllocImage() = {};
+    }
+}
+
+VkExtent2D BloomExtent( const VkExtent2D& aFullExtent ) {
+    return { std::max( 1u, aFullExtent.width / 2 ), std::max( 1u, aFullExtent.height / 2 ) };
+}
+
+void CreateSceneColorImage( Vk_Core& aCore ) {
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.mySceneColor.AllocImage() );
+    aCore.myPostProcessState.mySceneColor.ImageView() =
+        aCore.CreateImageView( aCore.myPostProcessState.mySceneColor.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+}
+
+void CreateBloomImage( Vk_Core& aCore, Gfx_Texture& aTexture, VkExtent2D aExtent ) {
+    aCore.CreateImage( aExtent, kBloomFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
+                       VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
+    aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kBloomFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+}
+
+void CreateHybridRenderPass( Vk_Core& aCore ) {
+    VkAttachmentDescription color{};
+    color.format         = kPostSceneColorFormat;
+    color.samples        = VK_SAMPLE_COUNT_1_BIT;
+    color.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    color.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    color.finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentDescription depth{};
+    depth.format         = aCore.FindDepthFormat();
+    depth.samples        = aCore.mySwapchainCtx.myMSAASamples;
+    depth.loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depth.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    depth.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthRef{};
+    depthRef.attachment = 1;
+    depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount    = 1;
+    subpass.pColorAttachments       = &colorRef;
+    subpass.pDepthStencilAttachment = &depthRef;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    std::array< VkAttachmentDescription, 2 > attachments = { color, depth };
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
+    renderPassInfo.pAttachments    = attachments.data();
+    renderPassInfo.subpassCount    = 1;
+    renderPassInfo.pSubpasses      = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies   = &dependency;
+
+    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myPostProcessState.myHybridRenderPass ),
+                                      "vkCreateRenderPass PostProcess hybrid" );
+
+    const VkDevice     device     = aCore.myDeviceCtx.myDevice;
+    const VkRenderPass renderPass = aCore.myPostProcessState.myHybridRenderPass;
+    aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
+}
+
+void CreateHybridFramebuffer( Vk_Core& aCore ) {
+    std::array< VkImageView, 2 > attachments = { aCore.myPostProcessState.mySceneColor.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView() };
+
+    VkFramebufferCreateInfo frameBufferInfo{};
+    frameBufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    frameBufferInfo.renderPass      = aCore.myPostProcessState.myHybridRenderPass;
+    frameBufferInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
+    frameBufferInfo.pAttachments    = attachments.data();
+    frameBufferInfo.width           = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    frameBufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    frameBufferInfo.layers          = 1;
+
+    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.myPostProcessState.myHybridFramebuffer ),
+                                      "vkCreateFramebuffer PostProcess hybrid" );
+
+    const VkDevice      device      = aCore.myDeviceCtx.myDevice;
+    const VkFramebuffer framebuffer = aCore.myPostProcessState.myHybridFramebuffer;
+    aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
+}
+
+VkPipeline BuildTonemapPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+    VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
+    VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
+
+    Vk_PipelineBuilder pipelineBuilder;
+    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
+    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
+    pipelineBuilder.myVertexInputInfo               = VkInit::Pipeline_VertexInputStateCreateInfo();
+    pipelineBuilder.myInputAssembly                 = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
+    pipelineBuilder.myViewport                      = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
+    pipelineBuilder.myScissor.offset                = { 0, 0 };
+    pipelineBuilder.myScissor.extent                = aCore.mySwapchainCtx.mySwapChainExtent;
+    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
+    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
+    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
+    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
+    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_FALSE;
+    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
+    pipelineBuilder.myPipelineLayout                = aLayout;
+    pipelineBuilder.SetDefaultDynamicStates();
+
+    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
+
+    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    return pipeline;
+}
+
+VkPipeline BuildComputePipeline( Vk_Core& aCore, VkPipelineLayout aLayout, const std::string& aShaderPath ) {
+    VkShaderModule module = aCore.CreateShaderModule( aShaderPath );
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage  = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, module, "main" );
+    pipelineInfo.layout = aLayout;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    UtilVulkanResult::ThrowOnFailure( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
+                                      "vkCreateComputePipelines PostProcess" );
+    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, module, nullptr );
+    return pipeline;
+}
+
+void UpdateTonemapDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    VkDescriptorImageInfo sceneInfo{};
+    sceneInfo.sampler     = state.mySceneSampler;
+    sceneInfo.imageView   = state.mySceneColor.ImageView();
+    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo bloomInfo{};
+    bloomInfo.sampler     = state.mySceneSampler;
+    bloomInfo.imageView   = state.myBloomPong.ImageView();
+    bloomInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 2 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bloomInfo, 1, 1 ),
+    };
+    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
+void UpdateBloomThresholdDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    VkDescriptorImageInfo sceneInfo{};
+    sceneInfo.sampler     = state.mySceneSampler;
+    sceneInfo.imageView   = state.mySceneColor.ImageView();
+    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo bloomOutInfo{};
+    bloomOutInfo.imageView   = state.myBloomPing.ImageView();
+    bloomOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    std::array< VkWriteDescriptorSet, 2 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &bloomOutInfo, 1, 1 ),
+    };
+    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
+void UpdateBloomBlurDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, bool aHorizontal ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    VkDescriptorImageInfo srcInfo{};
+    srcInfo.imageView   = aHorizontal ? state.myBloomPing.ImageView() : state.myBloomPong.ImageView();
+    srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    VkDescriptorImageInfo dstInfo{};
+    dstInfo.imageView   = aHorizontal ? state.myBloomPong.ImageView() : state.myBloomPing.ImageView();
+    dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    VkDescriptorSet set = aHorizontal ? state.myBloomBlurHorizDescriptorSets[ aFrameIndex ] : state.myBloomBlurVertDescriptorSets[ aFrameIndex ];
+
+    std::array< VkWriteDescriptorSet, 2 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
+    };
+    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
+void CreatePipelineResources( Vk_Core& aCore ) {
+    if ( aCore.mySwapchainCtx.myRenderPass == VK_NULL_HANDLE ) {
+        throw std::runtime_error( "Vk_PostProcessPass: swapchain render pass is required" );
+    }
+
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter    = VK_FILTER_LINEAR;
+    samplerInfo.minFilter    = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.mySceneSampler ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: failed to create sampler" );
+    }
+    const VkDevice  device  = aCore.myDeviceCtx.myDevice;
+    const VkSampler sampler = state.mySceneSampler;
+    state.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
+
+    const std::array< VkDescriptorSetLayoutBinding, 2 > tonemapBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
+    };
+    VkDescriptorSetLayoutCreateInfo tonemapLayoutInfo{};
+    tonemapLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    tonemapLayoutInfo.bindingCount = static_cast< uint32_t >( tonemapBindings.size() );
+    tonemapLayoutInfo.pBindings    = tonemapBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &tonemapLayoutInfo, nullptr, &state.myTonemapSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: tonemap descriptor layout failed" );
+    }
+
+    VkPushConstantRange tonemapPush{};
+    tonemapPush.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    tonemapPush.offset     = 0;
+    tonemapPush.size       = sizeof( TonemapPushConstants );
+
+    VkPipelineLayoutCreateInfo tonemapPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    tonemapPipelineLayoutInfo.setLayoutCount             = 1;
+    tonemapPipelineLayoutInfo.pSetLayouts                = &state.myTonemapSetLayout;
+    tonemapPipelineLayoutInfo.pushConstantRangeCount     = 1;
+    tonemapPipelineLayoutInfo.pPushConstantRanges        = &tonemapPush;
+    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &tonemapPipelineLayoutInfo, nullptr, &state.myTonemapPipelineLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: tonemap pipeline layout failed" );
+    }
+
+    const std::array< VkDescriptorSetLayoutBinding, 2 > thresholdBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
+    };
+    VkDescriptorSetLayoutCreateInfo thresholdLayoutInfo{};
+    thresholdLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    thresholdLayoutInfo.bindingCount = static_cast< uint32_t >( thresholdBindings.size() );
+    thresholdLayoutInfo.pBindings    = thresholdBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &thresholdLayoutInfo, nullptr, &state.myBloomThresholdSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: bloom threshold descriptor layout failed" );
+    }
+
+    VkPushConstantRange thresholdPush{};
+    thresholdPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    thresholdPush.offset     = 0;
+    thresholdPush.size       = sizeof( BloomThresholdPushConstants );
+
+    VkPipelineLayoutCreateInfo thresholdPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    thresholdPipelineLayoutInfo.setLayoutCount             = 1;
+    thresholdPipelineLayoutInfo.pSetLayouts                = &state.myBloomThresholdSetLayout;
+    thresholdPipelineLayoutInfo.pushConstantRangeCount     = 1;
+    thresholdPipelineLayoutInfo.pPushConstantRanges        = &thresholdPush;
+    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &thresholdPipelineLayoutInfo, nullptr, &state.myBloomThresholdPipelineLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: bloom threshold pipeline layout failed" );
+    }
+
+    const std::array< VkDescriptorSetLayoutBinding, 2 > blurBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
+    };
+    VkDescriptorSetLayoutCreateInfo blurLayoutInfo{};
+    blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
+    blurLayoutInfo.pBindings    = blurBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBloomBlurSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: bloom blur descriptor layout failed" );
+    }
+
+    VkPushConstantRange blurPush{};
+    blurPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    blurPush.offset     = 0;
+    blurPush.size       = sizeof( BloomBlurPushConstants );
+
+    VkPipelineLayoutCreateInfo blurPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    blurPipelineLayoutInfo.setLayoutCount             = 1;
+    blurPipelineLayoutInfo.pSetLayouts                = &state.myBloomBlurSetLayout;
+    blurPipelineLayoutInfo.pushConstantRangeCount     = 1;
+    blurPipelineLayoutInfo.pPushConstantRanges        = &blurPush;
+    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &blurPipelineLayoutInfo, nullptr, &state.myBloomBlurPipelineLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
+    }
+
+    VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 3 ) },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 4 ) },
+    };
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast< uint32_t >( std::size( poolSizes ) );
+    poolInfo.pPoolSizes    = poolSizes;
+    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 4 );
+    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: descriptor pool failed" );
+    }
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool     = state.myDescriptorPool;
+        allocInfo.descriptorSetCount = 1;
+
+        allocInfo.pSetLayouts = &state.myTonemapSetLayout;
+        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] );
+
+        allocInfo.pSetLayouts = &state.myBloomThresholdSetLayout;
+        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] );
+
+        allocInfo.pSetLayouts = &state.myBloomBlurSetLayout;
+        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] );
+        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] );
+
+        UpdateTonemapDescriptorSet( aCore, i );
+        UpdateBloomThresholdDescriptorSet( aCore, i );
+        UpdateBloomBlurDescriptorSet( aCore, i, true );
+        UpdateBloomBlurDescriptorSet( aCore, i, false );
+    }
+
+    const std::string tonemapVertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv );
+    const std::string tonemapFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapFragSpv );
+    state.myTonemapPipeline           = BuildTonemapPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, state.myTonemapPipelineLayout, tonemapVertPath, tonemapFragPath );
+
+    const std::string thresholdPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv );
+    const std::string blurPath      = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
+    state.myBloomThresholdPipeline  = BuildComputePipeline( aCore, state.myBloomThresholdPipelineLayout, thresholdPath );
+    state.myBloomBlurPipeline       = BuildComputePipeline( aCore, state.myBloomBlurPipelineLayout, blurPath );
+}
+
+void RebuildResources( Vk_Core& aCore ) {
+    if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
+        return;
+    }
+
+    aCore.myPostProcessState.myDeletionQueue.flush();
+    sSceneColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPingLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPongLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    CreateSceneColorImage( aCore );
+    const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
+    CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPing, bloomExtent );
+    CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPong, bloomExtent );
+
+    CreateHybridRenderPass( aCore );
+    CreateHybridFramebuffer( aCore );
+
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    UtilLogger::Info( "POST", "HDR scene color: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=R16G16B16A16_SFLOAT" );
+
+    if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
+        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myPostProcessState.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomThresholdPipeline, nullptr );
+        aCore.myPostProcessState.myBloomThresholdPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myPostProcessState.myBloomBlurPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomBlurPipeline, nullptr );
+        aCore.myPostProcessState.myBloomBlurPipeline = VK_NULL_HANDLE;
+    }
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        UpdateTonemapDescriptorSet( aCore, i );
+        UpdateBloomThresholdDescriptorSet( aCore, i );
+        UpdateBloomBlurDescriptorSet( aCore, i, true );
+        UpdateBloomBlurDescriptorSet( aCore, i, false );
+    }
+
+    if ( aCore.myPostProcessState.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
+        const std::string tonemapVertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv );
+        const std::string tonemapFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapFragSpv );
+        aCore.myPostProcessState.myTonemapPipeline =
+            BuildTonemapPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, aCore.myPostProcessState.myTonemapPipelineLayout, tonemapVertPath, tonemapFragPath );
+    }
+    if ( aCore.myPostProcessState.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
+        const std::string thresholdPath                   = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv );
+        aCore.myPostProcessState.myBloomThresholdPipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myBloomThresholdPipelineLayout, thresholdPath );
+    }
+    if ( aCore.myPostProcessState.myBloomBlurPipelineLayout != VK_NULL_HANDLE ) {
+        const std::string blurPath                   = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
+        aCore.myPostProcessState.myBloomBlurPipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myBloomBlurPipelineLayout, blurPath );
+    }
+}
+
+VkImageMemoryBarrier SceneColorBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout        = aOldLayout;
+    barrier.newLayout        = aNewLayout;
+    barrier.srcAccessMask    = aSrcAccess;
+    barrier.dstAccessMask    = aDstAccess;
+    barrier.image            = aImage;
+    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    return barrier;
+}
+
+void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+    Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const Gfx_PostSettings& post  = aCore.myPostSettings;
+
+    if ( !post.myBloomEnabled ) {
+        return;
+    }
+
+    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    if ( sBloomPingLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPing.Image(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sBloomPingLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+
+    BloomThresholdPushConstants thresholdPush{ post.myBloomThreshold, 0.f, 0.f, 0.f };
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBloomThresholdPipeline );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBloomThresholdPipelineLayout, 0, 1, &state.myBloomThresholdDescriptorSets[ aFrameIndex ],
+                             0, nullptr );
+    vkCmdPushConstants( aCommandBuffer, state.myBloomThresholdPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( thresholdPush ), &thresholdPush );
+
+    const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
+    vkCmdDispatch( aCommandBuffer, ( bloomExtent.width + 7 ) / 8, ( bloomExtent.height + 7 ) / 8, 1 );
+
+    auto runBlurPass = [ & ]( bool aHorizontal ) {
+        BloomBlurPushConstants blurPush{ aHorizontal ? 1u : 0u, aHorizontal ? 0u : 1u };
+        VkDescriptorSet        set = aHorizontal ? state.myBloomBlurHorizDescriptorSets[ aFrameIndex ] : state.myBloomBlurVertDescriptorSets[ aFrameIndex ];
+        vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBloomBlurPipeline );
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBloomBlurPipelineLayout, 0, 1, &set, 0, nullptr );
+        vkCmdPushConstants( aCommandBuffer, state.myBloomBlurPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( blurPush ), &blurPush );
+        vkCmdDispatch( aCommandBuffer, ( bloomExtent.width + 7 ) / 8, ( bloomExtent.height + 7 ) / 8, 1 );
+    };
+
+    runBlurPass( true );
+    runBlurPass( false );
+
+    VkImageMemoryBarrier bloomBarrier = SceneColorBarrier( state.myBloomPong.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bloomBarrier );
+    sBloomPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
+
+}  // namespace
+
+namespace Vk_PostProcessPass {
+
+bool HasHybridResolve( const Vk_Core& aCore ) {
+    return aCore.myPostProcessState.myInitialized && aCore.myPostProcessState.myHybridRenderPass != VK_NULL_HANDLE;
+}
+
+void Destroy( Vk_Core& aCore ) {
+    if ( !aCore.myPostProcessState.myInitialized ) {
+        return;
+    }
+    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    }
+
+    Vk_PostProcessState& state  = aCore.myPostProcessState;
+    const VkDevice       device = aCore.myDeviceCtx.myDevice;
+    if ( state.myTonemapPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
+        state.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, state.myBloomThresholdPipeline, nullptr );
+        state.myBloomThresholdPipeline = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomBlurPipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, state.myBloomBlurPipeline, nullptr );
+        state.myBloomBlurPipeline = VK_NULL_HANDLE;
+    }
+    if ( state.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( device, state.myTonemapPipelineLayout, nullptr );
+        state.myTonemapPipelineLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( device, state.myBloomThresholdPipelineLayout, nullptr );
+        state.myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomBlurPipelineLayout != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( device, state.myBloomBlurPipelineLayout, nullptr );
+        state.myBloomBlurPipelineLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myTonemapSetLayout != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorSetLayout( device, state.myTonemapSetLayout, nullptr );
+        state.myTonemapSetLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomThresholdSetLayout != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorSetLayout( device, state.myBloomThresholdSetLayout, nullptr );
+        state.myBloomThresholdSetLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myBloomBlurSetLayout != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorSetLayout( device, state.myBloomBlurSetLayout, nullptr );
+        state.myBloomBlurSetLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myDescriptorPool != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorPool( device, state.myDescriptorPool, nullptr );
+        state.myDescriptorPool = VK_NULL_HANDLE;
+    }
+
+    state.myDeletionQueue.flush();
+    DestroyTexture( aCore, state.mySceneColor );
+    DestroyTexture( aCore, state.myBloomPing );
+    DestroyTexture( aCore, state.myBloomPong );
+    state.myHybridRenderPass  = VK_NULL_HANDLE;
+    state.myHybridFramebuffer = VK_NULL_HANDLE;
+    state.myInitialized       = false;
+    sSceneColorLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPingLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPongLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+void RecreateForExtent( Vk_Core& aCore ) {
+    if ( !aCore.myPostProcessState.myInitialized ) {
+        return;
+    }
+    RebuildResources( aCore );
+}
+
+void Init( Vk_Core& aCore ) {
+    if ( aCore.myPostProcessState.myInitialized ) {
+        RebuildResources( aCore );
+        return;
+    }
+    if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) ) {
+        return;
+    }
+    UtilLogger::Info( "FG", "Vk_PostProcessPass::Init." );
+    RebuildResources( aCore );
+    CreatePipelineResources( aCore );
+    aCore.myPostProcessState.myInitialized = true;
+}
+
+void RecordPost( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
+        return;
+    }
+
+    RecordBloom( aCore, aCommandBuffer, aFrameIndex );
+
+    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    VkRenderPassBeginInfo tonemapBegin{};
+    tonemapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    tonemapBegin.renderPass        = aCore.mySwapchainCtx.myRenderPass;
+    tonemapBegin.framebuffer       = aCore.mySwapchainCtx.mySwapChainFrameBuffers[ aImageIndex ];
+    tonemapBegin.renderArea.offset = { 0, 0 };
+    tonemapBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    std::array< VkClearValue, 2 > clears{};
+    clears[ 0 ].color            = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+    clears[ 1 ].depthStencil     = { 1.0f, 0 };
+    tonemapBegin.clearValueCount = static_cast< uint32_t >( clears.size() );
+    tonemapBegin.pClearValues    = clears.data();
+
+    vkCmdBeginRenderPass( aCommandBuffer, &tonemapBegin, VK_SUBPASS_CONTENTS_INLINE );
+
+    const Gfx_PostSettings& post = aCore.myPostSettings;
+    TonemapPushConstants    push{};
+    push.exposure       = post.myExposure;
+    push.bloomIntensity = post.myBloomIntensity;
+    push.tonemapEnabled = post.myTonemapEnabled ? 1u : 0u;
+    push.bloomEnabled   = post.myBloomEnabled ? 1u : 0u;
+    push.tonemapMode    = post.myTonemapMode != 0 ? 1u : 0u;
+
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myTonemapPipeline );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myTonemapPipelineLayout, 0, 1, &state.myTonemapDescriptorSets[ aFrameIndex ], 0, nullptr );
+    vkCmdPushConstants( aCommandBuffer, state.myTonemapPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( push ), &push );
+
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Tonemap" );
+    }
+    vkCmdDraw( aCommandBuffer, 3, 1, 0, 0 );
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdEndDebugLabel( aCommandBuffer );
+    }
+
+    vkCmdEndRenderPass( aCommandBuffer );
+}
+
+}  // namespace Vk_PostProcessPass

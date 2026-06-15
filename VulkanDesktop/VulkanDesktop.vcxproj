@@ -234,6 +234,8 @@
     <ClCompile Include="RenderCore\Vk_SceneResourceTypes.cpp" />
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_FrameGraphBuilder.cpp" />
+    <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_SsaoPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
@@ -331,9 +333,12 @@
     <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h" />
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
     <ClInclude Include="Gfx\Gfx_AoSettings.h" />
+    <ClInclude Include="Gfx\Gfx_PostSettings.h" />
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h" />
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h" />
     <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h" />
+    <ClInclude Include="RenderCore\Vk_FrameGraphBuilder.h" />
+    <ClInclude Include="RenderCore\Vk_PostProcessPass.h" />
     <ClInclude Include="RenderCore\Vk_SsaoPass.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowMapPass.h" />

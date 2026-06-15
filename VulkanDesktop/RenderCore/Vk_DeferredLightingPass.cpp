@@ -12,6 +12,7 @@
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_PostProcessPass.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -41,7 +42,7 @@ VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, Vk
     pipelineBuilder.myScissor.extent  = aCore.mySwapchainCtx.mySwapChainExtent;
     // Fullscreen triangle (DeferredLighting.vert): clip-space winding can back-face cull with default BACK cull.
     pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
-    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
+    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
     pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
     pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
     pipelineBuilder.myDepthStencil.depthTestEnable  = VK_FALSE;
@@ -156,8 +157,8 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
 }
 
 void CreatePipelineResources( Vk_Core& aCore ) {
-    if ( aCore.mySwapchainCtx.myHybridResolveRenderPass == VK_NULL_HANDLE ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: hybrid resolve render pass is required" );
+    if ( !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: PostProcess hybrid resolve render pass is required" );
     }
 
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
@@ -243,7 +244,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
 
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
-    state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myHybridResolveRenderPass, state.myPipelineLayout, vertPath, fragPath );
+    state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, state.myPipelineLayout, vertPath, fragPath );
 
     const VkDevice              device         = aCore.myDeviceCtx.myDevice;
     const VkPipelineLayout      pipelineLayout = state.myPipelineLayout;
@@ -327,7 +328,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
     aCore.myDeferredLightingState.myPipeline =
-        BuildFullscreenPipeline( aCore, aCore.mySwapchainCtx.myHybridResolveRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
+        BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
 }
 
 void Init( Vk_Core& aCore ) {
@@ -337,8 +338,9 @@ void Init( Vk_Core& aCore ) {
         }
         return;
     }
-    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.mySsaoState.myInitialized || !aCore.myDepthPyramidState.myInitialized ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer, ClusterBuild, DepthPyramid, and SSAO" );
+    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.mySsaoState.myInitialized || !aCore.myDepthPyramidState.myInitialized
+         || !aCore.myPostProcessState.myInitialized ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer, ClusterBuild, DepthPyramid, SSAO, and PostProcess" );
     }
     UtilLogger::Info( "FG", "Vk_DeferredLightingPass::Init." );
     CreatePipelineResources( aCore );

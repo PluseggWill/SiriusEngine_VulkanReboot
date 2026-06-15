@@ -15,6 +15,8 @@
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_GBufferPass.h"
 
+#include "Vk_PostProcessPass.h"
+
 #include "Vk_ShadowMapPass.h"
 
 #include "Vk_DescriptorPolicy.h"
@@ -411,9 +413,8 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
-    // HybridDeferred transparent pass runs inside myHybridResolveRenderPass (depth LOAD from G-buffer copy).
-    const bool hybridResolve =
-        Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE;
+    // HybridDeferred transparent pass runs inside PostProcess hybrid RP (depth LOAD from G-buffer copy).
+    const bool       hybridResolve    = Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && Vk_PostProcessPass::HasHybridResolve( aCore );
     const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
                                                                                                   : aCore.mySceneGpuCtx.myTransparentPipelineBindless )
                                                                                 : VK_NULL_HANDLE;
