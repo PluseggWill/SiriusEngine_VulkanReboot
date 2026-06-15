@@ -9,7 +9,7 @@
 struct Gfx_AoSettings {
     Gfx_AoMethod myMethod                = Gfx_AoMethod::HbaoPlus;
     bool         myEnabled               = true;
-    float        myRadius                = 0.1f;    // view/world sample radius (method-specific scale in shader)
+    float        myRadius                = 0.1f;    // world/view sample radius (constant; no distance scaling in HBAO)
     float        myBias                  = 0.02f;   // horizon / depth compare bias
     float        myIntensity             = 0.5f;    // composite strength (deferred)
     float        myPower                 = 1.5f;    // contrast curve (applied once in deferred)

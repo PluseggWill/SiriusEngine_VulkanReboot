@@ -21,9 +21,16 @@ vec3 Pbr_SamplePrefilter(samplerCube prefilterMap, vec3 R, float roughness, floa
     return textureLod(prefilterMap, normalize(R), lod).rgb;
 }
 
+// Attenuate specular IBL in sun shadow; diffuse IBL stays full strength.
+float Pbr_IblSpecularShadowScale(float sunShadow, float specularShadowMin)
+{
+    return mix(clamp(specularShadowMin, 0.0, 1.0), 1.0, clamp(sunShadow, 0.0, 1.0));
+}
+
+// specularShadowScale: mix(specularShadowMin, 1.0, sunShadow) — direct sun shadow only; diffuse unchanged.
 vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
                  samplerCube irradianceMap, samplerCube prefilterMap, sampler2D brdfLut,
-                 float iblIntensity, uint iblEnabled, float prefilterMaxMip)
+                 float iblIntensity, uint iblEnabled, float prefilterMaxMip, float specularShadowScale)
 {
     if ((iblEnabled & PBR_IBL_ENABLED_FLAG) == 0u) {
         return vec3(0.0);
@@ -41,7 +48,7 @@ vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
 
     const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
     const vec3 diffuse = irradiance * kD * albedo;
-    const vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+    const vec3 specular = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale;
 
     return (diffuse + specular) * iblIntensity;
 }

@@ -36,10 +36,16 @@ float Ao_GtaoIntegrateSide(float h, float nAngle, float cosNorm)
     return (cosNorm + 2.0 * h * sinN - cos(2.0 * h - nAngle)) * 0.25;
 }
 
-// Weight for screen-space march samples (1 at contact, 0 at sample radius).
+// Weight for samples beyond radius (1 at contact, 0 at radius). Used by GTAO and HBAO world-range tests.
 float Ao_GtaoDistanceFalloff(float aDist, float aRadius, float aPower)
 {
     return 1.0 - clamp(pow(aDist / max(aRadius, 1e-4), aPower), 0.0, 1.0);
+}
+
+// Occluder height above the surface tangent plane (view space). ~0 on coplanar ground.
+float Ao_SurfaceElevation(vec3 aDeltaView, vec3 aNormalView)
+{
+    return dot(aDeltaView, aNormalView);
 }
 
 // Project view-space position to NDC UV (xy) + depth (z).
@@ -50,13 +56,13 @@ vec2 Ao_ProjectViewPosToUv(vec3 aViewPos, mat4 aProj)
     return ndc.xy * 0.5 + 0.5;
 }
 
-// Fetch view-space position from world-position G-buffer; false if UV is off-screen.
-bool Ao_TryFetchViewPosFromGBuffer(sampler2D aWorldPosTex, mat4 aView, vec2 aUV, out vec3 aOutViewPos)
+// Fetch world + view position from G-buffer; false if UV is off-screen.
+bool Ao_TryFetchGBufferPos(sampler2D aWorldPosTex, mat4 aView, vec2 aUV, out vec3 aOutWorldPos, out vec3 aOutViewPos)
 {
     if (aUV.x < 0.0 || aUV.x > 1.0 || aUV.y < 0.0 || aUV.y > 1.0) {
         return false;
     }
-    const vec3 worldPos = texture(aWorldPosTex, aUV).rgb;
-    aOutViewPos = (aView * vec4(worldPos, 1.0)).xyz;
+    aOutWorldPos = texture(aWorldPosTex, aUV).rgb;
+    aOutViewPos = (aView * vec4(aOutWorldPos, 1.0)).xyz;
     return true;
 }

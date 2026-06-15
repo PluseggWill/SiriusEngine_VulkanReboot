@@ -44,7 +44,7 @@ layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 5) uniform LightingGlobals {
     mat4 lightViewProj;
     vec4 shadowParams;  // z = compare active (0/1), w = 1/shadowMapSize
-    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip
+    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = specular shadow min
 } lightingGlobals;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
 layout(set = 0, binding = 7) uniform samplerCube irradianceMap;
@@ -131,8 +131,10 @@ void main()
     }
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
+    // sunShadow may be contact-soft blurred; specular IBL only (diffuse stays full).
+    const float specularShadowScale = Pbr_IblSpecularShadowScale(sunShadow, lightingGlobals.iblParams.w);
     vec3 ambient = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
-                               lightingGlobals.iblParams.z);
+                               lightingGlobals.iblParams.z, specularShadowScale);
     if (iblEnabled == 0u) {
         ambient = pc.ambientColor.rgb * albedo;
     }

@@ -10,15 +10,16 @@
 struct GpuLightingGlobals {
     alignas( 16 ) glm::mat4 myLightViewProj{};
     alignas( 16 ) glm::vec4 myShadowParams{ 0.0f, 0.0f, 1.0f, 0.0f };  // z = compare active (0/1), w = 1/mapSize
-    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.0f };     // x = intensity, y = enabled, z = prefilter max mip
+    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.15f };     // x = intensity, y = enabled, z = prefilter max mip, w = specular shadow min
 };
 
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
 
 struct Gfx_LightingSettings {
-    bool  myShadowsEnabled = true;
-    bool  myIblEnabled     = true;
-    float myIblIntensity   = 1.35f;
+    bool  myShadowsEnabled         = true;
+    bool  myIblEnabled             = true;
+    float myIblIntensity           = 1.35f;
+    float myIblSpecularShadowMin   = 0.15f;  // specular IBL floor in full sun shadow (mix to 1.0 in lit)
 };
 
 inline GpuLightingGlobals Gfx_BuildLightingGlobals( const Gfx_LightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,
@@ -30,5 +31,6 @@ inline GpuLightingGlobals Gfx_BuildLightingGlobals( const Gfx_LightingSettings& 
     globals.myIblParams.x    = aSettings.myIblIntensity;
     globals.myIblParams.y    = aSettings.myIblEnabled ? 1.0f : 0.0f;
     globals.myIblParams.z    = aPrefilterMaxMipLevel;
+    globals.myIblParams.w    = aSettings.myIblSpecularShadowMin;
     return globals;
 }

@@ -142,6 +142,10 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "When IBL is off, ambient color scales the legacy fallback." );
     }
+    ImGui::SliderFloat( "IBL spec shadow min", &aLightingSettings.myIblSpecularShadowMin, 0.f, 1.f );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Specular IBL in full sun shadow: mix(min, 1.0, sunShadow). Diffuse IBL unchanged." );
+    }
 
     ImGui::Separator();
     ImGui::Text( "Screen-space AO" );

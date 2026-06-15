@@ -1,6 +1,7 @@
 #version 450
 
-// HBAO+ v0 — half-res slice-organized SSAO (same depth test as Ssao.comp; horizon integration deferred to v1).
+// HBAO+ v0 — half-res slice-organized horizon AO.
+// World-constant sample radius + tangent-plane elevation (avoids distant flat-ground darkening).
 #include "AoCommon.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -8,7 +9,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(push_constant) uniform PushConstants {
     mat4 view;
     mat4 proj;
-    vec4 params; // x=radius, y=bias, z=enabled (0/1), w=unused
+    vec4 params; // x=radius (world/view units), y=bias, z=enabled (0/1), w=unused
     uvec2 sliceCount;
     uvec2 stepsPerSlice;
     vec2 halfScreenSize;
@@ -43,14 +44,14 @@ void main()
     const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
     const vec3 fragPos = (pc.view * vec4(worldPos, 1.0)).xyz;
     const vec3 Nworld = normalize(texture(gbufferNormalRoughness, uv).xyz);
+    const vec3 Nview = Ao_WorldNormalToView(Nworld, pc.view);
 
     vec3 tangentW;
     vec3 bitangentW;
     Ao_BuildWorldTangentBasis(Nworld, tangentW, bitangentW);
 
-    const float viewZ = max(abs(fragPos.z), 0.05);
-    const float depthScale = clamp(viewZ * 0.35, 0.35, 2.5);
-    const float sampleRadius = pc.params.x * depthScale;
+    // Constant world/view radius — do not scale with camera distance (was causing far-ground darkening).
+    const float sampleRadius = max(pc.params.x, 1e-4);
 
     const int numDirs = int(clamp(pc.sliceCount.x, 1u, 8u));
     const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 8u));
@@ -67,20 +68,23 @@ void main()
             const float t = float(s) / float(numSteps);
             const vec3 samplePosView = fragPos + sliceDir * (sampleRadius * t);
 
-            const vec4 offsetClip = pc.proj * vec4(samplePosView, 1.0);
-            const vec3 offsetNdc = offsetClip.xyz / offsetClip.w;
-            const vec2 sampleUV = offsetNdc.xy * 0.5 + 0.5;
-            if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+            const vec2 sampleUV = Ao_ProjectViewPosToUv(samplePosView, pc.proj);
+            vec3 sampleWorld;
+            vec3 sampleView;
+            if (!Ao_TryFetchGBufferPos(gbufferWorldPosition, pc.view, sampleUV, sampleWorld, sampleView)) {
                 continue;
             }
 
-            const vec3 sampleWorld = texture(gbufferWorldPosition, sampleUV).rgb;
-            const float sampleViewZ = (pc.view * vec4(sampleWorld, 1.0)).z;
-            const float rangeCheck = smoothstep(0.0, 1.0, sampleRadius / max(abs(fragPos.z - sampleViewZ), 1e-4));
+            const vec3 deltaView = sampleView - fragPos;
+            const float rangeWeight = Ao_GtaoDistanceFalloff(length(sampleWorld - worldPos), sampleRadius, 2.0);
+            if (rangeWeight <= 0.0) {
+                continue;
+            }
 
             sampleCount += 1.0;
-            if (sampleViewZ >= samplePosView.z + pc.params.y) {
-                occlusion += rangeCheck;
+            const float elevation = Ao_SurfaceElevation(deltaView, Nview);
+            if (elevation > pc.params.y) {
+                occlusion += rangeWeight;
             }
         }
     }
