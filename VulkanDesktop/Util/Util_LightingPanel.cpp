@@ -1,5 +1,6 @@
 #include "Util_LightingPanel.h"
 
+#include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../RenderCore/Vk_Camera.h"
 #include "../RenderCore/Vk_Types.h"
@@ -111,7 +112,7 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
 
 }  // namespace
 
-void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings ) {
+void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings ) {
     ImGui::ColorEdit3( "Ambient", &anEnvironment.myAmbientColor.x );
     ImGui::ColorEdit3( "Sun color", &anEnvironment.mySunlightColor.x );
     ImGui::DragFloat3( "Sun direction", &anEnvironment.mySunlightDirection.x, 0.02f, -1.f, 1.f );
@@ -132,11 +133,22 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
 
     ImGui::Separator();
     ImGui::Checkbox( "Shadows enabled", &aLightingSettings.myShadowsEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Directional shadow map (2048). Auto-disabled when sun is below horizon (Z-up)." );
+    }
     ImGui::Checkbox( "IBL enabled", &aLightingSettings.myIblEnabled );
     ImGui::SliderFloat( "IBL intensity", &aLightingSettings.myIblIntensity, 0.f, 3.f );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "When IBL is off, ambient color scales the legacy fallback." );
     }
+
+    ImGui::Separator();
+    ImGui::Text( "Screen-space AO" );
+    ImGui::Checkbox( "AO enabled", &aAoSettings.myEnabled );
+    ImGui::SliderFloat( "AO radius", &aAoSettings.myRadius, 0.05f, 2.0f );
+    ImGui::SliderFloat( "AO bias", &aAoSettings.myBias, 0.001f, 0.1f );
+    ImGui::SliderFloat( "AO intensity", &aAoSettings.myIntensity, 0.f, 1.f );
+    ImGui::SliderFloat( "AO power", &aAoSettings.myPower, 0.5f, 4.f );
 
     ImGui::Separator();
     ImGui::TextDisabled( "Specular / shininess: unused under PBR (material roughness/metallic)" );

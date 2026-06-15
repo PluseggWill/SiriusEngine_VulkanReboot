@@ -39,6 +39,16 @@ inline glm::vec3 Gfx_DefaultSunDirectionTowardLight() {
     return glm::normalize( glm::vec3( 0.25f, 0.45f, 0.85f ) );
 }
 
+// Z-up v0 directional shadow map is fit for overhead sun only (Khronos outdoor contract).
+inline bool Gfx_IsSunElevationValidForShadows( const glm::vec3& aSunDirectionTowardLight ) {
+    constexpr float kMinSunUpDot = 0.08f;  // reject below-horizon / grazing (surface→sun must have +Z)
+    return aSunDirectionTowardLight.z > kMinSunUpDot;
+}
+
+inline bool Gfx_ShouldCompareDirectionalShadows( bool aShadowsEnabled, const glm::vec3& aSunDirectionTowardLight ) {
+    return aShadowsEnabled && Gfx_IsSunElevationValidForShadows( aSunDirectionTowardLight );
+}
+
 inline glm::mat4 Gfx_VulkanStyleProjection( glm::mat4 aProjection ) {
     aProjection[ 1 ][ 1 ] *= -1.0f;
     return aProjection;
@@ -73,8 +83,8 @@ inline float Gfx_ComputeShadowOrthoPadding( const Gfx_Bounds& aSceneBounds ) {
 
 inline void Gfx_ExpandLightSpaceBounds( Gfx_LightSpaceBounds& aBounds, const glm::mat4& aLightView, const glm::vec3& aWorldPoint ) {
     const glm::vec3 lightSpace = glm::vec3( aLightView * glm::vec4( aWorldPoint, 1.0f ) );
-    aBounds.myMin                = glm::min( aBounds.myMin, lightSpace );
-    aBounds.myMax                = glm::max( aBounds.myMax, lightSpace );
+    aBounds.myMin              = glm::min( aBounds.myMin, lightSpace );
+    aBounds.myMax              = glm::max( aBounds.myMax, lightSpace );
 }
 
 inline glm::mat4 Gfx_ComputeKhronosShadowMatrix( const glm::mat4& aLightView, const Gfx_KhronosShadowOrtho& aOrtho ) {
@@ -95,8 +105,7 @@ inline float Gfx_MapClipZToShadowCompareDepth( float aClipZ ) {
 }
 
 // Snap ortho XY to shadow-map texels so the matrix stays stable when the fly camera moves.
-inline void Gfx_SnapKhronosShadowOrthoToTexels( Gfx_KhronosShadowOrtho& aOrtho, const glm::mat4& aLightView, const glm::vec3& aSnapFocusWorld,
-                                                uint32_t aShadowMapSize ) {
+inline void Gfx_SnapKhronosShadowOrthoToTexels( Gfx_KhronosShadowOrtho& aOrtho, const glm::mat4& aLightView, const glm::vec3& aSnapFocusWorld, uint32_t aShadowMapSize ) {
     if ( aShadowMapSize == 0 ) {
         return;
     }
@@ -146,13 +155,12 @@ inline Gfx_DirectionalShadowSetup Gfx_ComputeKhronosDirectionalShadowSetup( cons
     Gfx_SnapKhronosShadowOrthoToTexels( ortho, lightView, focusCenter, aShadowMapSize );
 
     Gfx_DirectionalShadowSetup setup{};
-    setup.myLightViewProj          = Gfx_ComputeKhronosShadowMatrix( lightView, ortho );
-    setup.myLightSpaceDepthRange   = std::max( 0.001f, ortho.myFar - ortho.myNear );
+    setup.myLightViewProj        = Gfx_ComputeKhronosShadowMatrix( lightView, ortho );
+    setup.myLightSpaceDepthRange = std::max( 0.001f, ortho.myFar - ortho.myNear );
     return setup;
 }
 
-inline glm::mat4 Gfx_ComputeKhronosDirectionalShadowMatrixFromScene( const glm::vec3& aSunDirectionTowardLight, const Gfx_Bounds& aSceneBounds,
-                                                                     uint32_t aShadowMapSize ) {
+inline glm::mat4 Gfx_ComputeKhronosDirectionalShadowMatrixFromScene( const glm::vec3& aSunDirectionTowardLight, const Gfx_Bounds& aSceneBounds, uint32_t aShadowMapSize ) {
     return Gfx_ComputeKhronosDirectionalShadowSetup( aSunDirectionTowardLight, aSceneBounds, aShadowMapSize ).myLightViewProj;
 }
 

@@ -7,6 +7,7 @@
 #include "../Gfx/Gfx_EntityGpuRecord.h"
 #include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_GpuCull.h"
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
@@ -287,6 +288,24 @@ void TestDirectionalShadowSetupForSmallScene() {
     Expect( setup.myLightViewProj == setupAgain.myLightViewProj, "scene-only shadow matrix must be stable across recomputation" );
 }
 
+void TestSunElevationShadowGate() {
+    const glm::vec3 overheadSun = Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight();
+    const glm::vec3 belowSun    = glm::normalize( glm::vec3( 0.0f, 0.0f, -1.0f ) );
+
+    Expect( Gfx_LightingMath::Gfx_IsSunElevationValidForShadows( overheadSun ), "overhead sun valid for shadow compare" );
+    Expect( !Gfx_LightingMath::Gfx_IsSunElevationValidForShadows( belowSun ), "below-horizon sun rejected for shadow compare" );
+    Expect( Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( true, overheadSun ), "shadows enabled + overhead sun compares" );
+    Expect( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( true, belowSun ), "shadows enabled + below sun skips compare" );
+    Expect( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( false, overheadSun ), "shadows disabled skips compare" );
+
+    Gfx_LightingSettings settings{};
+    settings.myShadowsEnabled        = true;
+    settings.myIblEnabled            = true;
+    const GpuLightingGlobals globals = Gfx_BuildLightingGlobals( settings, glm::mat4( 1.0f ), 0.0f, belowSun, 2048u );
+    Expect( globals.myShadowParams.z == 0.0f, "below-horizon sun clears shadow compare flag" );
+    Expect( globals.myShadowParams.w > 0.0f, "shadow PCF texel stride uploaded" );
+}
+
 void TestEntityGpuRecordSync() {
     Gfx_SceneSoA scene;
 
@@ -545,6 +564,7 @@ int main() {
     TestDirectionalLightViewOrientation();
     TestShadowCompareDepthViewportMap();
     TestDirectionalShadowSetupForSmallScene();
+    TestSunElevationShadowGate();
     TestEntityGpuRecordSync();
     TestEntityIndirectSlot();
     TestCpuGpuCullParityDemoViews();

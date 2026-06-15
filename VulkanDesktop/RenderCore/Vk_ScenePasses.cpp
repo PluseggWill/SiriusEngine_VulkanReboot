@@ -1,6 +1,7 @@
 #include "Vk_ScenePasses.h"
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 
 #include "../Util/Util_EngineConfig.h"
@@ -269,7 +270,10 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const Gfx_FrameDebugToggl
 
     constexpr uint32_t           shadowViewIndex = 0;
     const Gfx_FrameRenderPacket* shadowPacket    = shadowViewIndex < aViewCount ? &aViewPackets[ shadowViewIndex ] : nullptr;
-    if ( aCore.myShadowMapState.myInitialized && aCore.myLightingSettings.myShadowsEnabled ) {
+    const glm::vec3              sunDir          = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const bool                   recordShadowPass =
+        aCore.myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir );
+    if ( recordShadowPass ) {
         if ( shadowPacket != nullptr && !shadowPacket->myShadowCasterPass.myDraws.empty() ) {
             Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, shadowPacket->myShadowCasterPass, emitDebugLabels );
         }

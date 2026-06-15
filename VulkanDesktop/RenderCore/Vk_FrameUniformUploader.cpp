@@ -62,7 +62,9 @@ void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Core& aCore, uint3
 
     const float prefilterMaxMip = aCore.myIblResourcesState.myInitialized ? aCore.myIblResourcesState.myPrefilterMaxMipLevel : 0.0f;
 
-    GpuLightingGlobals globals = Gfx_BuildLightingGlobals( aCore.myLightingSettings, aLightViewProj, prefilterMaxMip );
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+
+    GpuLightingGlobals globals = Gfx_BuildLightingGlobals( aCore.myLightingSettings, aLightViewProj, prefilterMaxMip, sunDir, Vk_ShadowMapState::kMapSize );
 
     char* mapData = nullptr;
 

@@ -3,7 +3,7 @@
 
 layout(set = 0, binding = 2) uniform LightingGlobals {
     mat4 lightViewProj;
-    vec4 shadowParams;  // z = enabled (0/1)
+    vec4 shadowParams;  // z = compare active (0/1), w = 1/shadowMapSize
     vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip level
 } lightingGlobals;
 
@@ -23,17 +23,12 @@ vec3 Pbr_EvalSceneSunRadiance(vec3 worldPos, vec3 sunColor)
     return sunColor * Pbr_SceneSunShadow(worldPos);
 }
 
-vec3 Pbr_EvalSceneAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness, vec3 fallbackAmbient, vec3 worldPos)
+vec3 Pbr_EvalSceneAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness, vec3 fallbackAmbient)
 {
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
-    const float sunShadow = Pbr_SceneSunShadow(worldPos);
-
-    vec3 ambient;
     if (iblEnabled != 0u) {
-        ambient = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
-                              lightingGlobals.iblParams.z);
-    } else {
-        ambient = fallbackAmbient * albedo;
+        return Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
+                           lightingGlobals.iblParams.z);
     }
-    return Pbr_ModulateAmbientForSunShadow(ambient, sunShadow, lightingGlobals.shadowParams);
+    return fallbackAmbient * albedo;
 }

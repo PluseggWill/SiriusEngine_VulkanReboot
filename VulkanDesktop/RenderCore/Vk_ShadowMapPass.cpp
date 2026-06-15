@@ -264,7 +264,8 @@ void Destroy( Vk_Core& aCore ) {
 }
 
 void CmdBarrierForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
-    if ( !aCore.myShadowMapState.myInitialized || !aCore.myLightingSettings.myShadowsEnabled ) {
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    if ( !aCore.myShadowMapState.myInitialized || !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
         return;
     }
 
@@ -299,11 +300,16 @@ void Init( Vk_Core& aCore ) {
 }
 
 void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels ) {
-    if ( !aCore.myShadowMapState.myInitialized || !aCore.myLightingSettings.myShadowsEnabled ) {
+    if ( !aCore.myShadowMapState.myInitialized ) {
         return;
     }
 
-    const glm::vec3  sunDir      = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    if ( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
+        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
+        return;
+    }
+
     const Gfx_Bounds sceneBounds = aCore.GetShadowCasterBounds();
 
     const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =

@@ -13,10 +13,10 @@
 
 namespace {
 
-constexpr VkFormat kSkyCubemapFormat     = VK_FORMAT_R8G8B8A8_SRGB;
-constexpr VkFormat kLinearCubemapFormat  = VK_FORMAT_R8G8B8A8_UNORM;  // irradiance + prefilter baked in linear
-constexpr VkFormat kBrdfLutFormat        = VK_FORMAT_R8G8B8A8_UNORM;
-constexpr uint32_t kPrefilterMipLevels = 5u;
+constexpr VkFormat kSkyCubemapFormat    = VK_FORMAT_R8G8B8A8_SRGB;
+constexpr VkFormat kLinearCubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;  // irradiance + prefilter baked in linear
+constexpr VkFormat kBrdfLutFormat       = VK_FORMAT_R8G8B8A8_UNORM;
+constexpr uint32_t kPrefilterMipLevels  = 1u;  // mip0 only until offline roughness mips are baked (GPU box mips are not GGX-prefiltered)
 
 struct EnvironmentManifest {
     std::string myIrradianceDir;
@@ -124,10 +124,10 @@ void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath ) {
 
     const EnvironmentManifest manifest = LoadManifest( aCore.EngineConfig(), aEnvironmentLogicalPath );
 
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kLinearCubemapFormat, aCore.myIblResourcesState.myIrradiance,
-                                              1 );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kLinearCubemapFormat, aCore.myIblResourcesState.myPrefilter,
-                                              kPrefilterMipLevels );
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kLinearCubemapFormat,
+                                              aCore.myIblResourcesState.myIrradiance, 1 );
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kLinearCubemapFormat,
+                                              aCore.myIblResourcesState.myPrefilter, kPrefilterMipLevels );
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.myResourceContext, kSkyCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
     UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.myResourceContext, kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
 

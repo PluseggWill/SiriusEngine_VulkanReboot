@@ -1,49 +1,51 @@
-# Plan: shadow-audit-fix — Directional shadow audit & repair
+# Plan: shadow-audit-fix — Directional shadow + IBL lighting contract
 
-**Status:** In progress (2026-06-13)  
+**Status:** In progress (2026-06-15)  
 **Progress:** [`shadow-audit-fix_Progress.md`](shadow-audit-fix_Progress.md)
 
 ## Problem
 
-Incremental shadow tweaks after Khronos landing (`39f6ace`) broke Sponza: shadow direction reads wrong, contact shadows unreadable. Stack included BACK cull flip, frustum UV reject, IBL hemisphere gate, and compare-depth experiments layered without a single contract.
+Shadow + IBL were incorrectly coupled (`PBR_SHADOWED_IBL_SCALE` crushed ambient in sun shadow), producing near-black masks and chaotic contrast. Shadow compare was active at invalid sun elevations (below horizon), inverting upper/lower scene shading. Prefilter used GPU box-filter mips (not GGX roughness mips), muddying specular IBL.
 
 ## Non-goals
 
 - CSM / cascade atlasing
-- IBL energy or prefilter changes
+- Offline multi-roughness prefilter bake (follow-up; mip0-only until then)
 - SSAO / post (S6)
 
-## Khronos contract (keep)
+## Target contract (landed)
 
-| Item | Target |
-|------|--------|
-| Light view | Eye on sun side: `focus + sunDir * reach`, look at scene center |
-| Ortho | Scene opaque AABB in light space + scene-scaled padding + texel snap |
-| Matrix | `vulkan_style_projection(ortho) * lightView` |
-| Shadow pass | `GREATER` write, `GREATER_OR_EQUAL` compare, border white, **FRONT cull** (Z-up deviation per khronos-shadow-map closeout) |
-| Bias | Khronos slope `-1.7`; constant scaled by ortho depth range |
-| Sample | `texture(shadow, vec3(uv, compareDepth))`; UV `xy*0.5+0.5`; compareDepth viewport-normalized (`z*0.5+0.5`) for OpenGL NDC GLM |
+| Layer | Rule |
+|-------|------|
+| **IBL / ambient** | Independent of shadow map — full split-sum contribution always |
+| **Direct sun** | `Pbr_EvalDirect(..., sunColor * sunShadow)` only |
+| **Shadow compare** | Active when `shadowsEnabled && sunDir.z > 0.08` (Z-up overhead sun) |
+| **Shadow sample** | 3×3 PCF; `shadowParams.w = 1/mapSize` |
+| **Shadow pass** | Khronos GREATER + BACK cull + fixed bias; scene AABB ortho |
+| **Prefilter** | mip0 only (`maxMip=0`); no GPU box mips on prefilter |
 
 ## Touch list
 
-- `VulkanDesktop/Gfx/Gfx_LightingMath.h` — verify light view + scene ortho (keep)
-- `VulkanDesktop/Shader/PbrShadow.glsl` — remove hacks; keep viewport compare depth
-- `VulkanDesktop/Shader/DeferredLighting.frag`, `LightingBindings.glsl`, `TriangleFrag_Lit*.frag`
-- `VulkanDesktop/RenderCore/Vk_ShadowMapPass.cpp` — FRONT cull, scaled bias
-- Keep validation fixes: `Vk_ResourceTables.cpp`, `Vk_DeferredLightingPass.cpp`
+- `VulkanDesktop/Shader/PbrShadow.glsl` — PCF; remove IBL modulation
+- `VulkanDesktop/Shader/LightingBindings.glsl`, `DeferredLighting.frag`, `TriangleFrag_Lit*.frag`
+- `VulkanDesktop/Gfx/Gfx_LightingMath.h` — sun elevation gate
+- `VulkanDesktop/Gfx/Gfx_LightingGlobals.h` — shadowParams.w, gated compare
+- `VulkanDesktop/RenderCore/Vk_FrameUniformUploader.cpp`, `Vk_ShadowMapPass.cpp`, `Vk_GBufferPass.cpp`, `Vk_ScenePasses.cpp`
+- `VulkanDesktop/RenderCore/Vk_IblResources.cpp` — prefilter mip0
+- `VulkanDesktop/GfxTests/GfxTests_Main.cpp`
 
 ## Steps
 
-1. **Audit** — map diffs vs `39f6ace` / khronos-shadow-map Plan; list regressions  
-2. **Shader contract** — strip `Pbr_SunHemisphereIblScale`, frustum reject; restore border-white compare path  
-3. **Pass contract** — restore `VK_CULL_MODE_FRONT_BIT`; keep scene-only matrix + scaled bias  
-4. **Verify** — `powershell -File Scripts/Verify-CI.ps1`; manual Sponza (atrium sun, fly camera stable, debug shadow view)
+1. **Decouple IBL from shadow map** — delete `Pbr_ModulateAmbientForSunShadow`  
+2. **Sun elevation gate** — skip shadow pass + compare when sun below horizon  
+3. **PCF + prefilter mip fix** — 3×3 taps; prefilter mip0 only  
+4. **Verify** — `powershell -File Scripts/Verify-CI.ps1`; manual Sponza default sun
 
 ## Verification
 
 - `powershell -File Scripts/Verify-CI.ps1` exit 0  
-- Manual: Sponza atrium receives directional sun; shadow debug view aligns with sun vector; no validation errors on exit
+- Manual: default sun — contact shadows readable, no IBL black masks; below-horizon sun — no inverted shadow chaos
 
 ## Risks
 
-- FRONT cull may show minor back-face leak on thin geo — acceptable per prior Khronos deviation note; revisit with depth bias tuning only if needed
+- Softer contact shadows without IBL crush — intentional; tune sun intensity / future AO if needed
