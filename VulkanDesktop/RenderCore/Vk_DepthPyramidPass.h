@@ -26,7 +26,7 @@ struct Vk_DepthPyramidState {
     std::array< VkImageView, kHiZMaxMipLevels > myMipViews{};
     uint32_t                                    myMipLevelCount = 0;
 
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
+    std::array< std::array< VkDescriptorSet, kHiZMaxMipLevels >, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
 
     bool myInitialized = false;
 };

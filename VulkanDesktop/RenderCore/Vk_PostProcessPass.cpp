@@ -223,7 +223,7 @@ void UpdateTonemapDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
 
     VkDescriptorImageInfo bloomInfo{};
     bloomInfo.sampler     = state.mySceneSampler;
-    bloomInfo.imageView   = state.myBloomPong.ImageView();
+    bloomInfo.imageView   = state.myBloomPing.ImageView();
     bloomInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     std::array< VkWriteDescriptorSet, 2 > writes = {
@@ -292,7 +292,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     }
     const VkDevice  device  = aCore.myDeviceCtx.myDevice;
     const VkSampler sampler = state.mySceneSampler;
-    state.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
+    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
 
     const std::array< VkDescriptorSetLayoutBinding, 2 > tonemapBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
@@ -372,9 +372,10 @@ void CreatePipelineResources( Vk_Core& aCore ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
     }
 
+    // Per frame: threshold(1) + blurH(2) + blurV(2) storage images — match Vk_SsaoPass pool sizing.
     VkDescriptorPoolSize poolSizes[] = {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 3 ) },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 4 ) },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 5 ) },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -392,19 +393,18 @@ void CreatePipelineResources( Vk_Core& aCore ) {
         allocInfo.descriptorSetCount = 1;
 
         allocInfo.pSetLayouts = &state.myTonemapSetLayout;
-        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] );
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] ),
+                                          "Vk_PostProcessPass: tonemap descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBloomThresholdSetLayout;
-        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] );
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] ),
+                                          "Vk_PostProcessPass: bloom threshold descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBloomBlurSetLayout;
-        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] );
-        vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] );
-
-        UpdateTonemapDescriptorSet( aCore, i );
-        UpdateBloomThresholdDescriptorSet( aCore, i );
-        UpdateBloomBlurDescriptorSet( aCore, i, true );
-        UpdateBloomBlurDescriptorSet( aCore, i, false );
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] ),
+                                          "Vk_PostProcessPass: bloom blur H descriptor set alloc" );
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] ),
+                                          "Vk_PostProcessPass: bloom blur V descriptor set alloc" );
     }
 
     const std::string tonemapVertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv );
@@ -422,10 +422,18 @@ void RebuildResources( Vk_Core& aCore ) {
         return;
     }
 
+    // Extent-scoped only (RP/FB). Sampler + descriptor pool live for pass lifetime — never flush them here.
     aCore.myPostProcessState.myDeletionQueue.flush();
     sSceneColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     sBloomPingLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     sBloomPongLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    DestroyTexture( aCore, state.mySceneColor );
+    DestroyTexture( aCore, state.myBloomPing );
+    DestroyTexture( aCore, state.myBloomPong );
+    state.myHybridRenderPass  = VK_NULL_HANDLE;
+    state.myHybridFramebuffer = VK_NULL_HANDLE;
 
     CreateSceneColorImage( aCore );
     const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
@@ -452,11 +460,14 @@ void RebuildResources( Vk_Core& aCore ) {
         aCore.myPostProcessState.myBloomBlurPipeline = VK_NULL_HANDLE;
     }
 
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        UpdateTonemapDescriptorSet( aCore, i );
-        UpdateBloomThresholdDescriptorSet( aCore, i );
-        UpdateBloomBlurDescriptorSet( aCore, i, true );
-        UpdateBloomBlurDescriptorSet( aCore, i, false );
+    // Descriptor sets are allocated in CreatePipelineResources; skip until pool exists (Init order).
+    if ( aCore.myPostProcessState.myDescriptorPool != VK_NULL_HANDLE ) {
+        for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+            UpdateTonemapDescriptorSet( aCore, i );
+            UpdateBloomThresholdDescriptorSet( aCore, i );
+            UpdateBloomBlurDescriptorSet( aCore, i, true );
+            UpdateBloomBlurDescriptorSet( aCore, i, false );
+        }
     }
 
     if ( aCore.myPostProcessState.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
@@ -502,10 +513,37 @@ void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
         sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if ( sBloomPingLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
-        VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPing.Image(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE_BIT );
-        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+    if ( sBloomPingLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout        oldLayout  = sBloomPingLayout;
+        VkAccessFlags              srcAccess  = 0;
+        VkPipelineStageFlags       srcStage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+            srcAccess = VK_ACCESS_SHADER_READ_BIT;
+            srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        else if ( oldLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            srcAccess = VK_ACCESS_SHADER_WRITE_BIT;
+            srcStage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPing.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
         sBloomPingLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    if ( sBloomPongLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout        oldLayout  = sBloomPongLayout;
+        VkAccessFlags              srcAccess  = 0;
+        VkPipelineStageFlags       srcStage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+            srcAccess = VK_ACCESS_SHADER_READ_BIT;
+            srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        else if ( oldLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            srcAccess = VK_ACCESS_SHADER_WRITE_BIT;
+            srcStage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPong.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sBloomPongLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
 
     BloomThresholdPushConstants thresholdPush{ post.myBloomThreshold, 0.f, 0.f, 0.f };
@@ -527,12 +565,20 @@ void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
     };
 
     runBlurPass( true );
+
+    VkMemoryBarrier blurDep{};
+    blurDep.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    blurDep.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    blurDep.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &blurDep, 0, nullptr, 0, nullptr );
+
     runBlurPass( false );
 
-    VkImageMemoryBarrier bloomBarrier = SceneColorBarrier( state.myBloomPong.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    // Two-pass blur ends in ping; tonemap samples bloom ping.
+    VkImageMemoryBarrier bloomBarrier = SceneColorBarrier( state.myBloomPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                                            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bloomBarrier );
-    sBloomPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    sBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 }  // namespace
@@ -622,8 +668,8 @@ void Init( Vk_Core& aCore ) {
         return;
     }
     UtilLogger::Info( "FG", "Vk_PostProcessPass::Init." );
-    RebuildResources( aCore );
     CreatePipelineResources( aCore );
+    RebuildResources( aCore );
     aCore.myPostProcessState.myInitialized = true;
 }
 
@@ -634,6 +680,15 @@ void RecordPost( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImage
     }
 
     RecordBloom( aCore, aCommandBuffer, aFrameIndex );
+
+    const Gfx_PostSettings& post = aCore.myPostSettings;
+    if ( !post.myBloomEnabled && sBloomPingLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        const VkImageLayout        oldLayout = sBloomPingLayout;
+        VkImageMemoryBarrier       barrier = SceneColorBarrier( state.myBloomPing.Image(), oldLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT );
+        const VkPipelineStageFlags srcStage = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
 
     if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
         VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -656,8 +711,7 @@ void RecordPost( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImage
 
     vkCmdBeginRenderPass( aCommandBuffer, &tonemapBegin, VK_SUBPASS_CONTENTS_INLINE );
 
-    const Gfx_PostSettings& post = aCore.myPostSettings;
-    TonemapPushConstants    push{};
+    TonemapPushConstants push{};
     push.exposure       = post.myExposure;
     push.bloomIntensity = post.myBloomIntensity;
     push.tonemapEnabled = post.myTonemapEnabled ? 1u : 0u;

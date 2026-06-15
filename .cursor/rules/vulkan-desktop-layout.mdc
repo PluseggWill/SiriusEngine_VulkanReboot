@@ -22,6 +22,8 @@ alwaysApply: false
 
 与磁盘对齐，不用默认 `Source Files` / `Header Files`。新增/移动源文件时**同时**更新 `.vcxproj` 与 `.vcxproj.filters`。
 
+**常见坑：** 只改磁盘、漏加 vcxproj → 调用方编译通过但链接 **LNK2019**（未定义 `Util*` / `Vk*` 符号）。加完文件后跑 `Verify-CI.ps1` 或全量 Rebuild 确认链接通过。
+
 ```
 VulkanDesktop.cpp
 App/           ← Application, InputSystem, WorldState (peel target)
@@ -42,6 +44,7 @@ Gfx/
 ### 类型归属
 
 - **Util**：Logger、Loader、ImGui/面板、统计
+- **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载（例：Lighting / Post / Render Debug 分列）。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。
 - **Vk_**：设备、交换链、管线、录制、相机、RAII 缓冲
 - **Gfx_**：mesh/material/场景 SoA；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
 
@@ -65,4 +68,4 @@ Gfx/
 - **Bindless vs batch:** follow [`shader-bindless-policy_Plan.md`](../../Docs/Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract — not “always bindless”; batch fallback required
 - **格式化**：根目录 `.clang-format`；本地 `pwsh -File Scripts/Assert-ClangFormat.ps1 -Fix [-BootstrapTools]`；G0 在 `Verify-CI.ps1` 中 dry-run
 
-注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。非 vibe 改动见 **`vulkan-desktop-quick.mdc`**。
+注释与 shader/CPU 契约见 **`cpp-comments.mdc`**。Per-draw 描述符见 **`vulkan-descriptor-per-draw.mdc`**。RenderCore pass 见 **`vulkan-render-pass-pitfalls.mdc`**。非 vibe 改动见 **`vulkan-desktop-quick.mdc`**。

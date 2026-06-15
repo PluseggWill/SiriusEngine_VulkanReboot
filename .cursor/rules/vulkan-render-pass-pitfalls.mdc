@@ -1,0 +1,50 @@
+---
+description: RenderCore pass init, descriptors, barriers, and resource lifetime pitfalls (PostProcess, SSAO, depth pyramid, etc.).
+globs: VulkanDesktop/RenderCore/**,VulkanDesktop/Shader/**,VulkanDesktop/App/DebugOverlay.cpp,VulkanDesktop/Util/Util_*Panel.*
+alwaysApply: false
+---
+
+# VulkanDesktop — RenderCore pass pitfalls
+
+Lessons from PostProcess / SSAO / depth-pyramid bring-up. Read before adding or refactoring a `Vk_*Pass`.
+
+---
+
+## Pass init order
+
+1. **Create pipeline + descriptor layouts** (`CreatePipelineResources` or equivalent) **before** `RebuildResources` / first descriptor allocation.
+2. **RebuildResources** may flush a **pass-local** deletion queue — anything still needed after rebuild must **not** be registered only on that queue.
+
+## GPU resource lifetime
+
+- **Long-lived** samplers, images, and pools used across frames → register on **`Vk_DeviceContext::myDeletionQueue`** (device/core lifetime), not a pass `myDeletionQueue` that gets flushed during resize/rebuild.
+- After `RebuildResources`, assume pass-local queued objects are **gone**; re-create or re-bind anything the pass still needs.
+
+## Descriptor pools & sets
+
+- Pool counts must cover **worst case**: `(frames in flight) × (sets per frame) × (each binding type)` — easy to under-count **`STORAGE_IMAGE`** when bloom/ping-pong or compute outputs add slots.
+- **`vkAllocateDescriptorSets`**: check result (`UtilVulkanResult::ThrowOnFailure`); silent failure → null sets → crash or validation spam later.
+- **Never `vkUpdateDescriptorSets` inside command buffer recording** (e.g. per-mip loop in `RecordBuild`). Pre-build **per-mip / per-slot** descriptor sets at rebuild/resize; record only binds.
+
+## Barriers & layouts
+
+- Split barriers (copy → shader read, depth → copy src, etc.): **src/dst stage + access** on both sides must match the actual producer/consumer.
+- Mismatch often cascades into hundreds of `[VULKAN-VALIDATION]` lines — fix the **first** barrier error, not symptoms downstream.
+
+## Compute / post-process chains
+
+- Ping-pong: tonemap/composite must sample the **final** blur output (e.g. bloom **ping** after last blur), not an intermediate **pong**.
+- When a sub-pass is disabled, still transition images to layouts the next pass expects (validation-off paths included).
+
+## ImGui debug panels
+
+- **One concern per `Util_*Panel`** (`Util_PostProcessPanel`, `Util_LightingPanel`, …); wire tabs in `App/DebugOverlay.cpp` — do not bury unrelated controls under Lighting/Render.
+- Panel headers: `#include "Util_EngineConfig.h"` when taking `const Util_EngineConfig&` — avoid `class Util_EngineConfig` forward declare (C4099 / link confusion).
+
+## New source files
+
+Adding `Util_*` or `Vk_*` `.cpp/.h` → **both** `VulkanDesktop.vcxproj` **and** `VulkanDesktop.vcxproj.filters`. Missing entry → compile OK for callers but **LNK2019** on link until full rebuild.
+
+---
+
+**Verification:** G0-smoke alone is **not** enough for pass work — run **G0-validation** (`vulkan-smoke-test.mdc`). Policy: `Docs/EngineArchitecture.md` §6 via `vulkan-descriptor-per-draw.mdc`.

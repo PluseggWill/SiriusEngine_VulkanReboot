@@ -144,6 +144,22 @@ $Repo = "<repo-root>"
 pwsh -File "$Repo\Scripts\Assert-SmokeLog.ps1" -RepoRoot $Repo
 ```
 
+**RenderCore / pass / barrier / post-process 改动 — 额外跑 validation（G0-validation）：**
+
+`Verify-Smoke.ps1` 固定 `--no-validation`，**不能**替代 validation 冒烟。
+
+```powershell
+$Repo = "<repo-root>"
+& "$Repo\x64\Debug\VulkanDesktop.exe" `
+  --asset-root $Repo `
+  --config "$Repo\Config\engine.stress.json" `
+  --scene Data/Scenes/stress.json `
+  --validation --smoke-frames 120 --smoke-seconds 6
+# 成功：exit 0；Logs/engine_runtime_log.txt 无新增 [VULKAN-VALIDATION] Error 行
+```
+
+详见 [`validation-layers.md`](validation-layers.md)、`.cursor/rules/vulkan-render-pass-pitfalls.mdc`。
+
 **本地快速（仍建议 `--asset-root`）：**
 
 ```powershell
@@ -162,7 +178,8 @@ Set-Location x64\Debug
 
 | 文档 | 内容 |
 |------|------|
-| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent 冒烟测试 CLI 速查 |
+| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent 冒烟测试 CLI 速查（G0 / G0-smoke / G0-validation） |
+| [`.cursor/rules/vulkan-render-pass-pitfalls.mdc`](../.cursor/rules/vulkan-render-pass-pitfalls.mdc) | RenderCore pass 常见坑（init、descriptor、barrier） |
 | [`bootstrap.md`](bootstrap.md) | 新机构建、运行、日志 |
 | [`SceneJSON.md`](SceneJSON.md) / [`SceneJSON.en.md`](SceneJSON.en.md) | 场景 JSON 编写 |
 | [`validation-layers.md`](validation-layers.md) | Validation 层安装与开关 |
@@ -171,4 +188,4 @@ Set-Location x64\Debug
 
 ---
 
-*Last updated: 2026-06-02 (P0 CI contract; automation requires `--asset-root`).*
+*Last updated: 2026-06-15 (G0-validation gate for RenderCore pass work).*

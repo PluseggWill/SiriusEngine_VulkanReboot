@@ -14,10 +14,11 @@ Use when changing **`VulkanDesktop/`** (or shaders) **without** a WIP `{TaskName
 
 ## Steps
 
-1. **Read contracts** if touching draw/descriptors/shaders: `vulkan-descriptor-per-draw.mdc`, `shader-build.mdc`, `cpp-comments.mdc`.
-2. **Layout/naming:** `vulkan-desktop-layout.mdc` (`App/`, `Gfx/`, `RenderCore/`, `Util/`).
+1. **Read contracts** if touching draw/descriptors/shaders: `vulkan-descriptor-per-draw.mdc`, `shader-build.mdc`, `cpp-comments.mdc`. **RenderCore passes:** `vulkan-render-pass-pitfalls.mdc`.
+2. **Layout/naming:** `vulkan-desktop-layout.mdc` (`App/`, `Gfx/`, `RenderCore/`, `Util/`). New `.cpp/.h` → update **both** `.vcxproj` and `.vcxproj.filters`.
 3. **Verify G0:** `powershell -File Scripts/Verify-CI.ps1` (build + shader drift + GfxTests) — `vulkan-smoke-test.mdc`.
-4. **G0-smoke** if runtime/GPU changed: `powershell -File Scripts/Verify-Smoke.ps1` (or manual graceful smoke with `--asset-root <repo-root>`).
-5. **Commit:** only after user confirms — `git-commit-format.mdc`.
+4. **G0-smoke** if runtime/GPU changed: `powershell -File Scripts/Verify-Smoke.ps1` (uses `--no-validation`).
+5. **G0-validation** if RenderCore pass / barrier / descriptor / post-process changed: manual `--validation` smoke on stress config — `vulkan-smoke-test.mdc`.
+6. **Commit:** only after user confirms — `git-commit-format.mdc`.
 
 **Policy / layer change** while coding → stop; update `EngineArchitecture.md` + Active-Plan per `docs-roadmap-arch-sync.mdc`.

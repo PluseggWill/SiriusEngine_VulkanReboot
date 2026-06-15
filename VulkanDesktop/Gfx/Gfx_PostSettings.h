@@ -1,6 +1,6 @@
 #pragma once
 
-// CPU-side post-process tuning (HybridDeferred; ImGui via Util_LightingPanel).
+// CPU-side post-process tuning (HybridDeferred; ImGui via Util_PostProcessPanel).
 struct Gfx_PostSettings {
     float myExposure       = 1.0f;
     bool  myTonemapEnabled = true;

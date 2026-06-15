@@ -176,6 +176,7 @@
     <ClCompile Include="Util\Util_CameraPanel.cpp" />
     <ClCompile Include="Util\Util_Input.cpp" />
     <ClCompile Include="Util\Util_LightingPanel.cpp" />
+    <ClCompile Include="Util\Util_PostProcessPanel.cpp" />
     <ClCompile Include="Util\Util_RenderDebugPanel.cpp" />
     <ClCompile Include="Util\Util_ScenePanel.cpp" />
     <ClCompile Include="Util\Util_StatsOverlay.cpp" />
@@ -274,6 +275,7 @@
     <ClInclude Include="Util\Util_Input.h" />
     <ClInclude Include="Util\Util_InputSnapshot.h" />
     <ClInclude Include="Util\Util_LightingPanel.h" />
+    <ClInclude Include="Util\Util_PostProcessPanel.h" />
     <ClInclude Include="Util\Util_RenderDebugPanel.h" />
     <ClInclude Include="Util\Util_ScenePanel.h" />
     <ClInclude Include="Util\Util_StatsOverlay.h" />

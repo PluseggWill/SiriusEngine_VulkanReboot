@@ -79,6 +79,9 @@
     <ClCompile Include="Util\Util_LightingPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_PostProcessPanel.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_RenderDebugPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -343,6 +346,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_LightingPanel.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_PostProcessPanel.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_RenderDebugPanel.h">

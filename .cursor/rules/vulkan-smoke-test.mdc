@@ -21,14 +21,30 @@ Run from **repo root**. Use **`powershell`** (Windows PowerShell 5.1); scripts a
 | Gate | Script | What it checks |
 |------|--------|----------------|
 | **G0** | `Scripts/Verify-CI.ps1` | MSBuild Debug\|x64, `Assert-ShaderDrift.ps1`, `GfxTests.exe` |
-| **G0-smoke** | `Scripts/Verify-Smoke.ps1` | Built exe + `engine.stress.json` + `stress.json` + `Assert-SmokeLog.ps1` |
+| **G0-smoke** | `Scripts/Verify-Smoke.ps1` | Built exe + `engine.stress.json` + `stress.json` + `Assert-SmokeLog.ps1` (**always `--no-validation`**) |
+| **G0-validation** | Manual (see below) | Vulkan validation layers on; **no new `[VULKAN-VALIDATION]` ERROR** in log |
 
 ```powershell
 powershell -File Scripts/Verify-CI.ps1
 powershell -File Scripts/Verify-Smoke.ps1
 ```
 
-**G0-smoke** requires a prior G0 build (`Verify-Smoke` does not rebuild). **Task close / vibe Closeout:** at minimum G0; add G0-smoke when VulkanDesktop runtime, scene load, or log assertions changed.
+**G0-smoke** requires a prior G0 build (`Verify-Smoke` does not rebuild). **Task close / vibe Closeout:** at minimum G0 + G0-smoke when GPU/runtime changed.
+
+**G0-validation (required for RenderCore pass / barrier / descriptor / new compute or post-process work):** `Verify-Smoke.ps1` **does not** enable validation — passing G0-smoke alone can miss descriptor/barrier bugs that explode at runtime.
+
+```powershell
+$Repo = "<repo-root>"
+& "$Repo\x64\Debug\VulkanDesktop.exe" `
+  --asset-root $Repo `
+  --config "$Repo\Config\engine.stress.json" `
+  --scene Data/Scenes/stress.json `
+  --validation --smoke-frames 120 --smoke-seconds 6
+# Success: exit 0; tail Logs/engine_runtime_log.txt — no new [VULKAN-VALIDATION] at Error level
+Select-String -Path "$Repo\Logs\engine_runtime_log.txt" -Pattern '\[VULKAN-VALIDATION\]' | Select-Object -Last 5
+```
+
+Use **`HybridDeferred`** preset (default in stress config) when exercising post-process / deferred paths. See `vulkan-render-pass-pitfalls.mdc` for common failure modes.
 
 **Optional metrics:** `--perf-log Logs/perf_ci.jsonl` on VulkanDesktop (see `Docs/CLI.md`) then `Scripts/Perf-JsonlSummary.ps1`.
 
@@ -56,6 +72,7 @@ Local dev may still auto-discover repo root; automation must use `--asset-root` 
 |------|---------|
 | Full local G0 (agents, task close) | `powershell -File Scripts/Verify-CI.ps1` |
 | GPU graceful smoke + log contract | `powershell -File Scripts/Verify-Smoke.ps1` |
+| **RenderCore / pass changes (validation)** | Manual run with `--validation` (G0-validation above); **not** covered by Verify-Smoke |
 | CLI parses, no GPU | `.\VulkanDesktop.exe --help` |
 | Headless gfx contracts | `x64\Debug\GfxTests.exe` (included in Verify-CI) |
 | Minimal scene | `--scene Data/Scenes/smoke.json` (optional; G0-smoke uses `stress.json`) |

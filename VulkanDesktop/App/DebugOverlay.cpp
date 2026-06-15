@@ -11,6 +11,7 @@
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_LightingPanel.h"
+#include "../Util/Util_PostProcessPanel.h"
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
@@ -97,7 +98,11 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 UtilRenderDebugPanel::BuildContents( aConfig, aDebugUI.myRenderDebug, anEnvironment, aPrep.myTotalOpaqueDraws, aPrep.myTotalTransparentDraws );
                 aAoSettings.myHiZDebugMip = aDebugUI.myRenderDebug.myHiZDebugMip;
                 ImGui::Separator();
-                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings, aPostSettings );
+                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings );
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "Post" ) ) {
+                UtilPostProcessPanel::BuildContents( aConfig, aPostSettings );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {

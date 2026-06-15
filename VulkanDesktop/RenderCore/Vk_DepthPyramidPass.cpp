@@ -76,7 +76,7 @@ void DestroyPyramidImage( Vk_Core& aCore ) {
     state.myMipLevelCount = 0;
 }
 
-void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, uint32_t aSrcMip, uint32_t aDstMip ) {
+void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, uint32_t aDstMip, uint32_t aSrcMip ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
 
     VkDescriptorImageInfo depthInfo{};
@@ -93,9 +93,9 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, uint32_t aSrcMip
     dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     std::array< VkWriteDescriptorSet, 3 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 2, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 1, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 2, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -128,18 +128,21 @@ void AllocateDescriptorSets( Vk_Core& aCore, bool aAllocateDescriptors ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
 
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        if ( aAllocateDescriptors ) {
-            VkDescriptorSetAllocateInfo allocInfo{};
-            allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            allocInfo.descriptorPool     = state.myDescriptorPool;
-            allocInfo.descriptorSetCount = 1;
-            allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
-            if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
-                throw std::runtime_error( "Vk_DepthPyramidPass: failed to allocate descriptor set" );
+        for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
+            if ( aAllocateDescriptors ) {
+                VkDescriptorSetAllocateInfo allocInfo{};
+                allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+                allocInfo.descriptorPool     = state.myDescriptorPool;
+                allocInfo.descriptorSetCount = 1;
+                allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
+                if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ][ mip ] ) != VK_SUCCESS ) {
+                    throw std::runtime_error( "Vk_DepthPyramidPass: failed to allocate descriptor set" );
+                }
             }
-        }
-        if ( state.myMipLevelCount > 0 ) {
-            UpdateDescriptorSet( aCore, i, 0, 0 );
+            if ( state.myMipLevelCount > 0 && mip < state.myMipLevelCount ) {
+                const uint32_t srcMip = mip > 0 ? mip - 1 : 0;
+                UpdateDescriptorSet( aCore, i, mip, srcMip );
+            }
         }
     }
 }
@@ -217,12 +220,12 @@ void CreatePipeline( Vk_Core& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 2 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels * 2 },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
+    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
     if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
@@ -283,7 +286,9 @@ void Destroy( Vk_Core& aCore ) {
     }
     DestroyPyramidImage( aCore );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        aCore.myDepthPyramidState.myDescriptorSets[ i ] = VK_NULL_HANDLE;
+        for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
+            aCore.myDepthPyramidState.myDescriptorSets[ i ][ mip ] = VK_NULL_HANDLE;
+        }
     }
     aCore.myDepthPyramidState.myInitialized = false;
 }
@@ -332,8 +337,7 @@ void RecordBuild( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
         const uint32_t dstWidth   = std::max( 1u, srcWidth >> 1 );
         const uint32_t dstHeight  = std::max( 1u, srcHeight >> 1 );
 
-        UpdateDescriptorSet( aCore, aFrameIndex, srcMip, dstMip );
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );
+        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ][ dstMip ], 0, nullptr );
 
         DepthPyramidPushConstants push{};
         push.mipLevel   = dstMip;
