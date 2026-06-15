@@ -8,6 +8,7 @@
 
 #include <vk_mem_alloc.h>
 
+#include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_FramePrepInput.h"
@@ -34,11 +35,13 @@
 
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_DeferredLightingPass.h"
+#include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameDrawPrep.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
 #include "Vk_ShadowMapPass.h"
+#include "Vk_SsaoPass.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -134,6 +137,11 @@ public:
     Gfx_LightingSettings& GetLightingSettings() {
 
         return myLightingSettings;
+    }
+
+    Gfx_AoSettings& GetAoSettings() {
+
+        return myAoSettings;
     }
 
     void ConfigureRenderDoc( bool aEnableRenderDoc );
@@ -261,6 +269,10 @@ public:
 
     Vk_DeferredLightingState myDeferredLightingState;
 
+    Vk_DepthPyramidState myDepthPyramidState;
+
+    Vk_SsaoState mySsaoState;
+
     Vk_IblResourcesState myIblResourcesState;
 
     Vk_ShadowMapState myShadowMapState;
@@ -276,6 +288,8 @@ public:
     GpuEnvironmentData myEnvironmentData;
 
     Gfx_LightingSettings myLightingSettings;
+
+    Gfx_AoSettings myAoSettings;
 
     Vk_AllocatedBuffer myEnvDataBuffer;
 

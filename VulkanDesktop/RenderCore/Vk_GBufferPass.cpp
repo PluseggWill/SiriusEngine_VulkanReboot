@@ -4,6 +4,7 @@
 #include "Vk_GBufferPass.h"
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
@@ -13,6 +14,7 @@
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
+#include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
@@ -20,6 +22,7 @@
 #include "Vk_RenderBackend.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
+#include "Vk_SsaoPass.h"
 
 #include "Vk_VertexLayout.h"
 
@@ -297,6 +300,15 @@ void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCo
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );
 }
 
+// G-buffer depth: attachment -> shader read (Hi-Z / SSAO / deferred reconstruct before swapchain depth copy).
+void CmdBarrierGBufferDepthForShaderRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+    VkImageMemoryBarrier barrier =
+        DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                          nullptr, 0, nullptr, 1, &barrier );
+}
+
 // Shadow pass depth must be visible to DeferredLighting fragment shader (separate render pass from hybrid resolve).
 void CmdBarrierShadowMapForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
     Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
@@ -308,11 +320,11 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
     VkImage          dstImage = aCore.mySwapchainCtx.myDepthTexture.Image();
     const VkExtent2D extent   = aCore.mySwapchainCtx.mySwapChainExtent;
 
-    constexpr VkImageLayout kDepthAttachment = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    constexpr VkImageLayout kDepthReadOnly = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
     std::array< VkImageMemoryBarrier, 2 > toTransfer = {
-        DepthImageBarrier( srcImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT ),
-        DepthImageBarrier( dstImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        DepthImageBarrier( srcImage, kDepthReadOnly, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT ),
+        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
@@ -329,7 +341,7 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
     std::array< VkImageMemoryBarrier, 2 > toAttachment = {
         DepthImageBarrier( srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
                            VK_ACCESS_SHADER_READ_BIT ),
-        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_WRITE_BIT,
+        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -399,6 +411,8 @@ void RecreateForExtent( Vk_Core& aCore ) {
         return;
     }
     RebuildResources( aCore );
+    Vk_DepthPyramidPass::RecreateForExtent( aCore );
+    Vk_SsaoPass::RecreateForExtent( aCore );
     Vk_DeferredLightingPass::RecreateForExtent( aCore );
 }
 
@@ -429,10 +443,11 @@ void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkComma
 
     if ( !sChainLoggedOnce ) {
         if ( aCore.myLightingSettings.myShadowsEnabled ) {
-            UtilLogger::Info( "FG", "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+            UtilLogger::Info( "FG",
+                              "HybridDeferred: ShadowMapDirectional -> GBufferOpaque -> ClusterBuild -> DepthPyramid -> SSAO -> DeferredLighting -> ForwardTransparent" );
         }
         else {
-            UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
+            UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DepthPyramid -> SSAO -> DeferredLighting -> ForwardTransparent" );
         }
         sChainLoggedOnce = true;
     }
@@ -459,7 +474,11 @@ void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkComma
     constexpr uint32_t           viewIndex = 0;  // FG v0: single view
     const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
 
-    if ( aCore.myShadowMapState.myInitialized && aCore.myLightingSettings.myShadowsEnabled ) {
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const bool      recordShadowPass =
+        aCore.myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir );
+
+    if ( recordShadowPass ) {
         if ( packet != nullptr && !packet->myShadowCasterPass.myDraws.empty() ) {
             Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, packet->myShadowCasterPass, emitDebugLabels );
         }
@@ -508,6 +527,9 @@ void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkComma
     Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
 
     CmdBarrierGBufferColorsForDeferredRead( aCore, aCommandBuffer );
+    CmdBarrierGBufferDepthForShaderRead( aCore, aCommandBuffer );
+    Vk_DepthPyramidPass::RecordBuild( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
+    Vk_SsaoPass::RecordCompute( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
     CmdBarrierShadowMapForDeferredRead( aCore, aCommandBuffer );
     CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
 

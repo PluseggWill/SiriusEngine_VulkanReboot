@@ -221,6 +221,8 @@ void Vk_Core::LoadSceneGpuResources( WorldState& aWorld ) {
     if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
+        Vk_DepthPyramidPass::Init( *this );
+        Vk_SsaoPass::Init( *this );
         Vk_DeferredLightingPass::Init( *this );
     }
 
@@ -259,6 +261,8 @@ void Vk_Core::UnloadSceneGpuResources() {
 
     ShutdownImGui();
     Vk_DeferredLightingPass::Destroy( *this );
+    Vk_SsaoPass::Destroy( *this );
+    Vk_DepthPyramidPass::Destroy( *this );
     Vk_ClusterBuildPass::Destroy( *this );
     Vk_GBufferPass::Destroy( *this );
     Vk_GfxPipelineCache::DestroyScenePipelines( *this );

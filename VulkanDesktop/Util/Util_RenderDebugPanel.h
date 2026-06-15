@@ -15,6 +15,7 @@ struct State {
     bool              mySkipTransparentPass = false;
     bool              myLodEnabled          = false;
     Gfx_DebugViewMode myDebugViewMode       = Gfx_DebugViewMode_Lit;
+    uint32_t          myHiZDebugMip         = 0u;
 };
 
 // Parent window/tab must already be open (no Begin/End here). Patches myFogDistance.w before UpdateEnvironment.

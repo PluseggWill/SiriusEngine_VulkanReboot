@@ -232,6 +232,12 @@
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_SsaoPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -495,10 +501,19 @@
     <ClInclude Include="RenderCore\Vk_RenderBackend.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_AoSettings.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_SsaoPass.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h">

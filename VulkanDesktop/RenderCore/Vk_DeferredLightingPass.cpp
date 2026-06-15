@@ -2,12 +2,14 @@
 // Set 0: G-buffer samplers + ClusterBuild SSBOs (lights, per-frame cluster lists).
 #include "Vk_DeferredLightingPass.h"
 
+#include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Camera.h"
 #include "Vk_Core.h"
+#include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 
@@ -123,7 +125,17 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     shadowDepthReadInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
     shadowDepthReadInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
-    std::array< VkWriteDescriptorSet, 13 > writes = {
+    VkDescriptorImageInfo aoInfo{};
+    aoInfo.sampler     = state.myGBufferSampler;
+    aoInfo.imageView   = aCore.mySsaoState.myAoRaw.ImageView();
+    aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo hiZInfo{};
+    hiZInfo.sampler     = aCore.myDepthPyramidState.myPyramidSampler;
+    hiZInfo.imageView   = aCore.myDepthPyramidState.myPyramid.ImageView();
+    hiZInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 15 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
@@ -137,6 +149,8 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, 10, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowDepthReadInfo, 11, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 12, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 14, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -148,7 +162,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
 
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 13 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 15 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
@@ -162,6 +176,8 @@ void CreatePipelineResources( Vk_Core& aCore ) {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 10 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 11 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 12 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 13 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 14 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -200,7 +216,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 10 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 12 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
     };
@@ -259,10 +275,14 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.tilesX                                                   = Gfx_ClusterLighting::TilesForExtent( width );
     push.tilesY                                                   = Gfx_ClusterLighting::TilesForExtent( height );
     push.tileSize                                                 = Gfx_ClusterLighting::kTileSize;
-    push.depthSlice                                               = 0;
     std::memcpy( push.ambientColor, glm::value_ptr( aCore.myEnvironmentData.myAmbientColor ), sizeof( float ) * 4 );
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
-    push.debugView = aCore.myEnvironmentData.myFogDistance.w;  // UtilRenderDebugPanel::Build (Application, before DrawFrameGpu)
+    push.debugView              = aCore.myEnvironmentData.myFogDistance.w;
+    push.legacySpecularStrength = aCore.myAoSettings.myEnabled ? 1.0f : 0.0f;
+    push.legacyShininess        = aCore.myAoSettings.myIntensity;
+    push.legacyPad              = aCore.myAoSettings.myPower;
+    push.depthSlice =
+        std::min( aCore.myAoSettings.myHiZDebugMip, Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u );
 
     const glm::mat4 invViewProj = glm::inverse( aCore.myCamera.myProj * aCore.myCamera.myView );
     std::memcpy( push.invViewProj, glm::value_ptr( invViewProj ), sizeof( push.invViewProj ) );
@@ -317,8 +337,8 @@ void Init( Vk_Core& aCore ) {
         }
         return;
     }
-    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer and ClusterBuild" );
+    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.mySsaoState.myInitialized || !aCore.myDepthPyramidState.myInitialized ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer, ClusterBuild, DepthPyramid, and SSAO" );
     }
     UtilLogger::Info( "FG", "Vk_DeferredLightingPass::Init." );
     CreatePipelineResources( aCore );

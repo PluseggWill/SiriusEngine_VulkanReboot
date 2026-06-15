@@ -10,6 +10,8 @@ const uint kSunLightIndex = 0u;
 const uint kDebugViewDepth = 1u;
 const uint kDebugViewWorldNormal = 2u;
 const uint kDebugViewShadowMap = 3u;
+const uint kDebugViewAo = 4u;
+const uint kDebugViewHiZ = 5u;
 
 struct ClusterLight {
     vec4 direction;
@@ -25,7 +27,7 @@ layout(push_constant) uniform PushConstants {
     uvec4 grid;              // tilesX, tilesY, tileSize, depthSlice
     vec4 ambientColor;
     vec4 viewWorldPos;
-    vec4 legacyAndDebug;     // x/y unused (layout pad); z = Gfx_DebugViewMode
+    vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
     mat4 invViewProj;
 } pc;
 
@@ -40,7 +42,7 @@ layout(set = 0, binding = 3) readonly buffer ClusterLists {
 layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 5) uniform LightingGlobals {
     mat4 lightViewProj;
-    vec4 shadowParams;  // z = enabled
+    vec4 shadowParams;  // z = compare active (0/1), w = 1/shadowMapSize
     vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip
 } lightingGlobals;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
@@ -51,6 +53,8 @@ layout(set = 0, binding = 10) uniform samplerCube skyMap;
 // binding 11: non-compare depth read (descriptor parity; optional tooling).
 layout(set = 0, binding = 11) uniform sampler2D shadowMapDepth;
 layout(set = 0, binding = 12) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 13) uniform sampler2D aoMap;
+layout(set = 0, binding = 14) uniform sampler2D hiZPyramid;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -62,7 +66,7 @@ vec3 reconstructWorldPos(vec2 aUV, float aDepth)
     return worldH.xyz / worldH.w;
 }
 
-vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorldPos)
+vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorldPos, vec2 aUV, float aAo)
 {
     const uint viewMode = uint(pc.legacyAndDebug.z + 0.5);
     if (viewMode == kDebugViewDepth) {
@@ -75,9 +79,16 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorld
         if (aDepth >= 0.999) {
             return vec4(0.0, 0.0, 0.0, 1.0);
         }
-        // Same compare as lit path (forward deferred parity); not raw depth map.
         const float visibility = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, aWorldPos, lightingGlobals.shadowParams);
         return vec4(vec3(visibility), 1.0);
+    }
+    if (viewMode == kDebugViewAo) {
+        return vec4(vec3(aAo), 1.0);
+    }
+    if (viewMode == kDebugViewHiZ) {
+        const uint mip = min(pc.grid.w, 7u);
+        const float hiZ = textureLod(hiZPyramid, aUV, float(mip)).r;
+        return vec4(vec3(hiZ), 1.0);
     }
     return aLitColor;
 }
@@ -113,12 +124,22 @@ void main()
     const float sunShadow = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, worldPos, lightingGlobals.shadowParams);
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
-    vec3 lit = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
-                           lightingGlobals.iblParams.z);
+    vec3 ambient = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
+                               lightingGlobals.iblParams.z);
     if (iblEnabled == 0u) {
-        lit = pc.ambientColor.rgb * albedo;
+        ambient = pc.ambientColor.rgb * albedo;
     }
-    lit = Pbr_ModulateAmbientForSunShadow(lit, sunShadow, lightingGlobals.shadowParams);
+
+    const float aoEnabled = pc.legacyAndDebug.x;
+    const float aoIntensity = pc.legacyAndDebug.y;
+    const float aoPower = pc.legacyAndDebug.w;
+    float ao = texture(aoMap, vUV).r;
+    ao = mix(1.0, pow(clamp(ao, 0.0, 1.0), aoPower), aoIntensity);
+    if (aoEnabled < 0.5) {
+        ao = 1.0;
+    }
+
+    vec3 lit = ambient * ao;
 
     const ClusterLightList cluster = lists[clusterId];
     const uint lightCount = min(cluster.lightCount, kMaxLightsPerCluster);
@@ -132,5 +153,5 @@ void main()
         lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, radiance);
     }
 
-    outColor = applyDebugView(vec4(lit, 1.0), N, depth, worldPos);
+    outColor = applyDebugView(vec4(lit, 1.0), N, depth, worldPos, vUV, ao);
 }

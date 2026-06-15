@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|--------|
 | **Sprint** | **S6** — SSAO + Hi-Z · [`Wishlist.md`](Wishlist.md) § S6 |
-| **WIP task** | *(none — pick next from Active-Plan queue)* |
+| **WIP task** | [`s6-ssao-hiz_Plan.md`](s6-ssao-hiz_Plan.md) + [`s6-ssao-hiz_Progress.md`](s6-ssao-hiz_Progress.md) |
 | **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S6–S8 lighting |
 | **Last closed** | architecture-layer-hygiene — [`Archived/plans/architecture-layer-hygiene_Plan.md`](Archived/plans/architecture-layer-hygiene_Plan.md) |
 

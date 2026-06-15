@@ -1,0 +1,39 @@
+#version 450
+
+// Hi-Z min-depth pyramid: mip0 copies G-buffer depth; mip N+1 reduces 2x2 min from mip N.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uint mipLevel;
+    uint isFirstMip; // 1 = sample gbuffer depth, 0 = read previous pyramid mip
+    uvec2 srcSize;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1, r32f) uniform readonly image2D srcPyramidMip;
+layout(set = 0, binding = 2, r32f) uniform writeonly image2D dstPyramidMip;
+
+float loadSrcDepth(ivec2 aCoord) {
+    const ivec2 clamped = clamp(aCoord, ivec2(0), ivec2(pc.srcSize) - ivec2(1));
+    if (pc.isFirstMip != 0u) {
+        return texelFetch(gbufferDepth, clamped, 0).r;
+    }
+    return imageLoad(srcPyramidMip, clamped).r;
+}
+
+void main() {
+    const uvec2 dstSize = max(uvec2(1u), pc.srcSize >> 1u);
+    const uvec2 gid = gl_GlobalInvocationID.xy;
+    if (gid.x >= dstSize.x || gid.y >= dstSize.y) {
+        return;
+    }
+
+    const uvec2 srcBase = gid * 2u;
+    const float d00 = loadSrcDepth(ivec2(srcBase));
+    const float d10 = loadSrcDepth(ivec2(srcBase + uvec2(1u, 0u)));
+    const float d01 = loadSrcDepth(ivec2(srcBase + uvec2(0u, 1u)));
+    const float d11 = loadSrcDepth(ivec2(srcBase + uvec2(1u, 1u)));
+
+    const float minDepth = min(min(d00, d10), min(d01, d11));
+    imageStore(dstPyramidMip, ivec2(gid), vec4(minDepth, 0.0, 0.0, 0.0));
+}
