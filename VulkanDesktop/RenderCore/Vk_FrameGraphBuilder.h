@@ -16,7 +16,7 @@ using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Core;
 
 // FG v1 pass ids for HybridDeferred preset (topological order enforced by Vk_FrameGraphBuilder).
-enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSAO, DeferredTransparent, Post, Count };
+enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSAO, ShadowAoSoft, DeferredTransparent, Post, Count };
 
 // Per-frame inputs shared by all FG record callbacks.
 struct Vk_FrameGraphContext {

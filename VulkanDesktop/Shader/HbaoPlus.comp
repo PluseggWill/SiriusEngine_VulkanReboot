@@ -1,0 +1,104 @@
+#version 450
+
+// HBAO+ v0 — half-res horizon scan (4 directions × 4 steps). Output is linear AO in [0,1].
+#include "AoCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    mat4 view;
+    mat4 proj;
+    mat4 invProj;
+    vec4 params; // x=radius (view units), y=angle bias, z=enabled (0/1), w=falloff scale
+    uvec2 directionCount;
+    uvec2 stepCount;
+    vec2 halfScreenSize;
+    vec2 fullScreenSize;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
+layout(set = 0, binding = 2, r8) uniform writeonly image2D aoHalfOut;
+
+const float kPi = 3.14159265;
+
+float hbaoHorizonAngle(vec3 aPos, vec3 aNormal, vec3 aSamplePos)
+{
+    const vec3 v = aSamplePos - aPos;
+    const float vv = dot(v, v);
+    if (vv < 1e-8) {
+        return 0.0;
+    }
+    const vec3 dir = v * inversesqrt(vv);
+    const float nDotV = dot(aNormal, dir);
+    const float ang = acos(clamp(nDotV, -1.0, 1.0)) - kPi * 0.5;
+    return max(ang, 0.0);
+}
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 halfSize = ivec2(pc.halfScreenSize);
+    if (pix.x >= halfSize.x || pix.y >= halfSize.y) {
+        return;
+    }
+
+    if (pc.params.z < 0.5) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(halfSize);
+    const float depth = texture(gbufferDepth, uv).r;
+    if (depth >= 0.999) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec3 pos = Ao_ReconstructViewPos(uv, depth, pc.invProj);
+    const vec3 Nview = Ao_WorldNormalToView(normalize(texture(gbufferNormalRoughness, uv).xyz), pc.view);
+
+    vec3 tangent = normalize(vec3(-Nview.y, Nview.x, 0.0));
+    if (dot(tangent, tangent) < 1e-6) {
+        tangent = vec3(1.0, 0.0, 0.0);
+    }
+    const vec3 bitangent = cross(Nview, tangent);
+    const mat3 TBN = mat3(tangent, bitangent, Nview);
+
+    const int numDirs = int(clamp(pc.directionCount.x, 1u, 8u));
+    const int numSteps = int(clamp(pc.stepCount.x, 1u, 8u));
+    const float radius = pc.params.x;
+    const float falloff = max(pc.params.w, 0.01);
+
+    float aoAccum = 0.0;
+    for (int d = 0; d < numDirs; ++d) {
+        const float angle = (float(d) / float(numDirs)) * kPi;
+        const vec3 dirView = normalize(TBN * vec3(cos(angle), sin(angle), 0.0));
+
+        float horizon = 0.0;
+        for (int s = 1; s <= numSteps; ++s) {
+            const float t = (float(s) / float(numSteps)) * radius;
+            const vec3 samplePosView = pos + dirView * t;
+
+            const vec4 offsetClip = pc.proj * vec4(samplePosView, 1.0);
+            const vec3 offsetNDC = offsetClip.xyz / offsetClip.w;
+            const vec2 sampleUV = offsetNDC.xy * 0.5 + 0.5;
+            if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+                continue;
+            }
+
+            const float sampleDepth = texture(gbufferDepth, sampleUV).r;
+            const vec3 samplePos = Ao_ReconstructViewPos(sampleUV, sampleDepth, pc.invProj);
+            const float dist = length(samplePos - pos);
+            const float rangeWeight = clamp(radius / max(dist, 1e-4), 0.0, 1.0);
+            const float falloffWeight = exp(-dist * falloff / max(radius, 1e-4));
+            const float h = hbaoHorizonAngle(pos, Nview, samplePos);
+            horizon = max(horizon, h * rangeWeight * falloffWeight);
+        }
+
+        aoAccum += sin(horizon);
+    }
+
+    const float ao = 1.0 - clamp(aoAccum / float(numDirs), 0.0, 1.0);
+    imageStore(aoHalfOut, pix, vec4(ao));
+}

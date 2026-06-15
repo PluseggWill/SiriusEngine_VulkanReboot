@@ -1,0 +1,45 @@
+#version 450
+
+// Pack raw SSAO (R) + screen-space sun shadow (G) for joint separable blur.
+#include "PbrShadow.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    vec4 params; // x = raw AO valid (SSAO pass ran), y = unused, z = unused, w = unused
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 2, r8) uniform readonly image2D rawAo;
+layout(set = 0, binding = 3) uniform sampler2DShadow shadowMap;
+layout(set = 0, binding = 4) uniform LightingGlobals {
+    mat4 lightViewProj;
+    vec4 shadowParams;
+    vec4 iblParams;
+} lightingGlobals;
+layout(set = 0, binding = 5, rg8) uniform writeonly image2D softOut;
+
+void main() {
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(softOut);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(size);
+    const float depth = texture(gbufferDepth, uv).r;
+
+    float ao = 1.0;
+    if (depth < 0.999 && pc.params.x > 0.5) {
+        ao = imageLoad(rawAo, pix).r;
+    }
+
+    float shadow = 1.0;
+    if (depth < 0.999) {
+        const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
+        shadow = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, worldPos, lightingGlobals.shadowParams);
+    }
+
+    imageStore(softOut, pix, vec4(ao, shadow, 0.0, 0.0));
+}

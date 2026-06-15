@@ -17,7 +17,8 @@
 #include "Vk_RenderBackend.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
-#include "Vk_SsaoPass.h"
+#include "Vk_ShadowAoSoftPass.h"
+#include "Vk_AoPass.h"
 
 #include <algorithm>
 #include <array>
@@ -178,7 +179,11 @@ bool IsShadowPassEnabled( const Vk_FrameGraphContext& aCtx ) {
 }
 
 bool IsAoChainEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->mySsaoState.myInitialized && aCtx.myCore->myDepthPyramidState.myInitialized;
+    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && aCtx.myCore->myDepthPyramidState.myInitialized;
+}
+
+bool IsShadowAoSoftEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myShadowAoSoftState.myInitialized && aCtx.myCore->myAoSettings.myContactSoftEnabled;
 }
 
 void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
@@ -286,12 +291,21 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         Vk_FrameGraphPassId::SSAO,
         { Vk_FrameGraphPassId::DepthPyramid },
         IsAoChainEnabled,
-        []( Vk_FrameGraphContext& aCtx ) { Vk_SsaoPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); },
+        []( Vk_FrameGraphContext& aCtx ) { Vk_AoPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); },
+    } );
+
+    aOutNodes.push_back( FrameGraphNode{
+        Vk_FrameGraphPassId::ShadowAoSoft,
+        { Vk_FrameGraphPassId::GBuffer, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::SSAO },
+        IsShadowAoSoftEnabled,
+        []( Vk_FrameGraphContext& aCtx ) {
+            Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoChainEnabled( aCtx ) );
+        },
     } );
 
     aOutNodes.push_back( FrameGraphNode{
         Vk_FrameGraphPassId::DeferredTransparent,
-        { Vk_FrameGraphPassId::ClusterBuild, Vk_FrameGraphPassId::SSAO, Vk_FrameGraphPassId::Shadow },
+        { Vk_FrameGraphPassId::ClusterBuild, Vk_FrameGraphPassId::SSAO, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::ShadowAoSoft },
         []( const Vk_FrameGraphContext& ) { return true; },
         []( Vk_FrameGraphContext& aCtx ) {
             Vk_Core& aCore = *aCtx.myCore;
@@ -375,7 +389,7 @@ namespace Vk_FrameGraphBuilder {
 void RecordHybridDeferred( Vk_FrameGraphContext& aCtx ) {
     static bool sChainLoggedOnce = false;
     if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred FG v1: Shadow -> GBuffer -> ClusterBuild -> DepthPyramid -> SSAO -> DeferredTransparent(HDR) -> Post(tonemap/bloom)" );
+        UtilLogger::Info( "FG", "HybridDeferred FG v1: Shadow -> GBuffer -> ClusterBuild -> DepthPyramid -> AO -> ShadowAoSoft -> DeferredTransparent(HDR) -> Post" );
         sChainLoggedOnce = true;
     }
 

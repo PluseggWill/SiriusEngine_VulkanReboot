@@ -13,6 +13,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
+#include "Vk_ShadowAoSoftPass.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -128,7 +129,7 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
 
     VkDescriptorImageInfo aoInfo{};
     aoInfo.sampler     = state.myGBufferSampler;
-    aoInfo.imageView   = aCore.mySsaoState.myAoRaw.ImageView();
+    aoInfo.imageView   = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
     aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo hiZInfo{};
@@ -282,6 +283,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.legacySpecularStrength = aCore.myAoSettings.myEnabled ? 1.0f : 0.0f;
     push.legacyShininess        = aCore.myAoSettings.myIntensity;
     push.legacyPad              = aCore.myAoSettings.myPower;
+    push.contactSoftEnabled     = ( aCore.myAoSettings.myContactSoftEnabled && aCore.myShadowAoSoftState.myInitialized ) ? 1.0f : 0.0f;
     push.depthSlice =
         std::min( aCore.myAoSettings.myHiZDebugMip, Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u );
 
@@ -338,7 +340,7 @@ void Init( Vk_Core& aCore ) {
         }
         return;
     }
-    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.mySsaoState.myInitialized || !aCore.myDepthPyramidState.myInitialized
+    if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.myAoState.myInitialized || !aCore.myDepthPyramidState.myInitialized
          || !aCore.myPostProcessState.myInitialized ) {
         throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer, ClusterBuild, DepthPyramid, SSAO, and PostProcess" );
     }

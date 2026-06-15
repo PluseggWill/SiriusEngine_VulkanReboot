@@ -28,6 +28,7 @@ layout(push_constant) uniform PushConstants {
     vec4 ambientColor;
     vec4 viewWorldPos;
     vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
+    vec4 contactSoftParams;  // x = contact soft enabled (AO+shadow blur pass)
     mat4 invViewProj;
 } pc;
 
@@ -121,7 +122,13 @@ void main()
     const uint tileY = uint(gl_FragCoord.y) / pc.grid.z;
     const uint clusterId = tileX + tileY * pc.grid.x + pc.grid.w * pc.grid.x * pc.grid.y;
 
-    const float sunShadow = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, worldPos, lightingGlobals.shadowParams);
+    float sunShadow = Pbr_ShadowVisibility(shadowMap, lightingGlobals.lightViewProj, worldPos, lightingGlobals.shadowParams);
+    float ao = texture(aoMap, vUV).r;
+    if (pc.contactSoftParams.x > 0.5) {
+        const vec2 contact = texture(aoMap, vUV).rg;
+        ao = contact.r;
+        sunShadow = contact.g;
+    }
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
     vec3 ambient = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
@@ -133,7 +140,6 @@ void main()
     const float aoEnabled = pc.legacyAndDebug.x;
     const float aoIntensity = pc.legacyAndDebug.y;
     const float aoPower = pc.legacyAndDebug.w;
-    float ao = texture(aoMap, vUV).r;
     ao = mix(1.0, pow(clamp(ao, 0.0, 1.0), aoPower), aoIntensity);
     if (aoEnabled < 0.5) {
         ao = 1.0;

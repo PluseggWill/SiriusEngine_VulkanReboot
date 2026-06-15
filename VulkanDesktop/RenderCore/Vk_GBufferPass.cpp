@@ -25,7 +25,8 @@
 #include "Vk_RenderBackend.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
-#include "Vk_SsaoPass.h"
+#include "Vk_ShadowAoSoftPass.h"
+#include "Vk_AoPass.h"
 
 #include "Vk_VertexLayout.h"
 
@@ -419,7 +420,8 @@ void RecreateForExtent( Vk_Core& aCore ) {
     }
     RebuildResources( aCore );
     Vk_DepthPyramidPass::RecreateForExtent( aCore );
-    Vk_SsaoPass::RecreateForExtent( aCore );
+    Vk_AoPass::RecreateForExtent( aCore );
+    Vk_ShadowAoSoftPass::RecreateForExtent( aCore );
     Vk_PostProcessPass::RecreateForExtent( aCore );
     Vk_DeferredLightingPass::RecreateForExtent( aCore );
     Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( aCore );

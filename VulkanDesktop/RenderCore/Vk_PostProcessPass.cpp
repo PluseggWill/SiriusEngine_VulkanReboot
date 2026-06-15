@@ -372,7 +372,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
     }
 
-    // Per frame: threshold(1) + blurH(2) + blurV(2) storage images — match Vk_SsaoPass pool sizing.
+    // Per frame: threshold(1) + blurH(2) + blurV(2) storage images — match Vk_AoPass pool sizing.
     VkDescriptorPoolSize poolSizes[] = {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 3 ) },
         { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 5 ) },

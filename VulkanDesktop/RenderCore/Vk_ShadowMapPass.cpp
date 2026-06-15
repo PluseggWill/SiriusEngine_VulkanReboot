@@ -264,27 +264,33 @@ void Destroy( Vk_Core& aCore ) {
 }
 
 void CmdBarrierForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    if ( !aCore.myShadowMapState.myInitialized || !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
+    if ( !aCore.myShadowMapState.myInitialized ) {
         return;
     }
 
-    Vk_ShadowMapState& state = aCore.myShadowMapState;
+    Vk_ShadowMapState&         state         = aCore.myShadowMapState;
+    const VkPipelineStageFlags shaderStages  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
     if ( state.myDepthLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
-        // Shadow pass did not run this frame — still need a valid layout for sampler validation.
-        CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT );
+        // Shadow pass skipped (disabled / below horizon) — layout must still be valid for bound samplers.
+        CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
+        return;
+    }
+
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    if ( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
         return;
     }
 
     if ( state.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ) {
         const VkImageMemoryBarrier barrier =
             MakeShadowDepthBarrier( state.myDepth.Image(), state.myDepthLayout, state.myDepthLayout, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                              0, nullptr, 0, nullptr, 1, &barrier );
+        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, shaderStages, 0, 0, nullptr, 0, nullptr,
+                              1, &barrier );
         return;
     }
 
-    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT );
+    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
 }
 
 void Init( Vk_Core& aCore ) {

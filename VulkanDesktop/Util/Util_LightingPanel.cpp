@@ -1,5 +1,6 @@
 #include "Util_LightingPanel.h"
 
+#include "../Gfx/Gfx_AoMethod.h"
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../RenderCore/Vk_Camera.h"
@@ -144,11 +145,44 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
 
     ImGui::Separator();
     ImGui::Text( "Screen-space AO" );
+    {
+        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ) };
+        int           method = static_cast< int >( aAoSettings.myMethod );
+        if ( ImGui::Combo( "AO method", &method, labels, IM_ARRAYSIZE( labels ) ) ) {
+            aAoSettings.myMethod = static_cast< Gfx_AoMethod >( method );
+        }
+        if ( ImGui::IsItemHovered() ) {
+            ImGui::SetTooltip( "Algorithm in Vk_AoPass — swap without changing deferred or contact-soft pass." );
+        }
+    }
     ImGui::Checkbox( "AO enabled", &aAoSettings.myEnabled );
     ImGui::SliderFloat( "AO radius", &aAoSettings.myRadius, 0.05f, 2.0f );
     ImGui::SliderFloat( "AO bias", &aAoSettings.myBias, 0.001f, 0.1f );
     ImGui::SliderFloat( "AO intensity", &aAoSettings.myIntensity, 0.f, 1.f );
     ImGui::SliderFloat( "AO power", &aAoSettings.myPower, 0.5f, 4.f );
+    if ( aAoSettings.myMethod == Gfx_AoMethod::HbaoPlus ) {
+        int dirs  = static_cast< int >( aAoSettings.myHbaoDirections );
+        int steps = static_cast< int >( aAoSettings.myHbaoSteps );
+        if ( ImGui::SliderInt( "HBAO directions", &dirs, 1, 8 ) ) {
+            aAoSettings.myHbaoDirections = static_cast< uint32_t >( dirs );
+        }
+        if ( ImGui::SliderInt( "HBAO steps", &steps, 1, 8 ) ) {
+            aAoSettings.myHbaoSteps = static_cast< uint32_t >( steps );
+        }
+        ImGui::SliderFloat( "Upsample depth edge", &aAoSettings.myUpsampleDepthSigma, 0.01f, 0.06f );
+    }
+
+    ImGui::Separator();
+    ImGui::Text( "Contact softening (AO + shadow)" );
+    ImGui::Checkbox( "Contact soft enabled", &aAoSettings.myContactSoftEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Screen-space blur on AO and sun shadow edges (HybridDeferred)." );
+    }
+    ImGui::SliderFloat( "Soft blur radius", &aAoSettings.myContactSoftBlurRadius, 1.f, 4.f );
+    ImGui::SliderFloat( "Soft depth edge", &aAoSettings.myContactSoftDepthSigma, 0.01f, 0.06f );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Bilateral depth threshold — lower = sharper edges, higher = softer blur across depth gaps." );
+    }
 
     ImGui::Separator();
     ImGui::TextDisabled( "Specular / shininess: unused under PBR (material roughness/metallic)" );

@@ -142,12 +142,40 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\Ssao.spv"
 
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%HbaoPlus.comp" -o "%GEN_DIR%HbaoPlus.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: HbaoPlus.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\HbaoPlus.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%AoUpsample.comp" -o "%GEN_DIR%AoUpsample.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: AoUpsample.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\AoUpsample.spv"
+
 "%GLSLC%" "%SHADER_DIR%SsaoBlur.comp" -o "%GEN_DIR%SsaoBlur.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: SsaoBlur.comp"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\SsaoBlur.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowAoPack.comp" -o "%GEN_DIR%ShadowAoPack.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoPack.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\ShadowAoPack.spv"
+
+"%GLSLC%" "%SHADER_DIR%ShadowAoBlur.comp" -o "%GEN_DIR%ShadowAoBlur.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoBlur.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\ShadowAoBlur.spv"
 
 "%GLSLC%" "%SHADER_DIR%Tonemap.vert" -o "%GEN_DIR%TonemapVert.spv"
 if errorlevel 1 (
