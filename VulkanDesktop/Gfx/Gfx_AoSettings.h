@@ -17,9 +17,8 @@ struct Gfx_AoSettings {
     uint32_t     myHbaoDirections        = 4u;      // HBAO+ horizon directions (1–8)
     uint32_t     myHbaoSteps             = 4u;      // HBAO+ steps per direction (1–8)
     uint32_t     myGtaoSlices            = 8u;      // GTAO slice count (1–16)
-    uint32_t     myGtaoStepsPerSlice     = 4u;      // GTAO steps per slice (1–16)
-    float        myGtaoThickness         = 0.5f;    // reject occluders beyond this view-space height
-    float        myGtaoFalloff           = 2.0f;    // distance falloff power (screen march)
+    uint32_t     myGtaoStepsPerSlice     = 4u;      // GTAO steps per slice, both directions (1–16)
+    float        myGtaoFalloff           = 2.0f;    // screen-march weight falloff power
     float        myUpsampleDepthSigma    = 0.025f;  // half-res → full-res bilateral threshold (NDC depth)
     bool         myContactSoftEnabled    = true;    // joint screen-space AO + shadow blur (ShadowAoSoft pass)
     float        myContactSoftBlurRadius = 2.0f;    // blur tap stride (1–4 px)

@@ -181,7 +181,6 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
         if ( ImGui::SliderInt( "GTAO steps / slice", &steps, 1, 16 ) ) {
             aAoSettings.myGtaoStepsPerSlice = static_cast< uint32_t >( steps );
         }
-        ImGui::SliderFloat( "GTAO thickness", &aAoSettings.myGtaoThickness, 0.05f, 2.0f );
         ImGui::SliderFloat( "GTAO falloff", &aAoSettings.myGtaoFalloff, 0.5f, 4.0f );
         ImGui::SliderFloat( "Upsample depth edge", &aAoSettings.myUpsampleDepthSigma, 0.01f, 0.06f );
     }

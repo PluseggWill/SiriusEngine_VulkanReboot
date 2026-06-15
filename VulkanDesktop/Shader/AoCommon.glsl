@@ -1,4 +1,4 @@
-// Shared screen-space AO utilities (included by Ssao.comp / HbaoPlus.comp / AoUpsample.comp).
+// Shared screen-space AO utilities (Ssao / HbaoPlus / Gtao / AoUpsample).
 
 // Reconstruct view-space position from NDC depth and inverse projection.
 vec3 Ao_ReconstructViewPos(vec2 aUV, float aDepth, mat4 aInvProj)
@@ -29,19 +29,34 @@ float Ao_DepthEdgeWeight(float aCenterDepth, float aSampleDepth, float aSigma)
     return exp(-abs(aSampleDepth - aCenterDepth) / max(aSigma, 1e-4));
 }
 
-// GTAO slice arc integration (Jimenez 2016 eq. 12; h1/h2 = horizon angles, nAngle = normal vs slice plane).
-float Ao_GtaoIntegrateArc(float h1, float h2, float nAngle)
+// GTAO per-side arc integral (Jimenez / XeGTAO). Returns visibility contribution for one horizon.
+float Ao_GtaoIntegrateSide(float h, float nAngle, float cosNorm)
 {
-    const float cosN = cos(nAngle);
     const float sinN = sin(nAngle);
-    return 0.25 * (
-        -cos(2.0 * h1 - 2.0 * nAngle) - cos(2.0 * h2 - 2.0 * nAngle)
-        + 2.0 * cosN * (h1 * sinN + h2 * sinN)
-        - 2.0 * cosN * (cos(h1) * sinN + cos(h2) * sinN));
+    return (cosNorm + 2.0 * h * sinN - cos(2.0 * h - nAngle)) * 0.25;
 }
 
-// Screen-space march falloff (0 at radius, 1 at contact).
+// Weight for screen-space march samples (1 at contact, 0 at sample radius).
 float Ao_GtaoDistanceFalloff(float aDist, float aRadius, float aPower)
 {
     return 1.0 - clamp(pow(aDist / max(aRadius, 1e-4), aPower), 0.0, 1.0);
+}
+
+// Project view-space position to NDC UV (xy) + depth (z).
+vec2 Ao_ProjectViewPosToUv(vec3 aViewPos, mat4 aProj)
+{
+    const vec4 clip = aProj * vec4(aViewPos, 1.0);
+    const vec3 ndc = clip.xyz / clip.w;
+    return ndc.xy * 0.5 + 0.5;
+}
+
+// Fetch view-space position from world-position G-buffer; false if UV is off-screen.
+bool Ao_TryFetchViewPosFromGBuffer(sampler2D aWorldPosTex, mat4 aView, vec2 aUV, out vec3 aOutViewPos)
+{
+    if (aUV.x < 0.0 || aUV.x > 1.0 || aUV.y < 0.0 || aUV.y > 1.0) {
+        return false;
+    }
+    const vec3 worldPos = texture(aWorldPosTex, aUV).rgb;
+    aOutViewPos = (aView * vec4(worldPos, 1.0)).xyz;
+    return true;
 }

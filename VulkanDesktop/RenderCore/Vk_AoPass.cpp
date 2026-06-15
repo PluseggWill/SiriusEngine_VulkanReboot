@@ -41,11 +41,11 @@ struct ClassicAoPushConstants {
 
 static_assert( sizeof( ClassicAoPushConstants ) == 224, "ClassicAoPushConstants must match Ssao.comp push block" );
 
-// Shared by HbaoPlus.comp and Gtao.comp (same binding layout and push block size).
+// Shared by HbaoPlus.comp and Gtao.comp (same bindings; params.xy/z/w meaning differs per shader).
 struct HalfResAoPushConstants {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
-    alignas( 16 ) glm::vec4 params;
+    alignas( 16 ) glm::vec4 params; // HBAO: radius,bias,enabled,0 — GTAO: radius,0,enabled,falloff
     alignas( 8 ) glm::uvec2 sliceCount;
     alignas( 8 ) glm::uvec2 stepsPerSlice;
     alignas( 8 ) glm::vec2 halfScreenSize;
@@ -542,6 +542,7 @@ void RecordClassicSsao( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     }
 }
 
+// Half-res compute → myAoHalf (SHADER_READ_ONLY) → AoUpsample.comp → myAoRaw.
 void RecordHalfResUpsample( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
     Vk_AoState& state = aCore.myAoState;
 
@@ -565,6 +566,7 @@ void RecordHalfResUpsample( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint
     }
 }
 
+// Dispatch one half-res AO shader (HBAO+ or GTAO) into myAoHalf.
 void RecordHalfResCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, VkPipeline aPipeline,
                            const HalfResAoPushConstants& aPush, const char* aDebugLabel ) {
     Vk_AoState&      state = aCore.myAoState;
@@ -607,13 +609,14 @@ void RecordHbaoPlus( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
 }
 
 void RecordGtao( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
+    // params: radius, unused, enabled, distance falloff — see Gtao.comp
     Vk_AoState&      state = aCore.myAoState;
     const VkExtent2D half  = HalfExtent( aWidth, aHeight );
 
     HalfResAoPushConstants push{};
     push.view           = aCore.myCamera.myView;
     push.proj           = aCore.myCamera.myProj;
-    push.params         = glm::vec4( ao.myRadius, ao.myGtaoThickness, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
+    push.params         = glm::vec4( ao.myRadius, 0.0f, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
     push.sliceCount     = glm::uvec2( std::clamp( ao.myGtaoSlices, 1u, 16u ), 0u );
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myGtaoStepsPerSlice, 1u, 16u ), 0u );
     push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
