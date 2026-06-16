@@ -1,40 +1,9 @@
 #pragma once
 
-#include <cstdint>
+#include "../RenderContract/GpuAoSettings.h"
 
-#include "Gfx_AoMethod.h"
-
-// CPU-side screen-space AO tuning (HybridDeferred; ImGui via Util_LightingPanel).
-// Algorithm selection: Gfx_AoMethod — swap compute shader in Vk_AoPass without touching deferred.
-struct Gfx_AoSettings {
-    Gfx_AoMethod myMethod                = Gfx_AoMethod::HbaoPlus;
-    bool         myEnabled               = true;
-    float        myRadius                = 0.1f;    // world/view sample radius (constant; no distance scaling in HBAO)
-    float        myBias                  = 0.02f;   // horizon / depth compare bias
-    float        myIntensity             = 0.5f;    // composite strength (deferred)
-    float        myPower                 = 1.5f;    // contrast curve (applied once in deferred)
-    uint32_t     myHiZDebugMip           = 0u;      // Util_RenderDebugPanel Hi-Z slice
-    uint32_t     myHbaoDirections        = 4u;      // HBAO+ horizon directions (1–8)
-    uint32_t     myHbaoSteps             = 4u;      // HBAO+ steps per direction (1–8)
-    uint32_t     myGtaoSlices            = 8u;      // GTAO slice count (1–16)
-    uint32_t     myGtaoStepsPerSlice     = 4u;      // GTAO steps per slice, both directions (1–16)
-    float        myGtaoFalloff           = 2.0f;    // screen-march weight falloff power
-    float        myUpsampleDepthSigma    = 0.025f;  // half-res → full-res bilateral threshold (NDC depth)
-    bool         myContactSoftEnabled    = true;    // joint screen-space AO + shadow blur (ShadowAoSoft pass)
-    float        myContactSoftBlurRadius = 2.0f;    // blur tap stride (1–4 px)
-    float        myContactSoftDepthSigma = 0.025f;  // contact blur bilateral threshold (NDC)
-};
+using Gfx_AoSettings = GpuAoSettings;
 
 inline uint32_t Gfx_ComputeHiZMipLevelCount( uint32_t aWidth, uint32_t aHeight, uint32_t aMaxMips = 8u ) {
-    const uint32_t maxDim = aWidth > aHeight ? aWidth : aHeight;
-    if ( maxDim <= 1u ) {
-        return 1u;
-    }
-    uint32_t levels = 1u;
-    uint32_t dim    = maxDim;
-    while ( dim > 1u && levels < aMaxMips ) {
-        dim >>= 1u;
-        ++levels;
-    }
-    return levels;
+    return Gpu_ComputeHiZMipLevelCount( aWidth, aHeight, aMaxMips );
 }

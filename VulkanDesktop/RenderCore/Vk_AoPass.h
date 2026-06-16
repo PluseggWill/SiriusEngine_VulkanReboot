@@ -10,7 +10,7 @@ struct VkCommandBuffer_T;
 
 using VkCommandBuffer = VkCommandBuffer_T*;
 
-class Vk_Core;
+class Vk_Renderer;
 
 // Screen-space ambient occlusion — pluggable algorithms (Classic SSAO, HBAO+, GTAO).
 
@@ -71,15 +71,15 @@ struct Vk_AoState {
 
 namespace Vk_AoPass {
 
-void Init( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
 
-void Destroy( Vk_Core& aCore );
+void Destroy( Vk_Renderer& aCore );
 
-void RecreateForExtent( Vk_Core& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
 
-void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
+void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
-VkImageView GetRawAoImageView( const Vk_Core& aCore );
+VkImageView GetRawAoImageView( const Vk_Renderer& aCore );
 
 void NoteRawAoLayout( VkImageLayout aLayout );
 

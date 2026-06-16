@@ -1,4 +1,4 @@
-﻿// Windows-only env overrides: FORCE_MATERIAL_BATCH, BINDLESS_RENDERDOC_OK (_dupenv_s; see Docs/Platform.md).
+// Windows-only env overrides: FORCE_MATERIAL_BATCH, BINDLESS_RENDERDOC_OK (_dupenv_s; see Docs/Platform.md).
 #include "Vk_Bindless.h"
 
 #include "../Util/Util_Logger.h"

@@ -9,7 +9,7 @@
 #endif
 
 // RenderDoc + VK_EXT_debug_utils bridge.
-// Keeps capture and command-label plumbing outside Vk_Core orchestration code.
+// Keeps capture and command-label plumbing outside Vk_Renderer orchestration code.
 class Vk_RenderDoc {
 public:
     void Configure( bool aEnableRenderDoc );

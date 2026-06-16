@@ -1,0 +1,39 @@
+#pragma once
+
+#include "GpuAoMethod.h"
+
+#include <cstdint>
+
+// Runtime AO tuning (ImGui → Renderer session). Not scene SoA data.
+struct GpuAoSettings {
+    GpuAoMethod myMethod                = GpuAoMethod::HbaoPlus;
+    bool        myEnabled               = true;
+    float       myRadius                = 0.1f;
+    float       myBias                  = 0.02f;
+    float       myIntensity             = 0.5f;
+    float       myPower                 = 1.5f;
+    uint32_t    myHiZDebugMip           = 0u;
+    uint32_t    myHbaoDirections        = 4u;
+    uint32_t    myHbaoSteps             = 4u;
+    uint32_t    myGtaoSlices            = 8u;
+    uint32_t    myGtaoStepsPerSlice     = 4u;
+    float       myGtaoFalloff           = 2.0f;
+    float       myUpsampleDepthSigma    = 0.025f;
+    bool        myContactSoftEnabled    = true;
+    float       myContactSoftBlurRadius = 2.0f;
+    float       myContactSoftDepthSigma = 0.025f;
+};
+
+inline uint32_t Gpu_ComputeHiZMipLevelCount( uint32_t aWidth, uint32_t aHeight, uint32_t aMaxMips = 8u ) {
+    const uint32_t maxDim = aWidth > aHeight ? aWidth : aHeight;
+    if ( maxDim <= 1u ) {
+        return 1u;
+    }
+    uint32_t levels = 1u;
+    uint32_t dim    = maxDim;
+    while ( dim > 1u && levels < aMaxMips ) {
+        dim >>= 1u;
+        ++levels;
+    }
+    return levels;
+}

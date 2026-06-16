@@ -3,8 +3,8 @@
 
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 
 #include <nlohmann/json.hpp>
 
@@ -43,7 +43,7 @@ EnvironmentManifest LoadManifest( const Util_EngineConfig& aConfig, const std::s
     return manifest;
 }
 
-void RegisterTextureDeletion( Vk_Core& aCore, Gfx_Texture& aTexture ) {
+void RegisterTextureDeletion( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
     const VkDevice      device     = aCore.myDeviceCtx.myDevice;
     const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
     const VkImage       image      = aTexture.Image();
@@ -108,7 +108,7 @@ VkSampler CreateBrdfLutSampler( VkDevice aDevice ) {
 
 namespace Vk_IblResources {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     Vk_IblResourcesState& state = aCore.myIblResourcesState;
     if ( !state.myInitialized ) {
         return;
@@ -117,7 +117,7 @@ void Destroy( Vk_Core& aCore ) {
     state.myInitialized = false;
 }
 
-void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath ) {
+void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
     if ( aCore.myIblResourcesState.myInitialized ) {
         return;
     }

@@ -1,8 +1,9 @@
 #pragma once
 
-struct GpuEnvironmentData;
-struct Gfx_AoSettings;
-struct Gfx_LightingSettings;
+#include "../Gfx/Gfx_AoSettings.h"
+#include "../Gfx/Gfx_LightingGlobals.h"
+#include "../RenderContract/GpuEnvironmentData.h"
+
 class Vk_Camera;
 
 namespace UtilLightingPanel {

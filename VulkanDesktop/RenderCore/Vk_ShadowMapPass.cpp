@@ -5,11 +5,11 @@
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
-#include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_Renderer.h"
 #include "Vk_VertexLayout.h"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -33,7 +33,7 @@ struct ShadowPushConstants {
 
 static_assert( sizeof( ShadowPushConstants ) == 64, "ShadowPushConstants must match ShadowMap.vert push block" );
 
-void CreateShadowResources( Vk_Core& aCore ) {
+void CreateShadowResources( Vk_Renderer& aCore ) {
     Vk_ShadowMapState& state       = aCore.myShadowMapState;
     const VkFormat     depthFormat = aCore.FindDepthFormat();
 
@@ -192,7 +192,7 @@ void CreateShadowResources( Vk_Core& aCore ) {
                       "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x" + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
 }
 
-void RecordShadowDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, bool aEmitDebugLabels ) {
+void RecordShadowDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, bool aEmitDebugLabels ) {
     const VkDescriptorSet  objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
     const VkPipelineLayout layout           = aCore.myShadowMapState.myPipelineLayout;
 
@@ -258,18 +258,18 @@ void CmdTransitionShadowDepth( Vk_ShadowMapState& aState, VkCommandBuffer aComma
 
 namespace Vk_ShadowMapPass {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     aCore.myShadowMapState.myInitialized = false;
     aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void CmdBarrierForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     if ( !aCore.myShadowMapState.myInitialized ) {
         return;
     }
 
-    Vk_ShadowMapState&         state         = aCore.myShadowMapState;
-    const VkPipelineStageFlags shaderStages  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    Vk_ShadowMapState&         state        = aCore.myShadowMapState;
+    const VkPipelineStageFlags shaderStages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
     if ( state.myDepthLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
         // Shadow pass skipped (disabled / below horizon) — layout must still be valid for bound samplers.
@@ -293,7 +293,7 @@ void CmdBarrierForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer )
     CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myShadowMapState.myInitialized ) {
         return;
     }
@@ -305,7 +305,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels ) {
+void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels ) {
     if ( !aCore.myShadowMapState.myInitialized ) {
         return;
     }

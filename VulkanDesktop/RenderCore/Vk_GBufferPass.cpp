@@ -11,8 +11,8 @@
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
+#include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
-#include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
@@ -23,10 +23,10 @@
 #include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_RenderBackend.h"
+#include "Vk_Renderer.h"
 #include "Vk_ScenePasses.h"
-#include "Vk_ShadowMapPass.h"
 #include "Vk_ShadowAoSoftPass.h"
-#include "Vk_AoPass.h"
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_VertexLayout.h"
 
@@ -42,7 +42,7 @@ constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat kWorldPositionFormat   = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-void DestroyPipelines( Vk_Core& aCore ) {
+void DestroyPipelines( Vk_Renderer& aCore ) {
     const VkDevice device = aCore.myDeviceCtx.myDevice;
     if ( device == VK_NULL_HANDLE ) {
         return;
@@ -57,7 +57,7 @@ void DestroyPipelines( Vk_Core& aCore ) {
     }
 }
 
-VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+VkPipeline BuildGBufferPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
     VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
@@ -122,7 +122,7 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     return pipeline;
 }
 
-void CreateGBufferRenderPass( Vk_Core& aCore ) {
+void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
     VkAttachmentDescription albedo{};
     albedo.format         = kAlbedoFormat;
     albedo.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -194,7 +194,7 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
 }
 
-void CreateGBufferImages( Vk_Core& aCore ) {
+void CreateGBufferImages( Vk_Renderer& aCore ) {
     const VkExtent2D extent      = aCore.mySwapchainCtx.mySwapChainExtent;
     const VkFormat   depthFormat = aCore.FindDepthFormat();
 
@@ -236,7 +236,7 @@ void CreateGBufferImages( Vk_Core& aCore ) {
     }
 }
 
-void CreateGBufferFramebuffer( Vk_Core& aCore ) {
+void CreateGBufferFramebuffer( Vk_Renderer& aCore ) {
     std::array< VkImageView, 4 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
                                                  aCore.myGBufferState.myWorldPosition.ImageView(), aCore.myGBufferState.myDepth.ImageView() };
 
@@ -270,7 +270,7 @@ VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 // Bind Set 0 (+ Set 1 when bindless). Re-bind after DeferredLighting (different pipeline layout).
-void BindHybridSceneDescriptors( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
+void BindHybridSceneDescriptors( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aFrameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptor, 0, nullptr );
     if ( aBindless ) {
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
@@ -292,7 +292,7 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 // G-buffer MRT colors must be shader-readable before DeferredLighting (depth is handled by CmdCopyGBufferDepthToSwapchain).
-void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferColorsForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     std::array< VkImageMemoryBarrier, 3 > barriers = {
@@ -305,7 +305,7 @@ void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCo
 }
 
 // G-buffer depth: attachment -> shader read (Hi-Z / SSAO / deferred reconstruct before swapchain depth copy).
-void CmdBarrierGBufferDepthForShaderRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImageMemoryBarrier barrier =
         DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
@@ -314,12 +314,12 @@ void CmdBarrierGBufferDepthForShaderRead( Vk_Core& aCore, VkCommandBuffer aComma
 }
 
 // Shadow pass depth must be visible to DeferredLighting fragment shader (separate render pass from hybrid resolve).
-void CmdBarrierShadowMapForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierShadowMapForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
 }
 
 // CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
-void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdCopyGBufferDepthToSwapchain( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
     VkImage          dstImage = aCore.mySwapchainCtx.myDepthTexture.Image();
     const VkExtent2D extent   = aCore.mySwapchainCtx.mySwapChainExtent;
@@ -357,7 +357,7 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
                           nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
-void RebuildGBufferPipelines( Vk_Core& aCore ) {
+void RebuildGBufferPipelines( Vk_Renderer& aCore ) {
     if ( aCore.myGBufferState.myRenderPass == VK_NULL_HANDLE || aCore.mySceneGpuCtx.myPipelineLayout == VK_NULL_HANDLE ) {
         return;
     }
@@ -376,7 +376,7 @@ void RebuildGBufferPipelines( Vk_Core& aCore ) {
     }
 }
 
-void RebuildResources( Vk_Core& aCore ) {
+void RebuildResources( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
@@ -395,11 +395,11 @@ void RebuildResources( Vk_Core& aCore ) {
 
 namespace Vk_GBufferPass {
 
-bool IsActive( const Vk_Core& aCore ) {
+bool IsActive( const Vk_Renderer& aCore ) {
     return Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() );
 }
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
@@ -413,7 +413,7 @@ void Destroy( Vk_Core& aCore ) {
     aCore.myGBufferState.myInitialized = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     // ForwardLit never calls Init — skip swapchain resize work when hybrid path is inactive.
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
@@ -427,14 +427,14 @@ void RecreateForExtent( Vk_Core& aCore ) {
     Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( aCore );
 }
 
-void RecreatePipelines( Vk_Core& aCore ) {
+void RecreatePipelines( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
     RebuildGBufferPipelines( aCore );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myGBufferState.myInitialized ) {
         return;
     }
@@ -443,7 +443,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myGBufferState.myInitialized = true;
 }
 
-void RecordFrame( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void RecordFrame( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {

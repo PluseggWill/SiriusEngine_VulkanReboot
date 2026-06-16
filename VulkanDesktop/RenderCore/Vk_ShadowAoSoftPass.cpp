@@ -9,16 +9,16 @@
 #include "../Util/Util_VulkanResult.h"
 
 #include "Vk_AoPass.h"
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 #include "Vk_ShadowMapPass.h"
 
 #include <vma/vk_mem_alloc.h>
 
 #include <glm/glm.hpp>
 
-#include <cstring>
 #include <array>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -58,7 +58,7 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-void DestroySoftTexture( Vk_Core& aCore, Gfx_Texture& aTexture ) {
+void DestroySoftTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
     const VkDevice     device    = aCore.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
@@ -71,24 +71,24 @@ void DestroySoftTexture( Vk_Core& aCore, Gfx_Texture& aTexture ) {
     }
 }
 
-void DestroySoftImages( Vk_Core& aCore ) {
+void DestroySoftImages( Vk_Renderer& aCore ) {
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPing );
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPong );
     sSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     sSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void DestroyFallbackImages( Vk_Core& aCore ) {
+void DestroyFallbackImages( Vk_Renderer& aCore ) {
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.myFallbackAo );
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.myFallbackContact );
 }
 
-void CreateFallbackImages( Vk_Core& aCore ) {
-    Vk_ShadowAoSoftState&   state    = aCore.myShadowAoSoftState;
+void CreateFallbackImages( Vk_Renderer& aCore ) {
+    Vk_ShadowAoSoftState&     state    = aCore.myShadowAoSoftState;
     const Vk_ResourceContext& resource = aCore.GetResourceContext();
-    const VkExtent2D        one{ 1, 1 };
+    const VkExtent2D          one{ 1, 1 };
 
-    auto uploadIdentity1x1 = [&]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Gfx_Texture& aOut ) {
+    auto uploadIdentity1x1 = [ & ]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Gfx_Texture& aOut ) {
         aCore.CreateImage( one, aFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
                            VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aOut.AllocImage() );
         aOut.ImageView() = aCore.CreateImageView( aOut.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -114,7 +114,7 @@ void CreateFallbackImages( Vk_Core& aCore ) {
     uploadIdentity1x1( kSoftFormat, contactWhite, sizeof( contactWhite ), state.myFallbackContact );
 }
 
-void CreateSoftImage( Vk_Core& aCore, Gfx_Texture& aTexture ) {
+void CreateSoftImage( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
     const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
     if ( extent.width == 0 || extent.height == 0 ) {
         return;
@@ -125,7 +125,7 @@ void CreateSoftImage( Vk_Core& aCore, Gfx_Texture& aTexture ) {
     aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kSoftFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 }
 
-void CreateSoftImages( Vk_Core& aCore ) {
+void CreateSoftImages( Vk_Renderer& aCore ) {
     CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPing );
     CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPong );
 
@@ -134,7 +134,7 @@ void CreateSoftImages( Vk_Core& aCore ) {
     UtilLogger::Info( "SHADOW-AO-SOFT", "contact soft targets: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=RG8_UNORM" );
 }
 
-void UpdatePackDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aRawAoView ) {
+void UpdatePackDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aRawAoView ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
 
     VkDescriptorImageInfo depthInfo{};
@@ -177,9 +177,9 @@ void UpdatePackDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptor
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void UpdateBlurDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
+void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    (void)aFrameIndex;
+    ( void )aFrameIndex;
 
     VkDescriptorImageInfo srcInfo{};
     srcInfo.imageView   = aSrcView;
@@ -202,7 +202,7 @@ void UpdateBlurDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, VkDescriptor
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void UpdateAllDescriptorSets( Vk_Core& aCore ) {
+void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdatePackDescriptorSet( aCore, i, state.myPackDescriptorSets[ i ], Vk_AoPass::GetRawAoImageView( aCore ) );
@@ -212,7 +212,7 @@ void UpdateAllDescriptorSets( Vk_Core& aCore ) {
     }
 }
 
-VkPipeline CreateComputePipeline( Vk_Core& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
+VkPipeline CreateComputePipeline( Vk_Renderer& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
                                   VkPushConstantRange aPushRange ) {
     VkShaderModule computeModule = aCore.CreateShaderModule( aSpvPath );
 
@@ -241,7 +241,7 @@ VkPipeline CreateComputePipeline( Vk_Core& aCore, const std::string& aSpvPath, V
     return pipeline;
 }
 
-void CreatePipelines( Vk_Core& aCore ) {
+void CreatePipelines( Vk_Renderer& aCore ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
 
     const std::array< VkDescriptorSetLayoutBinding, 6 > packBindings = {
@@ -359,7 +359,7 @@ void CreatePipelines( Vk_Core& aCore ) {
     UtilLogger::Info( "PIPELINE", "Shadow/AO contact soft compute pipelines created." );
 }
 
-void AllocateDescriptorSets( Vk_Core& aCore ) {
+void AllocateDescriptorSets( Vk_Renderer& aCore ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -382,7 +382,7 @@ void AllocateDescriptorSets( Vk_Core& aCore ) {
     UpdateAllDescriptorSets( aCore );
 }
 
-void CmdBarrierGBufferForPackRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferForPackRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     std::array< VkImageMemoryBarrier, 1 > barriers = {
         ColorImageBarrier( aCore.myGBufferState.myWorldPosition.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
@@ -403,7 +403,7 @@ void CmdBarrierSoftForComputeWrite( VkCommandBuffer aCommandBuffer, VkImage aIma
     aInOutLayout = newLayout;
 }
 
-void CmdDispatchBlur( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkDescriptorSet aSet, float aRadius, float aDepthSigma, uint32_t aAxisX, uint32_t aAxisY,
+void CmdDispatchBlur( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkDescriptorSet aSet, float aRadius, float aDepthSigma, uint32_t aAxisX, uint32_t aAxisY,
                       uint32_t aWidth, uint32_t aHeight, const char* aDebugLabel ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBlurPipeline );
@@ -429,7 +429,7 @@ void CmdDispatchBlur( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkDescript
 
 namespace Vk_ShadowAoSoftPass {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
@@ -439,15 +439,15 @@ void Destroy( Vk_Core& aCore ) {
     DestroySoftImages( aCore );
     DestroyFallbackImages( aCore );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        aCore.myShadowAoSoftState.myPackDescriptorSets[ i ]         = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myPackNoAoDescriptorSets[ i ]   = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myBlurHorizDescriptorSets[ i ]    = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myBlurVertDescriptorSets[ i ]     = VK_NULL_HANDLE;
+        aCore.myShadowAoSoftState.myPackDescriptorSets[ i ]      = VK_NULL_HANDLE;
+        aCore.myShadowAoSoftState.myPackNoAoDescriptorSets[ i ]  = VK_NULL_HANDLE;
+        aCore.myShadowAoSoftState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
+        aCore.myShadowAoSoftState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
     }
     aCore.myShadowAoSoftState.myInitialized = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
@@ -459,7 +459,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
     UpdateAllDescriptorSets( aCore );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
@@ -471,7 +471,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myShadowAoSoftState.myInitialized = true;
 }
 
-void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, bool aAoPassRan ) {
+void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, bool aAoPassRan ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
     if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;
@@ -491,16 +491,14 @@ void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFr
     Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
     CmdBarrierGBufferForPackRead( aCore, aCommandBuffer );
 
-    const bool useAoRaw = aAoPassRan && aoSettings.myEnabled;
-    const VkDescriptorSet packSet =
-        useAoRaw ? state.myPackDescriptorSets[ aFrameIndex ] : state.myPackNoAoDescriptorSets[ aFrameIndex ];
+    const bool            useAoRaw = aAoPassRan && aoSettings.myEnabled;
+    const VkDescriptorSet packSet  = useAoRaw ? state.myPackDescriptorSets[ aFrameIndex ] : state.myPackNoAoDescriptorSets[ aFrameIndex ];
 
     if ( useAoRaw ) {
         const VkImageLayout rawLayout = Vk_AoPass::GetRawAoLayout();
         if ( rawLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-            VkImageMemoryBarrier aoForPack =
-                ColorImageBarrier( aCore.myAoState.myAoRaw.Image(), rawLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-                                   VK_ACCESS_SHADER_READ_BIT );
+            VkImageMemoryBarrier aoForPack = ColorImageBarrier( aCore.myAoState.myAoRaw.Image(), rawLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
             vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &aoForPack );
             Vk_AoPass::NoteRawAoLayout( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
         }
@@ -528,8 +526,8 @@ void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFr
         ColorImageBarrier( state.mySoftPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &packedBarrier );
 
-    const float blurRadius   = aoSettings.myContactSoftBlurRadius;
-    const float depthSigma   = aoSettings.myContactSoftDepthSigma;
+    const float blurRadius = aoSettings.myContactSoftBlurRadius;
+    const float depthSigma = aoSettings.myContactSoftDepthSigma;
     CmdDispatchBlur( aCore, aCommandBuffer, state.myBlurHorizDescriptorSets[ aFrameIndex ], blurRadius, depthSigma, 1, 0, width, height, "Pass=ShadowAoBlurH" );
 
     VkImageMemoryBarrier pongWritten =
@@ -538,13 +536,13 @@ void RecordCompute( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFr
 
     CmdDispatchBlur( aCore, aCommandBuffer, state.myBlurVertDescriptorSets[ aFrameIndex ], blurRadius, depthSigma, 0, 1, width, height, "Pass=ShadowAoBlurV" );
 
-    VkImageMemoryBarrier softForDeferred =
-        ColorImageBarrier( state.mySoftPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    VkImageMemoryBarrier softForDeferred = ColorImageBarrier( state.mySoftPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &softForDeferred );
     sSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
-VkImageView GetDeferredContactMapView( const Vk_Core& aCore ) {
+VkImageView GetDeferredContactMapView( const Vk_Renderer& aCore ) {
     const Gfx_AoSettings&       aoSettings = aCore.myAoSettings;
     const Vk_ShadowAoSoftState& softState  = aCore.myShadowAoSoftState;
 

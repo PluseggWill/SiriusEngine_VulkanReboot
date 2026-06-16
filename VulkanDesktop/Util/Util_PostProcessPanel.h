@@ -1,8 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_PostSettings.h"
 #include "Util_EngineConfig.h"
-
-struct Gfx_PostSettings;
 
 namespace UtilPostProcessPanel {
 

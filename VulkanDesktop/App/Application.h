@@ -7,6 +7,8 @@
 #include "WorldState.h"
 #include <vector>
 
+class Vk_Renderer;
+
 // Application lifecycle: config → scene verify → device init → CPU/GPU scene load → loop → unload.
 class Application {
 public:
@@ -23,12 +25,13 @@ private:
     std::string TakePendingSceneReloadPath();
 
     std::vector< const char* > myDeviceExtensions;
-    Util_EngineConfig          myConfig;  // Single source of truth; bound on Vk_Core in InitApp.
+    Util_EngineConfig          myConfig;  // Single source of truth; bound on Vk_Renderer in InitApp.
     WorldState                 myWorld;
     DebugUIState               myDebugUI;
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
+    Vk_Renderer*               myRenderer                = nullptr;  // owned for app lifetime; set in Run()
     bool                       myRenderDocCaptureKeyDown = false;
     bool                       myRestartKeyDown          = false;
 };

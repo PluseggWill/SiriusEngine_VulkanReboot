@@ -10,10 +10,10 @@
 #include "Vk_Bindless.h"
 
 #include "Vk_ClusterBuildPass.h"
-#include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_GBufferPass.h"
+#include "Vk_Renderer.h"
 
 #include "Vk_PostProcessPass.h"
 
@@ -46,7 +46,7 @@ uint32_t ComputeIndirectDrawSlot( bool aUseGpuCullIndirect, uint32_t aViewBaseIn
 }
 
 // Per-draw RenderDoc tag: fixed stack buffer (no heap); skipped when debug_utils labels unavailable.
-void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
+void BeginDrawDebugLabel( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
     char label[ kDrawDebugLabelCapacity ];
     std::snprintf( label, sizeof( label ), "Pass=%s Draw=%u Mesh=%u Material=%u Entity=%u", aPassName, aDrawLabelIndex, aDraw.myMeshId, aDraw.myMaterialId,
                    aDraw.myEntityIndex );
@@ -54,7 +54,7 @@ void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const 
 }
 
 // Per draw: bind VB/IB + Set 2 dynamic offset; issue vkCmdDrawIndexedIndirect (or legacy direct draw).
-void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aLayout, VkDescriptorSet aObjectDescriptor,
+void RecordSingleIndexedDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aLayout, VkDescriptorSet aObjectDescriptor,
 
                               const Gfx_DrawInstance& aDraw, const Gfx_Mesh& aMesh, const char* aPassName, uint32_t aDrawLabelIndex,
 
@@ -93,7 +93,7 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
     }
 }
 
-void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
+void RecordPassDrawsBatchFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
                                      uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
 
@@ -147,7 +147,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
 // Set 1 bound once per view in RecordScene; one graphics pipeline per pass (opaque vs transparent).
 
-void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
+void RecordPassDrawsBindlessFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
 
                                         uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
 
@@ -177,7 +177,7 @@ void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommand
 
 // M8 (#15): single dispatch keyed by material path; no third record fork.
 
-void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
+void RecordPassDrawsFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
                                 Vk_RenderMaterialPath aMaterialPath, VkPipeline aBindlessPipeline, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
 
@@ -211,7 +211,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
 
-void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordScene( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -234,7 +234,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const Gfx_FrameDebugToggles& a
     RecordForwardLit( aCore, aToggles, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 }
 
-void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordForwardLit( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                        const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -394,7 +394,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const Gfx_FrameDebugToggl
     vkCmdEndRenderPass( aCommandBuffer );
 }
 
-void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                               VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels,
                                               VkPipeline aGBufferPipeline ) {
 
@@ -409,7 +409,7 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aC
     }
 }
 
-void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
     const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
@@ -424,7 +424,7 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                aUseLegacyDirectDraw, aEmitDebugLabels, batchPipelineOverride );
 }
 
-void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer,
+void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer,
                                            const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                                            const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                            const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
@@ -516,7 +516,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const Gfx_FrameDebugT
     }
 }
 
-void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
+void Vk_ScenePasses::RecordImGui( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
 
     aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );
 }

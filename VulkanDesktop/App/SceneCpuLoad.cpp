@@ -3,7 +3,7 @@
 
 #include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_SceneApply.h"
-#include "../RenderCore/Vk_Core.h"
+#include "../RenderCore/Vk_Renderer.h"
 #include "WorldState.h"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ void App_LoadSceneCpuState( WorldState& aWorld ) {
     aWorld.myLodDebugLogicalMeshId = treeIt != aWorld.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
-void App_InitScenePresentation( Vk_Core& aCore, const WorldState& aWorld ) {
+void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
     const float aspect = static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height );
 
     float     fovDeg    = 45.0f;

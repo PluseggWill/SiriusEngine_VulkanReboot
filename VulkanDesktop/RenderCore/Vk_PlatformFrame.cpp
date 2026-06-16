@@ -1,9 +1,9 @@
 #include "Vk_PlatformFrame.h"
 
 #include "../Util/Util_Logger.h"
-#include "Vk_Core.h"
+#include "Vk_Renderer.h"
 
-void Vk_PlatformFrame::InitWindow( Vk_Core& aCore ) {
+void Vk_PlatformFrame::InitWindow( Vk_Renderer& aCore ) {
     UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
     glfwInit();
 
@@ -13,10 +13,10 @@ void Vk_PlatformFrame::InitWindow( Vk_Core& aCore ) {
     aCore.myPlatformCtx.myWindow = glfwCreateWindow( aCore.myPlatformCtx.myWidth, aCore.myPlatformCtx.myHeight, "Vulkan Window", nullptr, nullptr );
     UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( aCore.myPlatformCtx.myWidth ) + "x" + std::to_string( aCore.myPlatformCtx.myHeight ) );
     glfwSetWindowUserPointer( aCore.myPlatformCtx.myWindow, &aCore );
-    glfwSetFramebufferSizeCallback( aCore.myPlatformCtx.myWindow, Vk_Core::FramebufferResizeCallback );
+    glfwSetFramebufferSizeCallback( aCore.myPlatformCtx.myWindow, Vk_Renderer::FramebufferResizeCallback );
 }
 
-void Vk_PlatformFrame::BeginFrame( Vk_Core& aCore, float& aOutDeltaSeconds ) {
+void Vk_PlatformFrame::BeginFrame( Vk_Renderer& aCore, float& aOutDeltaSeconds ) {
     glfwPollEvents();
 
     const auto frameStart = std::chrono::high_resolution_clock::now();
@@ -29,6 +29,6 @@ void Vk_PlatformFrame::BeginFrame( Vk_Core& aCore, float& aOutDeltaSeconds ) {
     aCore.myPlatformCtx.myHasLastFrameTime = true;
 }
 
-void Vk_PlatformFrame::BeginImGuiFrame( Vk_Core& aCore ) {
+void Vk_PlatformFrame::BeginImGuiFrame( Vk_Renderer& aCore ) {
     aCore.myPlatformCtx.myImGuiLayer.NewFrame();
 }

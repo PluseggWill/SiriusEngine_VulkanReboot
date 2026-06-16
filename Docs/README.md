@@ -6,11 +6,11 @@
 
 | Field | Value |
 |-------|--------|
-| **Sprint** | **S8** — DDGI optional GI · [`Wishlist.md`](Wishlist.md) § S8 |
-| **WIP task** | *(none — next: G4 acceptance then S8)* |
-| **Roadmap** | [`Active-Plan.md`](Active-Plan.md) queue · [`Wishlist.md`](Wishlist.md) S8 |
-| **Last closed** | HBAO+ modular AO + contact soft — [`Archived/plans/hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md) |
-| **Roadmap plan** | GTAO — [`gtao_Plan.md`](gtao_Plan.md) |
+| **Gate** | **G4** ✓ (closed) |
+| **Next sprint** | **S8** DDGI · [`Wishlist.md`](Wishlist.md) § S8 |
+| **WIP task** | **rhi-independence** — RHI 拆分 + 数据流 + FG v2 · [`rhi-independence_Plan.md`](rhi-independence_Plan.md) |
+| **Last closed** | GTAO v0 + modular `Vk_AoPass` — [`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md) |
+| **Epic** | Stage 2 sign-off [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 

@@ -5,8 +5,8 @@
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -33,7 +33,7 @@ void CmdPipelineBarrierBuffer( VkCommandBuffer aCommandBuffer, VkPipelineStageFl
     vkCmdPipelineBarrier( aCommandBuffer, aSrcStage, aDstStage, 0, 0, nullptr, 1, &aBarrier, 0, nullptr );
 }
 
-void DestroyClusterListBuffers( Vk_Core& aCore, bool aClearDescriptorSets ) {
+void DestroyClusterListBuffers( Vk_Renderer& aCore, bool aClearDescriptorSets ) {
     Vk_ClusterBuildState& state     = aCore.myClusterBuildState;
     const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
 
@@ -56,7 +56,7 @@ void WriteSunLightFromEnvironment( Gfx_ClusterLighting::GpuClusterLight& aOut, c
     std::memcpy( aOut.color, glm::value_ptr( glm::vec4( sunCol, 1.0f ) ), sizeof( float ) * 4 );
 }
 
-void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
 
     VkDescriptorBufferInfo lightsInfo{};
@@ -76,7 +76,7 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void AllocateClusterListBuffers( Vk_Core& aCore, bool aAllocateDescriptors ) {
+void AllocateClusterListBuffers( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
 
     const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
@@ -105,7 +105,7 @@ void AllocateClusterListBuffers( Vk_Core& aCore, bool aAllocateDescriptors ) {
                                      + " bytes/list/frame=" + std::to_string( listBytes ) );
 }
 
-void CreatePipeline( Vk_Core& aCore ) {
+void CreatePipeline( Vk_Renderer& aCore ) {
     Vk_ClusterBuildState& state         = aCore.myClusterBuildState;
     const std::string     spvPath       = UtilLoader::ResolvePath( aCore.EngineConfig(), kClusterBuildShaderPath );
     VkShaderModule        computeModule = aCore.CreateShaderModule( spvPath );
@@ -203,7 +203,7 @@ void CreatePipeline( Vk_Core& aCore ) {
 
 namespace Vk_ClusterBuildPass {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myClusterBuildState.myInitialized ) {
         return;
     }
@@ -216,7 +216,7 @@ void Destroy( Vk_Core& aCore ) {
     aCore.myClusterBuildState.myInitialized  = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myClusterBuildState.myInitialized ) {
         return;
     }
@@ -227,7 +227,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
     AllocateClusterListBuffers( aCore, false );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myClusterBuildState.myInitialized ) {
         return;
     }
@@ -237,7 +237,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myClusterBuildState.myInitialized = true;
 }
 
-void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
     if ( !state.myInitialized || state.myClusterCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;

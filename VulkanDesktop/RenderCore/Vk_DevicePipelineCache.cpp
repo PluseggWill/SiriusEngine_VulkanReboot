@@ -3,7 +3,7 @@
 #include "Vk_DevicePipelineCache.h"
 
 #include "Vk_Bindless.h"
-#include "Vk_Core.h"
+#include "Vk_Renderer.h"
 
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Util/Util_EngineConfig.h"
@@ -193,7 +193,7 @@ void CreateEmptyCache( VkDevice aDevice, VkPipelineCache& aOutCache ) {
 
 }  // namespace
 
-void Vk_DevicePipelineCache::Create( Vk_Core& aCore ) {
+void Vk_DevicePipelineCache::Create( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myPipelineCache != VK_NULL_HANDLE ) {
         return;
     }
@@ -230,7 +230,7 @@ void Vk_DevicePipelineCache::Create( Vk_Core& aCore ) {
     UtilVulkanResult::ThrowOnFailure( result, "vkCreatePipelineCache" );
 }
 
-void Vk_DevicePipelineCache::Destroy( Vk_Core& aCore ) {
+void Vk_DevicePipelineCache::Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myPipelineCache == VK_NULL_HANDLE || aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
         return;
     }

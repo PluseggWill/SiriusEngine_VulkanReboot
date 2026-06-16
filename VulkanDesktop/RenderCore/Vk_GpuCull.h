@@ -4,7 +4,7 @@
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
-class Vk_Core;
+class Vk_Renderer;
 
 struct Vk_GpuCullState {
     VkPipeline            myComputePipeline     = VK_NULL_HANDLE;
@@ -16,10 +16,10 @@ struct Vk_GpuCullState {
 // P3 compute frustum cull: entity-record SSBO → per-slot indirect buffer (instanceCount = 0 when culled).
 namespace Vk_GpuCull {
 
-void Init( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
 
-void CreateFrameBuffers( Vk_Core& aCore );
+void CreateFrameBuffers( Vk_Renderer& aCore );
 
-void RecordDispatches( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep );
+void RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep );
 
 }  // namespace Vk_GpuCull

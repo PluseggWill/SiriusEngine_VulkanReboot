@@ -34,6 +34,7 @@
 
 #include "Vk_FrameResult.h"
 
+#include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
@@ -43,9 +44,8 @@
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
 #include "Vk_PostProcessPass.h"
-#include "Vk_ShadowMapPass.h"
 #include "Vk_ShadowAoSoftPass.h"
-#include "Vk_AoPass.h"
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -73,22 +73,24 @@ struct Gfx_SceneDesc;
 
 struct Util_EngineConfig;
 
-class Vk_Core;
+class Vk_Renderer;
 
 // RHI-shaped Vulkan backend: device, swapchain, pipelines, descriptors, frame sync, command record/submit.
 
-// Peel slices read Vk_*Context members on Vk_Core (no friend access); orchestration stays in Vk_*Host modules.
+// Peel slices read Vk_*Context members on Vk_Renderer (no friend access); orchestration stays in Vk_*Host modules.
 
-class Vk_Core {
+class Vk_Renderer {
 
 public:
-    static Vk_Core& GetInstance();
+    Vk_Renderer();
 
-    Vk_Core( const Vk_Core& ) = delete;
+    ~Vk_Renderer();
 
-    Vk_Core& operator=( const Vk_Core& ) = delete;
+    Vk_Renderer( const Vk_Renderer& ) = delete;
 
-    // Non-owning; must outlive Vk_Core (Application::myConfig). Call from InitApp before RenderCore reads config.
+    Vk_Renderer& operator=( const Vk_Renderer& ) = delete;
+
+    // Non-owning; must outlive Vk_Renderer (Application::myConfig). Call from InitApp before RenderCore reads config.
     void BindEngineConfig( const Util_EngineConfig* aConfig );
 
     const Util_EngineConfig& EngineConfig() const;
@@ -129,7 +131,7 @@ public:
     // aViews built by Application (BuildActiveRenderViews); core does not read scene JSON for PiP here.
 
     bool PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews,
-                          uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut );
+                          uint32_t aViewCount, const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets, Vk_FrameCpuPrepResult& aOut );
 
     Vk_FrameResult DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep );
 
@@ -280,8 +282,8 @@ public:
 
     Vk_DepthPyramidState myDepthPyramidState;
 
-    Vk_AoState             myAoState;
-    Vk_ShadowAoSoftState   myShadowAoSoftState;
+    Vk_AoState           myAoState;
+    Vk_ShadowAoSoftState myShadowAoSoftState;
 
     Vk_PostProcessState myPostProcessState;
 
@@ -325,11 +327,9 @@ public:
 
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
+    const Util_EngineConfig* myEngineConfig = nullptr;
+
 private:
-    Vk_Core();
-
-    ~Vk_Core();
-
     void Clear();
 
     void SyncResourceContext();
@@ -369,6 +369,4 @@ private:
     VkFormat FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const;
 
     VkSampleCountFlagBits GetMaxUsableSampleCount() const;
-
-    const Util_EngineConfig* myEngineConfig = nullptr;
 };

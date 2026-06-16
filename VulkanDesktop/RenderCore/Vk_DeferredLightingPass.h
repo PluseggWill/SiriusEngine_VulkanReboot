@@ -7,7 +7,7 @@
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
-class Vk_Core;
+class Vk_Renderer;
 
 struct Vk_DeferredLightingState {
     VkPipeline            myPipeline       = VK_NULL_HANDLE;
@@ -24,10 +24,10 @@ struct Vk_DeferredLightingState {
 // FG v0: fullscreen deferred resolve to swapchain (G-buffer textures + cluster SSBO from Vk_ClusterBuildPass).
 namespace Vk_DeferredLightingPass {
 
-void Init( Vk_Core& aCore );
-void Destroy( Vk_Core& aCore );
-void RecreateForExtent( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
+void Destroy( Vk_Renderer& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
 
-void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
+void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
 }  // namespace Vk_DeferredLightingPass

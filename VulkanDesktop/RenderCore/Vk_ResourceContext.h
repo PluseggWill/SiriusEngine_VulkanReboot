@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 
 // Narrow GPU resource factory surface for load-time paths (meshes, textures, tables).
-// Vk_Core fills this after device + VMA init; single owner for upload/barrier/alloc helpers.
+// Vk_Renderer fills this after device + VMA init; single owner for upload/barrier/alloc helpers.
 //
 // Scene upload batch (RHI-C2): call BeginSceneUploadBatch before mesh loads, EndSceneUploadBatch after.
 // Only mesh CopyBuffer (transfer queue) is batched into one submit + wait. Image layout transitions,

@@ -8,11 +8,11 @@
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Camera.h"
-#include "Vk_Core.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
+#include "Vk_Renderer.h"
 #include "Vk_ShadowAoSoftPass.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
@@ -28,7 +28,7 @@ namespace {
 constexpr char kDeferredVertSpv[] = "VulkanDesktop/Shader_Generated/DeferredLightingVert.spv";
 constexpr char kDeferredFragSpv[] = "VulkanDesktop/Shader_Generated/DeferredLightingFrag.spv";
 
-VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+VkPipeline BuildFullscreenPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
     VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
@@ -59,7 +59,7 @@ VkPipeline BuildFullscreenPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, Vk
 }
 
 // Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.
-void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
     VkDescriptorImageInfo albedoInfo{};
@@ -157,7 +157,7 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void CreatePipelineResources( Vk_Core& aCore ) {
+void CreatePipelineResources( Vk_Renderer& aCore ) {
     if ( !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: PostProcess hybrid resolve render pass is required" );
     }
@@ -270,7 +270,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     UtilLogger::Info( "PIPELINE", "DeferredLighting graphics pipeline created." );
 }
 
-Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const Vk_Core& aCore ) {
+Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const Vk_Renderer& aCore ) {
     Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants push{};
     const uint32_t                                         width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
     const uint32_t                                         height = aCore.mySwapchainCtx.mySwapChainExtent.height;
@@ -296,7 +296,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
 
 namespace Vk_DeferredLightingPass {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myDeferredLightingState.myInitialized ) {
         return;
     }
@@ -311,7 +311,7 @@ void Destroy( Vk_Core& aCore ) {
     aCore.myDeferredLightingState.myInitialized    = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myDeferredLightingState.myInitialized ) {
         return;
     }
@@ -333,7 +333,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
         BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myDeferredLightingState.myInitialized ) {
         for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
             UpdateDescriptorSet( aCore, i );
@@ -349,7 +349,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myDeferredLightingState.myInitialized = true;
 }
 
-static void UpdateAoDescriptorBinding( Vk_Core& aCore, uint32_t aFrameIndex ) {
+static void UpdateAoDescriptorBinding( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
     if ( aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE ) {
         return;
@@ -365,7 +365,7 @@ static void UpdateAoDescriptorBinding( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
 }
 
-void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
     if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;

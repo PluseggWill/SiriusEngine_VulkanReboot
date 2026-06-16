@@ -76,7 +76,7 @@ std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( ui
     views[ 0 ].myViewport            = ToViewport( aSwapChainExtent, views[ 0 ].myView.myViewport );
     views[ 0 ].myScissor             = ToScissor( aSwapChainExtent, views[ 0 ].myViewport );
 
-    // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so Vk_Core prep stays JSON-free.
+    // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so Vk_Renderer prep stays JSON-free.
     if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
         aOutViewCount                            = 2;
         const uint32_t              cameraIndex  = ResolvePiPCameraIndex( aWorld, aDebugUI.myMultiView.mySecondaryCameraIndex );

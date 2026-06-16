@@ -2,11 +2,11 @@
 
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Util/Util_EngineConfig.h"
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_PostProcessPass.h"
+#include "Vk_Renderer.h"
 #include "Vk_VertexLayout.h"
 
 #include "../Util/Util_Logger.h"
@@ -18,7 +18,7 @@ extern std::string vertShaderPath;
 extern std::string fragShaderPath;
 extern std::string bindlessFragShaderPath;
 
-void Vk_GfxPipelineCache::InitScenePipelines( Vk_Core& aCore ) {
+void Vk_GfxPipelineCache::InitScenePipelines( Vk_Renderer& aCore ) {
     DestroyScenePipelines( aCore );
     CreateGfxPipeline( aCore );
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
@@ -27,7 +27,7 @@ void Vk_GfxPipelineCache::InitScenePipelines( Vk_Core& aCore ) {
     CreateHybridResolveGfxPipelines( aCore );
 }
 
-void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Core& aCore ) {
+void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
         return;
     }
@@ -72,7 +72,7 @@ void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Core& aCore ) {
     }
 }
 
-void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Core& aCore ) {
+void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "Creating graphics pipeline." );
     VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
     VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
@@ -148,7 +148,7 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Core& aCore ) {
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragShaderModule, nullptr );
 }
 
-void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
+void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "Creating bindless graphics pipelines." );
 
     VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
@@ -209,7 +209,7 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Core& aCore ) {
     vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragShaderModule, nullptr );
 }
 
-void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Core& aCore ) {
+void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) {
     // ForwardTransparent over copied G-buffer depth — HDR hybrid RP owned by Vk_PostProcessPass.
     if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
         return;

@@ -11,7 +11,7 @@
 #include <vector>
 
 // Instance-based engine config: Config/engine.json + CLI overrides (CLI wins).
-// Owned by Application; pass const Util_EngineConfig& (or BindEngineConfig on Vk_Core).
+// Owned by Application; pass const Util_EngineConfig& (or BindEngineConfig on Vk_Renderer).
 
 struct Util_EngineConfig {
     struct FeatureFlags {

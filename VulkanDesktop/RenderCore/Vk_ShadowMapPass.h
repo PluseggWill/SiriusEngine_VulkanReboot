@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-class Vk_Core;
+class Vk_Renderer;
 
 struct Gfx_PassDrawPacket;
 
@@ -36,13 +36,13 @@ struct Vk_ShadowMapState {
 
 namespace Vk_ShadowMapPass {
 
-void Init( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
 
-void Destroy( Vk_Core& aCore );
+void Destroy( Vk_Renderer& aCore );
 
 // Ensures shadow depth is shader-readable before DeferredLighting (separate render pass from hybrid resolve).
-void CmdBarrierForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer );
+void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer );
 
-void RecordDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels );
+void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels );
 
 }  // namespace Vk_ShadowMapPass

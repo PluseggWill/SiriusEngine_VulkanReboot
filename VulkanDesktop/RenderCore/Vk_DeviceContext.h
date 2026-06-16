@@ -9,7 +9,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
-// Device / queue / VMA slice — replaces Vk_Core friend access for init and resource factories.
+// Device / queue / VMA slice — replaces Vk_Renderer friend access for init and resource factories.
 struct Vk_DeviceContext {
     VkInstance       myInstance       = VK_NULL_HANDLE;
     VkPhysicalDevice myPhysicalDevice = VK_NULL_HANDLE;
@@ -21,7 +21,7 @@ struct Vk_DeviceContext {
 
     Vk_QueueFamilyIndices myQueueFamilyIndices{};
 
-    // Filled in const Vk_Core::CheckDeviceSuitable during device pick.
+    // Filled in const Vk_Renderer::CheckDeviceSuitable during device pick.
     mutable VkPhysicalDeviceProperties myPhysicalDeviceProperties{};
     mutable VkPhysicalDeviceFeatures   myPhysicalDeviceFeatures{};
 

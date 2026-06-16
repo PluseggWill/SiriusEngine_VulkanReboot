@@ -1,12 +1,12 @@
 #include "Vk_ShaderEffectMeta.h"
 
 #include "Vk_Camera.h"
-#include "Vk_Core.h"
 #include "Vk_DataStruct.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_DeviceContext.h"
 #include "Vk_Enum.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 #include "Vk_SceneGpuContext.h"
 
 #include "../Util/Util_DebugMessenger.h"
@@ -259,7 +259,7 @@ void LogMetaDump( const ShaderEffectMeta& aMeta ) {
     }
 }
 
-LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Core& aCore ) {
+LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Renderer& aCore ) {
     ShaderEffectMeta meta = LoadLitBatchFromReflectionJson( aCore.EngineConfig() );
     if ( meta.myPipelineGroup != "lit_batch" ) {
         throw std::runtime_error( "Vk_ShaderEffectMeta: expected pipelineGroup lit_batch, got " + meta.myPipelineGroup );
@@ -358,8 +358,8 @@ void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig ) {
 
 }  // namespace VkShaderEffectMeta
 
-// Dev-only layout mismatch probe; takes narrow contexts instead of Vk_Core friend (phase 4).
-void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Core& aCoreOps ) {
+// Dev-only layout mismatch probe; takes narrow contexts instead of Vk_Renderer friend (phase 4).
+void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Renderer& aCoreOps ) {
     ( void )aScene;
     if ( !aCoreOps.EngineConfig().IsValidationEnabled() ) {
         throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );

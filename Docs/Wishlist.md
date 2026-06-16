@@ -1,12 +1,12 @@
 # Wishlist — staged backlog (S4+)
 
-**Not the execution queue.** Open `[ ]` for **S4–S13**, **Parallel**, **Geometry track**, and **Backlog** only.
+**Not the execution queue.** Open `[ ]` for **S8–S13**, **Parallel**, **Geometry track**, and **Backlog** only.
 
 **Active work:** [`Active-Plan.md`](Active-Plan.md) (queue + gates). **Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc`
 
 **Promote:** copy `[ ]` lines into Active-Plan when a gate opens. **Ship:** move `[x]` to [`Archived-Plan.md`](Archived-Plan.md) — never duplicate done items here.
 
-**Pivot:** Lighting / image-quality **S4–S8** is the active track. **Meshlet / mesh shader / GPU mesh** moved to [**§ Geometry track (S10–S12)**](#geometry-track--meshlet--mesh-shader-deferred) — gate **G3** applies to S10 only.
+**Pivot:** Lighting **S4–S7** implementation shipped (2026-06-15/16). **G4 Stage 2 acceptance** is the active gate; then **S8 DDGI**. **Meshlet / mesh shader / GPU mesh** → [**§ Geometry track (S10–S12)**](#geometry-track--meshlet--mesh-shader-deferred) — gate **G3** applies to S10 only.
 
 ---
 
@@ -17,15 +17,16 @@
 | **S3** | M2 + FG v0 | GPU indirect + hybrid shell | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S4** | Lighting-1 | PBR + G-buffer contract | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S5** | Lighting-2 | IBL, skybox, shadows | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S6** | Lighting-3 | SSAO + Hi-Z | [below](#s6--screen-space--hi-z-lighting-3) |
-| **S7** | Lighting-4 | Post + frame graph v1 | [below](#s7--post-processing--frame-graph-v1-lighting-4) |
+| **S6** | Lighting-3 | SSAO + Hi-Z + modular AO | → [`Archived-Plan.md`](Archived-Plan.md) |
+| **S7** | Lighting-4 | Post + frame graph v1 | → [`Archived-Plan.md`](Archived-Plan.md) |
+| **G4** | Stage 2 gate | Hybrid acceptance on Sponza | [`Active-Plan.md`](Active-Plan.md) § G4 |
 | **S8** | Lighting-5 | DDGI / GI (Stage 3) | [below](#s8--global-illumination-ddgi--stage-3) · gate **G4** |
 | **S9** | Simulation | Physics / anim / AI | [below](#s9--simulation-physics--animation--ai) · gate **G2** ✓ |
 | **S10–S12** | M3–M5 | Geometry (deferred) | [Geometry track](#geometry-track--meshlet--mesh-shader-deferred) |
 | **S13** | M6 infra | Render lab + RHI | [below](#s13--render-lab-infrastructure-deferred) |
 | **Parallel** | Full slice | Vertical slice extras | [below](#parallel--vertical-slice) |
 
-**Lighting epics:** Stage 2 [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (S4–S7) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) (S8).
+**Lighting epics:** Stage 2 [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (S4–S7 shipped; **G4** sign-off) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) (S8).
 
 **Bindless contract:** [`shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance · [`EngineArchitecture.md`](EngineArchitecture.md) §6.
 
@@ -43,53 +44,25 @@ Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/pl
 
 ---
 
-## S6 — Screen-space + Hi-Z (Lighting-3)
+## S6 — Screen-space + Hi-Z (Lighting-3) *(shipped — see Archived-Plan)*
 
-*Deps: **S4** (depth/normal). **S5** recommended (shadowed AO comparison).*
+Closed 2026-06-15 · Core: [`Archived/plans/s6-ssao-hiz_Plan.md`](Archived/plans/s6-ssao-hiz_Plan.md)  
+Follow-ons 2026-06-16: HBAO+ [`hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md) · GTAO [`gtao_Plan.md`](Archived/plans/gtao_Plan.md) · contact soft [`contact-soft-ao_Plan.md`](Archived/plans/contact-soft-ao_Plan.md)
 
-### Open tasks
+### Backlog (deferred from S6)
 
-- [ ] Depth pyramid (Hi-Z) from G-buffer or resolve depth — document mip policy.
-- [x] GTAO v0 — modular slot in `Vk_AoPass` ([`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md)); HBAO+ v0 closed ([`Archived/plans/hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md)).
-- [ ] Optional: normal-aware radius; temporal stability = backlog.
-- [ ] Debug viz: AO only, Hi-Z mip slice (dev overlay).
-
-### Acceptance
-
-- [ ] Contact shadows / crevice darkening visible on Sponza; Hi-Z texture valid in capture.
+- [ ] Normal-aware radius tuning (beyond v0 defaults).
+- [ ] Temporal AO stability (velocity + history buffer; deps G-buffer motion vectors).
 
 ---
 
-## S7 — Post-processing + frame graph v1 (Lighting-4)
+## S7 — Post-processing + frame graph v1 (Lighting-4) *(shipped — see Archived-Plan)*
 
-*Deps: **S4–S6**. Contributes to **G4** Stage 2 acceptance.*
+Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/s7-post-fg_Plan.md)
 
-**Epic:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A.
+**Shipped:** HDR intermediate, tonemap + exposure, optional bloom, `Vk_FrameGraphBuilder` v1 with shadow/AO/bloom toggles.
 
-### Open tasks — frame graph
-
-- [ ] `framegraph_Plan.md` (new): pass/resource nodes, transient RT pool, import/export rules.
-- [ ] `FrameGraphBuilder`: topological sort + barriers; hybrid chain + shadow + AO + post nodes.
-- [ ] Preset toggles FG topology (shadow / AO / bloom) without breaking sort keys.
-
-### Open tasks — post
-
-- [ ] HDR intermediate target (if not already); tonemap + exposure (ImGui tunable).
-- [ ] Optional bloom (threshold + blur + composite).
-- [ ] Validation-friendly toggles per pass.
-
-### Open tasks — lab
-
-- [ ] Presets `Low / Base / High / Custom` + permutation subset (S2 registry).
-- [ ] GPU timestamp queries + CPU p50/p95 logging.
-- [ ] Benchmark runbook: Sponza, fixed camera, warmup, CSV/JSON.
-- [ ] Screenshot capture keyed to preset + pose.
-- [ ] RenderDoc expectations per preset documented.
-
-### Acceptance (G4 contributor)
-
-- [ ] Frame graph drives hybrid + at least **shadow** and **one post pass** on Sponza.
-- [ ] `ForwardLit` ↔ `HybridDeferred` switch validation-clean.
+**Deferred to S13 (lab infra):** presets `Low/Base/High/Custom`, GPU timestamps, benchmark runbook, screenshot capture, RenderDoc preset notes — see [§S13](#s13--render-lab-infrastructure-deferred).
 
 ---
 
@@ -190,7 +163,16 @@ Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/pl
 
 ## S13 — Render lab infrastructure (deferred)
 
-*Remainder of old **S7** infra not absorbed into S4–S7. Does not block G4.*
+*Absorbs S7 lab carryover + old S7 infra remainder. Does not block G4.*
+
+### Open tasks — S7 lab carryover
+
+- [ ] Presets `Low / Base / High / Custom` + permutation subset (S2 registry).
+- [ ] GPU timestamp queries + CPU p50/p95 logging.
+- [ ] Benchmark runbook: Sponza, fixed camera, warmup, CSV/JSON.
+- [ ] Screenshot capture keyed to preset + pose.
+- [ ] RenderDoc expectations per preset documented.
+- [ ] FG v2: transient RT pool, import/export rules (`framegraph_Plan.md`).
 
 ### Open tasks — Vulkan RHI WSI
 
@@ -214,7 +196,7 @@ Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/pl
 ### Open tasks — experiments (backlog-friendly)
 
 - [ ] MSAA vs post AA vs none.
-- [ ] GPU occlusion cull using Hi-Z — *deps: S6*.
+- [ ] GPU occlusion cull using Hi-Z — *deps: S6 Hi-Z (shipped)*.
 - [ ] **Task shader** for mesh amplification — *post-S12*.
 - [ ] SSR, volumetrics, decals — backlog.
 

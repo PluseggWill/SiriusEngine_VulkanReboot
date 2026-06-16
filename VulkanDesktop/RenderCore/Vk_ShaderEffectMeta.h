@@ -11,7 +11,7 @@
 #include <vector>
 
 struct Vk_DeletionQueue;
-class Vk_Core;
+class Vk_Renderer;
 
 // ShaderEffectMeta: lit_batch descriptor layout from reflection_lit.json (S2 phase 2b).
 // SPIR-V reports UNIFORM_BUFFER for Set 2; engine applies UNIFORM_BUFFER_DYNAMIC at layout create.
@@ -54,7 +54,7 @@ size_t           HashLayout( const ShaderEffectMeta& aMeta );
 void             LogMetaDump( const ShaderEffectMeta& aMeta );
 
 // Creates Set 0/1/2 layouts via hash cache; registers destroy on aDeletionQueue.
-LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Core& aCore );
+LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Renderer& aCore );
 
 // S2 phase 2d: compare reflection_lit_bindless.json Set 1 vs hand-written bindless layout (Vk_Enum / Vk_DescriptorPolicy).
 void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig );
@@ -63,6 +63,6 @@ void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig );
 
 struct Vk_DeviceContext;
 struct Vk_SceneGpuContext;
-class Vk_Core;
+class Vk_Renderer;
 
-void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Core& aCoreOps );
+void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Renderer& aCoreOps );

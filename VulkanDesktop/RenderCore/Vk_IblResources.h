@@ -4,7 +4,7 @@
 
 #include <string>
 
-class Vk_Core;
+class Vk_Renderer;
 
 struct Vk_IblResourcesState {
     bool myInitialized = false;
@@ -24,7 +24,7 @@ namespace Vk_IblResources {
 
 constexpr char kDefaultEnvironmentLogicalPath[] = "Data/Environments/default";
 
-void Init( Vk_Core& aCore, const std::string& aEnvironmentLogicalPath );
-void Destroy( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath );
+void Destroy( Vk_Renderer& aCore );
 
 }  // namespace Vk_IblResources

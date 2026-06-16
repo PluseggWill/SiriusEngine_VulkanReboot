@@ -6,8 +6,8 @@
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
+#include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
-#include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
@@ -15,10 +15,10 @@
 #include "Vk_GBufferPass.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_RenderBackend.h"
+#include "Vk_Renderer.h"
 #include "Vk_ScenePasses.h"
-#include "Vk_ShadowMapPass.h"
 #include "Vk_ShadowAoSoftPass.h"
-#include "Vk_AoPass.h"
+#include "Vk_ShadowMapPass.h"
 
 #include <algorithm>
 #include <array>
@@ -59,7 +59,7 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferColorsForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     constexpr VkImageLayout               kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     std::array< VkImageMemoryBarrier, 3 > barriers    = {
         ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
@@ -70,7 +70,7 @@ void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCo
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );
 }
 
-void CmdBarrierGBufferDepthForShaderRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImageMemoryBarrier barrier =
         DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
@@ -78,7 +78,7 @@ void CmdBarrierGBufferDepthForShaderRead( Vk_Core& aCore, VkCommandBuffer aComma
                           nullptr, 0, nullptr, 1, &barrier );
 }
 
-void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdCopyGBufferDepthToSwapchain( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
     VkImage          dstImage = aCore.mySwapchainCtx.myDepthTexture.Image();
     const VkExtent2D extent   = aCore.mySwapchainCtx.mySwapChainExtent;
@@ -115,7 +115,7 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
                           nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
-void BindHybridSceneDescriptors( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
+void BindHybridSceneDescriptors( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aFrameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptor, 0, nullptr );
     if ( aBindless ) {
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
@@ -220,7 +220,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         { Vk_FrameGraphPassId::Shadow },
         []( const Vk_FrameGraphContext& ) { return true; },
         []( Vk_FrameGraphContext& aCtx ) {
-            Vk_Core& aCore = *aCtx.myCore;
+            Vk_Renderer& aCore = *aCtx.myCore;
 
             const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
             const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
@@ -306,9 +306,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         Vk_FrameGraphPassId::ShadowAoSoft,
         { Vk_FrameGraphPassId::GBuffer, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::SSAO },
         IsShadowAoSoftEnabled,
-        []( Vk_FrameGraphContext& aCtx ) {
-            Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) );
-        },
+        []( Vk_FrameGraphContext& aCtx ) { Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) ); },
     } );
 
     aOutNodes.push_back( FrameGraphNode{
@@ -316,7 +314,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         { Vk_FrameGraphPassId::ClusterBuild, Vk_FrameGraphPassId::SSAO, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::ShadowAoSoft },
         []( const Vk_FrameGraphContext& ) { return true; },
         []( Vk_FrameGraphContext& aCtx ) {
-            Vk_Core& aCore = *aCtx.myCore;
+            Vk_Renderer& aCore = *aCtx.myCore;
 
             // G-buffer color/depth barriers run in DepthPyramid (always before deferred). Re-barrier here when AO is off
             // would use stale ATTACHMENT oldLayout after depth is already READ_ONLY (validation error).

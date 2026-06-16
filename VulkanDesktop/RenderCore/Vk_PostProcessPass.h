@@ -8,7 +8,7 @@
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
-class Vk_Core;
+class Vk_Renderer;
 
 constexpr VkFormat kPostSceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
@@ -45,12 +45,12 @@ struct Vk_PostProcessState {
 
 namespace Vk_PostProcessPass {
 
-bool HasHybridResolve( const Vk_Core& aCore );
+bool HasHybridResolve( const Vk_Renderer& aCore );
 
-void Init( Vk_Core& aCore );
-void Destroy( Vk_Core& aCore );
-void RecreateForExtent( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
+void Destroy( Vk_Renderer& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
 
-void RecordPost( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex );
+void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex );
 
 }  // namespace Vk_PostProcessPass

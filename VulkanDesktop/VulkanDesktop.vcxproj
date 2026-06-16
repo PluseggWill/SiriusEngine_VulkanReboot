@@ -215,7 +215,7 @@
     <ClCompile Include="Gfx\Gfx_MeshCpu.cpp" />
     <ClCompile Include="RenderCore\Vk_Camera.cpp" />
     <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
-    <ClCompile Include="RenderCore\Vk_Core.cpp" />
+    <ClCompile Include="RenderCore\Vk_Renderer.cpp" />
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp" />
     <ClCompile Include="RenderCore\Vk_ShaderEffectMeta.cpp" />
     <ClCompile Include="RenderCore\Vk_FrameUniformUploader.cpp" />
@@ -315,7 +315,7 @@
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_PlatformFrame.h" />
     <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
-    <ClInclude Include="RenderCore\Vk_Core.h" />
+    <ClInclude Include="RenderCore\Vk_Renderer.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
     <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h" />
     <ClInclude Include="RenderCore\Vk_FrameResult.h" />

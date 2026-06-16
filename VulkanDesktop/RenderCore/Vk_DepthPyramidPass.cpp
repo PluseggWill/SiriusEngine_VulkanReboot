@@ -4,8 +4,8 @@
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 
 #include <algorithm>
 #include <array>
@@ -41,7 +41,7 @@ VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-VkImageView CreateMipImageView( Vk_Core& aCore, VkImage aImage, VkFormat aFormat, uint32_t aBaseMip ) {
+VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFormat, uint32_t aBaseMip ) {
     VkImageViewCreateInfo viewInfo         = VkInit::ImageViewCreateInfo( aFormat, aImage, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
     viewInfo.subresourceRange.baseMipLevel = aBaseMip;
     viewInfo.subresourceRange.levelCount   = 1;
@@ -53,7 +53,7 @@ VkImageView CreateMipImageView( Vk_Core& aCore, VkImage aImage, VkFormat aFormat
     return imageView;
 }
 
-void DestroyPyramidImage( Vk_Core& aCore ) {
+void DestroyPyramidImage( Vk_Renderer& aCore ) {
     Vk_DepthPyramidState& state     = aCore.myDepthPyramidState;
     const VkDevice        device    = aCore.myDeviceCtx.myDevice;
     const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
@@ -76,7 +76,7 @@ void DestroyPyramidImage( Vk_Core& aCore ) {
     state.myMipLevelCount = 0;
 }
 
-void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, uint32_t aDstMip, uint32_t aSrcMip ) {
+void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, uint32_t aDstMip, uint32_t aSrcMip ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
 
     VkDescriptorImageInfo depthInfo{};
@@ -100,7 +100,7 @@ void UpdateDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, uint32_t aDstMip
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void CreatePyramidImage( Vk_Core& aCore ) {
+void CreatePyramidImage( Vk_Renderer& aCore ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
 
     const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
@@ -124,7 +124,7 @@ void CreatePyramidImage( Vk_Core& aCore ) {
     UtilLogger::Info( "HIZ", "Depth pyramid: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " mips=" + std::to_string( state.myMipLevelCount ) );
 }
 
-void AllocateDescriptorSets( Vk_Core& aCore, bool aAllocateDescriptors ) {
+void AllocateDescriptorSets( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
 
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
@@ -147,7 +147,7 @@ void AllocateDescriptorSets( Vk_Core& aCore, bool aAllocateDescriptors ) {
     }
 }
 
-void CreatePipeline( Vk_Core& aCore ) {
+void CreatePipeline( Vk_Renderer& aCore ) {
     Vk_DepthPyramidState& state         = aCore.myDepthPyramidState;
     const std::string     spvPath       = UtilLoader::ResolvePath( aCore.EngineConfig(), kDepthPyramidShaderPath );
     VkShaderModule        computeModule = aCore.CreateShaderModule( spvPath );
@@ -277,7 +277,7 @@ void CmdBarrierPyramidForComputeWrite( VkCommandBuffer aCommandBuffer, VkImage a
 
 namespace Vk_DepthPyramidPass {
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
@@ -293,7 +293,7 @@ void Destroy( Vk_Core& aCore ) {
     aCore.myDepthPyramidState.myInitialized = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
@@ -305,7 +305,7 @@ void RecreateForExtent( Vk_Core& aCore ) {
     AllocateDescriptorSets( aCore, false );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
@@ -316,7 +316,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myDepthPyramidState.myInitialized = true;
 }
 
-void RecordBuild( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+void RecordBuild( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
     if ( !state.myInitialized || state.myMipLevelCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;
@@ -371,14 +371,14 @@ void RecordBuild( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
     sPyramidLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
-VkImageView GetMipView( const Vk_Core& aCore, uint32_t aMipLevel ) {
+VkImageView GetMipView( const Vk_Renderer& aCore, uint32_t aMipLevel ) {
     if ( aMipLevel >= aCore.myDepthPyramidState.myMipLevelCount || aMipLevel >= kHiZMaxMipLevels ) {
         return VK_NULL_HANDLE;
     }
     return aCore.myDepthPyramidState.myMipViews[ aMipLevel ];
 }
 
-uint32_t GetMipLevelCount( const Vk_Core& aCore ) {
+uint32_t GetMipLevelCount( const Vk_Renderer& aCore ) {
     return aCore.myDepthPyramidState.myMipLevelCount;
 }
 

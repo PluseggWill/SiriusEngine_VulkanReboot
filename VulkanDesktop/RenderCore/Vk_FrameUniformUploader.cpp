@@ -1,6 +1,6 @@
 #include "Vk_FrameUniformUploader.h"
 
-#include "Vk_Core.h"
+#include "Vk_Renderer.h"
 
 #include "Vk_IblResources.h"
 #include "Vk_ShadowMapPass.h"
@@ -13,7 +13,7 @@
 
 #include <glm/glm.hpp>
 
-void Vk_FrameUniformUploader::UpdateForView( const Vk_Core& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera ) {
+void Vk_FrameUniformUploader::UpdateForView( const Vk_Renderer& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera ) {
 
     GpuCameraData cam{};
 
@@ -32,7 +32,7 @@ void Vk_FrameUniformUploader::UpdateForView( const Vk_Core& aCore, uint32_t aCur
     vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.myFrameCtx.myFrameDatas[ aCurrentFrame ].myCameraBuffer.myAllocation );
 }
 
-void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
+void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Renderer& aCore, uint32_t aCurrentFrame ) {
 
     GpuEnvironmentData env = aCore.myEnvironmentData;
 
@@ -58,7 +58,7 @@ void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Core& aCore, uint32_t 
     vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.myEnvDataBuffer.myAllocation );
 }
 
-void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Core& aCore, uint32_t aCurrentFrame, const glm::mat4& aLightViewProj ) {
+void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Renderer& aCore, uint32_t aCurrentFrame, const glm::mat4& aLightViewProj ) {
 
     const float prefilterMaxMip = aCore.myIblResourcesState.myInitialized ? aCore.myIblResourcesState.myPrefilterMaxMipLevel : 0.0f;
 
@@ -77,7 +77,7 @@ void Vk_FrameUniformUploader::UpdateLightingGlobals( const Vk_Core& aCore, uint3
     vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.myLightingGlobalsBuffer.myAllocation );
 }
 
-void Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( const Vk_Core& aCore, uint32_t aCurrentFrame ) {
+void Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( const Vk_Renderer& aCore, uint32_t aCurrentFrame ) {
 
     const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
 

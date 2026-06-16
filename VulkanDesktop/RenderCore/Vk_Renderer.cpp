@@ -1,6 +1,6 @@
-// Module: Vk_Core - device, swapchain, frame loop (acquire -> prep -> record -> present).
+// Module: Vk_Renderer - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
-#include "Vk_Core.h"
+#include "Vk_Renderer.h"
 #include "../App/WorldState.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
@@ -66,71 +66,66 @@
 std::string vertShaderPath;
 std::string fragShaderPath;
 std::string bindlessFragShaderPath = "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv";
-Vk_Core::Vk_Core() {}
-Vk_Core::~Vk_Core() {}
+Vk_Renderer::Vk_Renderer() {}
+Vk_Renderer::~Vk_Renderer() {}
 
-Vk_Core& Vk_Core::GetInstance() {
-    static Vk_Core sInstance;
-    return sInstance;
-}
-
-// Called once from Application before scene load / main loop (non-owning; must outlive Vk_Core).
-void Vk_Core::BindEngineConfig( const Util_EngineConfig* aConfig ) {
+// Called once from Application before scene load / main loop (non-owning; must outlive Vk_Renderer).
+void Vk_Renderer::BindEngineConfig( const Util_EngineConfig* aConfig ) {
     myEngineConfig = aConfig;
 }
 
-const Util_EngineConfig& Vk_Core::EngineConfig() const {
+const Util_EngineConfig& Vk_Renderer::EngineConfig() const {
     if ( myEngineConfig == nullptr ) {
-        throw std::runtime_error( "Vk_Core: Util_EngineConfig not bound (call BindEngineConfig from Application)" );
+        throw std::runtime_error( "Vk_Renderer: Util_EngineConfig not bound (call BindEngineConfig from Application)" );
     }
     return *myEngineConfig;
 }
 
-Gfx_Bounds Vk_Core::GetShadowCasterBounds() const {
+Gfx_Bounds Vk_Renderer::GetShadowCasterBounds() const {
     if ( myBoundSceneSoA == nullptr ) {
         return {};
     }
     return Gfx_ComputeActiveOpaqueSceneBounds( *myBoundSceneSoA );
 }
 
-const std::string& Vk_Core::GetLoadedSceneLogicalPath() const {
+const std::string& Vk_Renderer::GetLoadedSceneLogicalPath() const {
     return myLoadedSceneLogicalPath;
 }
 
-bool Vk_Core::HasLoadedScene() const {
+bool Vk_Renderer::HasLoadedScene() const {
     return mySceneGpuLoaded;
 }
 
-void Vk_Core::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
+void Vk_Renderer::SetSize( const uint32_t aWidth, const uint32_t aHeight ) {
     myPlatformCtx.myWidth  = aWidth;
     myPlatformCtx.myHeight = aHeight;
 }
 
-void Vk_Core::SetVsync( bool aVsync ) {
+void Vk_Renderer::SetVsync( bool aVsync ) {
     myVsync = aVsync;
 }
 
-void Vk_Core::Reset() {
+void Vk_Renderer::Reset() {
     Clear();
 }
 
-bool Vk_Core::ShouldClose() const {
+bool Vk_Renderer::ShouldClose() const {
     return myPlatformCtx.myWindow != nullptr && glfwWindowShouldClose( myPlatformCtx.myWindow );
 }
 
-void Vk_Core::ConfigureRenderDoc( bool aEnableRenderDoc ) {
+void Vk_Renderer::ConfigureRenderDoc( bool aEnableRenderDoc ) {
     myPlatformCtx.myRenderDoc.Configure( aEnableRenderDoc );
 }
 
-bool Vk_Core::IsRenderDocEnabled() const {
+bool Vk_Renderer::IsRenderDocEnabled() const {
     return myPlatformCtx.myRenderDoc.IsEnabled();
 }
 
-void Vk_Core::TriggerRenderDocCapture() {
+void Vk_Renderer::TriggerRenderDocCapture() {
     myPlatformCtx.myRenderDoc.TriggerCaptureRequest();
 }
 
-void Vk_Core::Shutdown() {
+void Vk_Renderer::Shutdown() {
     if ( myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( myDeviceCtx.myDevice );
     }
@@ -138,11 +133,11 @@ void Vk_Core::Shutdown() {
 }
 
 // Delegates platform/window bootstrap to Vk_PlatformFrame to keep Core focused on render orchestration.
-void Vk_Core::InitWindow() {
+void Vk_Renderer::InitWindow() {
     Vk_PlatformFrame::InitWindow( *this );
 }
 
-void Vk_Core::Clear() {
+void Vk_Renderer::Clear() {
     UtilLogger::Info( "CORE", "Releasing Vulkan resources." );
     // Destruction order matters: child GPU objects -> device -> surface/debug -> instance -> window.
 
@@ -174,7 +169,7 @@ void Vk_Core::Clear() {
 }
 
 // Render device bootstrap entry point (instance/device/queues/swapchain host orchestration).
-void Vk_Core::InitRenderDevice() {
+void Vk_Renderer::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
     myPlatformCtx.myRenderDoc.InitRuntime();
@@ -199,7 +194,7 @@ void Vk_Core::InitRenderDevice() {
 }
 
 // Scene-load orchestration: GPU pipelines + resource tables + descriptors (CPU scene state is App-owned).
-void Vk_Core::LoadSceneGpuResources( WorldState& aWorld ) {
+void Vk_Renderer::LoadSceneGpuResources( WorldState& aWorld ) {
     if ( mySceneGpuLoaded ) {
         throw std::runtime_error( "LoadSceneGpuResources: scene already loaded; call UnloadSceneGpuResources first." );
     }
@@ -251,7 +246,7 @@ void Vk_Core::LoadSceneGpuResources( WorldState& aWorld ) {
     UtilLogger::Info( "SCENE", "LoadSceneGpuResources completed." );
 }
 
-void Vk_Core::UnloadSceneGpuResources() {
+void Vk_Renderer::UnloadSceneGpuResources() {
     if ( !mySceneGpuLoaded ) {
         UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: no scene loaded (skipped)." );
         return;
@@ -300,7 +295,7 @@ void Vk_Core::UnloadSceneGpuResources() {
     UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: GPU scene resources released." );
 }
 
-void Vk_Core::InitImGui() {
+void Vk_Renderer::InitImGui() {
     const uint32_t imageCount    = static_cast< uint32_t >( mySwapchainCtx.mySwapChainImageViews.size() );
     const uint32_t minImageCount = std::max( 2u, imageCount );
 
@@ -310,12 +305,12 @@ void Vk_Core::InitImGui() {
     UtilLogger::Info( "IMGUI", "ImGui overlay initialized." );
 }
 
-void Vk_Core::ShutdownImGui() {
+void Vk_Renderer::ShutdownImGui() {
     myPlatformCtx.myImGuiLayer.Shutdown();
     UtilLogger::Info( "IMGUI", "ImGui overlay shut down." );
 }
 
-void Vk_Core::CreateInstance() {
+void Vk_Renderer::CreateInstance() {
     UtilValidationLayers::LogInstanceLayerDiscovery();
 
     if ( myDeviceCtx.myEnableValidationLayers ) {
@@ -381,7 +376,7 @@ void Vk_Core::CreateInstance() {
     }
 }
 
-void Vk_Core::PickPhysicalDevice() {
+void Vk_Renderer::PickPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices( myDeviceCtx.myInstance, &deviceCount, nullptr );
 
@@ -408,7 +403,7 @@ void Vk_Core::PickPhysicalDevice() {
     UtilLogger::Info( "GPU", std::string( "Selected physical device: " ) + props.deviceName );
 }
 
-void Vk_Core::CreateLogicalDevice() {
+void Vk_Renderer::CreateLogicalDevice() {
     // Build one queue create-info per unique family (graphics/present/transfer may collapse to fewer families).
     std::vector< VkDeviceQueueCreateInfo > queueCreateInfos;
     std::set< uint32_t > uniqueQueueFamilies = { myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value(),
@@ -473,7 +468,7 @@ void Vk_Core::CreateLogicalDevice() {
     vkGetDeviceQueue( myDeviceCtx.myDevice, myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value(), 0, &myDeviceCtx.myTransferQueue );
 }
 
-void Vk_Core::CreateSurface() {
+void Vk_Renderer::CreateSurface() {
     if ( glfwCreateWindowSurface( myDeviceCtx.myInstance, myPlatformCtx.myWindow, nullptr, &myDeviceCtx.mySurface ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "glfwCreateWindowSurface failed." );
         throw std::runtime_error( "failed to create window surface!" );
@@ -481,7 +476,7 @@ void Vk_Core::CreateSurface() {
     UtilLogger::Info( "VULKAN", "Window surface created." );
 }
 
-void Vk_Core::RecreateSurface() {
+void Vk_Renderer::RecreateSurface() {
     if ( myDeviceCtx.mySurface != VK_NULL_HANDLE ) {
         vkDestroySurfaceKHR( myDeviceCtx.myInstance, myDeviceCtx.mySurface, nullptr );
         myDeviceCtx.mySurface = VK_NULL_HANDLE;
@@ -489,13 +484,13 @@ void Vk_Core::RecreateSurface() {
     CreateSurface();
 }
 
-void Vk_Core::SyncResourceContext() {
+void Vk_Renderer::SyncResourceContext() {
     myResourceContext.Bind( myDeviceCtx.myDevice, myDeviceCtx.myAllocator, myDeviceCtx.myPhysicalDevice, myDeviceCtx.myGraphicsQueue, myDeviceCtx.myTransferQueue,
                             myDeviceCtx.myGraphicsCommandPool, myDeviceCtx.myTransferCommandPool, myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ),
                             myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
 }
 
-void Vk_Core::InitAllocator() {
+void Vk_Renderer::InitAllocator() {
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice = myDeviceCtx.myPhysicalDevice;
     allocatorInfo.device         = myDeviceCtx.myDevice;
@@ -507,7 +502,7 @@ void Vk_Core::InitAllocator() {
     myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() { vmaDestroyAllocator( myDeviceCtx.myAllocator ); } );
 }
 
-void Vk_Core::CreateFrameData() {
+void Vk_Renderer::CreateFrameData() {
     myFrameCtx.myFrameDatas.resize( MAX_FRAMES_IN_FLIGHT );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
@@ -547,7 +542,7 @@ void Vk_Core::CreateFrameData() {
     }
 }
 
-void Vk_Core::CreateInstanceSlabs() {
+void Vk_Renderer::CreateInstanceSlabs() {
     const VkDeviceSize slabSize = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxInstanceSlabEntries ) * static_cast< VkDeviceSize >( InstanceSlabStride() );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
@@ -571,7 +566,7 @@ void Vk_Core::CreateInstanceSlabs() {
 }
 
 // M2 prep: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
-void Vk_Core::CreateDrawTemplateBuffers() {
+void Vk_Renderer::CreateDrawTemplateBuffers() {
     static_assert( sizeof( Gfx_DrawIndirectCommand ) == sizeof( VkDrawIndexedIndirectCommand ), "Gfx_DrawIndirectCommand must match Vulkan" );
 
     const VkDeviceSize indirectBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( VkDrawIndexedIndirectCommand );
@@ -609,7 +604,7 @@ void Vk_Core::CreateDrawTemplateBuffers() {
 }
 
 // P3: per SoA slot entity-record SSBO (CPU fill in FillEntityRecords; compute cull reads same layout).
-void Vk_Core::CreateEntityRecordBuffers() {
+void Vk_Renderer::CreateEntityRecordBuffers() {
     const VkDeviceSize recordBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxEntitySlots ) * sizeof( Gfx_EntityGpuRecord );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
@@ -632,7 +627,7 @@ void Vk_Core::CreateEntityRecordBuffers() {
     UtilLogger::Info( "RESOURCE", "Entity-record buffer: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/frame=" + std::to_string( recordBytes ) );
 }
 
-void Vk_Core::CreateUniformBuffers() {
+void Vk_Renderer::CreateUniformBuffers() {
     // Device-scoped env UBO slab (CPU defaults at scene load; App_InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
     const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
@@ -646,7 +641,7 @@ void Vk_Core::CreateUniformBuffers() {
         [ = ]() { vmaDestroyBuffer( myDeviceCtx.myAllocator, myLightingGlobalsBuffer.myBuffer, myLightingGlobalsBuffer.myAllocation ); } );
 }
 
-void Vk_Core::CreateCommandPool() {
+void Vk_Renderer::CreateCommandPool() {
     // Graphics command pool: frame command buffers + graphics-side one-shot commands.
     VkCommandPoolCreateInfo poolInfo =
         VkInit::CommandPoolCreateInfo( myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT );
@@ -670,8 +665,9 @@ float ElapsedMs( std::chrono::high_resolution_clock::time_point aStart, std::chr
 
 }  // namespace
 
-bool Vk_Core::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews,
-                               uint32_t aViewCount, Vk_FrameCpuPrepResult& aOut ) {
+bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles,
+                                   const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews, uint32_t aViewCount,
+                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets, Vk_FrameCpuPrepResult& aOut ) {
     if ( aInput.myScene == nullptr || aInput.myLodTable == nullptr || aInput.myLodState == nullptr ) {
         throw std::runtime_error( "PrepareFrameCpu: invalid Gfx_FramePrepInput (null scene/lod pointers)" );
     }
@@ -756,7 +752,7 @@ bool Vk_Core::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_Frame
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
         // Fail-closed on slab overflow (same post-acquire contract as swapchain acquire failure).
-        if ( !mySceneGpuCtx.myDrawPrep.Build( prepParams ) ) {
+        if ( !mySceneGpuCtx.myDrawPrep.UploadFromPacket( prepParams, aViewPackets[ viewIndex ] ) ) {
             if ( !myPrepareFrameSlabOverflowLogged ) {
                 UtilLogger::Warn( "RESOURCE", "PrepareFrameCpu aborted: instance slab overflow." );
                 myPrepareFrameSlabOverflowLogged = true;
@@ -802,7 +798,7 @@ bool Vk_Core::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_Frame
     return true;
 }
 
-Vk_FrameResult Vk_Core::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep ) {
+Vk_FrameResult Vk_Renderer::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep ) {
     ( void )aToggles;
     if ( !aPrep.myOk || aPrep.myFrameData == nullptr ) {
         return Vk_FrameResult::SkipFrame;
@@ -858,19 +854,19 @@ Vk_FrameResult Vk_Core::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_
     return frameResult;
 }
 
-void Vk_Core::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
+void Vk_Renderer::CmdBeginDebugLabel( VkCommandBuffer aCommandBuffer, const char* aLabelName ) const {
     myPlatformCtx.myRenderDoc.CmdBeginDebugLabel( aCommandBuffer, aLabelName );
 }
 
-void Vk_Core::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
+void Vk_Renderer::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
     myPlatformCtx.myRenderDoc.CmdEndDebugLabel( aCommandBuffer );
 }
 
-bool Vk_Core::AreCommandDebugLabelsEnabled() const {
+bool Vk_Renderer::AreCommandDebugLabelsEnabled() const {
     return myPlatformCtx.myRenderDoc.AreCommandLabelsEnabled();
 }
 
-void Vk_Core::LogM1PerfSnapshot() const {
+void Vk_Renderer::LogM1PerfSnapshot() const {
     const uint32_t visibleDraws = myFrameStats.myVisibleOpaqueDraws + myFrameStats.myVisibleTransparentDraws;
     const uint32_t batchRuns    = myFrameStats.myOpaqueBatchRuns + myFrameStats.myTransparentBatchRuns;
     UtilLogger::Info( "PERF", "frameMs=" + std::to_string( myFrameStats.myFrameMs ) + " fps=" + std::to_string( myFrameStats.myFps )
@@ -881,7 +877,7 @@ void Vk_Core::LogM1PerfSnapshot() const {
                                   + " materialPath=" + Vk_RenderMaterialPathName( myDeviceCtx.myMaterialPath ) );
 }
 
-void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
+void Vk_Renderer::RefreshMaterialPipelinesAfterSwapchainRecreate() {
     const VkPipeline opaquePipe = myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
     const VkPipeline transPipe =
         myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myTransparentPipelineBindless : mySceneGpuCtx.myTransparentPipeline;
@@ -889,7 +885,7 @@ void Vk_Core::RefreshMaterialPipelinesAfterSwapchainRecreate() {
     mySceneGpuCtx.myResourceTables.RefreshMaterialPipelines( opaquePipe, transPipe, layout );
 }
 
-void Vk_Core::InitVk_QueueFamilyIndices() {
+void Vk_Renderer::InitVk_QueueFamilyIndices() {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( myDeviceCtx.myPhysicalDevice, &queueFamilyCount, nullptr );
 
@@ -928,7 +924,7 @@ void Vk_Core::InitVk_QueueFamilyIndices() {
 
 #pragma region Helpers - device, queues, shaders
 
-void Vk_Core::CheckExtensionSupport() const {
+void Vk_Renderer::CheckExtensionSupport() const {
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties( nullptr, &extensionCount, nullptr );
 
@@ -941,20 +937,20 @@ void Vk_Core::CheckExtensionSupport() const {
     }
 }
 
-bool Vk_Core::CheckValidationLayerSupport() const {
+bool Vk_Renderer::CheckValidationLayerSupport() const {
     return UtilValidationLayers::AreLayersAvailable( myDeviceCtx.myValidationLayers );
 }
 
-void Vk_Core::SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers ) {
+void Vk_Renderer::SetEnableValidationLayers( bool aEnableValidationLayers, std::vector< const char* > someValidationLayers ) {
     myDeviceCtx.myEnableValidationLayers = aEnableValidationLayers;
     myDeviceCtx.myValidationLayers       = someValidationLayers;
 }
 
-void Vk_Core::SetRequiredExtension( std::vector< const char* > someDeviceExtensions ) {
+void Vk_Renderer::SetRequiredExtension( std::vector< const char* > someDeviceExtensions ) {
     myDeviceCtx.myDeviceExtensions = someDeviceExtensions;
 }
 
-bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
+bool Vk_Renderer::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     vkGetPhysicalDeviceProperties( aPhysicalDevice, &myDeviceCtx.myPhysicalDeviceProperties );
 
     vkGetPhysicalDeviceFeatures( aPhysicalDevice, &myDeviceCtx.myPhysicalDeviceFeatures );
@@ -977,7 +973,7 @@ bool Vk_Core::CheckDeviceSuitable( VkPhysicalDevice aPhysicalDevice ) const {
     return indices.isComplete() && extensionSupported && swapChainAdequate && myDeviceCtx.myPhysicalDeviceFeatures.samplerAnisotropy;
 }
 
-Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
+Vk_QueueFamilyIndices Vk_Renderer::FindQueueFamilies( VkPhysicalDevice aPhysicalDevice ) const {
     Vk_QueueFamilyIndices indices;
     uint32_t              queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties( aPhysicalDevice, &queueFamilyCount, nullptr );
@@ -1010,7 +1006,7 @@ Vk_QueueFamilyIndices Vk_Core::FindQueueFamilies( VkPhysicalDevice aPhysicalDevi
     return indices;
 }
 
-Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
+Vk_SwapChainSupportDetails Vk_Renderer::QuerySwapChainSupport( VkPhysicalDevice aPhysicalDevice ) const {
     Vk_SwapChainSupportDetails details;
 
     // Surface capabilities (extent/image count transform limits).
@@ -1037,7 +1033,7 @@ Vk_SwapChainSupportDetails Vk_Core::QuerySwapChainSupport( VkPhysicalDevice aPhy
     return details;
 }
 
-bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
+bool Vk_Renderer::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties( aPhysicalDevice, nullptr, &extensionCount, nullptr );
 
@@ -1064,7 +1060,7 @@ bool Vk_Core::CheckExtensionSupport( VkPhysicalDevice aPhysicalDevice ) const {
     return requiredExtensions.empty();
 }
 
-VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const {
+VkSurfaceFormatKHR Vk_Renderer::ChooseSwapSurfaceFormat( const std::vector< VkSurfaceFormatKHR >& someAvailableFormats ) const {
     for ( const auto& availableFormat : someAvailableFormats ) {
         if ( availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR ) {
             return availableFormat;
@@ -1074,7 +1070,7 @@ VkSurfaceFormatKHR Vk_Core::ChooseSwapSurfaceFormat( const std::vector< VkSurfac
     return someAvailableFormats[ 0 ];
 }
 
-VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const {
+VkPresentModeKHR Vk_Renderer::ChooseSwapPresentMode( const std::vector< VkPresentModeKHR >& someAvailablePresentModes ) const {
     auto hasMode = [ & ]( VkPresentModeKHR aMode ) {
         return std::find( someAvailablePresentModes.begin(), someAvailablePresentModes.end(), aMode ) != someAvailablePresentModes.end();
     };
@@ -1093,7 +1089,7 @@ VkPresentModeKHR Vk_Core::ChooseSwapPresentMode( const std::vector< VkPresentMod
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const {
+VkExtent2D Vk_Renderer::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilities ) const {
     if ( aCapabilities.currentExtent.width != std::numeric_limits< uint32_t >::max() ) {
         return aCapabilities.currentExtent;
     }
@@ -1110,7 +1106,7 @@ VkExtent2D Vk_Core::ChooseSwapExtent( const VkSurfaceCapabilitiesKHR& aCapabilit
     }
 }
 
-VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShaderCode ) const {
+VkShaderModule Vk_Renderer::CreateShaderModule( const std::vector< char >& someShaderCode ) const {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = someShaderCode.size();
@@ -1122,7 +1118,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::vector< char >& someShade
     return shaderModule;
 }
 
-VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) const {
+VkShaderModule Vk_Renderer::CreateShaderModule( const std::string aShaderPath ) const {
     UtilLogger::Info( "SHADER", "Loading shader module: " + aShaderPath );
     const auto shaderCode = UtilLoader::ReadFile( EngineConfig(), aShaderPath );
 
@@ -1143,7 +1139,7 @@ VkShaderModule Vk_Core::CreateShaderModule( const std::string aShaderPath ) cons
 }
 
 // Required when bound pipeline declares dynamic viewport/scissor/line width (SetDefaultDynamicStates).
-void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const {
+void Vk_Renderer::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const {
     // CONTRACT: VkDynamicState list must match Vk_PipelineBuilder::SetDefaultDynamicStates().
     vkCmdSetViewport( aCommandBuffer, 0, 1, &aViewport );
     vkCmdSetScissor( aCommandBuffer, 0, 1, &aScissor );
@@ -1151,13 +1147,13 @@ void Vk_Core::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkV
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 
-void Vk_Core::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
-    const auto vkCore = reinterpret_cast< Vk_Core* >( glfwGetWindowUserPointer( aWindow ) );
+void Vk_Renderer::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
+    const auto vkCore = reinterpret_cast< Vk_Renderer* >( glfwGetWindowUserPointer( aWindow ) );
 
     vkCore->mySwapchainCtx.myFramebufferResized = true;
 }
 
-uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const {
+uint32_t Vk_Renderer::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties( myDeviceCtx.myPhysicalDevice, &memProperties );
 
@@ -1170,55 +1166,55 @@ uint32_t Vk_Core::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags som
     throw std::runtime_error( "failed to find suitable memory type!" );
 }
 
-void Vk_Core::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const {
+void Vk_Renderer::CreateBuffer( VkDeviceSize aSize, VkBufferUsageFlags aBufferUsage, VmaMemoryUsage aMemoryUsage, Vk_AllocatedBuffer& aBuffer, bool isExclusive ) const {
     myResourceContext.CreateBuffer( aSize, aBufferUsage, aMemoryUsage, aBuffer, isExclusive );
 }
 
-void Vk_Core::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
+void Vk_Renderer::CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
     myResourceContext.CopyBuffer( aSrcBuffer, aDstBuffer, aSize );
 }
 
-void Vk_Core::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
+void Vk_Renderer::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const {
     myResourceContext.CopyBufferOnGraphicsQueue( aSrcBuffer, aDstBuffer, aSize );
 }
 
-size_t Vk_Core::InstanceSlabStride() const {
+size_t Vk_Renderer::InstanceSlabStride() const {
     return PadUniformBufferSize( sizeof( GpuObjectData ) );
 }
 
 // Per-frame UBO upload is delegated to Vk_FrameUniformUploader.
-void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
-                           Vk_AllocatedImage& anImage ) const {
+void Vk_Renderer::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage,
+                               Vk_AllocatedImage& anImage ) const {
     myResourceContext.CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, 1, VK_SAMPLE_COUNT_1_BIT, anImage );
 }
 
-void Vk_Core::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                           VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
+void Vk_Renderer::CreateImage( VkExtent2D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                               VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     myResourceContext.CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
 }
 
-void Vk_Core::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
-                           VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
+void Vk_Renderer::CreateImage( VkExtent3D anExtent, VkFormat aFormat, VkImageTiling aTiling, VkImageUsageFlags anImageUsage, VmaMemoryUsage aMemoryUsage, uint32_t aMipLevel,
+                               VkSampleCountFlagBits aNumSamples, Vk_AllocatedImage& anImage ) const {
     myResourceContext.CreateImage( anExtent, aFormat, aTiling, anImageUsage, aMemoryUsage, aMipLevel, aNumSamples, anImage );
 }
 
-void Vk_Core::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const {
+void Vk_Renderer::TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const {
     myResourceContext.TransitionImageLayout( aImage, aFormat, anOldLayout, aNewLayout, aMipLevel );
 }
 
-void Vk_Core::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
+void Vk_Renderer::CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const {
     myResourceContext.CopyBufferToImage( aBuffer, aImage, aWidth, aHeight );
 }
 
-void Vk_Core::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const {
+void Vk_Renderer::GenerateMipmaps( VkImage aImage, VkFormat aImageFormat, int32_t aTexWidth, int32_t aTexHeight, uint32_t aMipLevel ) const {
     myResourceContext.GenerateMipmaps( aImage, aImageFormat, aTexWidth, aTexHeight, aMipLevel );
 }
 
-VkImageView Vk_Core::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
+VkImageView Vk_Renderer::CreateImageView( VkImage anImage, VkFormat aFormat, VkImageAspectFlags anAspect, uint32_t aMipLevel ) const {
     return myResourceContext.CreateImageView( anImage, aFormat, anAspect, aMipLevel );
 }
 
-VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const {
+VkFormat Vk_Renderer::FindSupportedFormat( const std::vector< VkFormat >& someCandidates, VkImageTiling aTiling, VkFormatFeatureFlagBits someFeatures ) const {
     for ( const VkFormat format : someCandidates ) {
         VkFormatProperties properties;
         vkGetPhysicalDeviceFormatProperties( myDeviceCtx.myPhysicalDevice, format, &properties );
@@ -1233,16 +1229,16 @@ VkFormat Vk_Core::FindSupportedFormat( const std::vector< VkFormat >& someCandid
     throw std::runtime_error( "failed to find supported format!" );
 }
 
-VkFormat Vk_Core::FindDepthFormat() const {
+VkFormat Vk_Renderer::FindDepthFormat() const {
     return FindSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL,
                                 VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
 
-bool Vk_Core::HasStencilComponent( VkFormat aFormat ) const {
+bool Vk_Renderer::HasStencilComponent( VkFormat aFormat ) const {
     return aFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || aFormat == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
+VkSampleCountFlagBits Vk_Renderer::GetMaxUsableSampleCount() const {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties( myDeviceCtx.myPhysicalDevice, &physicalDeviceProperties );
 
@@ -1264,24 +1260,24 @@ VkSampleCountFlagBits Vk_Core::GetMaxUsableSampleCount() const {
 }
 
 // Platform tick and ImGui NewFrame bootstrap are delegated to Vk_PlatformFrame.
-void Vk_Core::BeginPlatformFrame( float& aOutDeltaSeconds ) {
+void Vk_Renderer::BeginPlatformFrame( float& aOutDeltaSeconds ) {
     Vk_PlatformFrame::BeginFrame( *this, aOutDeltaSeconds );
 }
 
-void Vk_Core::BeginImGuiFrame() {
+void Vk_Renderer::BeginImGuiFrame() {
     Vk_PlatformFrame::BeginImGuiFrame( *this );
 }
 
-void Vk_Core::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings ) {
+void Vk_Renderer::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings ) {
     myCamera.ApplyInput( aDeltaSeconds, aInput, aCameraSettings );
 }
 
-void Vk_Core::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {
+void Vk_Renderer::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {
     myPlatformCtx.myFrameInputSampleTime    = aSampleTime;
     myPlatformCtx.myHasFrameInputSampleTime = true;
 }
 
-size_t Vk_Core::PadUniformBufferSize( size_t anOriginalSize ) const {
+size_t Vk_Renderer::PadUniformBufferSize( size_t anOriginalSize ) const {
     // Slab stride / future UNIFORM_BUFFER_DYNAMIC offsets - multiples of minUniformBufferOffsetAlignment.
     size_t minUboAlignment = myDeviceCtx.myPhysicalDeviceProperties.limits.minUniformBufferOffsetAlignment;
     size_t alignedSize     = anOriginalSize;

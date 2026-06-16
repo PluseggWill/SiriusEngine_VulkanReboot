@@ -8,9 +8,9 @@
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
-#include "Vk_Core.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
+#include "Vk_Renderer.h"
 
 #include <array>
 #include <stdexcept>
@@ -54,7 +54,7 @@ struct BloomBlurPushConstants {
 
 static_assert( sizeof( BloomBlurPushConstants ) == 8, "BloomBlurPushConstants must match BloomBlur.comp push block" );
 
-void DestroyTexture( Vk_Core& aCore, Gfx_Texture& aTexture ) {
+void DestroyTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
     const VkDevice     device    = aCore.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
@@ -71,7 +71,7 @@ VkExtent2D BloomExtent( const VkExtent2D& aFullExtent ) {
     return { std::max( 1u, aFullExtent.width / 2 ), std::max( 1u, aFullExtent.height / 2 ) };
 }
 
-void CreateSceneColorImage( Vk_Core& aCore ) {
+void CreateSceneColorImage( Vk_Renderer& aCore ) {
     const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
     if ( extent.width == 0 || extent.height == 0 ) {
         return;
@@ -82,13 +82,13 @@ void CreateSceneColorImage( Vk_Core& aCore ) {
         aCore.CreateImageView( aCore.myPostProcessState.mySceneColor.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 }
 
-void CreateBloomImage( Vk_Core& aCore, Gfx_Texture& aTexture, VkExtent2D aExtent ) {
+void CreateBloomImage( Vk_Renderer& aCore, Gfx_Texture& aTexture, VkExtent2D aExtent ) {
     aCore.CreateImage( aExtent, kBloomFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                        VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
     aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kBloomFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 }
 
-void CreateHybridRenderPass( Vk_Core& aCore ) {
+void CreateHybridRenderPass( Vk_Renderer& aCore ) {
     VkAttachmentDescription color{};
     color.format         = kPostSceneColorFormat;
     color.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -150,7 +150,7 @@ void CreateHybridRenderPass( Vk_Core& aCore ) {
     aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
 }
 
-void CreateHybridFramebuffer( Vk_Core& aCore ) {
+void CreateHybridFramebuffer( Vk_Renderer& aCore ) {
     std::array< VkImageView, 2 > attachments = { aCore.myPostProcessState.mySceneColor.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView() };
 
     VkFramebufferCreateInfo frameBufferInfo{};
@@ -170,7 +170,7 @@ void CreateHybridFramebuffer( Vk_Core& aCore ) {
     aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
 }
 
-VkPipeline BuildTonemapPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+VkPipeline BuildTonemapPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
     VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
@@ -198,7 +198,7 @@ VkPipeline BuildTonemapPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     return pipeline;
 }
 
-VkPipeline BuildComputePipeline( Vk_Core& aCore, VkPipelineLayout aLayout, const std::string& aShaderPath ) {
+VkPipeline BuildComputePipeline( Vk_Renderer& aCore, VkPipelineLayout aLayout, const std::string& aShaderPath ) {
     VkShaderModule module = aCore.CreateShaderModule( aShaderPath );
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -213,7 +213,7 @@ VkPipeline BuildComputePipeline( Vk_Core& aCore, VkPipelineLayout aLayout, const
     return pipeline;
 }
 
-void UpdateTonemapDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_PostProcessState& state = aCore.myPostProcessState;
 
     VkDescriptorImageInfo sceneInfo{};
@@ -233,7 +233,7 @@ void UpdateTonemapDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void UpdateBloomThresholdDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
+void UpdateBloomThresholdDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_PostProcessState& state = aCore.myPostProcessState;
 
     VkDescriptorImageInfo sceneInfo{};
@@ -252,7 +252,7 @@ void UpdateBloomThresholdDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex ) {
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void UpdateBloomBlurDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, bool aHorizontal ) {
+void UpdateBloomBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, bool aHorizontal ) {
     Vk_PostProcessState& state = aCore.myPostProcessState;
 
     VkDescriptorImageInfo srcInfo{};
@@ -272,7 +272,7 @@ void UpdateBloomBlurDescriptorSet( Vk_Core& aCore, uint32_t aFrameIndex, bool aH
     vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
-void CreatePipelineResources( Vk_Core& aCore ) {
+void CreatePipelineResources( Vk_Renderer& aCore ) {
     if ( aCore.mySwapchainCtx.myRenderPass == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_PostProcessPass: swapchain render pass is required" );
     }
@@ -417,7 +417,7 @@ void CreatePipelineResources( Vk_Core& aCore ) {
     state.myBloomBlurPipeline       = BuildComputePipeline( aCore, state.myBloomBlurPipelineLayout, blurPath );
 }
 
-void RebuildResources( Vk_Core& aCore ) {
+void RebuildResources( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
@@ -498,7 +498,7 @@ VkImageMemoryBarrier SceneColorBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_PostProcessState&    state = aCore.myPostProcessState;
     const Gfx_PostSettings& post  = aCore.myPostSettings;
 
@@ -514,9 +514,9 @@ void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
     }
 
     if ( sBloomPingLayout != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout        oldLayout  = sBloomPingLayout;
-        VkAccessFlags              srcAccess  = 0;
-        VkPipelineStageFlags       srcStage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        const VkImageLayout  oldLayout = sBloomPingLayout;
+        VkAccessFlags        srcAccess = 0;
+        VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
             srcAccess = VK_ACCESS_SHADER_READ_BIT;
             srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -530,9 +530,9 @@ void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
         sBloomPingLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
     if ( sBloomPongLayout != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout        oldLayout  = sBloomPongLayout;
-        VkAccessFlags              srcAccess  = 0;
-        VkPipelineStageFlags       srcStage   = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        const VkImageLayout  oldLayout = sBloomPongLayout;
+        VkAccessFlags        srcAccess = 0;
+        VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
             srcAccess = VK_ACCESS_SHADER_READ_BIT;
             srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -585,11 +585,11 @@ void RecordBloom( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFram
 
 namespace Vk_PostProcessPass {
 
-bool HasHybridResolve( const Vk_Core& aCore ) {
+bool HasHybridResolve( const Vk_Renderer& aCore ) {
     return aCore.myPostProcessState.myInitialized && aCore.myPostProcessState.myHybridRenderPass != VK_NULL_HANDLE;
 }
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myPostProcessState.myInitialized ) {
         return;
     }
@@ -652,14 +652,14 @@ void Destroy( Vk_Core& aCore ) {
     sBloomPongLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myPostProcessState.myInitialized ) {
         return;
     }
     RebuildResources( aCore );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myPostProcessState.myInitialized ) {
         RebuildResources( aCore );
         return;
@@ -673,7 +673,7 @@ void Init( Vk_Core& aCore ) {
     aCore.myPostProcessState.myInitialized = true;
 }
 
-void RecordPost( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex ) {
+void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex ) {
     Vk_PostProcessState& state = aCore.myPostProcessState;
     if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
         return;

@@ -150,9 +150,8 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::Separator();
     ImGui::Text( "Screen-space AO" );
     {
-        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ),
-                                 Gfx_AoMethodLabel( Gfx_AoMethod::Gtao ) };
-        int           method = static_cast< int >( aAoSettings.myMethod );
+        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ), Gfx_AoMethodLabel( Gfx_AoMethod::Gtao ) };
+        int         method   = static_cast< int >( aAoSettings.myMethod );
         if ( ImGui::Combo( "AO method", &method, labels, IM_ARRAYSIZE( labels ) ) ) {
             aAoSettings.myMethod = static_cast< Gfx_AoMethod >( method );
         }

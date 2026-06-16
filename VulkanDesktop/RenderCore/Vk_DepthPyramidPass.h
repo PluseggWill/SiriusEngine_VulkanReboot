@@ -9,7 +9,7 @@
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
-class Vk_Core;
+class Vk_Renderer;
 
 constexpr uint32_t kHiZMaxMipLevels = 8u;
 
@@ -33,13 +33,13 @@ struct Vk_DepthPyramidState {
 
 namespace Vk_DepthPyramidPass {
 
-void Init( Vk_Core& aCore );
-void Destroy( Vk_Core& aCore );
-void RecreateForExtent( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
+void Destroy( Vk_Renderer& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
 
-void RecordBuild( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
+void RecordBuild( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
-VkImageView GetMipView( const Vk_Core& aCore, uint32_t aMipLevel );
-uint32_t    GetMipLevelCount( const Vk_Core& aCore );
+VkImageView GetMipView( const Vk_Renderer& aCore, uint32_t aMipLevel );
+uint32_t    GetMipLevelCount( const Vk_Renderer& aCore );
 
 }  // namespace Vk_DepthPyramidPass

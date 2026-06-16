@@ -1,30 +1,13 @@
 #pragma once
 
-#include <cstdint>
+#include "../RenderContract/GpuAoMethod.h"
 
-// Screen-space AO algorithm selection (HybridDeferred AO pass).
-// Add a method: enum value, shader SPIR-V path, pipeline slot in Vk_AoPass, ImGui label.
-enum class Gfx_AoMethod : uint8_t {
-    ClassicSsao = 0,  // 16-tap hemisphere SSAO (full-res)
-    HbaoPlus,         // Horizon-based AO (half-res + depth-aware upsample)
-    Gtao,             // Ground-truth slice integration (half-res + upsample)
-    Count
-};
+using Gfx_AoMethod = GpuAoMethod;
 
 inline const char* Gfx_AoMethodLabel( Gfx_AoMethod aMethod ) {
-    switch ( aMethod ) {
-    case Gfx_AoMethod::ClassicSsao:
-        return "Classic SSAO";
-    case Gfx_AoMethod::HbaoPlus:
-        return "HBAO+";
-    case Gfx_AoMethod::Gtao:
-        return "GTAO";
-    default:
-        return "Unknown";
-    }
+    return GpuAoMethodLabel( aMethod );
 }
 
-// Half-res compute + shared AoUpsample.comp. Classic SSAO is full-res only.
 inline bool Gfx_AoMethodUsesHalfResTarget( Gfx_AoMethod aMethod ) {
-    return aMethod == Gfx_AoMethod::HbaoPlus || aMethod == Gfx_AoMethod::Gtao;
+    return GpuAoMethodUsesHalfResTarget( aMethod );
 }

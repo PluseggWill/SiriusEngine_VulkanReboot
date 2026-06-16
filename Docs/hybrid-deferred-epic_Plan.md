@@ -1,6 +1,6 @@
 # Epic Plan: hybrid-deferred
 
-**Status:** Planned  
+**Status:** Implementation shipped (S4–S7, 2026-06-15/16) — **G4 Stage 2 acceptance pending**  
 **Scope:** Stage 2 of lighting evolution  
 **Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 

@@ -1,6 +1,6 @@
 #pragma once
 
-class Vk_Core;
+class Vk_Renderer;
 
 // Platform frame slice: GLFW poll, delta time, ImGui bootstrap.
 //
@@ -8,7 +8,7 @@ class Vk_Core;
 // ImGui NewFrame runs after input sample so RMB cursor recenter is not overwritten before camera consumes deltas.
 class Vk_PlatformFrame {
 public:
-    static void InitWindow( Vk_Core& aCore );
-    static void BeginFrame( Vk_Core& aCore, float& aOutDeltaSeconds );
-    static void BeginImGuiFrame( Vk_Core& aCore );
+    static void InitWindow( Vk_Renderer& aCore );
+    static void BeginFrame( Vk_Renderer& aCore, float& aOutDeltaSeconds );
+    static void BeginImGuiFrame( Vk_Renderer& aCore );
 };

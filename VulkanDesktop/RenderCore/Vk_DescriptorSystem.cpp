@@ -1,9 +1,9 @@
 #include "Vk_DescriptorSystem.h"
 
-#include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Enum.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_ShaderEffectMeta.h"
 
@@ -29,7 +29,7 @@ struct DescriptorPoolPlan {
     uint32_t                              myMaxSets = 0;
 };
 
-DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Core& aCore ) {
+DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Renderer& aCore ) {
     // Sizes derived from scene manifest at load time; 20% headroom + policy caps fail before vkCreateDescriptorPool.
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
     const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
@@ -73,7 +73,7 @@ DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Core& aCore ) {
 
 }  // namespace
 
-void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
     if ( aCore.myDeviceCtx.myBindlessDefaultTexture.ImageView() != VK_NULL_HANDLE ) {
         return;
     }
@@ -123,7 +123,7 @@ void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Core& aCore ) {
     UtilLogger::Info( "BINDLESS", "Created 1x1 engine default texture for bindless array padding." );
 }
 
-void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Renderer& aCore ) {
     EnsureBindlessDefaultTexture( aCore );
     CreateDescriptorSetLayout( aCore );
     if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
@@ -135,7 +135,7 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Core& aCore ) {
     LogLayoutContract( aCore );
 }
 
-void Vk_DescriptorSystem::LogLayoutContract( const Vk_Core& aCore ) {
+void Vk_DescriptorSystem::LogLayoutContract( const Vk_Renderer& aCore ) {
     const char* materialPath = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "bindless" : "batch";
     const char* set1Summary  = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
                                                                                                    : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
@@ -144,7 +144,7 @@ void Vk_DescriptorSystem::LogLayoutContract( const Vk_Core& aCore ) {
                                         + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
 }
 
-void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Renderer& aCore ) {
     CreateTextureSampler( aCore );
     CreateDescriptorPool( aCore );
     CreateDescriptorSets( aCore );
@@ -157,7 +157,7 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Core& aCore ) {
     }
 }
 
-void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Renderer& aCore ) {
     // Lit batch Set 0/1/2 from reflection_lit.json + layout hash cache (S2 phase 2b).
     const LitBatchDescriptorSetLayouts layouts = VkShaderEffectMeta::AcquireLitBatchDescriptorSetLayouts( aCore );
     aCore.mySceneGpuCtx.myGlobalSetLayout      = layouts.myGlobalSetLayout;
@@ -170,7 +170,7 @@ void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Core& aCore ) {
 }
 
 // POLICY_BINDLESS M2: hand-written until #18 codegen — must match TriangleFrag_Lit_Bindless.frag + DescriptorContract_LitBindless.json.
-void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Renderer& aCore ) {
     VkDescriptorSetLayoutBinding textureArrayBinding{};
     textureArrayBinding.binding         = eVk_BindlessTextureArrayBinding;
     textureArrayBinding.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -201,7 +201,7 @@ void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Core& aCore ) {
     aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessLayout ]() { vkDestroyDescriptorSetLayout( device, bindlessLayout, nullptr ); } );
 }
 
-void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Renderer& aCore ) {
     const std::array< VkDescriptorSetLayout, 3 > setLayouts = { aCore.mySceneGpuCtx.myGlobalSetLayout, aCore.mySceneGpuCtx.myBindlessMaterialSetLayout,
                                                                 aCore.mySceneGpuCtx.myObjectSetLayout };
     VkPipelineLayoutCreateInfo                   layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
@@ -216,7 +216,7 @@ void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Core& aCore ) {
     aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessPipelineLayout ]() { vkDestroyPipelineLayout( device, bindlessPipelineLayout, nullptr ); } );
 }
 
-void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore ) {
     const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
 
@@ -295,7 +295,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Core& aCore ) {
                                       + " tableGeneration=" + std::to_string( aCore.mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() ) );
 }
 
-void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Renderer& aCore ) {
     const DescriptorPoolPlan plan = ComputeDescriptorPoolPlan( aCore );
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -318,7 +318,7 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Core& aCore ) {
     aCore.GetSceneDeletionQueue().pushFunction( [ device, pool ]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
 }
 
-void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateTextureSampler( Vk_Renderer& aCore ) {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter        = VK_FILTER_LINEAR;
@@ -345,7 +345,7 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Core& aCore ) {
     aCore.GetSceneDeletionQueue().pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
 }
 
-void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     if ( !aCore.myIblResourcesState.myInitialized || !aCore.myShadowMapState.myInitialized ) {
         throw std::runtime_error( "CreateDescriptorSets requires IBL and shadow map resources (InitRenderDevice order)" );
     }
@@ -434,7 +434,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Core& aCore ) {
     }
 }
 
-void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Core& aCore ) {
+void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
     aCore.mySceneGpuCtx.myMaterialDescriptorSets.assign( materialCount, VK_NULL_HANDLE );
     aCore.mySceneGpuCtx.myMaterialParamBuffers.resize( materialCount );

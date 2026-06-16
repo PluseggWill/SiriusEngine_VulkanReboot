@@ -2,10 +2,10 @@
 
 #include "../Util/Util_Logger.h"
 #include "Vk_Bindless.h"
-#include "Vk_Core.h"
 #include "Vk_DevicePipelineCache.h"
+#include "Vk_Renderer.h"
 
-void Vk_RenderDevice::Init( Vk_Core& aCore ) {
+void Vk_RenderDevice::Init( Vk_Renderer& aCore ) {
     UtilLogger::Info( "VULKAN", "Vk_RenderDevice::Init: instance/device/allocator." );
 
     aCore.CreateInstance();

@@ -6,7 +6,7 @@
 #include "Vk_FrameData.h"
 #include <array>
 
-// Output of Vk_Core::PrepareFrameCpu — consumed by Application panels then DrawFrameGpu.
+// Output of Vk_Renderer::PrepareFrameCpu — consumed by Application panels then DrawFrameGpu.
 struct Vk_FrameCpuPrepResult {
     bool     myOk                    = false;
     uint32_t myImageIndex            = 0;

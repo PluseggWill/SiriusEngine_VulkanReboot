@@ -7,7 +7,7 @@
 
 struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
-class Vk_Core;
+class Vk_Renderer;
 
 struct Vk_ClusterBuildState {
     VkPipeline            myComputePipeline     = VK_NULL_HANDLE;
@@ -28,10 +28,10 @@ struct Vk_ClusterBuildState {
 // FG v0: compute pass filling per-cluster light index lists (sun-only v1 stub).
 namespace Vk_ClusterBuildPass {
 
-void Init( Vk_Core& aCore );
-void Destroy( Vk_Core& aCore );
-void RecreateForExtent( Vk_Core& aCore );
+void Init( Vk_Renderer& aCore );
+void Destroy( Vk_Renderer& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
 
-void RecordDispatch( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
+void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
 }  // namespace Vk_ClusterBuildPass
