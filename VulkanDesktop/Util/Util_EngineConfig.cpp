@@ -191,6 +191,18 @@ void Util_EngineConfig::ApplyJsonFile( const std::filesystem::path& aConfigPath 
         if ( lighting.contains( "environment" ) && lighting[ "environment" ].is_string() ) {
             myEnvironmentPath = lighting[ "environment" ].get< std::string >();
         }
+        if ( lighting.contains( "ddgiEnabled" ) && lighting[ "ddgiEnabled" ].is_boolean() ) {
+            myLightingSettings.myDdgiEnabled = lighting[ "ddgiEnabled" ].get< bool >();
+        }
+        if ( lighting.contains( "ddgiIntensity" ) && lighting[ "ddgiIntensity" ].is_number() ) {
+            myLightingSettings.myDdgiIntensity = lighting[ "ddgiIntensity" ].get< float >();
+        }
+        if ( lighting.contains( "ddgiStaggeredUpdate" ) && lighting[ "ddgiStaggeredUpdate" ].is_boolean() ) {
+            myLightingSettings.myDdgiStaggeredUpdate = lighting[ "ddgiStaggeredUpdate" ].get< bool >();
+        }
+        if ( lighting.contains( "ddgiUpdateBudget" ) && lighting[ "ddgiUpdateBudget" ].is_number_unsigned() ) {
+            myLightingSettings.myDdgiUpdateBudget = lighting[ "ddgiUpdateBudget" ].get< uint32_t >();
+        }
     }
 }
 
@@ -386,6 +398,14 @@ Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc,
             overrides.myEnvironment = aArgv[ ++i ];
             continue;
         }
+        if ( arg == "--ddgi" ) {
+            overrides.myDdgiEnabled = true;
+            continue;
+        }
+        if ( arg == "--no-ddgi" ) {
+            overrides.myDdgiEnabled = false;
+            continue;
+        }
         if ( arg == "--help" || arg == "-h" || arg == "/?" ) {
             continue;
         }
@@ -448,6 +468,9 @@ void Util_EngineConfig::ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.myEnvironment.has_value() ) {
         myEnvironmentPath = *aOverrides.myEnvironment;
+    }
+    if ( aOverrides.myDdgiEnabled.has_value() ) {
+        myLightingSettings.myDdgiEnabled = *aOverrides.myDdgiEnabled;
     }
     ResolveActiveShaderPermutation( aOverrides );
 }
@@ -610,7 +633,7 @@ void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", std::string( "gpuCull=" ) + ( myGpuCullEnabled ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "lighting shadows=" ) + ( myLightingSettings.myShadowsEnabled ? "1" : "0" )
                                     + " ibl=" + ( myLightingSettings.myIblEnabled ? "1" : "0" ) + " iblIntensity=" + std::to_string( myLightingSettings.myIblIntensity )
-                                    + " environment=" + myEnvironmentPath );
+                                    + " ddgi=" + ( myLightingSettings.myDdgiEnabled ? "1" : "0" ) + " environment=" + myEnvironmentPath );
 
     if ( myValidationResolved ) {
         const char* source = "build default";
@@ -661,6 +684,7 @@ void PrintUsage( const char* aProgramName ) {
               << "  --shadows / --no-shadows      Enable or disable directional shadow map (overrides config)\n"
               << "  --ibl / --no-ibl              Enable or disable split-sum IBL (overrides config)\n"
               << "  --ibl-intensity <f>           IBL intensity multiplier (overrides config)\n"
+              << "  --ddgi / --no-ddgi            Enable or disable DDGI probe contribution\n"
               << "  --environment <path>          IBL cubemap manifest directory (repo-relative)\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --renderdoc            Enable RenderDoc runtime integration (startup-gated)\n"

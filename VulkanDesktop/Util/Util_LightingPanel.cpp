@@ -146,6 +146,26 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Specular IBL in full sun shadow: mix(min, 1.0, sunShadow). Diffuse IBL unchanged." );
     }
+    ImGui::Checkbox( "DDGI enabled", &aLightingSettings.myDdgiEnabled );
+    ImGui::SliderFloat( "DDGI intensity", &aLightingSettings.myDdgiIntensity, 0.0f, 2.0f );
+    ImGui::Checkbox( "DDGI staggered update", &aLightingSettings.myDdgiStaggeredUpdate );
+    int ddgiBudget = static_cast< int >( aLightingSettings.myDdgiUpdateBudget );
+    if ( ImGui::SliderInt( "DDGI update budget", &ddgiBudget, 1, 512 ) ) {
+        aLightingSettings.myDdgiUpdateBudget = static_cast< uint32_t >( ddgiBudget );
+    }
+    int probeX = static_cast< int >( aLightingSettings.myDdgiProbeCountX );
+    int probeY = static_cast< int >( aLightingSettings.myDdgiProbeCountY );
+    int probeZ = static_cast< int >( aLightingSettings.myDdgiProbeCountZ );
+    if ( ImGui::SliderInt( "DDGI probes X", &probeX, 2, 24 ) ) {
+        aLightingSettings.myDdgiProbeCountX = static_cast< uint32_t >( probeX );
+    }
+    if ( ImGui::SliderInt( "DDGI probes Y", &probeY, 2, 16 ) ) {
+        aLightingSettings.myDdgiProbeCountY = static_cast< uint32_t >( probeY );
+    }
+    if ( ImGui::SliderInt( "DDGI probes Z", &probeZ, 2, 24 ) ) {
+        aLightingSettings.myDdgiProbeCountZ = static_cast< uint32_t >( probeZ );
+    }
+    ImGui::SliderFloat( "DDGI debug overlay", &aLightingSettings.myDdgiDebugOverlay, 0.0f, 1.0f );
 
     ImGui::Separator();
     ImGui::Text( "Screen-space AO" );

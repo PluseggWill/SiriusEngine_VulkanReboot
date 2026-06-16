@@ -51,8 +51,8 @@ Follow-ons 2026-06-16: HBAO+ [`hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan
 
 ### Backlog (deferred from S6)
 
-- [ ] Normal-aware radius tuning (beyond v0 defaults).
-- [ ] Temporal AO stability (velocity + history buffer; deps G-buffer motion vectors).
+- [x] Normal-aware radius tuning (beyond v0 defaults) — 2026-06-16 (AO radius now blends by normal-facing factor in Classic/HBAO+/GTAO; UI slider `AO normal-aware radius`).
+- [ ] *(moved to S8)* Temporal AO stability now tracked under S8 DDGI kickoff tasks.
 
 ---
 
@@ -74,15 +74,16 @@ Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/
 
 ### Open tasks
 
-- [ ] Probe volume data model + update budget (full vs staggered).
-- [ ] FG passes: probe update + sample hook in deferred lighting.
-- [ ] Preset `DDGI On/Off` + performance guardrails.
-- [ ] Debug viz: probe contribution overlay.
-- [ ] Benchmark script: DDGI on/off deltas on interior scene (Sponza + optional San Miguel later).
+- [x] Temporal AO stability baseline: motion vectors + AO history/reprojection (carried from S6 backlog, prerequisite for stable DDGI compare runs).
+- [x] Probe volume data model + update budget (full vs staggered).
+- [x] FG passes: probe update + sample hook in deferred lighting.
+- [x] Preset `DDGI On/Off` + performance guardrails.
+- [x] Debug viz: probe contribution overlay.
+- [x] Benchmark script: DDGI on/off deltas on interior scene (Sponza + optional San Miguel later).
 
 ### Acceptance
 
-- [ ] DDGI preset improves interior bounce vs S7 baseline; non-DDGI presets unchanged.
+- [x] DDGI preset improves interior bounce vs S7 baseline; non-DDGI presets unchanged.
 
 ---
 

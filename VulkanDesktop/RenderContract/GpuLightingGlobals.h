@@ -16,10 +16,18 @@ struct GpuLightingGlobals {
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
 
 struct GpuLightingSettings {
-    bool  myShadowsEnabled       = true;
-    bool  myIblEnabled           = true;
-    float myIblIntensity         = 1.35f;
-    float myIblSpecularShadowMin = 0.15f;
+    bool     myShadowsEnabled       = true;
+    bool     myIblEnabled           = true;
+    float    myIblIntensity         = 1.35f;
+    float    myIblSpecularShadowMin = 0.15f;
+    bool     myDdgiEnabled          = false;
+    bool     myDdgiStaggeredUpdate  = true;
+    float    myDdgiIntensity        = 1.0f;
+    float    myDdgiDebugOverlay     = 0.0f;
+    uint32_t myDdgiProbeCountX      = 12u;
+    uint32_t myDdgiProbeCountY      = 8u;
+    uint32_t myDdgiProbeCountZ      = 12u;
+    uint32_t myDdgiUpdateBudget     = 64u;
 };
 
 inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,

@@ -1,0 +1,57 @@
+#version 450
+
+// DDGI v0 probe update: deterministic budgeted write into a probe atlas.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uvec4 probeGrid;   // x,y,z,total
+    uvec4 updateInfo;  // frameIndex,budget,start,staggered(0/1)
+    vec4 ambient;      // xyz ambient tint, w intensity
+} pc;
+
+layout(set = 0, binding = 0, rgba16f) uniform writeonly image2D probeIrradianceOut;
+
+uvec3 ProbeIndexToCoord(uint idx, uvec3 dims) {
+    const uint xy = dims.x * dims.y;
+    const uint z = idx / xy;
+    const uint rem = idx - z * xy;
+    const uint y = rem / dims.x;
+    const uint x = rem - y * dims.x;
+    return uvec3(x, y, z);
+}
+
+void main() {
+    const uvec2 pix = gl_GlobalInvocationID.xy;
+    const uvec2 atlasSize = imageSize(probeIrradianceOut);
+    if (pix.x >= atlasSize.x || pix.y >= atlasSize.y) {
+        return;
+    }
+
+    const uint probeIndex = pix.x + pix.y * atlasSize.x;
+    if (probeIndex >= pc.probeGrid.w) {
+        return;
+    }
+
+    uint start = 0u;
+    uint count = pc.probeGrid.w;
+    if (pc.updateInfo.w > 0u) {
+        count = max(1u, min(pc.updateInfo.y, pc.probeGrid.w));
+        start = pc.updateInfo.z % pc.probeGrid.w;
+    }
+    const uint endExclusive = start + count;
+    bool touched = false;
+    if (endExclusive <= pc.probeGrid.w) {
+        touched = probeIndex >= start && probeIndex < endExclusive;
+    } else {
+        touched = probeIndex >= start || probeIndex < (endExclusive - pc.probeGrid.w);
+    }
+    if (!touched) {
+        return;
+    }
+
+    const uvec3 probeCoord = ProbeIndexToCoord(probeIndex, pc.probeGrid.xyz);
+    const vec3 normalizedCoord = vec3(probeCoord) / max(vec3(pc.probeGrid.xyz - uvec3(1u)), vec3(1.0));
+    const float stripe = (float((probeCoord.x + probeCoord.y + probeCoord.z + pc.updateInfo.x) % 2u) * 0.08);
+    const vec3 irradiance = (pc.ambient.rgb * pc.ambient.w) * (0.85 + 0.15 * normalizedCoord.y) + stripe;
+    imageStore(probeIrradianceOut, ivec2(pix), vec4(irradiance, 1.0));
+}

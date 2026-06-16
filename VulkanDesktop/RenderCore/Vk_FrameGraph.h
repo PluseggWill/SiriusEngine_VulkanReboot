@@ -13,7 +13,7 @@ struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
-enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSAO, ShadowAoSoft, DeferredTransparent, Post, Count };
+enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSAO, DdgiProbeUpdate, ShadowAoSoft, DeferredTransparent, Post, Count };
 
 struct Vk_FrameGraphContext {
     Vk_Renderer*                                                   myCore             = nullptr;

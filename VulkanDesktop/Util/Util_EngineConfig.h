@@ -71,6 +71,7 @@ private:
         std::optional< bool >                  myShadowsEnabled;
         std::optional< bool >                  myIblEnabled;
         std::optional< float >                 myIblIntensity;
+        std::optional< bool >                  myDdgiEnabled;
         std::optional< std::string >           myEnvironment;
     };
 

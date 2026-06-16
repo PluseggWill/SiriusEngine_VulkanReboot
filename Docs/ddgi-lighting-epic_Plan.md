@@ -1,6 +1,6 @@
 # Epic Plan: ddgi-lighting
 
-**Status:** In Progress  
+**Status:** Closed (2026-06-16)  
 **Scope:** Stage 3 of lighting evolution (optional feature set)  
 **Related:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
@@ -49,10 +49,10 @@ flowchart LR
 
 **Deps:** Stage 2 hybrid deferred accepted; frame graph and deferred lighting contracts stable.
 
-- [ ] Land temporal AO stability baseline (motion vectors + AO history/reprojection) to provide a stable pre-DDGI lighting baseline and debug comparison path.
-- [ ] Define probe volume placement, resolution tiers, and scene binding policy.
-- [ ] Define probe textures/buffers and versioning for runtime updates.
-- [ ] Define update budget model (full update vs staggered update).
+- [x] Land temporal AO stability baseline (motion vectors + AO history/reprojection) to provide a stable pre-DDGI lighting baseline and debug comparison path.
+- [x] Define probe volume placement, resolution tiers, and scene binding policy.
+- [x] Define probe textures/buffers and versioning for runtime updates.
+- [x] Define update budget model (full update vs staggered update).
 
 #### A execution detail
 
@@ -65,9 +65,9 @@ flowchart LR
 
 **Deps:** A complete; requires Stage 2 pass topology (`GBufferOpaque -> DeferredLighting`) in production shape.
 
-- [ ] Add probe update pass(es) and dependencies in frame graph.
-- [ ] Add lighting resolve hook to sample DDGI contributions in deferred opaque pass.
-- [ ] Document resource barriers/import-export contracts for DDGI history/state.
+- [x] Add probe update pass(es) and dependencies in frame graph.
+- [x] Add lighting resolve hook to sample DDGI contributions in deferred opaque pass.
+- [x] Document resource barriers/import-export contracts for DDGI history/state.
 
 #### B execution detail
 
@@ -79,9 +79,9 @@ flowchart LR
 
 **Deps:** B complete; benchmark and preset infra from S7 available.
 
-- [ ] Add quality levels and fallback behavior for unsupported/slow hardware.
-- [ ] Add debug visualization (probe occupancy/contribution overlays).
-- [ ] Add benchmark script/checklist for DDGI on/off deltas.
+- [x] Add quality levels and fallback behavior for unsupported/slow hardware.
+- [x] Add debug visualization (probe occupancy/contribution overlays).
+- [x] Add benchmark script/checklist for DDGI on/off deltas.
 
 #### C execution detail
 
@@ -93,9 +93,9 @@ flowchart LR
 
 **Deps:** C complete; parity baselines from Stage 1 and Stage 2 retained for regression checks.
 
-- [ ] Keep non-DDGI presets behaviorally unchanged.
-- [ ] Define acceptance scenes for interior/exterior validation.
-- [ ] Record known artifacts and mitigation policy in docs.
+- [x] Keep non-DDGI presets behaviorally unchanged.
+- [x] Define acceptance scenes for interior/exterior validation.
+- [x] Record known artifacts and mitigation policy in docs.
 
 #### D execution detail
 
@@ -105,9 +105,9 @@ flowchart LR
 
 ## Acceptance
 
-- [ ] DDGI is selectable per preset and disabled by default unless explicitly chosen.
-- [ ] Hybrid deferred remains stable and visually correct with DDGI off.
-- [ ] DDGI on-path passes validation and documented perf thresholds on benchmark scenes (Sponza; see [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S8 after **G4**).
+- [x] DDGI is selectable per preset and disabled by default unless explicitly chosen.
+- [x] Hybrid deferred remains stable and visually correct with DDGI off.
+- [x] DDGI on-path passes validation and documented perf thresholds on benchmark scenes (Sponza; see [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S8 after **G4**).
 
 ## Exit criteria
 

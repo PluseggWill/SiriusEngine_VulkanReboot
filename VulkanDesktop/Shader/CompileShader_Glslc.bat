@@ -177,6 +177,13 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\AoTemporal.spv"
 
+"%GLSLC%" "%SHADER_DIR%DdgiProbeUpdate.comp" -o "%GEN_DIR%DdgiProbeUpdate.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: DdgiProbeUpdate.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\DdgiProbeUpdate.spv"
+
 "%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowAoPack.comp" -o "%GEN_DIR%ShadowAoPack.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoPack.comp"

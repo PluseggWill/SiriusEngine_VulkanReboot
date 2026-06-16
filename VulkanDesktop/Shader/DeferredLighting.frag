@@ -12,6 +12,7 @@ const uint kDebugViewWorldNormal = 2u;
 const uint kDebugViewShadowMap = 3u;
 const uint kDebugViewAo = 4u;
 const uint kDebugViewHiZ = 5u;
+const uint kDebugViewDdgi = 6u;
 
 struct ClusterLight {
     vec4 direction;
@@ -28,7 +29,7 @@ layout(push_constant) uniform PushConstants {
     vec4 ambientColor;
     vec4 viewWorldPos;
     vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
-    vec4 contactSoftParams;  // x = contact soft enabled (AO+shadow blur pass)
+    vec4 contactSoftParams;  // x = contact soft enabled, y = ddgi enabled, z = ddgi intensity, w = ddgi debug overlay
     mat4 invViewProj;
 } pc;
 
@@ -56,6 +57,7 @@ layout(set = 0, binding = 11) uniform sampler2D shadowMapDepth;
 layout(set = 0, binding = 12) uniform sampler2D gbufferWorldPosition;
 layout(set = 0, binding = 13) uniform sampler2D aoMap;
 layout(set = 0, binding = 14) uniform sampler2D hiZPyramid;
+layout(set = 0, binding = 15) uniform sampler2D ddgiProbeAtlas;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -91,7 +93,22 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorld
         const float hiZ = textureLod(hiZPyramid, aUV, float(mip)).r;
         return vec4(vec3(hiZ), 1.0);
     }
+    if (viewMode == kDebugViewDdgi) {
+        return aLitColor;
+    }
     return aLitColor;
+}
+
+vec3 sampleDdgiIrradiance(vec3 aWorldPos) {
+    const float ddgiEnabled = pc.contactSoftParams.y;
+    if (ddgiEnabled < 0.5) {
+        return vec3(0.0);
+    }
+
+    // S8 v0: map world XY to probe atlas UV; Y contributes as vertical term.
+    const vec2 uv = fract(aWorldPos.xy * 0.05 + vec2(0.5));
+    const vec3 probe = texture(ddgiProbeAtlas, uv).rgb;
+    return probe * pc.contactSoftParams.z;
 }
 
 void main()
@@ -147,7 +164,8 @@ void main()
         ao = 1.0;
     }
 
-    vec3 lit = ambient * ao;
+    vec3 ddgi = sampleDdgiIrradiance(worldPos);
+    vec3 lit = (ambient + ddgi) * ao;
 
     const ClusterLightList cluster = lists[clusterId];
     const uint lightCount = min(cluster.lightCount, kMaxLightsPerCluster);
@@ -161,5 +179,9 @@ void main()
         lit += Pbr_EvalDirect(N, V, L, albedo, metallic, roughness, radiance);
     }
 
+    if (uint(pc.legacyAndDebug.z + 0.5) == kDebugViewDdgi) {
+        outColor = vec4(ddgi, 1.0);
+        return;
+    }
     outColor = applyDebugView(vec4(lit, 1.0), N, depth, worldPos, vUV, ao);
 }
