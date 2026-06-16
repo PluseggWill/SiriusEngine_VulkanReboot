@@ -298,7 +298,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Renderer& aCore, const Gfx_FrameDebugT
 
     static bool sGpuIndirectPathLoggedOnce = false;
 
-    const Vk_RenderMaterialPath materialPath = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath materialPath = aCore.myRhi.myDeviceCtx.myMaterialPath;
 
     const bool bindless = materialPath == Vk_RenderMaterialPath::Bindless;
 
@@ -398,7 +398,7 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Renderer& aCore, VkCommandBuffe
                                               VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels,
                                               VkPipeline aGBufferPipeline ) {
 
-    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath path = aCore.myRhi.myDeviceCtx.myMaterialPath;
     if ( path == Vk_RenderMaterialPath::Bindless ) {
         RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", path, aGBufferPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
                                    aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
@@ -412,7 +412,7 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Renderer& aCore, VkCommandBuffe
 void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
-    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath path = aCore.myRhi.myDeviceCtx.myMaterialPath;
     // HybridDeferred transparent pass runs inside PostProcess hybrid RP (depth LOAD from G-buffer copy).
     const bool       hybridResolve    = Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && Vk_PostProcessPass::HasHybridResolve( aCore );
     const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
@@ -435,7 +435,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDe
 
     static bool sHybridPiPLoggedOnce = false;
 
-    const Vk_RenderMaterialPath materialPath     = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
     const bool                  bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
     const VkPipelineLayout      frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
     const bool                  legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();

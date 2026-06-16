@@ -10,11 +10,20 @@
   - CPU prep uplift: `Gfx_BuildViewFramePacket` only in App; `Vk_FrameDrawPrep::UploadFromPacket` in RenderCore
 - **Verification:** `Verify-CI.ps1` exit 0
 
-## Remaining (plan steps 2–3, 7, partial 4/8)
+## 2026-06-16 — Step 2 (Vk_RhiDevice peel)
 
-- `Vk_RhiDevice` peel from `Vk_Renderer`
+- **Plan ref:** Steps 2.1, 2.3 (2.2 deferred — `Vk_ResourceContext` still uses `Bind()` handles, not `Vk_RhiDevice&`)
+- **Files:** `Vk_RhiDevice.{h,cpp}`, `Vk_Renderer.{h,cpp}`, all pass modules (`myRhi.myDeviceCtx`), `GfxTests_*`, `VulkanDesktop.vcxproj`
+- **What changed:**
+  - New `Vk_RhiDevice`: device context + resource context; VMA init, buffer/image/shader/barrier/format helpers
+  - `Vk_Renderer` embeds `myRhi`; factory APIs forward to `myRhi.*`; `GetResourceContext()` → `myRhi.myResourceContext`
+  - GfxTests: `TestRhiDeviceHeadlessConstruct` (headless `VkInstance` create/destroy)
+- **Verification:** `Verify-CI.ps1` Debug exit 0
+
+## Remaining (plan steps 2.2, 3, 7, partial 4/8)
+
+- `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish)
 - `App_PlatformHost` (GLFW/ImGui out of RenderCore)
 - `LoadSceneGpuResources(Gfx_SceneGpuLoadParams)` — drop `WorldState&`
 - FG v2 (`Vk_FrameGraph`, resource registry, barrier compiler)
-- GfxTests headless `Vk_RhiDevice` construct
 - `EngineArchitecture.md` policy sync at closeout

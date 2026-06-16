@@ -86,8 +86,8 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 void DestroyAoTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
-    const VkDevice     device    = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
+    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
         vkDestroyImageView( device, aTexture.ImageView(), nullptr );
         aTexture.ImageView() = VK_NULL_HANDLE;
@@ -156,7 +156,7 @@ void UpdateClassicDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoOutInfo, 3, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateHalfResDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
@@ -187,7 +187,7 @@ void UpdateHalfResDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoHalfInfo, 3, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateUpsampleDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
@@ -212,7 +212,7 @@ void UpdateUpsampleDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myUpsampleDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myUpsampleDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoOutInfo, 2, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
@@ -228,7 +228,7 @@ void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescri
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
@@ -250,7 +250,7 @@ VkPipelineLayout CreateComputePipelineLayout( Vk_Renderer& aCore, VkDescriptorSe
     pipelineLayoutInfo.pPushConstantRanges        = &aPushRange;
 
     VkPipelineLayout layout = VK_NULL_HANDLE;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &layout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &layout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create pipeline layout" );
     }
     return layout;
@@ -267,11 +267,11 @@ VkPipeline CreateComputePipelineWithLayout( Vk_Renderer& aCore, const std::strin
     pipelineInfo.layout = aLayout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
+    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
     return pipeline;
 }
 
@@ -294,7 +294,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     classicLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     classicLayoutInfo.bindingCount = static_cast< uint32_t >( classicBindings.size() );
     classicLayoutInfo.pBindings    = classicBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &classicLayoutInfo, nullptr, &state.myClassicSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &classicLayoutInfo, nullptr, &state.myClassicSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create classic AO descriptor set layout" );
     }
 
@@ -308,7 +308,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     halfResLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     halfResLayoutInfo.bindingCount = static_cast< uint32_t >( halfResBindings.size() );
     halfResLayoutInfo.pBindings    = halfResBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &halfResLayoutInfo, nullptr, &state.myHalfResSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &halfResLayoutInfo, nullptr, &state.myHalfResSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create half-res AO descriptor set layout" );
     }
 
@@ -321,7 +321,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     upsampleLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     upsampleLayoutInfo.bindingCount = static_cast< uint32_t >( upsampleBindings.size() );
     upsampleLayoutInfo.pBindings    = upsampleBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &upsampleLayoutInfo, nullptr, &state.myUpsampleSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &upsampleLayoutInfo, nullptr, &state.myUpsampleSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create AO upsample descriptor set layout" );
     }
 
@@ -333,7 +333,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
     blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create blur descriptor set layout" );
     }
 
@@ -364,7 +364,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     samplerInfo.anisotropyEnable        = VK_FALSE;
     samplerInfo.compareEnable           = VK_FALSE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create G-buffer sampler" );
     }
 
@@ -377,11 +377,11 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 5;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_AoPass: failed to create descriptor pool" );
     }
 
-    const VkDevice              device                 = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device                 = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipeline            classicPipeline        = state.myClassicPipeline;
     const VkPipeline            hbaoPipeline           = state.myHbaoPipeline;
     const VkPipeline            gtaoPipeline           = state.myGtaoPipeline;
@@ -397,9 +397,9 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     const VkDescriptorSetLayout blurSetLayout          = state.myBlurSetLayout;
     const VkDescriptorPool      descriptorPool         = state.myDescriptorPool;
     const VkSampler             gbufferSampler         = state.myGBufferSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, classicPipelineLayout,
-                                                      halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, classicSetLayout, halfResSetLayout, upsampleSetLayout,
-                                                      blurSetLayout, descriptorPool, gbufferSampler ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, classicPipelineLayout,
+                                                            halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, classicSetLayout, halfResSetLayout,
+                                                            upsampleSetLayout, blurSetLayout, descriptorPool, gbufferSampler ]() {
         auto destroyPipe = [ device ]( VkPipeline p ) {
             if ( p != VK_NULL_HANDLE ) {
                 vkDestroyPipeline( device, p, nullptr );
@@ -454,22 +454,22 @@ void AllocateDescriptorSets( Vk_Renderer& aCore ) {
         allocInfo.descriptorSetCount = 1;
 
         allocInfo.pSetLayouts = &state.myClassicSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myClassicDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myClassicDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate classic AO descriptor set" );
         }
         allocInfo.pSetLayouts = &state.myHalfResSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myHalfResDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myHalfResDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate half-res AO descriptor set" );
         }
         allocInfo.pSetLayouts = &state.myUpsampleSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myUpsampleDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myUpsampleDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate AO upsample descriptor set" );
         }
         allocInfo.pSetLayouts = &state.myBlurSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate horizontal blur descriptor set" );
         }
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate vertical blur descriptor set" );
         }
     }
@@ -658,8 +658,8 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myAoState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyAoImages( aCore );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
@@ -676,8 +676,8 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myAoState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyAoImages( aCore );
     CreateAoImages( aCore );

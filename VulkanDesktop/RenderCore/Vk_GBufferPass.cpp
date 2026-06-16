@@ -43,7 +43,7 @@ constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat kWorldPositionFormat   = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 void DestroyPipelines( Vk_Renderer& aCore ) {
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
     if ( device == VK_NULL_HANDLE ) {
         return;
     }
@@ -114,11 +114,12 @@ VkPipeline BuildGBufferPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, V
     pipelineInfo.subpass             = 0;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    UtilVulkanResult::ThrowOnFailure( vkCreateGraphicsPipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
-                                      "vkCreateGraphicsPipelines GBuffer" );
+    UtilVulkanResult::ThrowOnFailure(
+        vkCreateGraphicsPipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
+        "vkCreateGraphicsPipelines GBuffer" );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
     return pipeline;
 }
 
@@ -186,10 +187,10 @@ void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies   = &dependency;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myGBufferState.myRenderPass ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myGBufferState.myRenderPass ),
                                       "vkCreateRenderPass GBuffer" );
 
-    const VkDevice     device     = aCore.myDeviceCtx.myDevice;
+    const VkDevice     device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VkRenderPass renderPass = aCore.myGBufferState.myRenderPass;
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
 }
@@ -203,8 +204,8 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
                            VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
         aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
-        const VkDevice      device    = aCore.myDeviceCtx.myDevice;
-        const VmaAllocator  allocator = aCore.myDeviceCtx.myAllocator;
+        const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
         const VkImageView   view      = aTexture.ImageView();
         const VkImage       image     = aTexture.Image();
         const VmaAllocation alloc     = aTexture.Allocation();
@@ -224,8 +225,8 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
     aCore.myGBufferState.myDepth.ImageView() = aCore.CreateImageView( aCore.myGBufferState.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     {
-        const VkDevice      device    = aCore.myDeviceCtx.myDevice;
-        const VmaAllocator  allocator = aCore.myDeviceCtx.myAllocator;
+        const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
         const VkImageView   view      = aCore.myGBufferState.myDepth.ImageView();
         const VkImage       image     = aCore.myGBufferState.myDepth.Image();
         const VmaAllocation alloc     = aCore.myGBufferState.myDepth.Allocation();
@@ -249,10 +250,10 @@ void CreateGBufferFramebuffer( Vk_Renderer& aCore ) {
     framebufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
     framebufferInfo.layers          = 1;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &aCore.myGBufferState.myFramebuffer ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &aCore.myGBufferState.myFramebuffer ),
                                       "vkCreateFramebuffer GBuffer" );
 
-    const VkDevice      device      = aCore.myDeviceCtx.myDevice;
+    const VkDevice      device      = aCore.myRhi.myDeviceCtx.myDevice;
     const VkFramebuffer framebuffer = aCore.myGBufferState.myFramebuffer;
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
 }
@@ -369,7 +370,7 @@ void RebuildGBufferPipelines( Vk_Renderer& aCore ) {
 
     aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
 
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless && aCore.mySceneGpuCtx.myBindlessPipelineLayout != VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless && aCore.mySceneGpuCtx.myBindlessPipelineLayout != VK_NULL_HANDLE ) {
         const std::string bindlessFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragBindlessSpv );
         aCore.myGBufferState.myGBufferPipelineBindless =
             BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myBindlessPipelineLayout, vertPath, bindlessFragPath );
@@ -377,7 +378,7 @@ void RebuildGBufferPipelines( Vk_Renderer& aCore ) {
 }
 
 void RebuildResources( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
+    if ( aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
 
@@ -403,8 +404,8 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyPipelines( aCore );
     aCore.myGBufferState.myDeletionQueue.flush();

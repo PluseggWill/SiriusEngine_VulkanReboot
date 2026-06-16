@@ -51,10 +51,10 @@ VkPipeline BuildFullscreenPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass
     pipelineBuilder.myPipelineLayout                = aLayout;
     pipelineBuilder.SetDefaultDynamicStates();
 
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
+    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
     return pipeline;
 }
 
@@ -154,7 +154,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 14, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void CreatePipelineResources( Vk_Renderer& aCore ) {
@@ -186,7 +186,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.mySetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.mySetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor set layout" );
     }
 
@@ -200,7 +200,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     pipelineLayoutInfo.pSetLayouts                = &state.mySetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create pipeline layout" );
     }
 
@@ -213,7 +213,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.anisotropyEnable        = VK_FALSE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create sampler" );
     }
 
@@ -227,7 +227,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor pool" );
     }
 
@@ -237,7 +237,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         allocInfo.descriptorPool     = state.myDescriptorPool;
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts        = &state.mySetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_DeferredLightingPass: failed to allocate descriptor set" );
         }
         UpdateDescriptorSet( aCore, i );
@@ -247,12 +247,12 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
     state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, state.myPipelineLayout, vertPath, fragPath );
 
-    const VkDevice              device         = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device         = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipelineLayout      pipelineLayout = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout      = state.mySetLayout;
     const VkDescriptorPool      descriptorPool = state.myDescriptorPool;
     const VkSampler             sampler        = state.myGBufferSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, pipelineLayout, setLayout, descriptorPool, sampler ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, pipelineLayout, setLayout, descriptorPool, sampler ]() {
         if ( pipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
         }
@@ -300,10 +300,10 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myDeferredLightingState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
         if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
+            vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
         }
     }
     aCore.myDeferredLightingState.myDescriptorSets = {};
@@ -315,10 +315,10 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myDeferredLightingState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
         if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
+            vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
             aCore.myDeferredLightingState.myPipeline = VK_NULL_HANDLE;
         }
     }
@@ -362,7 +362,7 @@ static void UpdateAoDescriptorBinding( Vk_Renderer& aCore, uint32_t aFrameIndex 
 
     const VkWriteDescriptorSet write =
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 );
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
 }
 
 void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {

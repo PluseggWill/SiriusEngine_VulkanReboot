@@ -184,6 +184,9 @@
     <ClCompile Include="RenderCore\Vk_Renderer.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_RhiDevice.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -469,6 +472,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Renderer.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_RhiDevice.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h">

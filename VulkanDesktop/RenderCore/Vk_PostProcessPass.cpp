@@ -55,8 +55,8 @@ struct BloomBlurPushConstants {
 static_assert( sizeof( BloomBlurPushConstants ) == 8, "BloomBlurPushConstants must match BloomBlur.comp push block" );
 
 void DestroyTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
-    const VkDevice     device    = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
+    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
         vkDestroyImageView( device, aTexture.ImageView(), nullptr );
         aTexture.ImageView() = VK_NULL_HANDLE;
@@ -142,10 +142,10 @@ void CreateHybridRenderPass( Vk_Renderer& aCore ) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies   = &dependency;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myPostProcessState.myHybridRenderPass ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myPostProcessState.myHybridRenderPass ),
                                       "vkCreateRenderPass PostProcess hybrid" );
 
-    const VkDevice     device     = aCore.myDeviceCtx.myDevice;
+    const VkDevice     device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VkRenderPass renderPass = aCore.myPostProcessState.myHybridRenderPass;
     aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
 }
@@ -162,10 +162,10 @@ void CreateHybridFramebuffer( Vk_Renderer& aCore ) {
     frameBufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
     frameBufferInfo.layers          = 1;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.myPostProcessState.myHybridFramebuffer ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.myPostProcessState.myHybridFramebuffer ),
                                       "vkCreateFramebuffer PostProcess hybrid" );
 
-    const VkDevice      device      = aCore.myDeviceCtx.myDevice;
+    const VkDevice      device      = aCore.myRhi.myDeviceCtx.myDevice;
     const VkFramebuffer framebuffer = aCore.myPostProcessState.myHybridFramebuffer;
     aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
 }
@@ -191,10 +191,10 @@ VkPipeline BuildTonemapPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, V
     pipelineBuilder.myPipelineLayout                = aLayout;
     pipelineBuilder.SetDefaultDynamicStates();
 
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
+    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
     return pipeline;
 }
 
@@ -207,9 +207,10 @@ VkPipeline BuildComputePipeline( Vk_Renderer& aCore, VkPipelineLayout aLayout, c
     pipelineInfo.layout = aLayout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    UtilVulkanResult::ThrowOnFailure( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
-                                      "vkCreateComputePipelines PostProcess" );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, module, nullptr );
+    UtilVulkanResult::ThrowOnFailure(
+        vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
+        "vkCreateComputePipelines PostProcess" );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, module, nullptr );
     return pipeline;
 }
 
@@ -230,7 +231,7 @@ void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bloomInfo, 1, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateBloomThresholdDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
@@ -249,7 +250,7 @@ void UpdateBloomThresholdDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex
         VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &bloomOutInfo, 1, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateBloomBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, bool aHorizontal ) {
@@ -269,7 +270,7 @@ void UpdateBloomBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, boo
         VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void CreatePipelineResources( Vk_Renderer& aCore ) {
@@ -287,12 +288,12 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     samplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.mySceneSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.mySceneSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: failed to create sampler" );
     }
-    const VkDevice  device  = aCore.myDeviceCtx.myDevice;
+    const VkDevice  device  = aCore.myRhi.myDeviceCtx.myDevice;
     const VkSampler sampler = state.mySceneSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
 
     const std::array< VkDescriptorSetLayoutBinding, 2 > tonemapBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
@@ -302,7 +303,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     tonemapLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     tonemapLayoutInfo.bindingCount = static_cast< uint32_t >( tonemapBindings.size() );
     tonemapLayoutInfo.pBindings    = tonemapBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &tonemapLayoutInfo, nullptr, &state.myTonemapSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &tonemapLayoutInfo, nullptr, &state.myTonemapSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: tonemap descriptor layout failed" );
     }
 
@@ -316,7 +317,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     tonemapPipelineLayoutInfo.pSetLayouts                = &state.myTonemapSetLayout;
     tonemapPipelineLayoutInfo.pushConstantRangeCount     = 1;
     tonemapPipelineLayoutInfo.pPushConstantRanges        = &tonemapPush;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &tonemapPipelineLayoutInfo, nullptr, &state.myTonemapPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &tonemapPipelineLayoutInfo, nullptr, &state.myTonemapPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: tonemap pipeline layout failed" );
     }
 
@@ -328,7 +329,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     thresholdLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     thresholdLayoutInfo.bindingCount = static_cast< uint32_t >( thresholdBindings.size() );
     thresholdLayoutInfo.pBindings    = thresholdBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &thresholdLayoutInfo, nullptr, &state.myBloomThresholdSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &thresholdLayoutInfo, nullptr, &state.myBloomThresholdSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom threshold descriptor layout failed" );
     }
 
@@ -342,7 +343,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     thresholdPipelineLayoutInfo.pSetLayouts                = &state.myBloomThresholdSetLayout;
     thresholdPipelineLayoutInfo.pushConstantRangeCount     = 1;
     thresholdPipelineLayoutInfo.pPushConstantRanges        = &thresholdPush;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &thresholdPipelineLayoutInfo, nullptr, &state.myBloomThresholdPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &thresholdPipelineLayoutInfo, nullptr, &state.myBloomThresholdPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom threshold pipeline layout failed" );
     }
 
@@ -354,7 +355,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
     blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBloomBlurSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBloomBlurSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom blur descriptor layout failed" );
     }
 
@@ -368,7 +369,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     blurPipelineLayoutInfo.pSetLayouts                = &state.myBloomBlurSetLayout;
     blurPipelineLayoutInfo.pushConstantRangeCount     = 1;
     blurPipelineLayoutInfo.pPushConstantRanges        = &blurPush;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &blurPipelineLayoutInfo, nullptr, &state.myBloomBlurPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurPipelineLayoutInfo, nullptr, &state.myBloomBlurPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
     }
 
@@ -382,7 +383,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     poolInfo.poolSizeCount = static_cast< uint32_t >( std::size( poolSizes ) );
     poolInfo.pPoolSizes    = poolSizes;
     poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 4 );
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: descriptor pool failed" );
     }
 
@@ -393,17 +394,17 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         allocInfo.descriptorSetCount = 1;
 
         allocInfo.pSetLayouts = &state.myTonemapSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] ),
                                           "Vk_PostProcessPass: tonemap descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBloomThresholdSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] ),
                                           "Vk_PostProcessPass: bloom threshold descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBloomBlurSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] ),
                                           "Vk_PostProcessPass: bloom blur H descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] ),
                                           "Vk_PostProcessPass: bloom blur V descriptor set alloc" );
     }
 
@@ -418,7 +419,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 }
 
 void RebuildResources( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
+    if ( aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
 
@@ -448,15 +449,15 @@ void RebuildResources( Vk_Renderer& aCore ) {
     UtilLogger::Info( "POST", "HDR scene color: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=R16G16B16A16_SFLOAT" );
 
     if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
+        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
         aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
     }
     if ( aCore.myPostProcessState.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomThresholdPipeline, nullptr );
+        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomThresholdPipeline, nullptr );
         aCore.myPostProcessState.myBloomThresholdPipeline = VK_NULL_HANDLE;
     }
     if ( aCore.myPostProcessState.myBloomBlurPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomBlurPipeline, nullptr );
+        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomBlurPipeline, nullptr );
         aCore.myPostProcessState.myBloomBlurPipeline = VK_NULL_HANDLE;
     }
 
@@ -593,12 +594,12 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myPostProcessState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
 
     Vk_PostProcessState& state  = aCore.myPostProcessState;
-    const VkDevice       device = aCore.myDeviceCtx.myDevice;
+    const VkDevice       device = aCore.myRhi.myDeviceCtx.myDevice;
     if ( state.myTonemapPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
         state.myTonemapPipeline = VK_NULL_HANDLE;

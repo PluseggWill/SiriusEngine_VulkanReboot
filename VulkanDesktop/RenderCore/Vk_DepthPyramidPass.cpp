@@ -47,7 +47,7 @@ VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFo
     viewInfo.subresourceRange.levelCount   = 1;
 
     VkImageView imageView = VK_NULL_HANDLE;
-    if ( vkCreateImageView( aCore.myDeviceCtx.myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
+    if ( vkCreateImageView( aCore.myRhi.myDeviceCtx.myDevice, &viewInfo, nullptr, &imageView ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create mip image view" );
     }
     return imageView;
@@ -55,8 +55,8 @@ VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFo
 
 void DestroyPyramidImage( Vk_Renderer& aCore ) {
     Vk_DepthPyramidState& state     = aCore.myDepthPyramidState;
-    const VkDevice        device    = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
+    const VkDevice        device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator    allocator = aCore.myRhi.myDeviceCtx.myAllocator;
 
     for ( VkImageView& view : state.myMipViews ) {
         if ( view != VK_NULL_HANDLE ) {
@@ -97,7 +97,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, uint32_t aDs
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 2, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void CreatePyramidImage( Vk_Renderer& aCore ) {
@@ -135,7 +135,7 @@ void AllocateDescriptorSets( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
                 allocInfo.descriptorPool     = state.myDescriptorPool;
                 allocInfo.descriptorSetCount = 1;
                 allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
-                if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ][ mip ] ) != VK_SUCCESS ) {
+                if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ][ mip ] ) != VK_SUCCESS ) {
                     throw std::runtime_error( "Vk_DepthPyramidPass: failed to allocate descriptor set" );
                 }
             }
@@ -162,7 +162,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create descriptor set layout" );
     }
 
@@ -176,7 +176,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     pipelineLayoutInfo.pSetLayouts                = &state.myDescriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create pipeline layout" );
     }
 
@@ -186,11 +186,12 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.stage  = stageInfo;
     pipelineInfo.layout = state.myPipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline ) != VK_SUCCESS ) {
+    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline )
+         != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -202,7 +203,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     samplerInfo.anisotropyEnable        = VK_FALSE;
     samplerInfo.compareEnable           = VK_FALSE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create depth sampler" );
     }
 
@@ -215,7 +216,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     pyramidSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     pyramidSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     pyramidSamplerInfo.maxLod       = static_cast< float >( kHiZMaxMipLevels );
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &pyramidSamplerInfo, nullptr, &state.myPyramidSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &pyramidSamplerInfo, nullptr, &state.myPyramidSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create pyramid sampler" );
     }
 
@@ -228,18 +229,18 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create descriptor pool" );
     }
 
-    const VkDevice              device          = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device          = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipeline            computePipeline = state.myComputePipeline;
     const VkPipelineLayout      pipelineLayout  = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout       = state.myDescriptorSetLayout;
     const VkDescriptorPool      descriptorPool  = state.myDescriptorPool;
     const VkSampler             depthSampler    = state.myDepthSampler;
     const VkSampler             pyramidSampler  = state.myPyramidSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool, depthSampler, pyramidSampler ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool, depthSampler, pyramidSampler ]() {
         if ( computePipeline != VK_NULL_HANDLE ) {
             vkDestroyPipeline( device, computePipeline, nullptr );
         }
@@ -281,8 +282,8 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyPyramidImage( aCore );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
@@ -297,8 +298,8 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyPyramidImage( aCore );
     CreatePyramidImage( aCore );

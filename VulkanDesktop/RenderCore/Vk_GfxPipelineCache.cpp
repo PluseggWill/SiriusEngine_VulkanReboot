@@ -21,18 +21,18 @@ extern std::string bindlessFragShaderPath;
 void Vk_GfxPipelineCache::InitScenePipelines( Vk_Renderer& aCore ) {
     DestroyScenePipelines( aCore );
     CreateGfxPipeline( aCore );
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessGfxPipelines( aCore );
     }
     CreateHybridResolveGfxPipelines( aCore );
 }
 
 void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
         return;
     }
 
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
 
     if ( aCore.mySceneGpuCtx.myBasicPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, aCore.mySceneGpuCtx.myBasicPipeline, nullptr );
@@ -105,7 +105,7 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
     pipelineLayoutCreateInfo.pPushConstantRanges                          = nullptr;
 
     UtilLogger::Info( "PIPELINE", "Creating pipeline layout: setCount=3 (frame, material, object dynamic)." );
-    UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutCreateInfo, nullptr, &aCore.mySceneGpuCtx.myPipelineLayout ),
+    UtilVulkanResult::ThrowOnFailure( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutCreateInfo, nullptr, &aCore.mySceneGpuCtx.myPipelineLayout ),
                                       "vkCreatePipelineLayout" );
 
     VkPipelineShaderStageCreateInfo vertShaderStageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main" );
@@ -135,17 +135,17 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
     pipelineDiag.myDepthFormat             = aCore.FindDepthFormat();
 
     aCore.mySceneGpuCtx.myBasicPipeline =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myDeviceCtx.myPipelineCache, &pipelineDiag );
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &pipelineDiag );
 
     pipelineBuilder.myDepthStencil               = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment       = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     Vk_GraphicsPipelineBuildInfo transparentDiag = pipelineDiag;
     transparentDiag.myLabel                      = "basic-lit-transparent";
     aCore.mySceneGpuCtx.myTransparentPipeline =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myDeviceCtx.myPipelineCache, &transparentDiag );
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &transparentDiag );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertShaderModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragShaderModule, nullptr );
 }
 
 void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
@@ -197,16 +197,16 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
     aCore.mySceneGpuCtx.myBasicPipelineBindless =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
     pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     diag.myLabel                           = "basic-lit-bindless-transparent";
     aCore.mySceneGpuCtx.myTransparentPipelineBindless =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertShaderModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragShaderModule, nullptr );
 }
 
 void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) {
@@ -215,7 +215,7 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
         return;
     }
 
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
     if ( aCore.mySceneGpuCtx.myBasicPipelineHybridResolve != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, aCore.mySceneGpuCtx.myBasicPipelineHybridResolve, nullptr );
         aCore.mySceneGpuCtx.myBasicPipelineHybridResolve = VK_NULL_HANDLE;
@@ -281,16 +281,17 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
     diag.myColorFormat    = kPostSceneColorFormat;
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
-    pipelineBuilder.myPipelineLayout                 = aCore.mySceneGpuCtx.myPipelineLayout;
-    aCore.mySceneGpuCtx.myBasicPipelineHybridResolve = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+    pipelineBuilder.myPipelineLayout = aCore.mySceneGpuCtx.myPipelineLayout;
+    aCore.mySceneGpuCtx.myBasicPipelineHybridResolve =
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
     pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
     pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
     diag.myLabel                           = "basic-lit-transparent-hybrid-resolve";
     aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve =
-        pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+        pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         VkShaderModule bindlessFragModule      = aCore.CreateShaderModule( bindlessFragShaderPath );
         pipelineBuilder.myShaderStages[ 1 ]    = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, bindlessFragModule, "main" );
         pipelineBuilder.myPipelineLayout       = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
@@ -299,16 +300,16 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
         diag.myLabel                           = "basic-lit-bindless-opaque-hybrid-resolve";
         diag.myFragShaderPath                  = bindlessFragShaderPath.c_str();
         aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve =
-            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
+            pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
         pipelineBuilder.myDepthStencil         = VkInit::Pipeline_DepthStencilCreateInfo( VK_FALSE );
         pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachmentAlpha();
         diag.myLabel                           = "basic-lit-bindless-transparent-hybrid-resolve";
         aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve =
-            pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, hybridRenderPass, aCore.myDeviceCtx.myPipelineCache, &diag );
-        vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, bindlessFragModule, nullptr );
+            pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
+        vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, bindlessFragModule, nullptr );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertShaderModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertShaderModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragShaderModule, nullptr );
 }

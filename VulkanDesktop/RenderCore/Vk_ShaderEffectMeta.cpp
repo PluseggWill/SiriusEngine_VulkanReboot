@@ -285,7 +285,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Renderer& a
         }
     }
 
-    const VkDevice        aDevice      = aCore.myDeviceCtx.myDevice;
+    const VkDevice        aDevice      = aCore.myRhi.myDeviceCtx.myDevice;
     VkDescriptorSetLayout layouts[ 3 ] = {};
     for ( uint32_t setIndex = 0; setIndex < 3; ++setIndex ) {
         layouts[ setIndex ] = CreateOneSetLayout( aDevice, meta.mySets.at( setIndex ) );
@@ -303,7 +303,7 @@ LitBatchDescriptorSetLayouts AcquireLitBatchDescriptorSetLayouts( Vk_Renderer& a
     const VkDescriptorSetLayout globalLayout   = layouts[ 0 ];
     const VkDescriptorSetLayout materialLayout = layouts[ 1 ];
     const VkDescriptorSetLayout objectLayout   = layouts[ 2 ];
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ aDevice, globalLayout, materialLayout, objectLayout ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ aDevice, globalLayout, materialLayout, objectLayout ]() {
         vkDestroyDescriptorSetLayout( aDevice, globalLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, materialLayout, nullptr );
         vkDestroyDescriptorSetLayout( aDevice, objectLayout, nullptr );

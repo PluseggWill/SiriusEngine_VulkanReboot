@@ -194,14 +194,14 @@ void CreateEmptyCache( VkDevice aDevice, VkPipelineCache& aOutCache ) {
 }  // namespace
 
 void Vk_DevicePipelineCache::Create( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myPipelineCache != VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myPipelineCache != VK_NULL_HANDLE ) {
         return;
     }
 
-    const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
+    const bool                      includeBindless = ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
     const Util_EngineConfig&        cfg             = aCore.EngineConfig();
     const uint32_t                  shaderFp        = ComputeShaderFingerprint( cfg, includeBindless );
-    const PipelineDiskCacheHeaderV1 header          = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, shaderFp, includeBindless );
+    const PipelineDiskCacheHeaderV1 header          = BuildHeader( aCore.myRhi.myDeviceCtx.myPhysicalDeviceProperties, shaderFp, includeBindless );
 
     std::vector< uint8_t > initialBlob;
     const bool             loaded = TryLoadBlob( cfg, header, initialBlob );
@@ -213,7 +213,7 @@ void Vk_DevicePipelineCache::Create( Vk_Renderer& aCore ) {
         createInfo.pInitialData    = initialBlob.data();
     }
 
-    const VkResult result = vkCreatePipelineCache( aCore.myDeviceCtx.myDevice, &createInfo, nullptr, &aCore.myDeviceCtx.myPipelineCache );
+    const VkResult result = vkCreatePipelineCache( aCore.myRhi.myDeviceCtx.myDevice, &createInfo, nullptr, &aCore.myRhi.myDeviceCtx.myPipelineCache );
     if ( result == VK_SUCCESS ) {
         UtilLogger::Info( "PIPELINE-CACHE", std::string( loaded ? "loaded" : "created" ) + " VkPipelineCache shaderFp=" + std::to_string( shaderFp )
                                                 + " permId=" + std::to_string( header.myActivePermutationId ) );
@@ -223,7 +223,7 @@ void Vk_DevicePipelineCache::Create( Vk_Renderer& aCore ) {
     // Driver may reject stale blobs after driver update even when our header matched.
     if ( loaded && ( result == VK_ERROR_INITIALIZATION_FAILED || result == VK_ERROR_INCOMPATIBLE_DRIVER ) ) {
         UtilLogger::Info( "PIPELINE-CACHE", "driver rejected disk blob; recreating empty cache." );
-        CreateEmptyCache( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache );
+        CreateEmptyCache( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache );
         return;
     }
 
@@ -231,15 +231,16 @@ void Vk_DevicePipelineCache::Create( Vk_Renderer& aCore ) {
 }
 
 void Vk_DevicePipelineCache::Destroy( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myPipelineCache == VK_NULL_HANDLE || aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myPipelineCache == VK_NULL_HANDLE || aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE ) {
         return;
     }
 
-    const bool                      includeBindless = ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
+    const bool                      includeBindless = ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless );
     const Util_EngineConfig&        cfg             = aCore.EngineConfig();
-    const PipelineDiskCacheHeaderV1 header = BuildHeader( aCore.myDeviceCtx.myPhysicalDeviceProperties, ComputeShaderFingerprint( cfg, includeBindless ), includeBindless );
-    SaveBlob( cfg, aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, header );
+    const PipelineDiskCacheHeaderV1 header =
+        BuildHeader( aCore.myRhi.myDeviceCtx.myPhysicalDeviceProperties, ComputeShaderFingerprint( cfg, includeBindless ), includeBindless );
+    SaveBlob( cfg, aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, header );
 
-    vkDestroyPipelineCache( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, nullptr );
-    aCore.myDeviceCtx.myPipelineCache = VK_NULL_HANDLE;
+    vkDestroyPipelineCache( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
+    aCore.myRhi.myDeviceCtx.myPipelineCache = VK_NULL_HANDLE;
 }

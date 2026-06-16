@@ -76,7 +76,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     renderPassInfo.pSubpasses      = &subpass;
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies   = &dependency;
-    if ( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &state.myRenderPass ) != VK_SUCCESS ) {
+    if ( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &state.myRenderPass ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowMapPass: failed to create render pass" );
     }
 
@@ -88,7 +88,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     framebufferInfo.width           = Vk_ShadowMapState::kMapSize;
     framebufferInfo.height          = Vk_ShadowMapState::kMapSize;
     framebufferInfo.layers          = 1;
-    if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &state.myFramebuffer ) != VK_SUCCESS ) {
+    if ( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &state.myFramebuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowMapPass: failed to create framebuffer" );
     }
 
@@ -102,7 +102,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     layoutInfo.pSetLayouts                = &aCore.mySceneGpuCtx.myObjectSetLayout;
     layoutInfo.pushConstantRangeCount     = 1;
     layoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowMapPass: failed to create pipeline layout" );
     }
 
@@ -117,14 +117,14 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     samplerInfo.compareEnable    = VK_TRUE;
     samplerInfo.compareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     samplerInfo.anisotropyEnable = VK_FALSE;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myCompareSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myCompareSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowMapPass: failed to create compare sampler" );
     }
 
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.magFilter     = VK_FILTER_NEAREST;
     samplerInfo.minFilter     = VK_FILTER_NEAREST;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthReadSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthReadSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowMapPass: failed to create depth read sampler" );
     }
 
@@ -160,13 +160,13 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
     pipelineBuilder.myPipelineLayout                = state.myPipelineLayout;
     pipelineBuilder.SetDynamicStates( { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_DEPTH_BIAS } );
-    state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myDeviceCtx.myDevice, state.myRenderPass, aCore.myDeviceCtx.myPipelineCache, nullptr );
+    state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, state.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
 
-    const VkDevice         device           = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator     allocator        = aCore.myDeviceCtx.myAllocator;
+    const VkDevice         device           = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator     allocator        = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkRenderPass     renderPass       = state.myRenderPass;
     const VkFramebuffer    framebuffer      = state.myFramebuffer;
     const VkPipeline       pipeline         = state.myPipeline;
@@ -176,7 +176,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     const VkImageView      depthView        = state.myDepth.ImageView();
     const VkImage          depthImage       = state.myDepth.Image();
     const VmaAllocation    depthAlloc       = state.myDepth.Allocation();
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction(
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
         [ device, allocator, renderPass, framebuffer, pipeline, layout, compareSampler, depthReadSampler, depthView, depthImage, depthAlloc ]() {
             vkDestroySampler( device, depthReadSampler, nullptr );
             vkDestroySampler( device, compareSampler, nullptr );

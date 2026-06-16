@@ -222,7 +222,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
         []( Vk_FrameGraphContext& aCtx ) {
             Vk_Renderer& aCore = *aCtx.myCore;
 
-            const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
+            const Vk_RenderMaterialPath materialPath    = aCore.myRhi.myDeviceCtx.myMaterialPath;
             const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
             const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
             const VkPipeline            gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
@@ -336,7 +336,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
 
             vkCmdBeginRenderPass( aCtx.myCommandBuffer, &hybridBegin, VK_SUBPASS_CONTENTS_INLINE );
 
-            const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
+            const Vk_RenderMaterialPath materialPath    = aCore.myRhi.myDeviceCtx.myMaterialPath;
             const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
             const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
 

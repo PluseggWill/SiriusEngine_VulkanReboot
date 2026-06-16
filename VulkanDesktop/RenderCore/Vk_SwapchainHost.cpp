@@ -59,11 +59,12 @@ uint32_t ChooseSwapchainImageCount( const VkSurfaceCapabilitiesKHR& aCapabilitie
 }
 
 VkResult TryAcquireOnce( Vk_Renderer& aCore, const Vk_FrameData& aFrameData, uint32_t& anOutImageIndex ) {
-    return vkAcquireNextImageKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE, &anOutImageIndex );
+    return vkAcquireNextImageKHR( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, UINT64_MAX, aFrameData.myPresentSemaphore, VK_NULL_HANDLE,
+                                  &anOutImageIndex );
 }
 
 void DestroySwapchainImageViews( Vk_Renderer& aCore ) {
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+    const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
     for ( const VkImageView imageView : aCore.mySwapchainCtx.mySwapChainImageViews ) {
         vkDestroyImageView( device, imageView, nullptr );
     }
@@ -72,7 +73,7 @@ void DestroySwapchainImageViews( Vk_Renderer& aCore ) {
 }
 
 bool RenderPassNeedsRebuild( Vk_Renderer& aCore ) {
-    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myRhi.myDeviceCtx.myPhysicalDevice );
     const VkSurfaceFormatKHR         format  = aCore.ChooseSwapSurfaceFormat( support.myFormats );
     return format.format != aCore.mySwapchainCtx.mySwapChainImageFormat;
 }
@@ -94,7 +95,7 @@ Vk_FrameResult ClassifyQueueResult( VkResult aResult, const char* aOperation ) {
 
 bool Vk_SwapchainHost::HandleSurfaceLost( Vk_Renderer& aCore ) {
     UtilLogger::Warn( "SWAPCHAIN", "VK_ERROR_SURFACE_LOST_KHR; recreating surface and swapchain." );
-    vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     aCore.RecreateSurface();
     Recreate( aCore );
     return true;
@@ -110,7 +111,7 @@ void Vk_SwapchainHost::Init( Vk_Renderer& aCore ) {
 }
 
 bool Vk_SwapchainHost::NeedsSwapchainRebuild( Vk_Renderer& aCore, VkExtent2D& aOutTargetExtent ) {
-    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    const Vk_SwapChainSupportDetails support = aCore.QuerySwapChainSupport( aCore.myRhi.myDeviceCtx.myPhysicalDevice );
     aOutTargetExtent                         = aCore.ChooseSwapExtent( support.myCapabilities );
     const bool extentChanged =
         aOutTargetExtent.width != aCore.mySwapchainCtx.mySwapChainExtent.width || aOutTargetExtent.height != aCore.mySwapchainCtx.mySwapChainExtent.height;
@@ -221,7 +222,7 @@ void Vk_SwapchainHost::Recreate( Vk_Renderer& aCore ) {
 
     const VkSwapchainKHR supersededSwapChain = aCore.mySwapchainCtx.mySwapChain;
 
-    vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
 
     const bool includeRenderPass = RenderPassNeedsRebuild( aCore );
     RecreateWsiOnly( aCore, supersededSwapChain );
@@ -291,7 +292,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Renderer& aCore, const Vk_
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = signalSemaphores;
 
-    const VkResult submitResult = vkQueueSubmit( aCore.myDeviceCtx.myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence );
+    const VkResult submitResult = vkQueueSubmit( aCore.myRhi.myDeviceCtx.myGraphicsQueue, 1, &submitInfo, aFrameData.myRenderFence );
     if ( submitResult != VK_SUCCESS ) {
         return ClassifyQueueResult( submitResult, "vkQueueSubmit" );
     }
@@ -309,7 +310,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Renderer& aCore, const Vk_
 
     // Wall-clock block inside vkQueuePresentKHR (FIFO vsync wait; optional Util_FrameStats breakdown).
     const auto     presentStart = std::chrono::high_resolution_clock::now();
-    const VkResult result       = vkQueuePresentKHR( aCore.myDeviceCtx.myPresentQueue, &presentInfo );
+    const VkResult result       = vkQueuePresentKHR( aCore.myRhi.myDeviceCtx.myPresentQueue, &presentInfo );
     if ( aOutPresentWaitMs != nullptr ) {
         *aOutPresentWaitMs = std::chrono::duration< float, std::milli >( std::chrono::high_resolution_clock::now() - presentStart ).count();
     }
@@ -336,7 +337,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Renderer& aCore, const Vk_
 
 void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupersededSwapChain ) {
     UtilLogger::Info( "SWAPCHAIN", "Creating swapchain." );
-    const Vk_SwapChainSupportDetails  swapChainSupport = aCore.QuerySwapChainSupport( aCore.myDeviceCtx.myPhysicalDevice );
+    const Vk_SwapChainSupportDetails  swapChainSupport = aCore.QuerySwapChainSupport( aCore.myRhi.myDeviceCtx.myPhysicalDevice );
     const VkSurfaceFormatKHR          surfaceFormat    = aCore.ChooseSwapSurfaceFormat( swapChainSupport.myFormats );
     const VkPresentModeKHR            presentMode      = aCore.ChooseSwapPresentMode( swapChainSupport.myPresentModes );
     const VkExtent2D                  extent           = aCore.ChooseSwapExtent( swapChainSupport.myCapabilities );
@@ -347,7 +348,7 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupe
     }
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface          = aCore.myDeviceCtx.mySurface;
+    createInfo.surface          = aCore.myRhi.myDeviceCtx.mySurface;
     createInfo.minImageCount    = imageCount;
     createInfo.imageFormat      = surfaceFormat.format;
     createInfo.imageColorSpace  = surfaceFormat.colorSpace;
@@ -355,8 +356,9 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupe
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     // Graphics and present queues can differ on some GPUs.
-    const uint32_t queueFamilyIndices[] = { aCore.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), aCore.myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value() };
-    if ( aCore.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily != aCore.myDeviceCtx.myQueueFamilyIndices.myPresentFamily ) {
+    const uint32_t queueFamilyIndices[] = { aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(),
+                                            aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myPresentFamily.value() };
+    if ( aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily != aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myPresentFamily ) {
         createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices   = queueFamilyIndices;
@@ -370,16 +372,16 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupe
     createInfo.clipped        = VK_TRUE;
     // Hand off superseded chain to WSI; still safe with vkDeviceWaitIdle in Recreate (baseline stall).
     createInfo.oldSwapchain = aSupersededSwapChain;
-    if ( vkCreateSwapchainKHR( aCore.myDeviceCtx.myDevice, &createInfo, nullptr, &aCore.mySwapchainCtx.mySwapChain ) != VK_SUCCESS ) {
+    if ( vkCreateSwapchainKHR( aCore.myRhi.myDeviceCtx.myDevice, &createInfo, nullptr, &aCore.mySwapchainCtx.mySwapChain ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create swap chain!" );
     }
     if ( aSupersededSwapChain != VK_NULL_HANDLE ) {
-        vkDestroySwapchainKHR( aCore.myDeviceCtx.myDevice, aSupersededSwapChain, nullptr );
+        vkDestroySwapchainKHR( aCore.myRhi.myDeviceCtx.myDevice, aSupersededSwapChain, nullptr );
     }
     const uint32_t requestedImageCount = imageCount;
-    vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, nullptr );
+    vkGetSwapchainImagesKHR( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, nullptr );
     aCore.mySwapchainCtx.mySwapChainImages.resize( imageCount );
-    vkGetSwapchainImagesKHR( aCore.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, aCore.mySwapchainCtx.mySwapChainImages.data() );
+    vkGetSwapchainImagesKHR( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, aCore.mySwapchainCtx.mySwapChainImages.data() );
     aCore.mySwapchainCtx.mySwapChainImageFormat = surfaceFormat.format;
     aCore.mySwapchainCtx.mySwapChainExtent      = extent;
     UtilLogger::Info( "SWAPCHAIN", "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha )
@@ -389,7 +391,7 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupe
         aCore.mySwapchainCtx.mySwapChainImageViews[ i ] =
             aCore.CreateImageView( aCore.mySwapchainCtx.mySwapChainImages[ i ], surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT );
     }
-    const VkDevice       device     = aCore.myDeviceCtx.myDevice;
+    const VkDevice       device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VkSwapchainKHR swapchain  = aCore.mySwapchainCtx.mySwapChain;
     const auto           imageViews = aCore.mySwapchainCtx.mySwapChainImageViews;
     // Registered at end of WSI step; extent rebuild runs attachment deletors before it via popSecondFromBackAndRun.
@@ -494,12 +496,12 @@ void Vk_SwapchainHost::CreateRenderPass( Vk_Renderer& aCore ) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies   = &dependency;
 
-    if ( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.mySwapchainCtx.myRenderPass ) != VK_SUCCESS ) {
+    if ( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.mySwapchainCtx.myRenderPass ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create render pass!" );
     }
 
     // HybridDeferred hybrid resolve RP/FB now owned by Vk_PostProcessPass (HDR scene color).
-    const VkDevice     device = aCore.myDeviceCtx.myDevice;
+    const VkDevice     device = aCore.myRhi.myDeviceCtx.myDevice;
     const VkRenderPass render = aCore.mySwapchainCtx.myRenderPass;
     aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, render ]() { vkDestroyRenderPass( device, render, nullptr ); } );
 }
@@ -529,12 +531,12 @@ void Vk_SwapchainHost::CreateFrameBuffers( Vk_Renderer& aCore ) {
         frameBufferInfo.layers          = 1;
 
         frameBufferInfo.renderPass = aCore.mySwapchainCtx.myRenderPass;
-        if ( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.mySwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
+        if ( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.mySwapchainCtx.mySwapChainFrameBuffers[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to create framebuffer!" );
         }
     }
 
-    const VkDevice device       = aCore.myDeviceCtx.myDevice;
+    const VkDevice device       = aCore.myRhi.myDeviceCtx.myDevice;
     const auto     frameBuffers = aCore.mySwapchainCtx.mySwapChainFrameBuffers;
     aCore.mySwapchainCtx.mySwapChainDeletionQueue.pushFunction( [ device, frameBuffers ]() {
         for ( VkFramebuffer frameBuffer : frameBuffers ) {
@@ -551,8 +553,8 @@ void Vk_SwapchainHost::CreateDepthResources( Vk_Renderer& aCore ) {
     aCore.mySwapchainCtx.myDepthTexture.ImageView() = aCore.CreateImageView( aCore.mySwapchainCtx.myDepthTexture.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
     aCore.TransitionImageLayout( aCore.mySwapchainCtx.myDepthTexture.Image(), depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1 );
 
-    const VkDevice      device     = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
+    const VkDevice      device     = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkImageView   depthView  = aCore.mySwapchainCtx.myDepthTexture.ImageView();
     const VkImage       depthImage = aCore.mySwapchainCtx.myDepthTexture.Image();
     const VmaAllocation depthAlloc = aCore.mySwapchainCtx.myDepthTexture.Allocation();
@@ -574,8 +576,8 @@ void Vk_SwapchainHost::CreateColorResources( Vk_Renderer& aCore ) {
                        aCore.mySwapchainCtx.myColorTexture.AllocImage() );
     aCore.mySwapchainCtx.myColorTexture.ImageView() = aCore.CreateImageView( aCore.mySwapchainCtx.myColorTexture.Image(), colorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
-    const VkDevice      device     = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
+    const VkDevice      device     = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkImageView   colorView  = aCore.mySwapchainCtx.myColorTexture.ImageView();
     const VkImage       colorImage = aCore.mySwapchainCtx.myColorTexture.Image();
     const VmaAllocation colorAlloc = aCore.mySwapchainCtx.myColorTexture.Allocation();

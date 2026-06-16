@@ -15,7 +15,10 @@
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
+#include "../RenderCore/Vk_RhiDevice.h"
 #include "../Util/Util_EngineConfig.h"
+
+#include <vulkan/vulkan.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -537,6 +540,18 @@ void TestRenderPresetHybridDeferred() {
     Expect( threw, "unknown render preset throws" );
 }
 
+void TestRhiDeviceHeadlessConstruct() {
+    Vk_RhiDevice rhi;
+    rhi.SetEnableValidationLayers( false, {} );
+    Expect( rhi.CreateInstanceHeadless(), "RhiDevice headless VkInstance create" );
+    Expect( rhi.IsInstanceCreated(), "RhiDevice instance handle non-null" );
+    if ( rhi.IsInstanceCreated() ) {
+        vkDestroyInstance( rhi.myDeviceCtx.myInstance, nullptr );
+        rhi.myDeviceCtx.myInstance = VK_NULL_HANDLE;
+        Expect( !rhi.IsInstanceCreated(), "RhiDevice instance destroyed" );
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -573,6 +588,7 @@ int main() {
     TestClusterIndexFromTile();
     TestClusterGridCount();
     TestRenderPresetHybridDeferred();
+    TestRhiDeviceHeadlessConstruct();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

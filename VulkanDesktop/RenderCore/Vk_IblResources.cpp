@@ -44,12 +44,12 @@ EnvironmentManifest LoadManifest( const Util_EngineConfig& aConfig, const std::s
 }
 
 void RegisterTextureDeletion( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
-    const VkDevice      device     = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
+    const VkDevice      device     = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkImage       image      = aTexture.Image();
     const VmaAllocation allocation = aTexture.Allocation();
     const VkImageView   view       = aTexture.ImageView();
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, allocator, image, allocation, view ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, allocator, image, allocation, view ]() {
         if ( view != VK_NULL_HANDLE ) {
             vkDestroyImageView( device, view, nullptr );
         }
@@ -124,12 +124,12 @@ void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
 
     const EnvironmentManifest manifest = LoadManifest( aCore.EngineConfig(), aEnvironmentLogicalPath );
 
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.myResourceContext, kLinearCubemapFormat,
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.GetResourceContext(), kLinearCubemapFormat,
                                               aCore.myIblResourcesState.myIrradiance, 1 );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.myResourceContext, kLinearCubemapFormat,
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.GetResourceContext(), kLinearCubemapFormat,
                                               aCore.myIblResourcesState.myPrefilter, kPrefilterMipLevels );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.myResourceContext, kSkyCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
-    UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.myResourceContext, kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
+    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.GetResourceContext(), kSkyCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
+    UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.GetResourceContext(), kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
 
     aCore.myIblResourcesState.myPrefilterMaxMipLevel = static_cast< float >( kPrefilterMipLevels - 1u );
 
@@ -138,13 +138,13 @@ void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.mySky );
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myBrdfLut );
 
-    const VkDevice device                      = aCore.myDeviceCtx.myDevice;
+    const VkDevice device                      = aCore.myRhi.myDeviceCtx.myDevice;
     aCore.myIblResourcesState.myCubemapSampler = CreateCubemapSampler( device );
     aCore.myIblResourcesState.myBrdfLutSampler = CreateBrdfLutSampler( device );
 
     const VkSampler cubemapSampler = aCore.myIblResourcesState.myCubemapSampler;
     const VkSampler brdfSampler    = aCore.myIblResourcesState.myBrdfLutSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, cubemapSampler, brdfSampler ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, cubemapSampler, brdfSampler ]() {
         if ( cubemapSampler != VK_NULL_HANDLE ) {
             vkDestroySampler( device, cubemapSampler, nullptr );
         }

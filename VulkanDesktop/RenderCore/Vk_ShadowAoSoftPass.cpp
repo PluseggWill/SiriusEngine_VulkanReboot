@@ -59,8 +59,8 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 void DestroySoftTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
-    const VkDevice     device    = aCore.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myDeviceCtx.myAllocator;
+    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
         vkDestroyImageView( device, aTexture.ImageView(), nullptr );
         aTexture.ImageView() = VK_NULL_HANDLE;
@@ -96,11 +96,11 @@ void CreateFallbackImages( Vk_Renderer& aCore ) {
         Vk_AllocatedBuffer staging{};
         resource.CreateBuffer( aByteCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, staging, true );
         void* mapped = nullptr;
-        if ( vmaMapMemory( aCore.myDeviceCtx.myAllocator, staging.myAllocation, &mapped ) != VK_SUCCESS || mapped == nullptr ) {
+        if ( vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation, &mapped ) != VK_SUCCESS || mapped == nullptr ) {
             throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to map fallback staging buffer" );
         }
         std::memcpy( mapped, aBytes, aByteCount );
-        vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, staging.myAllocation );
+        vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation );
 
         resource.TransitionImageLayout( aOut.Image(), aFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
         resource.CopyBufferToImage( staging.myBuffer, aOut.Image(), 1, 1 );
@@ -174,7 +174,7 @@ void UpdatePackDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescri
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightingGlobalsInfo, 4, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &softOutInfo, 5, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
@@ -199,7 +199,7 @@ void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescri
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 2, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
@@ -221,7 +221,7 @@ VkPipeline CreateComputePipeline( Vk_Renderer& aCore, const std::string& aSpvPat
     pipelineLayoutInfo.pSetLayouts                = &aSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &aPushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &aOutLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &aOutLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create pipeline layout" );
     }
 
@@ -233,11 +233,11 @@ VkPipeline CreateComputePipeline( Vk_Renderer& aCore, const std::string& aSpvPat
     pipelineInfo.layout = aOutLayout;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
+    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
     return pipeline;
 }
 
@@ -257,7 +257,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     packLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     packLayoutInfo.bindingCount = static_cast< uint32_t >( packBindings.size() );
     packLayoutInfo.pBindings    = packBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &packLayoutInfo, nullptr, &state.myPackSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &packLayoutInfo, nullptr, &state.myPackSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create pack descriptor set layout" );
     }
 
@@ -271,7 +271,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
     blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create blur descriptor set layout" );
     }
 
@@ -301,7 +301,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     samplerInfo.anisotropyEnable        = VK_FALSE;
     samplerInfo.compareEnable           = VK_FALSE;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create G-buffer sampler" );
     }
 
@@ -315,11 +315,11 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 5;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create descriptor pool" );
     }
 
-    const VkDevice              device             = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device             = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipeline            packPipeline       = state.myPackPipeline;
     const VkPipeline            blurPipeline       = state.myBlurPipeline;
     const VkPipelineLayout      packPipelineLayout = state.myPackPipelineLayout;
@@ -328,7 +328,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     const VkDescriptorSetLayout blurSetLayout      = state.myBlurSetLayout;
     const VkDescriptorPool      descriptorPool     = state.myDescriptorPool;
     const VkSampler             gbufferSampler     = state.myGBufferSampler;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction(
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
         [ device, packPipeline, blurPipeline, packPipelineLayout, blurPipelineLayout, packSetLayout, blurSetLayout, descriptorPool, gbufferSampler ]() {
             if ( packPipeline != VK_NULL_HANDLE ) {
                 vkDestroyPipeline( device, packPipeline, nullptr );
@@ -368,15 +368,15 @@ void AllocateDescriptorSets( Vk_Renderer& aCore ) {
         allocInfo.descriptorSetCount = 1;
 
         allocInfo.pSetLayouts = &state.myPackSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myPackDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myPackDescriptorSets[ i ] ),
                                           "Vk_ShadowAoSoftPass: pack descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myPackNoAoDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myPackNoAoDescriptorSets[ i ] ),
                                           "Vk_ShadowAoSoftPass: pack (no SSAO) descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBlurSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ),
                                           "Vk_ShadowAoSoftPass: blur H descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ),
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ),
                                           "Vk_ShadowAoSoftPass: blur V descriptor set alloc" );
     }
     UpdateAllDescriptorSets( aCore );
@@ -433,8 +433,8 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroySoftImages( aCore );
     DestroyFallbackImages( aCore );
@@ -451,8 +451,8 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroySoftImages( aCore );
     CreateSoftImages( aCore );

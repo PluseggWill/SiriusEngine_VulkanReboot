@@ -50,6 +50,7 @@
 #include "Vk_PlatformContext.h"
 
 #include "Vk_ResourceContext.h"
+#include "Vk_RhiDevice.h"
 
 #include "Vk_SceneGpuContext.h"
 
@@ -231,7 +232,15 @@ public:
     void RecreateSurface();
 
     const Vk_ResourceContext& GetResourceContext() const {
-        return myResourceContext;
+        return myRhi.myResourceContext;
+    }
+
+    Vk_RhiDevice& Rhi() {
+        return myRhi;
+    }
+
+    const Vk_RhiDevice& Rhi() const {
+        return myRhi;
     }
 
     void PickPhysicalDevice();
@@ -266,7 +275,7 @@ public:
 
     Util_FrameStats myFrameStats;
 
-    Vk_DeviceContext myDeviceCtx;
+    Vk_RhiDevice myRhi;
 
     Vk_SwapchainContext mySwapchainCtx;
 
@@ -296,7 +305,6 @@ public:
     Vk_PlatformContext myPlatformCtx;
 
     // Session presentation (fly camera + env UBO); not moved into contexts yet.
-
     Vk_Camera myCamera;
 
     GpuEnvironmentData myEnvironmentData;
@@ -310,8 +318,6 @@ public:
     Vk_AllocatedBuffer myEnvDataBuffer;
 
     Vk_AllocatedBuffer myLightingGlobalsBuffer;
-
-    Vk_ResourceContext myResourceContext;
 
     bool myMaterialBindLoggedOnce = false;
 

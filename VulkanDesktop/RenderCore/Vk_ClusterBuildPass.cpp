@@ -35,7 +35,7 @@ void CmdPipelineBarrierBuffer( VkCommandBuffer aCommandBuffer, VkPipelineStageFl
 
 void DestroyClusterListBuffers( Vk_Renderer& aCore, bool aClearDescriptorSets ) {
     Vk_ClusterBuildState& state     = aCore.myClusterBuildState;
-    const VmaAllocator    allocator = aCore.myDeviceCtx.myAllocator;
+    const VmaAllocator    allocator = aCore.myRhi.myDeviceCtx.myAllocator;
 
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         if ( state.myClusterListBuffers[ i ].myBuffer != VK_NULL_HANDLE ) {
@@ -73,7 +73,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &listsInfo, 1, 1 ),
     };
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
 void AllocateClusterListBuffers( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
@@ -94,7 +94,7 @@ void AllocateClusterListBuffers( Vk_Renderer& aCore, bool aAllocateDescriptors )
             allocInfo.descriptorPool     = state.myDescriptorPool;
             allocInfo.descriptorSetCount = 1;
             allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
-            if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
+            if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
                 throw std::runtime_error( "Vk_ClusterBuildPass: failed to allocate descriptor set" );
             }
         }
@@ -119,7 +119,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ClusterBuildPass: failed to create descriptor set layout" );
     }
 
@@ -133,7 +133,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     pipelineLayoutInfo.pSetLayouts                = &state.myDescriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ClusterBuildPass: failed to create pipeline layout" );
     }
 
@@ -143,11 +143,12 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.stage  = stageInfo;
     pipelineInfo.layout = state.myPipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline ) != VK_SUCCESS ) {
+    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline )
+         != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ClusterBuildPass: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
 
     VkDescriptorPoolSize poolSize{};
     poolSize.type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -158,16 +159,16 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes    = &poolSize;
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ClusterBuildPass: failed to create descriptor pool" );
     }
 
-    const VkDevice              device          = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device          = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipeline            computePipeline = state.myComputePipeline;
     const VkPipelineLayout      pipelineLayout  = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout       = state.myDescriptorSetLayout;
     const VkDescriptorPool      descriptorPool  = state.myDescriptorPool;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool ]() {
         if ( computePipeline != VK_NULL_HANDLE ) {
             vkDestroyPipeline( device, computePipeline, nullptr );
         }
@@ -184,12 +185,12 @@ void CreatePipeline( Vk_Renderer& aCore ) {
 
     const VkDeviceSize lightsBytes = sizeof( Gfx_ClusterLighting::GpuClusterLight ) * Gfx_ClusterLighting::kMaxLights;
     aCore.CreateBuffer( lightsBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, state.myLightsBuffer, true );
-    vmaMapMemory( aCore.myDeviceCtx.myAllocator, state.myLightsBuffer.myAllocation, &state.myLightsMapped );
+    vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, state.myLightsBuffer.myAllocation, &state.myLightsMapped );
 
-    const VmaAllocator       allocator    = aCore.myDeviceCtx.myAllocator;
+    const VmaAllocator       allocator    = aCore.myRhi.myDeviceCtx.myAllocator;
     const Vk_AllocatedBuffer lightsBuffer = state.myLightsBuffer;
     void* const              lightsMapped = state.myLightsMapped;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, lightsBuffer, lightsMapped ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, lightsBuffer, lightsMapped ]() {
         if ( lightsMapped != nullptr ) {
             vmaUnmapMemory( allocator, lightsBuffer.myAllocation );
         }
@@ -207,8 +208,8 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myClusterBuildState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyClusterListBuffers( aCore, true );
     aCore.myClusterBuildState.myLightsMapped = nullptr;
@@ -220,8 +221,8 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( !aCore.myClusterBuildState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyClusterListBuffers( aCore, false );
     AllocateClusterListBuffers( aCore, false );

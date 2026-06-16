@@ -42,7 +42,7 @@ DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Renderer& aCore ) {
         throw std::runtime_error( "scene texture count " + std::to_string( textureCount ) + " exceeds policy max " + std::to_string( VkDescriptorPolicy::kMaxSceneTextures ) );
     }
 
-    const bool bindless = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless;
+    const bool bindless = aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless;
 
     const uint32_t frameSets    = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT ) * kGfxMaxRenderViews;
     const uint32_t objectSets   = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT );
@@ -74,17 +74,17 @@ DescriptorPoolPlan ComputeDescriptorPoolPlan( const Vk_Renderer& aCore ) {
 }  // namespace
 
 void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
-    if ( aCore.myDeviceCtx.myBindlessDefaultTexture.ImageView() != VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myBindlessDefaultTexture.ImageView() != VK_NULL_HANDLE ) {
         return;
     }
-    if ( !aCore.myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ) {
+    if ( !aCore.myRhi.myDeviceCtx.myBindlessCaps.myDescriptorIndexingExtension ) {
         return;
     }
 
     Vk_ResourceContext context{};
-    context.Bind( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myAllocator, aCore.myDeviceCtx.myPhysicalDevice, aCore.myDeviceCtx.myGraphicsQueue,
-                  aCore.myDeviceCtx.myTransferQueue, aCore.myDeviceCtx.myGraphicsCommandPool, aCore.myDeviceCtx.myTransferCommandPool,
-                  aCore.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), aCore.myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
+    context.Bind( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myAllocator, aCore.myRhi.myDeviceCtx.myPhysicalDevice, aCore.myRhi.myDeviceCtx.myGraphicsQueue,
+                  aCore.myRhi.myDeviceCtx.myTransferQueue, aCore.myRhi.myDeviceCtx.myGraphicsCommandPool, aCore.myRhi.myDeviceCtx.myTransferCommandPool,
+                  aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value_or( 0 ), aCore.myRhi.myDeviceCtx.myQueueFamilyIndices.myTransferFamily.value_or( 0 ) );
 
     static constexpr uint8_t      kWhiteRgba[ 4 ] = { 255, 255, 255, 255 };
     static constexpr uint32_t     kWidth          = 1;
@@ -95,12 +95,12 @@ void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
     context.CreateBuffer( kImageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, true );
 
     void* mapped = nullptr;
-    vmaMapMemory( aCore.myDeviceCtx.myAllocator, stagingBuffer.myAllocation, &mapped );
+    vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, stagingBuffer.myAllocation, &mapped );
     std::memcpy( mapped, kWhiteRgba, sizeof( kWhiteRgba ) );
-    vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, stagingBuffer.myAllocation );
+    vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, stagingBuffer.myAllocation );
 
     const VkExtent3D extent{ kWidth, kHeight, 1 };
-    Gfx_Texture&     texture = aCore.myDeviceCtx.myBindlessDefaultTexture;
+    Gfx_Texture&     texture = aCore.myRhi.myDeviceCtx.myBindlessDefaultTexture;
     context.CreateImage( extent, kBindlessDefaultTextureFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                          VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, texture.AllocImage() );
     context.TransitionImageLayout( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
@@ -108,14 +108,14 @@ void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
     context.TransitionImageLayout( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
     texture.ImageView() = context.CreateImageView( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
 
-    vmaDestroyBuffer( aCore.myDeviceCtx.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
+    vmaDestroyBuffer( aCore.myRhi.myDeviceCtx.myAllocator, stagingBuffer.myBuffer, stagingBuffer.myAllocation );
 
-    const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
-    const VkDevice      device     = aCore.myDeviceCtx.myDevice;
+    const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
+    const VkDevice      device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VkImage       image      = texture.Image();
     const VmaAllocation allocation = texture.Allocation();
     const VkImageView   imageView  = texture.ImageView();
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, device, image, allocation, imageView ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, device, image, allocation, imageView ]() {
         vkDestroyImageView( device, imageView, nullptr );
         vmaDestroyImage( allocator, image, allocation );
     } );
@@ -126,7 +126,7 @@ void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
 void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Renderer& aCore ) {
     EnsureBindlessDefaultTexture( aCore );
     CreateDescriptorSetLayout( aCore );
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
         CreateBindlessMaterialSetLayout( aCore );
         CreateBindlessPipelineLayout( aCore );
         // S2 2d: SPIR-V/contract already checked at build; catch hand-written layout drift at runtime on bindless GPUs.
@@ -136,9 +136,10 @@ void Vk_DescriptorSystem::InitDeviceLayouts( Vk_Renderer& aCore ) {
 }
 
 void Vk_DescriptorSystem::LogLayoutContract( const Vk_Renderer& aCore ) {
-    const char* materialPath = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "bindless" : "batch";
-    const char* set1Summary  = aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
-                                                                                                   : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
+    const char* materialPath = aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? "bindless" : "batch";
+    const char* set1Summary  = aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless
+                                   ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
+                                   : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
     UtilLogger::Info( "DESCRIPTOR", std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
                                         + "set0=camera+env+lighting+IBL+shadow (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) " + set1Summary
                                         + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
@@ -149,7 +150,7 @@ void Vk_DescriptorSystem::InitSceneDescriptors( Vk_Renderer& aCore ) {
     CreateDescriptorPool( aCore );
     CreateDescriptorSets( aCore );
 
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Batch ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Batch ) {
         CreateMaterialDescriptorSets( aCore );
     }
     else {
@@ -165,7 +166,7 @@ void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Renderer& aCore ) {
     aCore.mySceneGpuCtx.myObjectSetLayout      = layouts.myObjectSetLayout;
 
     if ( aCore.EngineConfig().GetDescriptorLayoutMismatchTest() ) {
-        VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( aCore.myDeviceCtx, aCore.mySceneGpuCtx, aCore );
+        VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( aCore.myRhi.myDeviceCtx, aCore.mySceneGpuCtx, aCore );
     }
 }
 
@@ -192,13 +193,13 @@ void Vk_DescriptorSystem::CreateBindlessMaterialSetLayout( Vk_Renderer& aCore ) 
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
     layoutInfo.pNext        = &bindingFlagsInfo;
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &aCore.mySceneGpuCtx.myBindlessMaterialSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &aCore.mySceneGpuCtx.myBindlessMaterialSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create bindless material descriptor set layout!" );
     }
 
-    const VkDevice              device         = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device         = aCore.myRhi.myDeviceCtx.myDevice;
     const VkDescriptorSetLayout bindlessLayout = aCore.mySceneGpuCtx.myBindlessMaterialSetLayout;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessLayout ]() { vkDestroyDescriptorSetLayout( device, bindlessLayout, nullptr ); } );
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessLayout ]() { vkDestroyDescriptorSetLayout( device, bindlessLayout, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Renderer& aCore ) {
@@ -207,20 +208,20 @@ void Vk_DescriptorSystem::CreateBindlessPipelineLayout( Vk_Renderer& aCore ) {
     VkPipelineLayoutCreateInfo                   layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     layoutInfo.setLayoutCount                               = static_cast< uint32_t >( setLayouts.size() );
     layoutInfo.pSetLayouts                                  = setLayouts.data();
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &aCore.mySceneGpuCtx.myBindlessPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &aCore.mySceneGpuCtx.myBindlessPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create bindless pipeline layout!" );
     }
 
-    const VkDevice         device                 = aCore.myDeviceCtx.myDevice;
+    const VkDevice         device                 = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipelineLayout bindlessPipelineLayout = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessPipelineLayout ]() { vkDestroyPipelineLayout( device, bindlessPipelineLayout, nullptr ); } );
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, bindlessPipelineLayout ]() { vkDestroyPipelineLayout( device, bindlessPipelineLayout, nullptr ); } );
 }
 
 void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore ) {
     const size_t textureCount  = aCore.mySceneGpuCtx.myResourceTables.GetTextureCount();
     const size_t materialCount = aCore.mySceneGpuCtx.myResourceTables.GetMaterialCount();
 
-    const VkImageView paddingView = aCore.myDeviceCtx.myBindlessDefaultTexture.ImageView();
+    const VkImageView paddingView = aCore.myRhi.myDeviceCtx.myBindlessDefaultTexture.ImageView();
     if ( paddingView == VK_NULL_HANDLE ) {
         throw std::runtime_error( "CreateBindlessDescriptorResources: engine 1x1 default texture missing (call EnsureBindlessDefaultTexture at device init)" );
     }
@@ -261,11 +262,11 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
     const VkDeviceSize tableSize = sizeof( GpuMaterialTableEntry ) * materialCount;
     aCore.CreateBuffer( tableSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, aCore.mySceneGpuCtx.myMaterialTableBuffer, true );
     void* mapped = nullptr;
-    vmaMapMemory( aCore.myDeviceCtx.myAllocator, aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation, &mapped );
+    vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation, &mapped );
     memcpy( mapped, tableEntries.data(), static_cast< size_t >( tableSize ) );
-    vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation );
+    vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation );
 
-    const VmaAllocator  allocator       = aCore.myDeviceCtx.myAllocator;
+    const VmaAllocator  allocator       = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkBuffer      tableBuffer     = aCore.mySceneGpuCtx.myMaterialTableBuffer.myBuffer;
     const VmaAllocation tableAllocation = aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation;
     aCore.GetSceneDeletionQueue().pushFunction( [ allocator, tableBuffer, tableAllocation ]() { vmaDestroyBuffer( allocator, tableBuffer, tableAllocation ); } );
@@ -275,7 +276,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
     allocInfo.descriptorPool     = aCore.mySceneGpuCtx.myDescriptorPool;
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts        = &aCore.mySceneGpuCtx.myBindlessMaterialSetLayout;
-    if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &aCore.mySceneGpuCtx.myBindlessDescriptorSet ) != VK_SUCCESS ) {
+    if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &aCore.mySceneGpuCtx.myBindlessDescriptorSet ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to allocate bindless descriptor set!" );
     }
 
@@ -289,7 +290,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
                                                         eVk_BindlessTextureArrayBinding, static_cast< uint32_t >( VkDescriptorPolicy::kMaxBindlessTextures ) );
     writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.mySceneGpuCtx.myBindlessDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &tableBufferInfo,
                                                         eVk_BindlessMaterialTableBinding, 1 );
-    vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 
     UtilLogger::Info( "BINDLESS", "bindless set ready: textures=" + std::to_string( textureCount ) + " materials=" + std::to_string( materialCount )
                                       + " tableGeneration=" + std::to_string( aCore.mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() ) );
@@ -303,7 +304,7 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Renderer& aCore ) {
     poolInfo.poolSizeCount = static_cast< uint32_t >( plan.myPoolSizes.size() );
     poolInfo.pPoolSizes    = plan.myPoolSizes.data();
     poolInfo.maxSets       = plan.myMaxSets;
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &aCore.mySceneGpuCtx.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &aCore.mySceneGpuCtx.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create descriptor pool!" );
     }
 
@@ -313,7 +314,7 @@ void Vk_DescriptorSystem::CreateDescriptorPool( Vk_Renderer& aCore ) {
                                         + std::to_string( plan.myPoolSizes[ 0 ].descriptorCount ) + " dynamicUBO=" + std::to_string( plan.myPoolSizes[ 1 ].descriptorCount )
                                         + " samplers=" + std::to_string( plan.myPoolSizes[ 2 ].descriptorCount ) );
 
-    const VkDevice         device = aCore.myDeviceCtx.myDevice;
+    const VkDevice         device = aCore.myRhi.myDeviceCtx.myDevice;
     const VkDescriptorPool pool   = aCore.mySceneGpuCtx.myDescriptorPool;
     aCore.GetSceneDeletionQueue().pushFunction( [ device, pool ]() { vkDestroyDescriptorPool( device, pool, nullptr ); } );
 }
@@ -328,7 +329,7 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Renderer& aCore ) {
     samplerInfo.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.anisotropyEnable = VK_TRUE;
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties( aCore.myDeviceCtx.myPhysicalDevice, &properties );
+    vkGetPhysicalDeviceProperties( aCore.myRhi.myDeviceCtx.myPhysicalDevice, &properties );
     samplerInfo.maxAnisotropy           = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
@@ -336,11 +337,11 @@ void Vk_DescriptorSystem::CreateTextureSampler( Vk_Renderer& aCore ) {
     samplerInfo.compareOp               = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.maxLod                  = static_cast< float >( aCore.mySceneGpuCtx.myTextureImageMipLevels );
-    if ( vkCreateSampler( aCore.myDeviceCtx.myDevice, &samplerInfo, nullptr, &aCore.mySceneGpuCtx.myTextureSampler ) != VK_SUCCESS ) {
+    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &aCore.mySceneGpuCtx.myTextureSampler ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to create texture sampler!" );
     }
 
-    const VkDevice  device  = aCore.myDeviceCtx.myDevice;
+    const VkDevice  device  = aCore.myRhi.myDeviceCtx.myDevice;
     const VkSampler sampler = aCore.mySceneGpuCtx.myTextureSampler;
     aCore.GetSceneDeletionQueue().pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
 }
@@ -392,7 +393,8 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
             allocInfo.descriptorPool     = aCore.mySceneGpuCtx.myDescriptorPool;
             allocInfo.descriptorSetCount = 1;
             allocInfo.pSetLayouts        = &aCore.mySceneGpuCtx.myGlobalSetLayout;
-            if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ] ) != VK_SUCCESS ) {
+            if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ] )
+                 != VK_SUCCESS ) {
                 throw std::runtime_error( "failed to allocate descriptor sets!" );
             }
 
@@ -412,7 +414,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &brdfLutInfo, eVk_BrdfLutBinding, 1 ),
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, eVk_SkyMapBinding, 1 ),
             };
-            vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
+            vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
         }
 
         VkDescriptorSetAllocateInfo objectAllocInfo{};
@@ -420,7 +422,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         objectAllocInfo.descriptorPool     = aCore.mySceneGpuCtx.myDescriptorPool;
         objectAllocInfo.descriptorSetCount = 1;
         objectAllocInfo.pSetLayouts        = &aCore.mySceneGpuCtx.myObjectSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &objectAllocInfo, &aCore.myFrameCtx.myFrameDatas[ i ].myObjectDescriptor ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &objectAllocInfo, &aCore.myFrameCtx.myFrameDatas[ i ].myObjectDescriptor ) != VK_SUCCESS ) {
             throw std::runtime_error( "failed to allocate object descriptor sets!" );
         }
 
@@ -430,7 +432,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         objectBufferInfo.range           = sizeof( GpuObjectData );
         VkWriteDescriptorSet objectWrite = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameCtx.myFrameDatas[ i ].myObjectDescriptor,
                                                                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &objectBufferInfo, eVk_ObjectModelBinding, 1 );
-        vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, 1, &objectWrite, 0, nullptr );
+        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &objectWrite, 0, nullptr );
     }
 }
 
@@ -445,7 +447,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
     allocInfo.descriptorPool     = aCore.mySceneGpuCtx.myDescriptorPool;
     allocInfo.descriptorSetCount = static_cast< uint32_t >( materialCount );
     allocInfo.pSetLayouts        = layouts.data();
-    if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, aCore.mySceneGpuCtx.myMaterialDescriptorSets.data() ) != VK_SUCCESS ) {
+    if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, aCore.mySceneGpuCtx.myMaterialDescriptorSets.data() ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to allocate material descriptor sets!" );
     }
 
@@ -458,11 +460,11 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
 
         const GpuMaterialParams params = Gfx_MaterialToGpuParams( material );
         void*                   mapped = nullptr;
-        vmaMapMemory( aCore.myDeviceCtx.myAllocator, paramBuffer.myAllocation, &mapped );
+        vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, paramBuffer.myAllocation, &mapped );
         memcpy( mapped, &params, sizeof( params ) );
-        vmaUnmapMemory( aCore.myDeviceCtx.myAllocator, paramBuffer.myAllocation );
+        vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, paramBuffer.myAllocation );
 
-        const VmaAllocator  allocator  = aCore.myDeviceCtx.myAllocator;
+        const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
         const VkBuffer      buffer     = paramBuffer.myBuffer;
         const VmaAllocation allocation = paramBuffer.myAllocation;
         aCore.GetSceneDeletionQueue().pushFunction( [ allocator, buffer, allocation ]() { vmaDestroyBuffer( allocator, buffer, allocation ); } );
@@ -480,7 +482,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
                                                             eVk_MaterialTextureBinding, 1 );
         writes[ 1 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.mySceneGpuCtx.myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &paramInfo,
                                                             eVk_MaterialAlphaBinding, 1 );
-        vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
     UtilLogger::Info( "DESCRIPTOR", "Material sets allocated: " + std::to_string( materialCount ) );
