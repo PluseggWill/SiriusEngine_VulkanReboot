@@ -1,14 +1,17 @@
 // Pre-record ImGui panels (phase 2 peel). All debug UI orchestration lives here (App thread).
 #include "DebugOverlay.h"
 
+#include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
+#include "../Gfx/Gfx_PostSettings.h"
 #include "../Gfx/Gfx_SceneDesc.h"
-#include "../RenderCore/Vk_Core.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
+#include "../RenderCore/Vk_Renderer.h"
 #include "../RenderCore/Vk_Types.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_FrameStats.h"
 #include "../Util/Util_LightingPanel.h"
+#include "../Util/Util_PostProcessPanel.h"
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
@@ -75,7 +78,8 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
 }
 
 void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, GpuEnvironmentData& anEnvironment,
-                             const Vk_FrameCpuPrepResult& aPrep ) {
+                             Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings, Gfx_PostSettings& aPostSettings, const Vk_FrameCpuPrepResult& aPrep,
+                             const Vk_Camera& aFlyCamera ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
@@ -92,12 +96,17 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
             }
             if ( ImGui::BeginTabItem( "Render" ) ) {
                 UtilRenderDebugPanel::BuildContents( aConfig, aDebugUI.myRenderDebug, anEnvironment, aPrep.myTotalOpaqueDraws, aPrep.myTotalTransparentDraws );
+                aAoSettings.myHiZDebugMip = aDebugUI.myRenderDebug.myHiZDebugMip;
                 ImGui::Separator();
-                UtilLightingPanel::BuildContents( anEnvironment );
+                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings );
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "Post" ) ) {
+                UtilPostProcessPanel::BuildContents( aConfig, aPostSettings );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {
-                UtilCameraPanel::BuildContents( aDebugUI.myCameraSettings );
+                UtilCameraPanel::BuildContents( aDebugUI.myCameraSettings, aFlyCamera );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Views" ) ) {
@@ -112,9 +121,11 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
 
 }  // namespace
 
-void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Core& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
+void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aPrep );
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetAoSettings(), aCore.GetPostSettings(), aPrep,
+                            aCore.GetFlyCamera() );
+    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetFlyCamera() );
 }

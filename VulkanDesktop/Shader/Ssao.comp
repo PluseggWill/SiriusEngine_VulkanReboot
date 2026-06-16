@@ -1,0 +1,84 @@
+#version 450
+
+// Classic view-space SSAO (16 hemisphere taps). Output is linear AO; contrast applied in deferred.
+#include "AoCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    vec4 params; // x=radius, y=bias, z=unused, w=enabled (0/1)
+    vec2 screenSize;
+    vec2 pad;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
+layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 3, r8) uniform writeonly image2D aoOut;
+
+const int kSampleCount = 16;
+const vec3 kKernel[kSampleCount] = vec3[](
+    vec3(0.04977, -0.04471, 0.04996), vec3(0.01457, 0.01653, 0.00224), vec3(-0.04065, -0.01937, 0.03193),
+    vec3(0.01378, -0.09158, 0.04092), vec3(0.05599, 0.05978, 0.05766), vec3(0.09227, 0.04428, 0.01545),
+    vec3(-0.00204, -0.00433, 0.00217), vec3(-0.00033, -0.00052, 0.00059), vec3(0.05059, -0.04660, 0.02538),
+    vec3(0.03813, 0.03140, 0.03287), vec3(-0.03188, 0.02051, 0.02251), vec3(0.05591, -0.03695, 0.05449),
+    vec3(0.05701, -0.02597, 0.05454), vec3(-0.06053, 0.03297, 0.04610), vec3(-0.03685, 0.00868, 0.03598),
+    vec3(-0.02153, -0.03264, 0.01923));
+
+void main() {
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const uvec2 size = textureSize(gbufferDepth, 0);
+    if (uint(pix.x) >= size.x || uint(pix.y) >= size.y) {
+        return;
+    }
+
+    if (pc.params.w < 0.5) {
+        imageStore(aoOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(size);
+    const float depth = texture(gbufferDepth, uv).r;
+    if (depth >= 0.999) {
+        imageStore(aoOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
+    const vec3 Nworld = normalize(texture(gbufferNormalRoughness, uv).xyz);
+    const vec3 fragPos = (pc.view * vec4(worldPos, 1.0)).xyz;
+    const vec3 Nview = normalize(mat3(pc.view) * Nworld);
+
+    // Scale world radius by view depth so close surfaces do not over-sample in screen space.
+    const float viewZ = max(abs(fragPos.z), 0.05);
+    const float depthScale = clamp(viewZ * 0.35, 0.35, 2.5);
+    const float sampleRadius = pc.params.x * depthScale;
+
+    vec3 tangent = normalize(vec3(-Nview.y, Nview.x, 0.0));
+    if (length(tangent) < 0.001) {
+        tangent = vec3(1.0, 0.0, 0.0);
+    }
+    const vec3 bitangent = cross(Nview, tangent);
+    const mat3 TBN = mat3(tangent, bitangent, Nview);
+
+    float occlusion = 0.0;
+    for (int i = 0; i < kSampleCount; ++i) {
+        const vec3 samplePosView = fragPos + (TBN * kKernel[i]) * sampleRadius;
+        const vec4 offset = pc.proj * vec4(samplePosView, 1.0);
+        const vec3 offsetNDC = offset.xyz / offset.w;
+        const vec2 sampleUV = offsetNDC.xy * 0.5 + 0.5;
+
+        const float sampleDepth = texture(gbufferDepth, sampleUV).r;
+        const vec3 sampleWorld = texture(gbufferWorldPosition, sampleUV).rgb;
+        const float sampleViewZ = (pc.view * vec4(sampleWorld, 1.0)).z;
+        const float rangeCheck = smoothstep(0.0, 1.0, sampleRadius / max(abs(fragPos.z - sampleViewZ), 1e-4));
+        occlusion += (sampleViewZ >= samplePosView.z + pc.params.y ? 1.0 : 0.0) * rangeCheck;
+    }
+    occlusion = 1.0 - (occlusion / float(kSampleCount));
+    // Contrast curve applied once in deferred (legacyAndDebug.w); keep linear here for stable blur.
+
+    imageStore(aoOut, pix, vec4(clamp(occlusion, 0.0, 1.0)));
+}

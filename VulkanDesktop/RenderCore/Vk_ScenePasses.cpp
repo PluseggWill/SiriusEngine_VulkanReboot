@@ -1,22 +1,30 @@
 #include "Vk_ScenePasses.h"
 
-#include "../App/DebugUIState.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include "Vk_Bindless.h"
 
 #include "Vk_ClusterBuildPass.h"
-#include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
+#include "Vk_FrameUniformUploader.h"
 #include "Vk_GBufferPass.h"
+#include "Vk_Renderer.h"
+#include "Vk_RendererContexts.h"
+
+#include "Vk_PostProcessPass.h"
+
+#include "Vk_ShadowMapPass.h"
 
 #include "Vk_DescriptorPolicy.h"
 
 #include "../Gfx/Gfx_RenderPacket.h"
 
-#include "Vk_RenderBackend.h"
+#include "../Gfx/Gfx_FramePacketValidation.h"
 
 #include <array>
 #include <cstdio>
@@ -39,7 +47,7 @@ uint32_t ComputeIndirectDrawSlot( bool aUseGpuCullIndirect, uint32_t aViewBaseIn
 }
 
 // Per-draw RenderDoc tag: fixed stack buffer (no heap); skipped when debug_utils labels unavailable.
-void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
+void BeginDrawDebugLabel( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const char* aPassName, uint32_t aDrawLabelIndex, const Gfx_DrawInstance& aDraw ) {
     char label[ kDrawDebugLabelCapacity ];
     std::snprintf( label, sizeof( label ), "Pass=%s Draw=%u Mesh=%u Material=%u Entity=%u", aPassName, aDrawLabelIndex, aDraw.myMeshId, aDraw.myMaterialId,
                    aDraw.myEntityIndex );
@@ -47,7 +55,7 @@ void BeginDrawDebugLabel( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const 
 }
 
 // Per draw: bind VB/IB + Set 2 dynamic offset; issue vkCmdDrawIndexedIndirect (or legacy direct draw).
-void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aLayout, VkDescriptorSet aObjectDescriptor,
+void RecordSingleIndexedDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aLayout, VkDescriptorSet aObjectDescriptor,
 
                               const Gfx_DrawInstance& aDraw, const Gfx_Mesh& aMesh, const char* aPassName, uint32_t aDrawLabelIndex,
 
@@ -86,7 +94,7 @@ void RecordSingleIndexedDraw( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, Vk
     }
 }
 
-void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
+void RecordPassDrawsBatchFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
                                      uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
 
@@ -140,7 +148,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuf
 
 // Set 1 bound once per view in RecordScene; one graphics pipeline per pass (opaque vs transparent).
 
-void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
+void RecordPassDrawsBindlessFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, VkPipeline aPipeline, const char* aPassName,
 
                                         uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw,
 
@@ -170,7 +178,7 @@ void RecordPassDrawsBindlessFromPacket( Vk_Core& aCore, VkCommandBuffer aCommand
 
 // M8 (#15): single dispatch keyed by material path; no third record fork.
 
-void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
+void RecordPassDrawsFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, const char* aPassName,
 
                                 Vk_RenderMaterialPath aMaterialPath, VkPipeline aBindlessPipeline, uint32_t aDrawBufferBaseIndex, VkBuffer aIndirectBuffer,
 
@@ -204,7 +212,7 @@ void RecordPassDrawsFromPacket( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, 
 
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
 
-void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordScene( Vk_RendererContexts& aContexts, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -213,6 +221,7 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
                                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
 
                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
+    Vk_Renderer& aCore = aContexts.myRenderer;
 
     if ( Vk_GBufferPass::IsActive( aCore ) ) {
         if ( !aCore.myGBufferState.myInitialized ) {
@@ -220,14 +229,14 @@ void Vk_ScenePasses::RecordScene( Vk_Core& aCore, const DebugUIState& aDebugUI, 
             Vk_ClusterBuildPass::Init( aCore );
             Vk_DeferredLightingPass::Init( aCore );
         }
-        Vk_GBufferPass::RecordFrame( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+        Vk_GBufferPass::RecordFrame( aCore, aToggles, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
         return;
     }
 
-    RecordForwardLit( aCore, aDebugUI, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
+    RecordForwardLit( aCore, aToggles, aCommandBuffer, anImageIndex, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
 }
 
-void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordForwardLit( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                        const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -259,6 +268,28 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
 
     renderPassInfo.pClearValues = clearValues.data();
 
+    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
+
+    constexpr uint32_t           shadowViewIndex = 0;
+    const Gfx_FrameRenderPacket* shadowPacket    = shadowViewIndex < aViewCount ? &aViewPackets[ shadowViewIndex ] : nullptr;
+    const glm::vec3              sunDir          = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    const bool                   recordShadowPass =
+        aCore.myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir );
+    if ( recordShadowPass ) {
+        if ( shadowPacket != nullptr && !shadowPacket->myShadowCasterPass.myDraws.empty() ) {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, shadowPacket->myShadowCasterPass, emitDebugLabels );
+        }
+        else {
+            Vk_ShadowMapPass::RecordDraw( aCore, aCommandBuffer, Gfx_PassDrawPacket{}, emitDebugLabels );
+        }
+        Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
+    }
+    else {
+        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
+    }
+
     vkCmdBeginRenderPass( aCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE );
 
     static bool sPacketPathLoggedOnce = false;
@@ -269,13 +300,9 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
 
     static bool sGpuIndirectPathLoggedOnce = false;
 
-    const Vk_RenderMaterialPath materialPath = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath materialPath = aCore.myRhi.myDeviceCtx.myMaterialPath;
 
     const bool bindless = materialPath == Vk_RenderMaterialPath::Bindless;
-
-    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     const VkPipelineLayout frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
 
@@ -292,7 +319,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
 
                                  nullptr );
 
-        if ( !Vk_RenderBackend::ValidateFramePacket( packet ) ) {
+        if ( !Gfx_FramePacketValidation::ValidateFramePacket( packet ) ) {
 
             if ( !sPacketSkipLoggedOnce ) {
 
@@ -313,7 +340,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
             aCore.myFrameStats.myMaterialSetBinds++;
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( !aToggles.mySkipOpaquePass ) {
 
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Opaque" );
@@ -328,7 +355,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
             }
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
+        if ( !aToggles.mySkipTransparentPass ) {
 
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=Transparent" );
@@ -369,11 +396,11 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Core& aCore, const DebugUIState& aDebu
     vkCmdEndRenderPass( aCommandBuffer );
 }
 
-void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                               VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels,
                                               VkPipeline aGBufferPipeline ) {
 
-    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
+    const Vk_RenderMaterialPath path = aCore.myRhi.myDeviceCtx.myMaterialPath;
     if ( path == Vk_RenderMaterialPath::Bindless ) {
         RecordPassDrawsFromPacket( aCore, aCommandBuffer, aPass, "GBufferOpaque", path, aGBufferPipeline, aDrawBufferBaseIndex, aIndirectBuffer, aUseGpuCullIndirect,
                                    aUseLegacyDirectDraw, aEmitDebugLabels, VK_NULL_HANDLE );
@@ -384,13 +411,12 @@ void Vk_ScenePasses::RecordOpaquePacketDraws( Vk_Core& aCore, VkCommandBuffer aC
     }
 }
 
-void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
+void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, uint32_t aDrawBufferBaseIndex,
                                                    VkBuffer aIndirectBuffer, bool aUseGpuCullIndirect, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
-    const Vk_RenderMaterialPath path = aCore.myDeviceCtx.myMaterialPath;
-    // HybridDeferred transparent pass runs inside myHybridResolveRenderPass (depth LOAD from G-buffer copy).
-    const bool hybridResolve =
-        Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && aCore.mySwapchainCtx.myHybridResolveRenderPass != VK_NULL_HANDLE;
+    const Vk_RenderMaterialPath path = aCore.myRhi.myDeviceCtx.myMaterialPath;
+    // HybridDeferred transparent pass runs inside PostProcess hybrid RP (depth LOAD from G-buffer copy).
+    const bool       hybridResolve    = Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && Vk_PostProcessPass::HasHybridResolve( aCore );
     const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
                                                                                                   : aCore.mySceneGpuCtx.myTransparentPipelineBindless )
                                                                                 : VK_NULL_HANDLE;
@@ -400,7 +426,7 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Core& aCore, VkCommandBuff
                                aUseLegacyDirectDraw, aEmitDebugLabels, batchPipelineOverride );
 }
 
-void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer,
+void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer,
                                            const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                                            const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                            const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
@@ -411,9 +437,9 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
 
     static bool sHybridPiPLoggedOnce = false;
 
-    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
-    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+    const Vk_RenderMaterialPath materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
+    const bool                  bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
+    const VkPipelineLayout      frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
     const bool                  legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
     const bool                  gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
     const bool                  emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
@@ -421,10 +447,10 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
     Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
     const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
 
-    const VkPipeline opaqueBindlessPipeline = aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve;
-    const VkPipeline opaqueBatchPipeline      = aCore.mySceneGpuCtx.myBasicPipelineHybridResolve;
+    const VkPipeline opaqueBindlessPipeline      = aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve;
+    const VkPipeline opaqueBatchPipeline         = aCore.mySceneGpuCtx.myBasicPipelineHybridResolve;
     const VkPipeline transparentBindlessPipeline = aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve;
-    const VkPipeline transparentBatchPipeline      = aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve;
+    const VkPipeline transparentBatchPipeline    = aCore.mySceneGpuCtx.myTransparentPipelineHybridResolve;
 
     if ( ( bindless && opaqueBindlessPipeline == VK_NULL_HANDLE ) || ( !bindless && opaqueBatchPipeline == VK_NULL_HANDLE ) ) {
         static bool sHybridPiPWarnOnce = false;
@@ -437,14 +463,14 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
 
     for ( uint32_t viewIndex = 1; viewIndex < aViewCount; ++viewIndex ) {
         const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
-        if ( !Vk_RenderBackend::ValidateFramePacket( packet ) ) {
+        if ( !Gfx_FramePacketValidation::ValidateFramePacket( packet ) ) {
             continue;
         }
 
         std::array< VkClearAttachment, 2 > clearAttachments{};
-        clearAttachments[ 0 ].aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT;
-        clearAttachments[ 0 ].colorAttachment = 0;
-        clearAttachments[ 0 ].clearValue.color = { { 0.05f, 0.05f, 0.08f, 1.0f } };
+        clearAttachments[ 0 ].aspectMask              = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearAttachments[ 0 ].colorAttachment         = 0;
+        clearAttachments[ 0 ].clearValue.color        = { { 0.05f, 0.05f, 0.08f, 1.0f } };
         clearAttachments[ 1 ].aspectMask              = VK_IMAGE_ASPECT_DEPTH_BIT;
         clearAttachments[ 1 ].clearValue.depthStencil = { 1.0f, 0 };
 
@@ -463,7 +489,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
             aCore.myFrameStats.myMaterialSetBinds++;
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
+        if ( !aToggles.mySkipOpaquePass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Opaque" );
             }
@@ -474,7 +500,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
             }
         }
 
-        if ( !aDebugUI.myRenderDebug.mySkipTransparentPass ) {
+        if ( !aToggles.mySkipTransparentPass ) {
             if ( emitDebugLabels ) {
                 aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=HybridPiP-Transparent" );
             }
@@ -492,7 +518,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Core& aCore, const DebugUIState& a
     }
 }
 
-void Vk_ScenePasses::RecordImGui( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-
+void Vk_ScenePasses::RecordImGui( Vk_RendererContexts& aContexts, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
+    Vk_Renderer& aCore = aContexts.myRenderer;
     aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );
 }

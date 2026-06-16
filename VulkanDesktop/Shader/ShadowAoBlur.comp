@@ -1,0 +1,51 @@
+#version 450
+
+// Depth-aware separable blur on packed AO (R) + shadow (G). Edge weights reduce blocky bleeding.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 axis;       // (1,0) horizontal or (0,1) vertical
+    float radius;     // texel stride (1–4)
+    float depthSigma; // NDC depth edge rejection (typical 0.015–0.04)
+} pc;
+
+layout(set = 0, binding = 0, rg8) uniform readonly image2D srcSoft;
+layout(set = 0, binding = 1, rg8) uniform writeonly image2D dstSoft;
+layout(set = 0, binding = 2) uniform sampler2D gbufferDepth;
+
+void main() {
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(srcSoft);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(size);
+    const float centerDepth = texture(gbufferDepth, uv).r;
+    const vec2 center = imageLoad(srcSoft, pix).rg;
+
+    const ivec2 dir = ivec2(pc.axis);
+    const int stride = max(1, int(pc.radius + 0.5));
+    const ivec2 o1 = dir * stride;
+    const ivec2 o2 = dir * stride * 2;
+    const float sigma = max(pc.depthSigma, 1e-4);
+
+    vec2 sum = vec2(0.0);
+    float weightSum = 0.0;
+
+    const ivec2 offsets[5] = ivec2[](-o2, -o1, ivec2(0), o1, o2);
+    const float kernel[5] = float[](1.0, 2.0, 3.0, 2.0, 1.0);
+
+    for (int i = 0; i < 5; ++i) {
+        const ivec2 samplePix = clamp(pix + offsets[i], ivec2(0), size - ivec2(1));
+        const vec2 sampleUv = (vec2(samplePix) + 0.5) / vec2(size);
+        const float sampleDepth = texture(gbufferDepth, sampleUv).r;
+        const float depthWeight = exp(-abs(sampleDepth - centerDepth) / sigma);
+        const float w = kernel[i] * depthWeight;
+        sum += imageLoad(srcSoft, samplePix).rg * w;
+        weightSum += w;
+    }
+
+    const vec2 blurred = sum / max(weightSum, 1e-4);
+    imageStore(dstSoft, pix, vec4(mix(center, blurred, step(0.001, weightSum)), 0.0, 0.0));
+}

@@ -14,6 +14,7 @@ Paths relative to **workspace root**.
 |-------|----------------|
 | **Doc map, plan types, sync** | `.cursor/rules/docs-roadmap-arch-sync.mdc` |
 | **Build / smoke** | `.cursor/rules/vulkan-smoke-test.mdc`, `Docs/CLI.md` |
+| **RenderCore passes** | `.cursor/rules/vulkan-render-pass-pitfalls.mdc` |
 | **Code-only (no Plan)** | `.cursor/rules/vulkan-desktop-quick.mdc` |
 | **Commits** | `.cursor/rules/git-commit-format.mdc` (user must confirm) |
 
@@ -39,7 +40,7 @@ Paths relative to **workspace root**.
 
 - Execute plan; **deviation** → block in Progress; minor = update Plan; major = ask user.
 - **Progress:** ≤3 plan steps → **Closeout only**; larger → checkpoints per step (templates below).
-- **Before close (local G0):** from repo root, `powershell -File Scripts/Verify-CI.ps1` (MSBuild Debug\|x64, shader drift, GfxTests). **G0-smoke** when GPU/runtime changed: `powershell -File Scripts/Verify-Smoke.ps1` after CI build. Manual smoke still OK; agents/CI use scripts — see `vulkan-smoke-test.mdc`, `Docs/CLI.md`. N/A → document in Closeout.
+- **Before close (local G0):** from repo root, `powershell -File Scripts/Verify-CI.ps1` (MSBuild Debug\|x64, shader drift, GfxTests). **G0-smoke** when GPU/runtime changed: `powershell -File Scripts/Verify-Smoke.ps1` after CI build (note: script uses `--no-validation`). **G0-validation** when RenderCore passes / descriptors / barriers / post-process changed: manual `--validation --smoke-frames 120 --smoke-seconds 6` on stress config — see `vulkan-smoke-test.mdc`. Manual smoke still OK; agents/CI use scripts — see `Docs/CLI.md`. N/A → document in Closeout.
 
 ## Task close
 
@@ -60,7 +61,7 @@ Paths relative to **workspace root**.
 ## YYYY-MM-DD — [step]
 
 - **Files:** …
-- **Verification:** build exit; smoke exit; log line (or N/A)
+- **Verification:** build exit; smoke exit; validation smoke exit (or N/A); log line
 ```
 
 **Closeout**:
@@ -77,7 +78,7 @@ Paths relative to **workspace root**.
 
 ## Render pitfalls
 
-Per `.cursor/rules/vulkan-descriptor-per-draw.mdc` (EngineArchitecture **§6**). Desktop path change → `Archived-Plan.md` § S1 notes. Policy narrative → Architecture + sync rule.
+Per `.cursor/rules/vulkan-descriptor-per-draw.mdc` (EngineArchitecture **§6**). **New/changed `Vk_*Pass`:** also read `.cursor/rules/vulkan-render-pass-pitfalls.mdc` (init order, deletion queue, descriptor pool sizing, no descriptor updates during record, validation gate). Desktop path change → `Archived-Plan.md` § S1 notes. Policy narrative → Architecture + sync rule.
 
 ## Invocation
 

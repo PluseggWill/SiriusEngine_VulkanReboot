@@ -2,11 +2,14 @@
 
 void Gfx_BuildFrameRenderPacketFromStream( const Gfx_FrameDrawStreamOutput& aStreamOutput, Gfx_FrameRenderPacket& aOutPacket ) {
     // Packet is a plain transfer object: copy stream results without mutating render semantics.
-    aOutPacket.myDrawCountBeforeCull                    = aStreamOutput.myDrawCountBeforeCull;
-    aOutPacket.myOpaquePass.myDraws                     = aStreamOutput.myExtract.myOpaque.myDrawInstances;
-    aOutPacket.myTransparentPass.myDraws                = aStreamOutput.myExtract.myTransparent.myDrawInstances;
-    aOutPacket.myOpaquePass.myBatchRuns                 = aStreamOutput.myOpaqueBatchRuns;
-    aOutPacket.myTransparentPass.myBatchRuns            = aStreamOutput.myTransparentBatchRuns;
-    aOutPacket.myOpaquePass.myDrawBufferPassOffset      = 0;
-    aOutPacket.myTransparentPass.myDrawBufferPassOffset = static_cast< uint32_t >( aOutPacket.myOpaquePass.myDraws.size() );
+    aOutPacket.myDrawCountBeforeCull                     = aStreamOutput.myDrawCountBeforeCull;
+    aOutPacket.myOpaquePass.myDraws                      = aStreamOutput.myExtract.myOpaque.myDrawInstances;
+    aOutPacket.myTransparentPass.myDraws                 = aStreamOutput.myExtract.myTransparent.myDrawInstances;
+    aOutPacket.myShadowCasterPass.myDraws                = aStreamOutput.myUnculledOpaque.myDrawInstances;
+    aOutPacket.myOpaquePass.myBatchRuns                  = aStreamOutput.myOpaqueBatchRuns;
+    aOutPacket.myTransparentPass.myBatchRuns             = aStreamOutput.myTransparentBatchRuns;
+    aOutPacket.myShadowCasterPass.myBatchRuns            = aStreamOutput.myShadowCasterBatchRuns;
+    aOutPacket.myOpaquePass.myDrawBufferPassOffset       = 0;
+    aOutPacket.myTransparentPass.myDrawBufferPassOffset  = static_cast< uint32_t >( aOutPacket.myOpaquePass.myDraws.size() );
+    aOutPacket.myShadowCasterPass.myDrawBufferPassOffset = 0;
 }

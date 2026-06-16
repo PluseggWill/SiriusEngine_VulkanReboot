@@ -1,0 +1,50 @@
+#version 450
+
+// Depth-aware upsample: half-res linear AO → full-res R8 (4-tap cross filter).
+#include "AoCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    vec2 fullScreenSize;
+    float depthSigma;
+    vec2 pad;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D aoHalf;
+layout(set = 0, binding = 1) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 2, r8) uniform writeonly image2D aoFullOut;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 fullSize = ivec2(pc.fullScreenSize);
+    if (pix.x >= fullSize.x || pix.y >= fullSize.y) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(fullSize);
+    const float centerDepth = texture(gbufferDepth, uv).r;
+    if (centerDepth >= 0.999) {
+        imageStore(aoFullOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec2 halfTexel = 0.5 / vec2(textureSize(aoHalf, 0));
+    const vec2 offsets[4] = vec2[](
+        vec2(-halfTexel.x, 0.0), vec2(halfTexel.x, 0.0),
+        vec2(0.0, -halfTexel.y), vec2(0.0, halfTexel.y));
+
+    float sum = 0.0;
+    float weightSum = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        const vec2 sampleUV = uv + offsets[i];
+        const float sampleDepth = texture(gbufferDepth, sampleUV).r;
+        const float w = Ao_DepthEdgeWeight(centerDepth, sampleDepth, pc.depthSigma);
+        sum += texture(aoHalf, sampleUV).r * w;
+        weightSum += w;
+    }
+
+    const float ao = (weightSum > 1e-4) ? (sum / weightSum) : texture(aoHalf, uv).r;
+    imageStore(aoFullOut, pix, vec4(ao));
+}

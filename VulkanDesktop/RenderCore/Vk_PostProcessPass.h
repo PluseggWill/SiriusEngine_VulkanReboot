@@ -1,0 +1,56 @@
+#pragma once
+
+#include <array>
+
+#include "Vk_DataStruct.h"
+#include "Vk_FrameLimits.h"
+#include "Vk_Types.h"
+
+struct VkCommandBuffer_T;
+using VkCommandBuffer = VkCommandBuffer_T*;
+class Vk_Renderer;
+
+constexpr VkFormat kPostSceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+
+// HDR scene color + hybrid resolve RP/FB + tonemap/bloom (extent-sized; recreated on resize).
+struct Vk_PostProcessState {
+    Gfx_Texture mySceneColor{};
+    Gfx_Texture myBloomPing{};
+    Gfx_Texture myBloomPong{};
+
+    VkRenderPass  myHybridRenderPass  = VK_NULL_HANDLE;
+    VkFramebuffer myHybridFramebuffer = VK_NULL_HANDLE;
+    VkSampler     mySceneSampler      = VK_NULL_HANDLE;
+
+    VkPipeline            myTonemapPipeline       = VK_NULL_HANDLE;
+    VkPipelineLayout      myTonemapPipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myTonemapSetLayout      = VK_NULL_HANDLE;
+
+    VkPipeline            myBloomThresholdPipeline       = VK_NULL_HANDLE;
+    VkPipeline            myBloomBlurPipeline            = VK_NULL_HANDLE;
+    VkPipelineLayout      myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
+    VkPipelineLayout      myBloomBlurPipelineLayout      = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myBloomThresholdSetLayout      = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myBloomBlurSetLayout           = VK_NULL_HANDLE;
+    VkDescriptorPool      myDescriptorPool               = VK_NULL_HANDLE;
+
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTonemapDescriptorSets{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomThresholdDescriptorSets{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurHorizDescriptorSets{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurVertDescriptorSets{};
+
+    Vk_DeletionQueue myDeletionQueue;
+    bool             myInitialized = false;
+};
+
+namespace Vk_PostProcessPass {
+
+bool HasHybridResolve( const Vk_Renderer& aCore );
+
+void Init( Vk_Renderer& aCore );
+void Destroy( Vk_Renderer& aCore );
+void RecreateForExtent( Vk_Renderer& aCore );
+
+void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex );
+
+}  // namespace Vk_PostProcessPass

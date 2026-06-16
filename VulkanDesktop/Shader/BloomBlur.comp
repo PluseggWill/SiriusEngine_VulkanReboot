@@ -1,0 +1,28 @@
+#version 450
+
+// Separable 4-tap box blur on bloom (horizontal: axis=(1,0), vertical: axis=(0,1)).
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 axis;
+} pc;
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D srcBloom;
+layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D dstBloom;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(srcBloom);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const ivec2 dir = ivec2(pc.axis);
+    vec3 sum = vec3(0.0);
+    sum += imageLoad(srcBloom, clamp(pix - dir, ivec2(0), size - ivec2(1))).rgb;
+    sum += imageLoad(srcBloom, pix).rgb;
+    sum += imageLoad(srcBloom, clamp(pix + dir, ivec2(0), size - ivec2(1))).rgb;
+    sum += imageLoad(srcBloom, clamp(pix + dir * 2, ivec2(0), size - ivec2(1))).rgb;
+    imageStore(dstBloom, pix, vec4(sum * 0.25, 1.0));
+}

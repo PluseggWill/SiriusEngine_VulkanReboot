@@ -1,24 +1,34 @@
-// Module: Vk_GBufferPass — FG v0 (HybridDeferred preset).
-// Chain: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent -> swapchain.
+// Module: Vk_GBufferPass — FG v1 (HybridDeferred preset).
+// Chain driven by Vk_FrameGraph: Shadow -> GBuffer -> Cluster -> HiZ/SSAO -> HDR hybrid -> Post.
 // G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
-#include "../App/DebugUIState.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_RenderPreset.h"
+#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
+#include "../Gfx/Gfx_FramePacketValidation.h"
+#include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
-#include "Vk_Core.h"
 #include "Vk_DeferredLightingPass.h"
+#include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_FrameGraph.h"
+#include "Vk_FrameUniformUploader.h"
+#include "Vk_GfxPipelineCache.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
-#include "Vk_RenderBackend.h"
+#include "Vk_PostProcessPass.h"
+#include "Vk_Renderer.h"
 #include "Vk_ScenePasses.h"
+#include "Vk_ShadowAoSoftPass.h"
+#include "Vk_ShadowMapPass.h"
 
-#include "Vk_Types.h"
+#include "Vk_VertexLayout.h"
 
 #include <array>
 
@@ -30,9 +40,10 @@ constexpr const char* kGBufferFragBindlessSpv = "VulkanDesktop/Shader_Generated/
 
 constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+constexpr VkFormat kWorldPositionFormat   = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-void DestroyPipelines( Vk_Core& aCore ) {
-    const VkDevice device = aCore.myDeviceCtx.myDevice;
+void DestroyPipelines( Vk_Renderer& aCore ) {
+    const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
     if ( device == VK_NULL_HANDLE ) {
         return;
     }
@@ -46,13 +57,13 @@ void DestroyPipelines( Vk_Core& aCore ) {
     }
 }
 
-VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
+VkPipeline BuildGBufferPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
     VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
     VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Gfx_Vertex::getBindingDescription();
-    auto                                 attributeDescription = Gfx_Vertex::getAttributeDescriptions();
+    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
+    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
     vertexInputInfo.vertexBindingDescriptionCount             = 1;
     vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );
@@ -73,6 +84,7 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     pipelineBuilder.SetDefaultDynamicStates();
 
     std::vector< VkPipelineColorBlendAttachmentState > blendAttachments = {
+        VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
     };
@@ -102,15 +114,16 @@ VkPipeline BuildGBufferPipeline( Vk_Core& aCore, VkRenderPass aRenderPass, VkPip
     pipelineInfo.subpass             = 0;
 
     VkPipeline pipeline = VK_NULL_HANDLE;
-    UtilVulkanResult::ThrowOnFailure( vkCreateGraphicsPipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
-                                      "vkCreateGraphicsPipelines GBuffer" );
+    UtilVulkanResult::ThrowOnFailure(
+        vkCreateGraphicsPipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
+        "vkCreateGraphicsPipelines GBuffer" );
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, fragModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
     return pipeline;
 }
 
-void CreateGBufferRenderPass( Vk_Core& aCore ) {
+void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
     VkAttachmentDescription albedo{};
     albedo.format         = kAlbedoFormat;
     albedo.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -124,6 +137,9 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     VkAttachmentDescription normalRoughness = albedo;
     normalRoughness.format                  = kNormalRoughnessFormat;
 
+    VkAttachmentDescription worldPosition = albedo;
+    worldPosition.format                  = kWorldPositionFormat;
+
     VkAttachmentDescription depth{};
     depth.format         = aCore.FindDepthFormat();
     depth.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -134,14 +150,16 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    std::array< VkAttachmentReference, 2 > colorRefs{};
+    std::array< VkAttachmentReference, 3 > colorRefs{};
     colorRefs[ 0 ].attachment = 0;
     colorRefs[ 0 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorRefs[ 1 ].attachment = 1;
     colorRefs[ 1 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorRefs[ 2 ].attachment = 2;
+    colorRefs[ 2 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthRef{};
-    depthRef.attachment = 2;
+    depthRef.attachment = 3;
     depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
@@ -158,7 +176,7 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    std::array< VkAttachmentDescription, 3 > attachments = { albedo, normalRoughness, depth };
+    std::array< VkAttachmentDescription, 4 > attachments = { albedo, normalRoughness, worldPosition, depth };
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -169,15 +187,15 @@ void CreateGBufferRenderPass( Vk_Core& aCore ) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies   = &dependency;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myGBufferState.myRenderPass ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myGBufferState.myRenderPass ),
                                       "vkCreateRenderPass GBuffer" );
 
-    const VkDevice     device     = aCore.myDeviceCtx.myDevice;
+    const VkDevice     device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VkRenderPass renderPass = aCore.myGBufferState.myRenderPass;
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
 }
 
-void CreateGBufferImages( Vk_Core& aCore ) {
+void CreateGBufferImages( Vk_Renderer& aCore ) {
     const VkExtent2D extent      = aCore.mySwapchainCtx.mySwapChainExtent;
     const VkFormat   depthFormat = aCore.FindDepthFormat();
 
@@ -186,8 +204,8 @@ void CreateGBufferImages( Vk_Core& aCore ) {
                            VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
         aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
-        const VkDevice      device    = aCore.myDeviceCtx.myDevice;
-        const VmaAllocator  allocator = aCore.myDeviceCtx.myAllocator;
+        const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
         const VkImageView   view      = aTexture.ImageView();
         const VkImage       image     = aTexture.Image();
         const VmaAllocation alloc     = aTexture.Allocation();
@@ -199,6 +217,7 @@ void CreateGBufferImages( Vk_Core& aCore ) {
 
     createColorTarget( aCore.myGBufferState.myAlbedo, kAlbedoFormat );
     createColorTarget( aCore.myGBufferState.myNormalRoughness, kNormalRoughnessFormat );
+    createColorTarget( aCore.myGBufferState.myWorldPosition, kWorldPositionFormat );
 
     aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
@@ -206,8 +225,8 @@ void CreateGBufferImages( Vk_Core& aCore ) {
     aCore.myGBufferState.myDepth.ImageView() = aCore.CreateImageView( aCore.myGBufferState.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
 
     {
-        const VkDevice      device    = aCore.myDeviceCtx.myDevice;
-        const VmaAllocator  allocator = aCore.myDeviceCtx.myAllocator;
+        const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
         const VkImageView   view      = aCore.myGBufferState.myDepth.ImageView();
         const VkImage       image     = aCore.myGBufferState.myDepth.Image();
         const VmaAllocation alloc     = aCore.myGBufferState.myDepth.Allocation();
@@ -218,9 +237,9 @@ void CreateGBufferImages( Vk_Core& aCore ) {
     }
 }
 
-void CreateGBufferFramebuffer( Vk_Core& aCore ) {
-    std::array< VkImageView, 3 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
-                                                 aCore.myGBufferState.myDepth.ImageView() };
+void CreateGBufferFramebuffer( Vk_Renderer& aCore ) {
+    std::array< VkImageView, 4 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
+                                                 aCore.myGBufferState.myWorldPosition.ImageView(), aCore.myGBufferState.myDepth.ImageView() };
 
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -231,10 +250,10 @@ void CreateGBufferFramebuffer( Vk_Core& aCore ) {
     framebufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
     framebufferInfo.layers          = 1;
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &aCore.myGBufferState.myFramebuffer ),
+    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &aCore.myGBufferState.myFramebuffer ),
                                       "vkCreateFramebuffer GBuffer" );
 
-    const VkDevice      device      = aCore.myDeviceCtx.myDevice;
+    const VkDevice      device      = aCore.myRhi.myDeviceCtx.myDevice;
     const VkFramebuffer framebuffer = aCore.myGBufferState.myFramebuffer;
     aCore.myGBufferState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
 }
@@ -252,7 +271,7 @@ VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 // Bind Set 0 (+ Set 1 when bindless). Re-bind after DeferredLighting (different pipeline layout).
-void BindHybridSceneDescriptors( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
+void BindHybridSceneDescriptors( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aFrameBindLayout, VkDescriptorSet aFrameDescriptor, bool aBindless ) {
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aFrameBindLayout, VkDescriptorPolicy::kSetFrame, 1, &aFrameDescriptor, 0, nullptr );
     if ( aBindless ) {
         vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, aCore.mySceneGpuCtx.myBindlessPipelineLayout, VkDescriptorPolicy::kSetMaterial, 1,
@@ -274,32 +293,51 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 // G-buffer MRT colors must be shader-readable before DeferredLighting (depth is handled by CmdCopyGBufferDepthToSwapchain).
-void CmdBarrierGBufferColorsForDeferredRead( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdBarrierGBufferColorsForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkImageMemoryBarrier, 2 > barriers = {
+    std::array< VkImageMemoryBarrier, 3 > barriers = {
         ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
         ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myWorldPosition.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );
 }
 
+// G-buffer depth: attachment -> shader read (Hi-Z / SSAO / deferred reconstruct before swapchain depth copy).
+void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
+    VkImageMemoryBarrier barrier =
+        DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                          nullptr, 0, nullptr, 1, &barrier );
+}
+
+// Shadow pass depth must be visible to DeferredLighting fragment shader (separate render pass from hybrid resolve).
+void CmdBarrierShadowMapForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
+    Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
+}
+
 // CONTRACT: run outside swapchain RP; dst depth must be TRANSFER_DST + attachment usage.
-void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuffer ) {
+void CmdCopyGBufferDepthToSwapchain( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     VkImage          srcImage = aCore.myGBufferState.myDepth.Image();
     VkImage          dstImage = aCore.mySwapchainCtx.myDepthTexture.Image();
     const VkExtent2D extent   = aCore.mySwapchainCtx.mySwapChainExtent;
 
-    constexpr VkImageLayout kDepthAttachment = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    constexpr VkImageLayout kDepthReadOnly = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
     std::array< VkImageMemoryBarrier, 2 > toTransfer = {
-        DepthImageBarrier( srcImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT ),
-        DepthImageBarrier( dstImage, kDepthAttachment, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        DepthImageBarrier( srcImage, kDepthReadOnly, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT ),
+        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT ),
     };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
-                          static_cast< uint32_t >( toTransfer.size() ), toTransfer.data() );
+    VkImageMemoryBarrier srcToTransfer = toTransfer[ 0 ];
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                          nullptr, 1, &srcToTransfer );
+    VkImageMemoryBarrier dstToTransfer = toTransfer[ 1 ];
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                          nullptr, 0, nullptr, 1, &dstToTransfer );
 
     VkImageCopy region{};
     region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -312,7 +350,7 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
     std::array< VkImageMemoryBarrier, 2 > toAttachment = {
         DepthImageBarrier( srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT,
                            VK_ACCESS_SHADER_READ_BIT ),
-        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, kDepthAttachment, VK_ACCESS_TRANSFER_WRITE_BIT,
+        DepthImageBarrier( dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT,
                            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -320,7 +358,7 @@ void CmdCopyGBufferDepthToSwapchain( Vk_Core& aCore, VkCommandBuffer aCommandBuf
                           nullptr, static_cast< uint32_t >( toAttachment.size() ), toAttachment.data() );
 }
 
-void RebuildGBufferPipelines( Vk_Core& aCore ) {
+void RebuildGBufferPipelines( Vk_Renderer& aCore ) {
     if ( aCore.myGBufferState.myRenderPass == VK_NULL_HANDLE || aCore.mySceneGpuCtx.myPipelineLayout == VK_NULL_HANDLE ) {
         return;
     }
@@ -332,15 +370,15 @@ void RebuildGBufferPipelines( Vk_Core& aCore ) {
 
     aCore.myGBufferState.myGBufferPipeline = BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myPipelineLayout, vertPath, fragPath );
 
-    if ( aCore.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless && aCore.mySceneGpuCtx.myBindlessPipelineLayout != VK_NULL_HANDLE ) {
+    if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless && aCore.mySceneGpuCtx.myBindlessPipelineLayout != VK_NULL_HANDLE ) {
         const std::string bindlessFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kGBufferFragBindlessSpv );
         aCore.myGBufferState.myGBufferPipelineBindless =
             BuildGBufferPipeline( aCore, aCore.myGBufferState.myRenderPass, aCore.mySceneGpuCtx.myBindlessPipelineLayout, vertPath, bindlessFragPath );
     }
 }
 
-void RebuildResources( Vk_Core& aCore ) {
-    if ( aCore.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
+void RebuildResources( Vk_Renderer& aCore ) {
+    if ( aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
 
@@ -358,16 +396,16 @@ void RebuildResources( Vk_Core& aCore ) {
 
 namespace Vk_GBufferPass {
 
-bool IsActive( const Vk_Core& aCore ) {
+bool IsActive( const Vk_Renderer& aCore ) {
     return Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() );
 }
 
-void Destroy( Vk_Core& aCore ) {
+void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
-    if ( aCore.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
-        vkDeviceWaitIdle( aCore.myDeviceCtx.myDevice );
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyPipelines( aCore );
     aCore.myGBufferState.myDeletionQueue.flush();
@@ -376,22 +414,28 @@ void Destroy( Vk_Core& aCore ) {
     aCore.myGBufferState.myInitialized = false;
 }
 
-void RecreateForExtent( Vk_Core& aCore ) {
+void RecreateForExtent( Vk_Renderer& aCore ) {
     // ForwardLit never calls Init — skip swapchain resize work when hybrid path is inactive.
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
     RebuildResources( aCore );
+    Vk_DepthPyramidPass::RecreateForExtent( aCore );
+    Vk_AoPass::RecreateForExtent( aCore );
+    Vk_ShadowAoSoftPass::RecreateForExtent( aCore );
+    Vk_PostProcessPass::RecreateForExtent( aCore );
+    Vk_DeferredLightingPass::RecreateForExtent( aCore );
+    Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( aCore );
 }
 
-void RecreatePipelines( Vk_Core& aCore ) {
+void RecreatePipelines( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized ) {
         return;
     }
     RebuildGBufferPipelines( aCore );
 }
 
-void Init( Vk_Core& aCore ) {
+void Init( Vk_Renderer& aCore ) {
     if ( aCore.myGBufferState.myInitialized ) {
         return;
     }
@@ -400,110 +444,32 @@ void Init( Vk_Core& aCore ) {
     aCore.myGBufferState.myInitialized = true;
 }
 
-void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void RecordFrame( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
 
-    static bool sChainLoggedOnce           = false;
     static bool sIndirectPathLoggedOnce    = false;
     static bool sGpuIndirectPathLoggedOnce = false;
 
-    if ( !sChainLoggedOnce ) {
-        UtilLogger::Info( "FG", "HybridDeferred: GBufferOpaque -> ClusterBuild -> DeferredLighting -> ForwardTransparent" );
-        sChainLoggedOnce = true;
-    }
+    Vk_FrameGraphContext fgCtx{};
+    fgCtx.myCore             = &aCore;
+    fgCtx.myToggles          = &aToggles;
+    fgCtx.myCommandBuffer    = aCommandBuffer;
+    fgCtx.myImageIndex       = anImageIndex;
+    fgCtx.myFrameIndex       = aCore.myFrameCtx.myCurrentFrame;
+    fgCtx.myViewports        = &aViewports;
+    fgCtx.myScissors         = &aScissors;
+    fgCtx.myFrameDescriptors = &aFrameDescriptors;
+    fgCtx.myViewCount        = aViewCount;
+    fgCtx.myViewPackets      = &aViewPackets;
 
-    const Vk_RenderMaterialPath materialPath    = aCore.myDeviceCtx.myMaterialPath;
-    const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-    const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-    const VkPipeline            gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
-    if ( gbufferPipeline == VK_NULL_HANDLE ) {
-        static bool sNullPipelineWarnOnce = false;
-        if ( !sNullPipelineWarnOnce ) {
-            UtilLogger::Error( "FG", "G-buffer pipeline null; opaque skipped (stale layout after swapchain recreate?)" );
-            sNullPipelineWarnOnce = true;
-        }
-    }
+    Vk_FrameGraph::Execute( fgCtx );
 
-    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-    const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
-
-    Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
-    const VkBuffer indirectBuffer = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
-
-    constexpr uint32_t           viewIndex = 0;  // FG v0: single view
-    const Gfx_FrameRenderPacket* packet    = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
-
-    VkRenderPassBeginInfo gbufferBegin{};
-    gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    gbufferBegin.renderPass        = aCore.myGBufferState.myRenderPass;
-    gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
-    gbufferBegin.renderArea.offset = { 0, 0 };
-    gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    std::array< VkClearValue, 3 > gbufferClears{};
-    gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
-    gbufferClears[ 2 ].depthStencil = { 1.0f, 0 };
-    gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
-    gbufferBegin.pClearValues       = gbufferClears.data();
-
-    vkCmdBeginRenderPass( aCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
-
-    if ( packet != nullptr ) {
-        aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
-        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
-
-        if ( gbufferPipeline != VK_NULL_HANDLE && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipOpaquePass ) {
-            if ( emitDebugLabels ) {
-                aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=GBufferOpaque" );
-            }
-            Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
-                                                     legacyDirectDraw, emitDebugLabels, gbufferPipeline );
-            if ( emitDebugLabels ) {
-                aCore.CmdEndDebugLabel( aCommandBuffer );
-            }
-        }
-    }
-
-    vkCmdEndRenderPass( aCommandBuffer );
-
-    Vk_ClusterBuildPass::RecordDispatch( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-
-    CmdBarrierGBufferColorsForDeferredRead( aCore, aCommandBuffer );
-    CmdCopyGBufferDepthToSwapchain( aCore, aCommandBuffer );
-
-    // Hybrid resolve RP: color clear + depth LOAD (opaque depth copied above).
-    VkRenderPassBeginInfo swapBegin{};
-    swapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    swapBegin.renderPass        = aCore.mySwapchainCtx.myHybridResolveRenderPass;
-    swapBegin.framebuffer       = aCore.mySwapchainCtx.myHybridSwapChainFrameBuffers[ anImageIndex ];
-    swapBegin.renderArea.offset = { 0, 0 };
-    swapBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    std::array< VkClearValue, 2 > swapClears{};
-    swapClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    swapClears[ 1 ].depthStencil = { 1.0f, 0 };  // ignored when depth loadOp=LOAD
-    swapBegin.clearValueCount    = static_cast< uint32_t >( swapClears.size() );
-    swapBegin.pClearValues       = swapClears.data();
-
-    vkCmdBeginRenderPass( aCommandBuffer, &swapBegin, VK_SUBPASS_CONTENTS_INLINE );
-
-    aCore.SetGraphicsDynamicState( aCommandBuffer, aViewports[ viewIndex ], aScissors[ viewIndex ] );
-    Vk_DeferredLightingPass::RecordDraw( aCore, aCommandBuffer, aCore.myFrameCtx.myCurrentFrame );
-
-    if ( packet != nullptr && Vk_RenderBackend::ValidateFramePacket( *packet ) && !aDebugUI.myRenderDebug.mySkipTransparentPass
-         && !packet->myTransparentPass.myDraws.empty() ) {
-        BindHybridSceneDescriptors( aCore, aCommandBuffer, frameBindLayout, aFrameDescriptors[ viewIndex ], bindless );
-        if ( emitDebugLabels ) {
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ForwardTransparent" );
-        }
-        Vk_ScenePasses::RecordTransparentPacketDraws( aCore, aCommandBuffer, packet->myTransparentPass, packet->myDrawBufferBaseIndex, indirectBuffer, gpuCullRecord,
-                                                      legacyDirectDraw, emitDebugLabels );
-        if ( emitDebugLabels ) {
-            aCore.CmdEndDebugLabel( aCommandBuffer );
-        }
-    }
+    constexpr uint32_t           viewIndex        = 0;
+    const Gfx_FrameRenderPacket* packet           = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
+    const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+    const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
 
     if ( aViewCount > 0 && packet != nullptr && gpuCullRecord && !sGpuIndirectPathLoggedOnce ) {
         UtilLogger::Info( "RENDER", "Scene record using GPU-filled slot indirect (EntityCull.comp → myGpuCullIndirectBuffer)." );
@@ -514,10 +480,6 @@ void RecordFrame( Vk_Core& aCore, const DebugUIState& aDebugUI, VkCommandBuffer 
         UtilLogger::Info( "RENDER", "Scene record using CPU vkCmdDrawIndexedIndirect (draw templates uploaded each frame)." );
         sIndirectPathLoggedOnce = true;
     }
-
-    Vk_ScenePasses::RecordHybridPiPViews( aCore, aDebugUI, aCommandBuffer, aViewports, aScissors, aFrameDescriptors, aViewCount, aViewPackets );
-
-    vkCmdEndRenderPass( aCommandBuffer );
 }
 
 }  // namespace Vk_GBufferPass

@@ -4,7 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 Vk_Camera::Vk_Camera() {
-    myPosition = glm::vec3( 2.0f, 2.0f, 2.0f );
+    myPosition = glm::vec3( 10.0f, 0.1f, 16.0f );
     myWorldUp  = glm::vec3( 0.0f, 0.0f, 1.0f );
     myYaw      = 0.0f;
     myPitch    = 0.0f;
@@ -13,7 +13,7 @@ Vk_Camera::Vk_Camera() {
     myFar      = 10.0f;
     myAspect   = 800.0f / 600.0f;
 
-    LookAt( myPosition, glm::vec3( 0.0f, 0.0f, 0.0f ), myWorldUp );
+    LookAt( myPosition, myPosition + glm::vec3( -1.0f, 0.0f, 0.0f ), myWorldUp );
 }
 
 Vk_Camera::~Vk_Camera() {}

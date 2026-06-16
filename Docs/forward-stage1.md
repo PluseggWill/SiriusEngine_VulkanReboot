@@ -119,7 +119,7 @@ Not blockers if §2 is satisfied.
 
 | Gap | Target | Notes |
 |-----|--------|-------|
-| PBR BRDF | **S4** / Stage 2 §C | FG v0 shell done; MR encode + BRDF in S4 |
+| PBR BRDF | **S4** ✓ | Cook-Torrance direct sun; MR in G-buffer RT0.a / RT1.w |
 | IBL / shadows | **S5** | Perm bits exist; implementation S5 |
 | `HybridDeferred` preset | S3 ✓ | Default in `engine.json`; forward fallback kept |
 | Clustered deferred | S3 ✓ stub | ClusterBuild + DeferredLighting v0 landed |

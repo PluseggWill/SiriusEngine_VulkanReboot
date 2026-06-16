@@ -3,7 +3,7 @@
 .SYNOPSIS
   Download Crytek Sponza (McGuire archive) into Data/Models/sponza/source/.
 .DESCRIPTION
-  Idempotent: skips download when source/sponza.obj already exists.
+  Idempotent: skips download when source/sponza.obj and source/sponza.mtl both exist.
   Source: Morgan McGuire Computer Graphics Archive (CC BY 3.0, Crytek / Frank Meinl).
   After fetch, runs Generate-SponzaScene.ps1 unless -SkipGenerate is set.
 #>
@@ -17,13 +17,15 @@ $ErrorActionPreference = "Stop"
 $zipUrl      = "https://casual-effects.com/g3d/data10/common/model/crytek_sponza/sponza.zip"
 $zipPath     = Join-Path $env:TEMP "mcguire_sponza.zip"
 $sourceDir   = Join-Path $RepoRoot "Data\Models\sponza\source"
-$markerPath  = Join-Path $sourceDir "sponza.obj"
+$markerObj   = Join-Path $sourceDir "sponza.obj"
+$markerMtl   = Join-Path $sourceDir "sponza.mtl"
+$sourceReady = ( Test-Path $markerObj ) -and ( Test-Path $markerMtl )
 
-if ( Test-Path $markerPath ) {
-    Write-Host "[FETCH] Sponza source already present: $markerPath"
+if ( $sourceReady ) {
+    Write-Host "[FETCH] Sponza source already present: $markerObj"
 }
 else {
-    if ( ( Test-Path $zipPath ) -and -not ( Test-Path $markerPath ) ) {
+    if ( ( Test-Path $zipPath ) -and -not $sourceReady ) {
         Write-Host "[FETCH] Removing stale zip cache (source missing)."
         Remove-Item -Force $zipPath
     }

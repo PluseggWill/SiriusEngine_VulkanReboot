@@ -33,6 +33,24 @@ function ConvertTo-SafeId {
     return "sponza_$safe"
 }
 
+# Heuristic PBR defaults for S4 dogfood (not from MTL); ordered most-specific first.
+function Get-SponzaMaterialMr {
+    param( [string]$Name )
+    $n = $Name.ToLower()
+    $rules = @(
+        @{ Pattern = 'fabric|curtain|carpet'; Roughness = 0.88; Metallic = 0.0 }
+        @{ Pattern = 'chain|vase_round|flagpole'; Roughness = 0.35; Metallic = 0.85 }
+        @{ Pattern = 'floor'; Roughness = 0.55; Metallic = 0.0 }
+        @{ Pattern = 'brick|arch|column'; Roughness = 0.72; Metallic = 0.0 }
+    )
+    foreach ( $rule in $rules ) {
+        if ( $n -match $rule.Pattern ) {
+            return @{ roughness = $rule.Roughness; metallic = $rule.Metallic }
+        }
+    }
+    return @{ roughness = 0.65; metallic = 0.0 }
+}
+
 function Read-SponzaMtl {
     param( [string]$Path )
     $result  = @{}
@@ -283,6 +301,10 @@ foreach ( $matName in ( $facesByMat.Keys | Sort-Object ) ) {
         $matEntry.alpha       = 0.85
         $matEntry.transparent = $true
     }
+
+    $mr = Get-SponzaMaterialMr -Name $matName
+    $matEntry.roughness = $mr.roughness
+    $matEntry.metallic  = $mr.metallic
 
     $materials.Add( $matEntry )
     $entity = [ordered]@{

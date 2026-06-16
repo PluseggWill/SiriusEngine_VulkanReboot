@@ -1,0 +1,27 @@
+#version 450
+
+// Separable 4-tap box blur on SSAO (horizontal pass: axis=0, vertical: axis=1).
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uvec2 axis; // (1,0) or (0,1)
+} pc;
+
+layout(set = 0, binding = 0, r8) uniform readonly image2D srcAo;
+layout(set = 0, binding = 1, r8) uniform writeonly image2D dstAo;
+
+void main() {
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(srcAo);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const ivec2 dir = ivec2(pc.axis);
+    float sum = 0.0;
+    sum += imageLoad(srcAo, clamp(pix - dir, ivec2(0), size - ivec2(1))).r;
+    sum += imageLoad(srcAo, pix).r;
+    sum += imageLoad(srcAo, clamp(pix + dir, ivec2(0), size - ivec2(1))).r;
+    sum += imageLoad(srcAo, clamp(pix + dir * 2, ivec2(0), size - ivec2(1))).r;
+    imageStore(dstAo, pix, vec4(sum * 0.25));
+}

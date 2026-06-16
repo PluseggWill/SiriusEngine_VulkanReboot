@@ -2,7 +2,7 @@
 
 // Util_RenderDebugPanel - Stage 1 forward parity hooks: skip sub-passes, depth/normal debug view.
 
-#include "../RenderCore/Vk_Types.h"
+#include "../Gfx/Gfx_MaterialTypes.h"
 #include "Util_EngineConfig.h"
 
 struct GpuEnvironmentData;
@@ -15,6 +15,7 @@ struct State {
     bool              mySkipTransparentPass = false;
     bool              myLodEnabled          = false;
     Gfx_DebugViewMode myDebugViewMode       = Gfx_DebugViewMode_Lit;
+    uint32_t          myHiZDebugMip         = 0u;
 };
 
 // Parent window/tab must already be open (no Begin/End here). Patches myFogDistance.w before UpdateEnvironment.

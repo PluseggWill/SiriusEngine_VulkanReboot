@@ -17,6 +17,42 @@
           "name": "EnvironmentData",
           "descriptorType": "UNIFORM_BUFFER",
           "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 2,
+          "name": "LightingGlobals",
+          "descriptorType": "UNIFORM_BUFFER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 3,
+          "name": "shadowMap",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 4,
+          "name": "irradianceMap",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 5,
+          "name": "prefilterMap",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 6,
+          "name": "brdfLut",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 7,
+          "name": "skyMap",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
         }
       ]
     },

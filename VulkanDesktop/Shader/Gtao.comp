@@ -1,0 +1,132 @@
+#version 450
+
+// GTAO v0 — Jimenez view-relative horizons + XeGTAO arc integration.
+// Output is linear visibility in [0,1] (1 = unoccluded); deferred applies intensity/power.
+// Shares half-res bindings / push layout with HbaoPlus.comp; upsample via AoUpsample.comp.
+#include "AoCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    mat4 view;
+    mat4 proj;
+    vec4 params; // x=radius, y=unused, z=enabled (0/1), w=falloff power
+    uvec2 sliceCount;
+    uvec2 stepsPerSlice;
+    vec2 halfScreenSize;
+    vec2 pad;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
+layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 3, r8) uniform writeonly image2D aoHalfOut;
+
+const float kPiHalf = 1.5707963;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 halfSize = ivec2(pc.halfScreenSize);
+    if (pix.x >= halfSize.x || pix.y >= halfSize.y) {
+        return;
+    }
+
+    if (pc.params.z < 0.5) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(halfSize);
+    const float depth = texture(gbufferDepth, uv).r;
+    if (depth >= 0.999) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
+    const vec3 fragPos = (pc.view * vec4(worldPos, 1.0)).xyz;
+    const vec3 Nworld = normalize(texture(gbufferNormalRoughness, uv).xyz);
+    const vec3 Nview = Ao_WorldNormalToView(Nworld, pc.view);
+    const vec3 viewVec = normalize(-fragPos);
+
+    vec3 tangentW;
+    vec3 bitangentW;
+    Ao_BuildWorldTangentBasis(Nworld, tangentW, bitangentW);
+
+    const float viewZ = max(abs(fragPos.z), 0.05);
+    const float depthScale = clamp(viewZ * 0.35, 0.35, 2.5);
+    const float sampleRadius = pc.params.x * depthScale;
+    const float falloffPower = max(pc.params.w, 0.5);
+
+    const int numSlices = int(clamp(pc.sliceCount.x, 1u, 16u));
+    const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 16u));
+
+    float visibility = 0.0;
+
+    for (int s = 0; s < numSlices; ++s) {
+        // World-stable slice direction (avoids camera-locked rotation like early HBAO).
+        const float sliceAngle = (float(s) + 0.5) / float(numSlices) * 3.14159265;
+        const vec3 sliceDirW = cos(sliceAngle) * tangentW + sin(sliceAngle) * bitangentW;
+        const vec3 directionVec = normalize((pc.view * vec4(sliceDirW, 0.0)).xyz);
+
+        // Jimenez paper: project normal into slice plane; integrate relative to viewVec.
+        const vec3 orthoDirectionVec = directionVec - viewVec * dot(directionVec, viewVec);
+        const vec3 axisVec = normalize(cross(orthoDirectionVec, viewVec));
+        const vec3 projectedNormalVec = Nview - axisVec * dot(Nview, axisVec);
+
+        const float signNorm = sign(dot(orthoDirectionVec, projectedNormalVec));
+        float projectedNormalLength = length(projectedNormalVec);
+        const float cosNorm = clamp(dot(projectedNormalVec, viewVec) / max(projectedNormalLength, 1e-4), 0.0, 1.0);
+        const float nAngle = signNorm * acos(cosNorm);
+
+        projectedNormalLength = mix(projectedNormalLength, 1.0, 0.05);
+
+        float horizonCos0 = cos(nAngle + kPiHalf);
+        float horizonCos1 = cos(nAngle - kPiHalf);
+        const float lowHorizonCos0 = horizonCos0;
+        const float lowHorizonCos1 = horizonCos1;
+
+        for (int step = 1; step <= numSteps; ++step) {
+            const float marchDist = sampleRadius * (float(step) / float(numSteps));
+
+            const vec2 sampleUV0 = Ao_ProjectViewPosToUv(fragPos + directionVec * marchDist, pc.proj);
+            const vec2 sampleUV1 = Ao_ProjectViewPosToUv(fragPos - directionVec * marchDist, pc.proj);
+
+            vec3 sampleWorld0;
+            vec3 sampleView0;
+            vec3 sampleWorld1;
+            vec3 sampleView1;
+            if (!Ao_TryFetchGBufferPos(gbufferWorldPosition, pc.view, sampleUV0, sampleWorld0, sampleView0)
+                || !Ao_TryFetchGBufferPos(gbufferWorldPosition, pc.view, sampleUV1, sampleWorld1, sampleView1)) {
+                continue;
+            }
+
+            const vec3 delta0 = sampleView0 - fragPos;
+            const vec3 delta1 = sampleView1 - fragPos;
+            const float dist0 = length(delta0);
+            const float dist1 = length(delta1);
+            if (dist0 < 1e-4 || dist1 < 1e-4) {
+                continue;
+            }
+
+            const float weight0 = Ao_GtaoDistanceFalloff(dist0, sampleRadius, falloffPower);
+            const float weight1 = Ao_GtaoDistanceFalloff(dist1, sampleRadius, falloffPower);
+
+            const float shc0 = dot(normalize(delta0), viewVec);
+            const float shc1 = dot(normalize(delta1), viewVec);
+
+            horizonCos0 = max(horizonCos0, mix(lowHorizonCos0, shc0, weight0));
+            horizonCos1 = max(horizonCos1, mix(lowHorizonCos1, shc1, weight1));
+        }
+
+        const float h0 = -acos(clamp(horizonCos1, -1.0, 1.0));
+        const float h1 = acos(clamp(horizonCos0, -1.0, 1.0));
+        visibility += projectedNormalLength * (Ao_GtaoIntegrateSide(h0, nAngle, cosNorm) + Ao_GtaoIntegrateSide(h1, nAngle, cosNorm));
+    }
+
+    visibility /= float(numSlices);
+    // XeGTAO floor avoids fully black AO on visible pixels; matches deferred ao=1 baseline.
+    const float ao = clamp(max(visibility, 0.03), 0.0, 1.0);
+    imageStore(aoHalfOut, pix, vec4(ao));
+}

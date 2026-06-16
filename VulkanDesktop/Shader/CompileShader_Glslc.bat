@@ -29,21 +29,22 @@ if not exist "%SHADER_DIR%TriangleFrag_Lit.frag" (
     exit /b 1
 )
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%PS_OUT%"
+REM -I path: no quotes around %SHADER_DIR% (trailing backslash breaks -I"%SHADER_DIR%").
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%PS_OUT%"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit.frag"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix.spv"
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%GEN_DIR%TrianglePix_AlphaClip.spv" -DALPHA_CLIP=1
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit.frag" -o "%GEN_DIR%TrianglePix_AlphaClip.spv" -DALPHA_CLIP=1
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit.frag (ALPHA_CLIP)"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TrianglePix_AlphaClip.spv"
 
-"%GLSLC%" "%SHADER_DIR%TriangleFrag_Lit_Bindless.frag" -o "%GEN_DIR%TrianglePix_Bindless.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%TriangleFrag_Lit_Bindless.frag" -o "%GEN_DIR%TrianglePix_Bindless.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: TriangleFrag_Lit_Bindless.frag"
     exit /b 1
@@ -71,14 +72,14 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\GBufferVert.spv"
 
-"%GLSLC%" "%SHADER_DIR%GBuffer.frag" -o "%GEN_DIR%GBufferFrag.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%GBuffer.frag" -o "%GEN_DIR%GBufferFrag.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: GBuffer.frag"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\GBufferFrag.spv"
 
-"%GLSLC%" "%SHADER_DIR%GBufferFrag_Bindless.frag" -o "%GEN_DIR%GBufferFrag_Bindless.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%GBufferFrag_Bindless.frag" -o "%GEN_DIR%GBufferFrag_Bindless.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: GBufferFrag_Bindless.frag"
     exit /b 1
@@ -106,12 +107,110 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\DeferredLightingVert.spv"
 
-"%GLSLC%" "%SHADER_DIR%DeferredLighting.frag" -o "%GEN_DIR%DeferredLightingFrag.spv"
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%DeferredLighting.frag" -o "%GEN_DIR%DeferredLightingFrag.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: DeferredLighting.frag"
     exit /b 1
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\DeferredLightingFrag.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowMap.vert" -o "%GEN_DIR%ShadowMapVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: ShadowMap.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\ShadowMapVert.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowMap.frag" -o "%GEN_DIR%ShadowMapFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: ShadowMap.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\ShadowMapFrag.spv"
+
+"%GLSLC%" "%SHADER_DIR%DepthPyramid.comp" -o "%GEN_DIR%DepthPyramid.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: DepthPyramid.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\DepthPyramid.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%Ssao.comp" -o "%GEN_DIR%Ssao.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: Ssao.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\Ssao.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%HbaoPlus.comp" -o "%GEN_DIR%HbaoPlus.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: HbaoPlus.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\HbaoPlus.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%Gtao.comp" -o "%GEN_DIR%Gtao.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: Gtao.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\Gtao.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%AoUpsample.comp" -o "%GEN_DIR%AoUpsample.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: AoUpsample.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\AoUpsample.spv"
+
+"%GLSLC%" "%SHADER_DIR%SsaoBlur.comp" -o "%GEN_DIR%SsaoBlur.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: SsaoBlur.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\SsaoBlur.spv"
+
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowAoPack.comp" -o "%GEN_DIR%ShadowAoPack.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoPack.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\ShadowAoPack.spv"
+
+"%GLSLC%" "%SHADER_DIR%ShadowAoBlur.comp" -o "%GEN_DIR%ShadowAoBlur.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoBlur.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\ShadowAoBlur.spv"
+
+"%GLSLC%" "%SHADER_DIR%Tonemap.vert" -o "%GEN_DIR%TonemapVert.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Vertex failed: Tonemap.vert"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Vertex OK: Shader_Generated\TonemapVert.spv"
+
+"%GLSLC%" "%SHADER_DIR%Tonemap.frag" -o "%GEN_DIR%TonemapFrag.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Fragment failed: Tonemap.frag"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Fragment OK: Shader_Generated\TonemapFrag.spv"
+
+"%GLSLC%" "%SHADER_DIR%BloomThreshold.comp" -o "%GEN_DIR%BloomThreshold.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: BloomThreshold.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\BloomThreshold.spv"
+
+"%GLSLC%" "%SHADER_DIR%BloomBlur.comp" -o "%GEN_DIR%BloomBlur.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: BloomBlur.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\BloomBlur.spv"
 
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "glslc compile finished."
 

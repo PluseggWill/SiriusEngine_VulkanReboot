@@ -38,8 +38,8 @@ flowchart TB
   end
 
   subgraph RC [RenderCore/ — Vulkan only]
-    CORE[Vk_Core orchestrator]
-    PEEL[Vk_RenderDevice · SwapchainHost · ScenePasses · …]
+    CORE[Vk_Renderer orchestrator]
+    PEEL[Vk_RhiDevice · Vk_FrameGraph · ScenePasses · …]
     TABLES[Vk_ResourceTables]
   end
 
@@ -61,7 +61,27 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
-**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application` (passed into Util/Gfx/RenderCore, bound on `Vk_Core`). Per frame App builds active views, runs CPU prep (`PrepareFrameCpu`), then GPU draw. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths. Design logs: [`Archived/plans/vk-core-world-peel_Plan.md`](Archived/plans/vk-core-world-peel_Plan.md), [`Archived/plans/config-platform-hardening_Plan.md`](Archived/plans/config-platform-hardening_Plan.md).
+**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+
+### Frame / naming glossary (RenderCore)
+
+| Symbol | Role | Lifetime |
+|--------|------|----------|
+| `Vk_FrameContext` | In-flight ring (`myCurrentFrame`, fences, command buffers) | Process |
+| `Vk_FrameData` | One in-flight slot: CB, instance slab map, descriptor sets | Per ring index |
+| `Vk_FrameCpuPrepResult` | Cross-layer DTO: acquire index + view packets + GPU cull params | One frame (App panels → GPU) |
+| `Vk_FrameDrawPrep` | GPU upload prep: entity SSBO + instance slab + draw templates | Owned on `Vk_SceneGpuContext` |
+| `Gfx_ViewPacketBuild` | CPU extract → batch → `Gfx_FrameRenderPacket` (no Vulkan) | Called inside `Vk_FrameDrawPrep::Build` |
+| `Gfx_FramePrepInput` | Scene SoA / LOD pointers for prep (replaces `WorldState&` in RenderCore) | App stack each frame |
+
+### Resource type ownership
+
+| Layer | Types |
+|-------|--------|
+| **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
+| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles + aliases `Gfx_Mesh` etc.) |
+| **Gpu*** UBO structs | `Vk_Types.h` / `Vk_Camera.h` (shader contract) |
+
 
 ---
 
@@ -105,7 +125,7 @@ sequenceDiagram
   participant Main
   participant App as Application
   participant CFG as EngineConfig
-  participant VK as Vk_Core
+  participant VK as Vk_Renderer
 
   Main->>App: Run()
   App->>CFG: Initialize CLI + engine.json
@@ -251,7 +271,7 @@ One render pass; per-view viewport/scissor + frame UBO. Offscreen RTs = frame-gr
 
 ```mermaid
 flowchart LR
-  S0[Set 0 Frame — camera env]
+  S0[Set 0 Frame — camera env lighting IBL shadow]
   S1[Set 1 Material — batch or bindless]
   S2[Set 2 Object — dynamic UBO slab]
 
@@ -262,13 +282,14 @@ flowchart LR
 
 | Set | Update frequency | Type |
 |-----|------------------|------|
-| **0** | Per frame / view | `UNIFORM_BUFFER` |
+| **0** | Per frame / view | `UNIFORM_BUFFER` (camera, env, **`GpuLightingGlobals`**) + **`COMBINED_IMAGE_SAMPLER`** (shadow compare, irradiance/prefilter/sky cubemaps, BRDF LUT) — bindings 0–7 per `Vk_Enum.h` / `DescriptorContract_LitBatch.json` |
 | **1** | Per material batch **or** one bindless set | `COMBINED_IMAGE_SAMPLER` / indexing |
 | **2** | Per draw via **`dynamicOffset`** into instance slab | `UNIFORM_BUFFER_DYNAMIC` |
 
 **Hard rules:**
 
 - Never patch a **shared** frame UBO between draws (e.g. do not reuse `GpuCameraData.model` per draw).
+- **S5 (2026-06-12):** lighting resources live on Set 0 (no new shader permutations). Runtime **shadow / IBL / intensity** toggles via **`GpuLightingGlobals`** UBO + config / ImGui — not `#ifdef` branches. Deferred resolve uses a **separate Set 0 layout** (G-buffer + cluster SSBOs + same lighting bindings 5–10). Directional shadow: single **2048²** depth map, stable ortho fit (`Gfx_LightingMath`), PCF in `PbrIbl.glsl`.
 - Per-draw `mat4` → Set 2 dynamic slice or push constants (policy allows both; demo uses Set 2).
 - Material count / texture set changes → full scene GPU reload today (see `Vk_DescriptorPolicy.h`).
 
@@ -378,7 +399,7 @@ Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodol
 | Risk | Guard |
 |------|-------|
 | Fake data-oriented (maps, smart pointers in hot loop) | Profile extract/sort/record |
-| Monolith `Vk_Core` | Ownership peeled; context slices + smaller orchestrator — further split optional |
+| Monolith orchestrator growth (`Vk_Renderer`) | Keep pass work in modules + `Vk_FrameGraph` nodes; preserve DTO boundaries |
 | GPU path without parity | Automated CPU vs GPU compare before drop fallback |
 | Permutation explosion | Preset maps to small offline subset |
 | Sim ↔ render coupling | Sim writes SoA only |

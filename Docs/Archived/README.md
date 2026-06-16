@@ -9,6 +9,8 @@ Historical artifacts — **not** the active task queue. Open work: [`../Active-P
 | [`plans/`](plans/) | Completed `{TaskName}_Plan.md` + `{TaskName}_Progress.md` (Progress = **Closeout** only after 2026-05-29 hygiene) |
 | [`S1-回顾总结.md`](S1-回顾总结.md) | S1 / M1 中文回顾（2026-05-26） |
 | [`S2-回顾总结.md`](S2-回顾总结.md) | S2 引擎分层 + Stage 1 收口中文回顾（2026-06-02） |
+| [`S3-回顾总结.md`](S3-回顾总结.md) | S3 GPU indirect + HybridDeferred FG v0 中文回顾（2026-06-12） |
+| [`S4-S5-回顾总结.md`](S4-S5-回顾总结.md) | S4 PBR G-buffer + S5 IBL/阴影/refactor 中文回顾（2026-06-13） |
 | [`notes-2026-05-22-shader-debug.md`](notes-2026-05-22-shader-debug.md) | Shader / glslc / MSBuild pitfalls |
 | [`TODOList.md`](TODOList.md) | Pre–sprint-plan backlog (superseded by `Active-Plan.md`) |
 

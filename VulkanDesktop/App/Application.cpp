@@ -1,28 +1,36 @@
 #include "Application.h"
 
 #include "../Gfx/Gfx_DemoSceneSim.h"
+#include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
+#include "../Gfx/Gfx_SceneGpuLoadParams.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
-#include "../RenderCore/Vk_Core.h"
+#include "../Gfx/Gfx_ViewPacketBuild.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
+#include "../RenderCore/Vk_Renderer.h"
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_ScenePanel.h"
 #include "ActiveViewsBuild.h"
+#include "App_PlatformHost.h"
 #include "DebugOverlay.h"
+#include "SceneCpuLoad.h"
 #include <GLFW/glfw3.h>
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <imgui.h>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 
 namespace {
 
 void ProcessAppKeyboardShortcuts( GLFWwindow* aWindow, DebugUIState& aDebugUI, const std::string& aLoadedScenePath, bool& aRenderDocCaptureKeyDown, bool& aRestartKeyDown,
-                                  Vk_Core& aCore ) {
+                                  Vk_Renderer& aRenderer ) {
     if ( ImGui::GetIO().WantCaptureKeyboard ) {
         aRenderDocCaptureKeyDown = false;
         aRestartKeyDown          = false;
@@ -31,7 +39,7 @@ void ProcessAppKeyboardShortcuts( GLFWwindow* aWindow, DebugUIState& aDebugUI, c
 
     const bool f12Pressed = glfwGetKey( aWindow, GLFW_KEY_F12 ) == GLFW_PRESS;
     if ( f12Pressed && !aRenderDocCaptureKeyDown ) {
-        aCore.TriggerRenderDocCapture();
+        aRenderer.TriggerRenderDocCapture();
     }
     aRenderDocCaptureKeyDown = f12Pressed;
 
@@ -42,6 +50,34 @@ void ProcessAppKeyboardShortcuts( GLFWwindow* aWindow, DebugUIState& aDebugUI, c
     aRestartKeyDown = restartPressed;
 }
 
+Gfx_FramePrepInput BuildFramePrepInput( WorldState& aWorld ) {
+    Gfx_FramePrepInput input{};
+    input.myScene                 = &aWorld.mySceneSoA;
+    input.myLodTable              = &aWorld.myLodTable;
+    input.myLodState              = &aWorld.myLodState;
+    input.myLodDebugLogicalMeshId = aWorld.myLodDebugLogicalMeshId;
+    return input;
+}
+
+void CommitSceneToWorld( WorldState& aWorld, Gfx_SceneDesc aScene, std::string aLogicalPath ) {
+    aWorld.myLoadedScene    = std::move( aScene );
+    aWorld.myLogicalPath    = std::move( aLogicalPath );
+    aWorld.myHasLoadedScene = true;
+    App_LoadSceneCpuState( aWorld );
+}
+
+void ActivateSceneGpu( Vk_Renderer& aRenderer, WorldState& aWorld, DebugUIState& aDebugUI, const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
+    aDebugUI.myScenePanel.myCurrentScenePath = aLogicalPath;
+    UtilScenePanel::RefreshSceneList( aConfig, aDebugUI.myScenePanel );
+    Gfx_SceneGpuLoadParams loadParams{};
+    loadParams.mySceneDesc     = &aWorld.myLoadedScene;
+    loadParams.mySceneIdTables = &aWorld.mySceneIdTables;
+    loadParams.mySceneSoA      = &aWorld.mySceneSoA;
+    loadParams.myLogicalPath   = aWorld.myLogicalPath;
+    aRenderer.LoadSceneGpuResources( loadParams );
+    App_InitScenePresentation( aRenderer, aWorld );
+}
+
 }  // namespace
 
 void Application::Configure( const std::vector< const char* >& someDeviceExtensions ) {
@@ -50,25 +86,38 @@ void Application::Configure( const std::vector< const char* >& someDeviceExtensi
 
 int Application::Run( int argc, char** argv ) {
     try {
+        auto renderer = std::make_unique< Vk_Renderer >();
+        myRenderer    = renderer.get();
+
         InitApp( argc, argv );
         LoadAndVerifyScene();
 
-        Vk_Core& core = Vk_Core::GetInstance();
+        Vk_Renderer&     rendererRef = *myRenderer;
+        App_PlatformHost platformHost;
+        myPlatformHost = &platformHost;
+        rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
-        core.InitWindow();
+        platformHost.InitWindow( myConfig.GetWindowWidth(), myConfig.GetWindowHeight(), rendererRef );
+        rendererRef.SetPlatformWindow( platformHost.GetWindow() );
         UtilLogger::Info( "APP", "InitRenderDevice." );
-        core.InitRenderDevice();
-        UtilLogger::Info( "APP", "LoadSceneResources." );
+        rendererRef.InitRenderDevice();
+        UtilLogger::Info( "APP", "LoadScene." );
         myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
-        core.LoadSceneResources( std::move( mySceneDesc ), myLastLoadedScenePath );
+        CommitSceneToWorld( myWorld, std::move( mySceneDesc ), myLastLoadedScenePath );
+        ActivateSceneGpu( rendererRef, myWorld, myDebugUI, myConfig, myLastLoadedScenePath );
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
 
         RunMainLoop();
 
         UtilLogger::Info( "APP", "UnloadScene." );
-        core.UnloadScene();
+        rendererRef.UnloadSceneGpuResources();
+        myWorld.ClearCpuSceneState();
+        myDebugUI.myScenePanel.myCurrentScenePath.clear();
         UtilLogger::Info( "APP", "Shutdown." );
-        core.Shutdown();
+        rendererRef.Shutdown();
+        platformHost.ShutdownWindow();
+        myPlatformHost = nullptr;
+        myRenderer     = nullptr;
         UtilLogger::Info( "APP", "Engine exited run loop normally." );
         return EXIT_SUCCESS;
     }
@@ -84,18 +133,16 @@ void Application::InitApp( int argc, char** argv ) {
     UtilLogger::Init( myConfig.GetLogFilePath() );
     UtilLogger::SetMinLogLevel( myConfig.GetMinLogLevel() );
 
-    Vk_Core& core = Vk_Core::GetInstance();
-    core.BindEngineConfig( &myConfig );
+    Vk_Renderer& renderer = *myRenderer;
+    renderer.BindEngineConfig( &myConfig );
     Gfx_ShaderPermutation::Initialize( myConfig );
 
     UtilLogger::Info( "APP", "InitApp." );
 
-    core.BindWorldState( &myWorld );
-    core.BindDebugUI( &myDebugUI );
-    core.SetSize( myConfig.GetWindowWidth(), myConfig.GetWindowHeight() );
-    core.SetVsync( myConfig.GetVsync() );
-    core.SetRequiredExtension( myDeviceExtensions );
-    core.ConfigureRenderDoc( myConfig.GetEnableRenderDoc() );
+    renderer.SetSize( myConfig.GetWindowWidth(), myConfig.GetWindowHeight() );
+    renderer.SetVsync( myConfig.GetVsync() );
+    renderer.SetRequiredExtension( myDeviceExtensions );
+    renderer.ConfigureRenderDoc( myConfig.GetEnableRenderDoc() );
 
 #ifdef NDEBUG
     const bool buildDefaultValidation = false;
@@ -103,7 +150,7 @@ void Application::InitApp( int argc, char** argv ) {
     const bool buildDefaultValidation = true;
 #endif
     const bool validationEnabled = myConfig.ResolveValidationEnabled( buildDefaultValidation );
-    core.SetEnableValidationLayers( validationEnabled, myConfig.GetValidationLayerNames() );
+    renderer.SetEnableValidationLayers( validationEnabled, myConfig.GetValidationLayerNames() );
     myConfig.LogResolvedSummary();
     myDebugUI.myRenderDebug.myLodEnabled = myConfig.GetFeatures().myLodEnabled;
 }
@@ -116,38 +163,66 @@ void Application::LoadAndVerifyScene() {
 }
 
 void Application::RunMainLoop() {
-    Vk_Core&     core            = Vk_Core::GetInstance();
-    const int    smokeFrameLimit = myConfig.GetSmokeFrameLimit();
-    const double smokeSeconds    = myConfig.GetSmokeSeconds();
-    int          renderedFrames  = 0;
-    const auto   smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    Vk_Renderer&      renderer        = *myRenderer;
+    App_PlatformHost& platformHost    = *myPlatformHost;
+    const int         smokeFrameLimit = myConfig.GetSmokeFrameLimit();
+    const double      smokeSeconds    = myConfig.GetSmokeSeconds();
+    int               renderedFrames  = 0;
+    const auto        smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if ( smokeSeconds > 0.0 ) {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }
     UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
-    while ( !core.ShouldClose() ) {
+    while ( !platformHost.ShouldClose() ) {
         float frameSeconds = 0.0f;
-        core.BeginPlatformFrame( frameSeconds );
-        myInput.Sample( core.GetWindow() );  // before ImGui NewFrame (RMB look + cursor recenter)
-        core.BeginImGuiFrame();
-        core.ApplyCameraInput( frameSeconds, myInput.GetSnapshot() );
+        platformHost.BeginFrame( renderer, frameSeconds );
+        myInput.Sample( platformHost.GetWindow() );
+        platformHost.BeginImGuiFrame( renderer );
+        renderer.ApplyCameraInput( frameSeconds, myInput.GetSnapshot(), myDebugUI.myCameraSettings );
         if ( myInput.HasLastSampleTime() ) {
-            core.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
+            renderer.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
 
         Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
-        Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, core.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
+        Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, renderer.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
-        uint32_t              viewCount = 0;
-        const auto            views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, core.GetFlyCamera(), core.GetSwapChainExtent() );
+        uint32_t                    viewCount = 0;
+        const auto                  views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera(), renderer.GetSwapChainExtent() );
+        Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
+        const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,
+                                                                                      myDebugUI.myRenderDebug.myLodEnabled );
+        std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews > viewPackets{};
+        Gfx_FrameDrawStreamLogState                             streamLogs{};
+        const uint32_t                                          activeViewCount = std::min( viewCount, kGfxMaxRenderViews );
+        for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
+            Gfx_LodState  secondaryViewLodState;
+            Gfx_LodState* lodStateForView = prepInput.myLodState;
+            if ( viewIndex > 0 ) {
+                secondaryViewLodState = *prepInput.myLodState;
+                lodStateForView       = &secondaryViewLodState;
+            }
+            Gfx_ViewPacketBuildParams packetParams{};
+            packetParams.myScene                 = prepInput.myScene;
+            packetParams.myView                  = views[ viewIndex ].myCamera.myView;
+            packetParams.myProj                  = views[ viewIndex ].myCamera.myProj;
+            packetParams.myCameraEye             = views[ viewIndex ].myCamera.myEye;
+            packetParams.myViewLayerMask         = views[ viewIndex ].myView.myLayerMask;
+            packetParams.myLodTable              = prepInput.myLodTable;
+            packetParams.myLodState              = lodStateForView;
+            packetParams.myLodEnabled            = toggles.myLodEnabled;
+            packetParams.myLodDebugLogicalMeshId = prepInput.myLodDebugLogicalMeshId;
+            packetParams.myGpuCullEnabled        = myConfig.GetGpuCullEnabled();
+            size_t drawCountBeforeCull           = 0;
+            Gfx_BuildViewFramePacket( packetParams, streamLogs, viewPackets[ viewIndex ], drawCountBeforeCull );
+        }
         Vk_FrameCpuPrepResult prep{};
-        if ( core.PrepareFrameCpu( myWorld, views, viewCount, prep ) ) {
-            BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, core, prep );
-            ProcessAppKeyboardShortcuts( core.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, core );
+        if ( renderer.PrepareFrameCpu( prepInput, toggles, views, viewCount, viewPackets, prep ) ) {
+            BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, renderer, prep );
+            ProcessAppKeyboardShortcuts( platformHost.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, renderer );
 
-            if ( core.DrawFrameGpu( myDebugUI, prep ) == Vk_FrameResult::RequestShutdown ) {
-                glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
+            if ( renderer.DrawFrameGpu( toggles, prep ) == Vk_FrameResult::RequestShutdown ) {
+                platformHost.RequestClose();
             }
         }
 
@@ -164,7 +239,7 @@ void Application::RunMainLoop() {
             if ( smokeFrameLimit > 0 ) {
                 UtilLogger::Info( "APP", "Smoke frame limit reached (" + std::to_string( smokeFrameLimit ) + "); requesting exit." );
             }
-            glfwSetWindowShouldClose( core.GetWindow(), GLFW_TRUE );
+            platformHost.RequestClose();
         }
     }
     UtilLogger::Info( "APP", "Main loop ended." );
@@ -181,7 +256,7 @@ std::string Application::TakePendingSceneReloadPath() {
 }
 
 void Application::TryProcessSceneReload() {
-    Vk_Core&          core       = Vk_Core::GetInstance();
+    Vk_Renderer&      renderer   = *myRenderer;
     const std::string reloadPath = TakePendingSceneReloadPath();
     if ( reloadPath.empty() ) {
         return;
@@ -192,12 +267,14 @@ void Application::TryProcessSceneReload() {
     auto loadScene = [ & ]( const std::string& aPath ) {
         Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig, aPath );
         Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
-        core.LoadSceneResources( std::move( desc ), aPath );
+        CommitSceneToWorld( myWorld, std::move( desc ), aPath );
+        ActivateSceneGpu( renderer, myWorld, myDebugUI, myConfig, aPath );
         myLastLoadedScenePath = aPath;
     };
 
     try {
-        core.UnloadScene();
+        renderer.UnloadSceneGpuResources();
+        myWorld.ClearCpuSceneState();
         loadScene( reloadPath );
         Gfx_ResetDemoSceneSimTime();
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );

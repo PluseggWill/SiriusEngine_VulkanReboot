@@ -14,5 +14,11 @@
     "demoRotate": false,
     "lodEnabled": false,
     "runtimeMipmap": false
+  },
+  "lighting": {
+    "shadowsEnabled": true,
+    "iblEnabled": true,
+    "iblIntensity": 1.0,
+    "environment": "Data/Environments/default"
   }
 }

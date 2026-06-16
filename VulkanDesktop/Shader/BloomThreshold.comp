@@ -1,0 +1,29 @@
+#version 450
+
+// Extract bright pixels from HDR scene color into half-res bloom ping target.
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    float threshold;
+    float pad0;
+    float pad1;
+    float pad2;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D sceneHdr;
+layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D bloomOut;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = imageSize(bloomOut);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(size);
+    const vec3 hdr = texture(sceneHdr, uv).rgb;
+    const float luma = max(hdr.r, max(hdr.g, hdr.b));
+    const vec3 bright = (luma > pc.threshold) ? hdr : vec3(0.0);
+    imageStore(bloomOut, pix, vec4(bright, 1.0));
+}

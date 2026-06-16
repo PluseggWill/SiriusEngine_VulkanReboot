@@ -7,8 +7,7 @@
 #include <cstdint>
 #include <string>
 
-// Application-owned scene CPU state (P1 peel). RenderCore must not own SoA/LOD/desc; it reads via
-// Vk_Core::BindWorldState only. GPU session (camera fly, env UBO, tables) stays on Vk_Core until later phases.
+// Application-owned scene CPU state. RenderCore reads via Gfx_FramePrepInput only.
 struct WorldState {
     Gfx_SceneSoA            mySceneSoA;
     Gfx_LodTable            myLodTable;

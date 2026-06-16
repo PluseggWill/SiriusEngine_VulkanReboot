@@ -1,4 +1,4 @@
-// Module: Vk_Initializer — default Vulkan create-info helpers for Vk_Core and Vk_PipelineBuilder.
+// Module: Vk_Initializer — default Vulkan create-info helpers for Vk_Renderer and Vk_PipelineBuilder.
 
 #include "Vk_Initializer.h"
 
@@ -9,7 +9,7 @@
 
 // VkPipelineShaderStageCreateInfo — one shader stage for vkCreateGraphicsPipelines (pStages[]).
 // Used when: assembling Vk_PipelineBuilder::myShaderStages before BuildPipeline.
-// Example (GLSL): Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) in Vk_Core::CreateGfxPipeline.
+// Example (GLSL): Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) in Vk_Renderer::CreateGfxPipeline.
 VkPipelineShaderStageCreateInfo VkInit::Pipeline_ShaderStageCreateInfo( VkShaderStageFlagBits aStageFlag, VkShaderModule aShaderModule, const char* anEntry ) {
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
 
@@ -158,7 +158,7 @@ VkPipelineLayoutCreateInfo VkInit::Pipeline_LayoutCreateInfo() {
     layoutInfo.flags          = 0;
     layoutInfo.setLayoutCount = 0;
     layoutInfo.pSetLayouts    = nullptr;
-    // Push constant ranges are set by the caller (e.g. Vk_Core::CreateGfxPipeline — mat4 model, VERTEX).
+    // Push constant ranges are set by the caller (e.g. Vk_Renderer::CreateGfxPipeline — mat4 model, VERTEX).
     layoutInfo.pushConstantRangeCount = 0;
     layoutInfo.pPushConstantRanges    = nullptr;
 
@@ -233,7 +233,7 @@ VkPipelineColorBlendStateCreateInfo VkInit::Pipeline_ColorBlendCreateInfo( VkPip
 // --- Command buffers ---
 
 // VkCommandPoolCreateInfo — vkCreateCommandPool for a queue family.
-// Used when: Vk_Core::CreateCommandPool for graphics and transfer pools.
+// Used when: Vk_Renderer::CreateCommandPool for graphics and transfer pools.
 // Example: CommandPoolCreateInfo( graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT ).
 VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo( uint32_t aQueueFamilyIndex, VkCommandPoolCreateFlags someFlags /*= 0*/ ) {
     VkCommandPoolCreateInfo poolInfo{};
@@ -277,7 +277,7 @@ VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo( VkCommandBufferUsageFla
 // --- Images ---
 
 // VkImageCreateInfo — vkCreateImage template (2D, optimal tiling, exclusive sharing by default).
-// Used when: Vk_Core::CreateImage before VMA allocation; caller may override samples/sharing (e.g. FillImageSharingMode for graphics+transfer).
+// Used when: Vk_Renderer::CreateImage before VMA allocation; caller may override samples/sharing (e.g. FillImageSharingMode for graphics+transfer).
 // Example: ImageCreateInfo( VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_SAMPLED_BIT, extent ) for textures.
 VkImageCreateInfo VkInit::ImageCreateInfo( VkFormat aFormat, VkImageUsageFlags aUsage, VkExtent3D anExtent ) {
     VkImageCreateInfo imageInfo{};

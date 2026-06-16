@@ -4,9 +4,9 @@
 #include "../Gfx/Gfx_GpuCull.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
-#include "Vk_Core.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
+#include "Vk_Renderer.h"
 
 #include <array>
 #include <stdexcept>
@@ -35,7 +35,7 @@ void CmdPipelineBarrierBuffer( VkCommandBuffer aCommandBuffer, VkPipelineStageFl
 
 }  // namespace
 
-void Vk_GpuCull::Init( Vk_Core& aCore ) {
+void Vk_GpuCull::Init( Vk_Renderer& aCore ) {
     Vk_GpuCullState& state = aCore.myGpuCullState;
 
     VkShaderModule computeModule = aCore.CreateShaderModule( kEntityCullShaderPath );
@@ -50,7 +50,7 @@ void Vk_GpuCull::Init( Vk_Core& aCore ) {
     layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
     layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_GpuCull: failed to create descriptor set layout" );
     }
 
@@ -64,7 +64,7 @@ void Vk_GpuCull::Init( Vk_Core& aCore ) {
     pipelineLayoutInfo.pSetLayouts                = &state.myDescriptorSetLayout;
     pipelineLayoutInfo.pushConstantRangeCount     = 1;
     pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_GpuCull: failed to create pipeline layout" );
     }
 
@@ -74,11 +74,12 @@ void Vk_GpuCull::Init( Vk_Core& aCore ) {
     pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.stage  = stageInfo;
     pipelineInfo.layout = state.myPipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myDeviceCtx.myDevice, aCore.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline ) != VK_SUCCESS ) {
+    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline )
+         != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_GpuCull: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myDeviceCtx.myDevice, computeModule, nullptr );
+    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
 
     VkDescriptorPoolSize poolSize{};
     poolSize.type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -89,16 +90,16 @@ void Vk_GpuCull::Init( Vk_Core& aCore ) {
     poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes    = &poolSize;
-    if ( vkCreateDescriptorPool( aCore.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_GpuCull: failed to create descriptor pool" );
     }
 
-    const VkDevice              device          = aCore.myDeviceCtx.myDevice;
+    const VkDevice              device          = aCore.myRhi.myDeviceCtx.myDevice;
     const VkPipeline            computePipeline = state.myComputePipeline;
     const VkPipelineLayout      pipelineLayout  = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout       = state.myDescriptorSetLayout;
     const VkDescriptorPool      descriptorPool  = state.myDescriptorPool;
-    aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool ]() {
         if ( computePipeline != VK_NULL_HANDLE ) {
             vkDestroyPipeline( device, computePipeline, nullptr );
         }
@@ -116,7 +117,7 @@ void Vk_GpuCull::Init( Vk_Core& aCore ) {
     UtilLogger::Info( "PIPELINE", "GPU cull compute pipeline created." );
 }
 
-void Vk_GpuCull::CreateFrameBuffers( Vk_Core& aCore ) {
+void Vk_GpuCull::CreateFrameBuffers( Vk_Renderer& aCore ) {
     const VkDeviceSize indirectBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxEntitySlots ) * sizeof( VkDrawIndexedIndirectCommand );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
@@ -127,7 +128,7 @@ void Vk_GpuCull::CreateFrameBuffers( Vk_Core& aCore ) {
         aCore.CreateBuffer( sizeof( uint32_t ), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, frame.myGpuCullVisibleCountBuffer, true );
 
         void* indirectMapped = nullptr;
-        vmaMapMemory( aCore.myDeviceCtx.myAllocator, frame.myGpuCullIndirectBuffer.myAllocation, &indirectMapped );
+        vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, frame.myGpuCullIndirectBuffer.myAllocation, &indirectMapped );
         frame.myGpuCullIndirectMapped = indirectMapped;
 
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -135,7 +136,7 @@ void Vk_GpuCull::CreateFrameBuffers( Vk_Core& aCore ) {
         allocInfo.descriptorPool     = aCore.myGpuCullState.myDescriptorPool;
         allocInfo.descriptorSetCount = 1;
         allocInfo.pSetLayouts        = &aCore.myGpuCullState.myDescriptorSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myDeviceCtx.myDevice, &allocInfo, &frame.myGpuCullDescriptorSet ) != VK_SUCCESS ) {
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &frame.myGpuCullDescriptorSet ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_GpuCull: failed to allocate descriptor set" );
         }
 
@@ -159,13 +160,13 @@ void Vk_GpuCull::CreateFrameBuffers( Vk_Core& aCore ) {
             VkInit::DescriptorSetWriteCreateInfo( frame.myGpuCullDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &indirectInfo, 1, 1 ),
             VkInit::DescriptorSetWriteCreateInfo( frame.myGpuCullDescriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &counterInfo, 2, 1 ),
         };
-        vkUpdateDescriptorSets( aCore.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 
-        const VmaAllocator       allocator         = aCore.myDeviceCtx.myAllocator;
+        const VmaAllocator       allocator         = aCore.myRhi.myDeviceCtx.myAllocator;
         const Vk_AllocatedBuffer indirectBuffer    = frame.myGpuCullIndirectBuffer;
         const Vk_AllocatedBuffer counterBuffer     = frame.myGpuCullVisibleCountBuffer;
         void* const              indirectMappedPtr = frame.myGpuCullIndirectMapped;
-        aCore.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, indirectBuffer, counterBuffer, indirectMappedPtr ]() {
+        aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ allocator, indirectBuffer, counterBuffer, indirectMappedPtr ]() {
             if ( indirectMappedPtr != nullptr ) {
                 vmaUnmapMemory( allocator, indirectBuffer.myAllocation );
             }
@@ -178,7 +179,7 @@ void Vk_GpuCull::CreateFrameBuffers( Vk_Core& aCore ) {
                       "GPU cull buffers: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/indirect/frame=" + std::to_string( indirectBytes ) );
 }
 
-void Vk_GpuCull::RecordDispatches( Vk_Core& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep ) {
+void Vk_GpuCull::RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep ) {
     if ( !aCore.EngineConfig().GetGpuCullEnabled() || aPrep.myFrameData == nullptr ) {
         return;
     }

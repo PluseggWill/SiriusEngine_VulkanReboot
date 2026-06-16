@@ -14,7 +14,7 @@
 
 class Vk_ResourceTables;
 
-// Per-frame draw prep: Gfx draw stream + instance slab CPU write (before vkCmd record).
+// Per-view GPU upload prep: consumes Gfx_FrameRenderPacket from App (no extract/cull in RenderCore).
 
 struct Vk_FrameDrawPrepBuildParams {
     Gfx_SceneSoA*                myScene                  = nullptr;
@@ -46,9 +46,9 @@ public:
     void ResetLogState();
 
     // Returns false when instance slab overflow (record should be skipped).
-    bool Build( const Vk_FrameDrawPrepBuildParams& aParams );
+    bool UploadFromPacket( const Vk_FrameDrawPrepBuildParams& aParams, const Gfx_FrameRenderPacket& aPacket );
 
-    // Scene-wide SoA → entity-record SSBO (once per frame, before multi-view Build). LOD uses primary-view eye + lod-state snapshot.
+    // Scene-wide SoA → entity-record SSBO (once per frame, before multi-view upload). LOD uses primary-view eye + lod-state snapshot.
     bool FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, const Gfx_EntityRecordLodParams& aLod, uint32_t aCurrentFrame,
                             std::vector< Vk_FrameData >& aFrameDatas );
 

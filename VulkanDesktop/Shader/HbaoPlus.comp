@@ -1,0 +1,96 @@
+#version 450
+
+// HBAO+ v0 — half-res slice-organized horizon AO.
+// World-constant sample radius + tangent-plane elevation (avoids distant flat-ground darkening).
+#include "AoCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    mat4 view;
+    mat4 proj;
+    vec4 params; // x=radius (world/view units), y=bias, z=enabled (0/1), w=unused
+    uvec2 sliceCount;
+    uvec2 stepsPerSlice;
+    vec2 halfScreenSize;
+    vec2 pad;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
+layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 3, r8) uniform writeonly image2D aoHalfOut;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 halfSize = ivec2(pc.halfScreenSize);
+    if (pix.x >= halfSize.x || pix.y >= halfSize.y) {
+        return;
+    }
+
+    if (pc.params.z < 0.5) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(halfSize);
+    const float depth = texture(gbufferDepth, uv).r;
+    if (depth >= 0.999) {
+        imageStore(aoHalfOut, pix, vec4(1.0));
+        return;
+    }
+
+    const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
+    const vec3 fragPos = (pc.view * vec4(worldPos, 1.0)).xyz;
+    const vec3 Nworld = normalize(texture(gbufferNormalRoughness, uv).xyz);
+    const vec3 Nview = Ao_WorldNormalToView(Nworld, pc.view);
+
+    vec3 tangentW;
+    vec3 bitangentW;
+    Ao_BuildWorldTangentBasis(Nworld, tangentW, bitangentW);
+
+    // Constant world/view radius — do not scale with camera distance (was causing far-ground darkening).
+    const float sampleRadius = max(pc.params.x, 1e-4);
+
+    const int numDirs = int(clamp(pc.sliceCount.x, 1u, 8u));
+    const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 8u));
+
+    float occlusion = 0.0;
+    float sampleCount = 0.0;
+
+    for (int d = 0; d < numDirs; ++d) {
+        const float sliceAngle = (float(d) / float(numDirs)) * 3.14159265;
+        const vec3 sliceDirW = cos(sliceAngle) * tangentW + sin(sliceAngle) * bitangentW;
+        const vec3 sliceDir = normalize((pc.view * vec4(sliceDirW, 0.0)).xyz);
+
+        for (int s = 1; s <= numSteps; ++s) {
+            const float t = float(s) / float(numSteps);
+            const vec3 samplePosView = fragPos + sliceDir * (sampleRadius * t);
+
+            const vec2 sampleUV = Ao_ProjectViewPosToUv(samplePosView, pc.proj);
+            vec3 sampleWorld;
+            vec3 sampleView;
+            if (!Ao_TryFetchGBufferPos(gbufferWorldPosition, pc.view, sampleUV, sampleWorld, sampleView)) {
+                continue;
+            }
+
+            const vec3 deltaView = sampleView - fragPos;
+            const float rangeWeight = Ao_GtaoDistanceFalloff(length(sampleWorld - worldPos), sampleRadius, 2.0);
+            if (rangeWeight <= 0.0) {
+                continue;
+            }
+
+            sampleCount += 1.0;
+            const float elevation = Ao_SurfaceElevation(deltaView, Nview);
+            if (elevation > pc.params.y) {
+                occlusion += rangeWeight;
+            }
+        }
+    }
+
+    const float ao = (sampleCount > 0.5)
+        ? (1.0 - clamp(occlusion / sampleCount, 0.0, 1.0))
+        : 1.0;
+    imageStore(aoHalfOut, pix, vec4(ao));
+}

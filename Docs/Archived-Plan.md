@@ -334,8 +334,63 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 | **Outcome** | Full hybrid chain on batch + bindless; specular v0 in deferred; ForwardLit default unchanged |
 | **Validation** | `Verify-CI.ps1` + `Verify-Smoke.ps1`; manual HybridDeferred (bindless + batch) |
 | **Roadmap** | [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) · slices 1–6 in [`Archived/plans/`](Archived/plans/) |
+| **Retrospective (中文)** | [`Archived/S3-回顾总结.md`](Archived/S3-回顾总结.md) |
 
 - [x] **[S3]** FG v0: preset + G-buffer + cluster build + deferred lighting — 2026-06-11
+
+---
+
+## S4 — PBR + G-buffer contract *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | G-buffer MR encode (RT0.a metallic, RT1.w roughness); Cook-Torrance direct sun in deferred + forward; McGuire Sponza vendored |
+| **Validation** | `Verify-Smoke.ps1`; MSBuild + GfxTests; [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S4 |
+| **Plan log** | [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md) · [`s4-pbr-gbuffer_Progress.md`](Archived/plans/s4-pbr-gbuffer_Progress.md) |
+| **Retrospective (中文)** | [`Archived/S4-S5-回顾总结.md`](Archived/S4-S5-回顾总结.md) *(S4+S5 合并)* |
+
+- [x] **[S4]** PBR material contract + deferred/forward Cook-Torrance BRDF — 2026-06-12
+
+---
+
+## S5 — IBL + skybox + directional shadows *(closed 2026-06-12)*
+
+| | |
+|--|--|
+| **Outcome** | Split-sum IBL + sky at far depth; 2048² directional shadow map (PCF); runtime toggles via `GpuLightingGlobals`; forward + deferred parity |
+| **Validation** | `Verify-Smoke.ps1` (stress shadows/IBL off); MSBuild Debug\|x64; manual Sponza checklist in archived plan §15 |
+| **Plan log** | [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md) · [`s5-ibl-shadows_Progress.md`](Archived/plans/s5-ibl-shadows_Progress.md) · refactor: [`lighting-shadow-refactor_Plan.md`](Archived/plans/lighting-shadow-refactor_Plan.md) |
+| **Retrospective (中文)** | [`Archived/S4-S5-回顾总结.md`](Archived/S4-S5-回顾总结.md) *(S4+S5 合并)* |
+
+- [x] **[S5]** IBL + skybox + directional shadows (Lighting-2) — 2026-06-12
+- [x] **[S5]** Lighting/shadow refactor (caster pass, shader split, IBL mips) — 2026-06-13 · [`lighting-shadow-refactor_Progress.md`](Archived/plans/lighting-shadow-refactor_Progress.md)
+
+---
+
+## S6 — SSAO + Hi-Z depth pyramid *(closed 2026-06-15)*
+
+| | |
+|--|--|
+| **Outcome** | R32 Hi-Z mip chain; 16-tap SSAO + blur; AO modulates ambient/IBL in deferred; debug views AO/Hi-Z |
+| **Validation** | `Verify-CI.ps1`; manual Sponza AO checklist |
+| **Plan log** | [`Archived/plans/s6-ssao-hiz_Plan.md`](Archived/plans/s6-ssao-hiz_Plan.md) · [`s6-ssao-hiz_Progress.md`](Archived/plans/s6-ssao-hiz_Progress.md) |
+
+- [x] **[S6]** SSAO + Hi-Z (Lighting-3) — 2026-06-15
+- [x] **HBAO+ v0** — modular `Vk_AoPass` + `Gfx_AoMethod` (Classic SSAO / HBAO+) — 2026-06-16 · [`Archived/plans/hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md)
+- [x] **contact-soft-ao** — ShadowAoSoft pack + bilateral blur; validation-clean AO-off path — 2026-06-16 · [`Archived/plans/contact-soft-ao_Plan.md`](Archived/plans/contact-soft-ao_Plan.md)
+- [x] **GTAO v0** — modular `Vk_AoPass` slice integration + shared half-res upsample — 2026-06-16 · [`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md)
+
+---
+
+## S7 — Post + frame graph v1 *(closed 2026-06-15)*
+
+| | |
+|--|--|
+| **Outcome** | HDR intermediate; tonemap (ACES/Reinhard) + exposure; optional bloom; `Vk_FrameGraphBuilder` v1 |
+| **Validation** | `Verify-CI.ps1`; G4 contributor (shadow + post on hybrid chain) |
+| **Plan log** | [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/s7-post-fg_Plan.md) · [`s7-post-fg_Progress.md`](Archived/plans/s7-post-fg_Progress.md) |
+
+- [x] **[S7]** Post-processing + frame graph v1 (Lighting-4) — 2026-06-15
 
 ---
 

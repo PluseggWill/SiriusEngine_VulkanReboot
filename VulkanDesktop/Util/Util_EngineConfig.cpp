@@ -176,6 +176,22 @@ void Util_EngineConfig::ApplyJsonFile( const std::filesystem::path& aConfigPath 
     if ( root.contains( "renderPreset" ) && root[ "renderPreset" ].is_string() ) {
         myConfigRenderPreset = root[ "renderPreset" ].get< std::string >();
     }
+
+    if ( root.contains( "lighting" ) && root[ "lighting" ].is_object() ) {
+        const auto& lighting = root[ "lighting" ];
+        if ( lighting.contains( "shadowsEnabled" ) && lighting[ "shadowsEnabled" ].is_boolean() ) {
+            myLightingSettings.myShadowsEnabled = lighting[ "shadowsEnabled" ].get< bool >();
+        }
+        if ( lighting.contains( "iblEnabled" ) && lighting[ "iblEnabled" ].is_boolean() ) {
+            myLightingSettings.myIblEnabled = lighting[ "iblEnabled" ].get< bool >();
+        }
+        if ( lighting.contains( "iblIntensity" ) && lighting[ "iblIntensity" ].is_number() ) {
+            myLightingSettings.myIblIntensity = lighting[ "iblIntensity" ].get< float >();
+        }
+        if ( lighting.contains( "environment" ) && lighting[ "environment" ].is_string() ) {
+            myEnvironmentPath = lighting[ "environment" ].get< std::string >();
+        }
+    }
 }
 
 void Util_EngineConfig::ResolveActiveShaderPermutation( const CliOverrides& aOverrides ) {
@@ -340,6 +356,36 @@ Util_EngineConfig::CliOverrides Util_EngineConfig::ParseCliOverrides( int aArgc,
             overrides.myPerfLog = aArgv[ ++i ];
             continue;
         }
+        if ( arg == "--shadows" ) {
+            overrides.myShadowsEnabled = true;
+            continue;
+        }
+        if ( arg == "--no-shadows" ) {
+            overrides.myShadowsEnabled = false;
+            continue;
+        }
+        if ( arg == "--ibl" ) {
+            overrides.myIblEnabled = true;
+            continue;
+        }
+        if ( arg == "--no-ibl" ) {
+            overrides.myIblEnabled = false;
+            continue;
+        }
+        if ( arg == "--ibl-intensity" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --ibl-intensity" );
+            }
+            overrides.myIblIntensity = static_cast< float >( std::stod( aArgv[ ++i ] ) );
+            continue;
+        }
+        if ( arg == "--environment" ) {
+            if ( i + 1 >= aArgc ) {
+                throw std::runtime_error( "Missing value for --environment" );
+            }
+            overrides.myEnvironment = aArgv[ ++i ];
+            continue;
+        }
         if ( arg == "--help" || arg == "-h" || arg == "/?" ) {
             continue;
         }
@@ -390,6 +436,18 @@ void Util_EngineConfig::ApplyCliOverrides( const CliOverrides& aOverrides ) {
     }
     if ( aOverrides.myPerfLog.has_value() ) {
         myPerfLogPath = *aOverrides.myPerfLog;
+    }
+    if ( aOverrides.myShadowsEnabled.has_value() ) {
+        myLightingSettings.myShadowsEnabled = *aOverrides.myShadowsEnabled;
+    }
+    if ( aOverrides.myIblEnabled.has_value() ) {
+        myLightingSettings.myIblEnabled = *aOverrides.myIblEnabled;
+    }
+    if ( aOverrides.myIblIntensity.has_value() ) {
+        myLightingSettings.myIblIntensity = *aOverrides.myIblIntensity;
+    }
+    if ( aOverrides.myEnvironment.has_value() ) {
+        myEnvironmentPath = *aOverrides.myEnvironment;
     }
     ResolveActiveShaderPermutation( aOverrides );
 }
@@ -525,6 +583,14 @@ const std::string& Util_EngineConfig::GetRenderPresetName() const {
     return myRenderPresetName;
 }
 
+const Gfx_LightingSettings& Util_EngineConfig::GetLightingSettings() const {
+    return myLightingSettings;
+}
+
+const std::string& Util_EngineConfig::GetEnvironmentPath() const {
+    return myEnvironmentPath;
+}
+
 void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", "cwd=" + std::filesystem::current_path().string() );
     UtilLogger::Info( "CONFIG", "config=" + myConfigPathUsed );
@@ -542,6 +608,9 @@ void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", std::string( "renderdoc=" ) + ( myEnableRenderDoc ? "enabled" : "disabled" ) );
     UtilLogger::Info( "CONFIG", std::string( "legacyDirectDraw=" ) + ( myLegacyDirectDraw ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "gpuCull=" ) + ( myGpuCullEnabled ? "true" : "false" ) );
+    UtilLogger::Info( "CONFIG", std::string( "lighting shadows=" ) + ( myLightingSettings.myShadowsEnabled ? "1" : "0" )
+                                    + " ibl=" + ( myLightingSettings.myIblEnabled ? "1" : "0" ) + " iblIntensity=" + std::to_string( myLightingSettings.myIblIntensity )
+                                    + " environment=" + myEnvironmentPath );
 
     if ( myValidationResolved ) {
         const char* source = "build default";
@@ -589,6 +658,10 @@ void PrintUsage( const char* aProgramName ) {
               << "  --perf-log <path>      Append per-frame JSONL metrics (schemaVersion 1)\n"
               << "  --shader-permutation <name>   Active entry in PermutationRegistry.json (e.g. lit, lit_alpha_clip)\n"
               << "  --render-preset <name>        Render preset (HybridDeferred, ForwardLit, ForwardLitAlphaClip); overridden by --shader-permutation\n"
+              << "  --shadows / --no-shadows      Enable or disable directional shadow map (overrides config)\n"
+              << "  --ibl / --no-ibl              Enable or disable split-sum IBL (overrides config)\n"
+              << "  --ibl-intensity <f>           IBL intensity multiplier (overrides config)\n"
+              << "  --environment <path>          IBL cubemap manifest directory (repo-relative)\n"
               << "  --descriptor-layout-mismatch-test   Dev: vkUpdateDescriptorSets type mismatch probe (needs --validation)\n"
               << "  --renderdoc            Enable RenderDoc runtime integration (startup-gated)\n"
               << "  --help                 Show this message\n"
