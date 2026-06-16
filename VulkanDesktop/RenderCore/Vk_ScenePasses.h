@@ -12,6 +12,7 @@ using VkCommandBuffer = VkCommandBuffer_T*;
 struct VkPipeline_T;
 using VkPipeline = VkPipeline_T*;
 class Vk_Renderer;
+struct Vk_RendererContexts;
 struct Gfx_FrameDebugToggles;
 
 // Vk_ScenePasses: scene forward pass record (opaque then transparent in one render pass).
@@ -19,7 +20,7 @@ class Vk_ScenePasses {
 public:
     // CONTRACT: see RecordScene in Vk_ScenePasses.cpp (Stage 1 forward sub-passes).
     // aDebugUI: render-debug pass skips (opaque/transparent); avoids Vk_Renderer::DebugUI() after friend removal.
-    static void RecordScene( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+    static void RecordScene( Vk_RendererContexts& aContexts, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
                              const std::array< VkViewport, kGfxMaxRenderViews >& aViewports, const std::array< VkRect2D, kGfxMaxRenderViews >& aScissors,
                              const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                              const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );
@@ -44,5 +45,5 @@ public:
                                       const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
                                       const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets );
 
-    static void RecordImGui( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
+    static void RecordImGui( Vk_RendererContexts& aContexts, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex );
 };

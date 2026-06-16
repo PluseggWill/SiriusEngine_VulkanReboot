@@ -474,6 +474,9 @@
     <ClInclude Include="RenderCore\Vk_Renderer.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_RendererContexts.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
     <ClInclude Include="RenderCore\Vk_RhiDevice.h">
       <Filter>RenderCore</Filter>
     </ClInclude>

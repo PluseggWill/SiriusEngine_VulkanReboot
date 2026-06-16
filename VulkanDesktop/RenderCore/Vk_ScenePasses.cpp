@@ -13,6 +13,7 @@
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_GBufferPass.h"
+#include "Vk_RendererContexts.h"
 #include "Vk_Renderer.h"
 
 #include "Vk_PostProcessPass.h"
@@ -211,7 +212,7 @@ void RecordPassDrawsFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCommandBuff
 
 // Gfx_FrameRenderPacket order is fixed; Stage 2 FG node ForwardTransparent must read depth from opaque pass.
 
-void Vk_ScenePasses::RecordScene( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
+void Vk_ScenePasses::RecordScene( Vk_RendererContexts& aContexts, const Gfx_FrameDebugToggles& aToggles, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex,
 
                                   const std::array< VkViewport, kGfxMaxRenderViews >& aViewports,
 
@@ -220,6 +221,7 @@ void Vk_ScenePasses::RecordScene( Vk_Renderer& aCore, const Gfx_FrameDebugToggle
                                   const std::array< VkDescriptorSet, kGfxMaxRenderViews >& aFrameDescriptors, uint32_t aViewCount,
 
                                   const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets ) {
+    Vk_Renderer& aCore = aContexts.myRenderer;
 
     if ( Vk_GBufferPass::IsActive( aCore ) ) {
         if ( !aCore.myGBufferState.myInitialized ) {
@@ -516,7 +518,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDe
     }
 }
 
-void Vk_ScenePasses::RecordImGui( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
-
+void Vk_ScenePasses::RecordImGui( Vk_RendererContexts& aContexts, VkCommandBuffer aCommandBuffer, uint32_t anImageIndex ) {
+    Vk_Renderer& aCore = aContexts.myRenderer;
     aCore.myPlatformCtx.myImGuiLayer.Render( aCommandBuffer, anImageIndex, aCore.mySwapchainCtx.mySwapChainExtent );
 }

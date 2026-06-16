@@ -5,6 +5,7 @@
 #include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_SceneLoader.h"
+#include "../Gfx/Gfx_SceneGpuLoadParams.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_ViewPacketBuild.h"
@@ -68,7 +69,12 @@ void CommitSceneToWorld( WorldState& aWorld, Gfx_SceneDesc aScene, std::string a
 void ActivateSceneGpu( Vk_Renderer& aRenderer, WorldState& aWorld, DebugUIState& aDebugUI, const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
     aDebugUI.myScenePanel.myCurrentScenePath = aLogicalPath;
     UtilScenePanel::RefreshSceneList( aConfig, aDebugUI.myScenePanel );
-    aRenderer.LoadSceneGpuResources( aWorld );
+    Gfx_SceneGpuLoadParams loadParams{};
+    loadParams.mySceneDesc     = &aWorld.myLoadedScene;
+    loadParams.mySceneIdTables = &aWorld.mySceneIdTables;
+    loadParams.mySceneSoA      = &aWorld.mySceneSoA;
+    loadParams.myLogicalPath   = aWorld.myLogicalPath;
+    aRenderer.LoadSceneGpuResources( loadParams );
     App_InitScenePresentation( aRenderer, aWorld );
 }
 

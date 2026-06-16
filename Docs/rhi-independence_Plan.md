@@ -129,9 +129,9 @@ PlatformHost.Poll → Input.Sample(window)
 
 ### Step 4 — Vk_Renderer 骨架 + 去 WorldState
 
-- [ ] 4.1 `Vk_Renderer` 拥有：swapchain ctx, frame ctx, scene ctx, 全部 pass states, session settings
-- [ ] 4.2 `LoadSceneGpuResources(Gfx_SceneGpuLoadParams)`；App 从 WorldState 填 DTO
-- [ ] 4.3 `Vk_RendererContexts` 供 pass 模块访问；开始将 `Vk_Core&` 替换为 `Vk_Renderer&`
+- [x] 4.1 `Vk_Renderer` 拥有：swapchain ctx, frame ctx, scene ctx, 全部 pass states, session settings
+- [x] 4.2 `LoadSceneGpuResources(Gfx_SceneGpuLoadParams)`；App 从 WorldState 填 DTO
+- [x] 4.3 `Vk_RendererContexts` 供 pass 模块访问；开始将 `Vk_Core&` 替换为 `Vk_Renderer&`
 
 ### Step 5 — CPU prep 上移
 

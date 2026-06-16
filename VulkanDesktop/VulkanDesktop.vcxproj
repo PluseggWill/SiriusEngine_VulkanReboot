@@ -317,6 +317,7 @@
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
     <ClInclude Include="RenderCore\Vk_Renderer.h" />
+    <ClInclude Include="RenderCore\Vk_RendererContexts.h" />
     <ClInclude Include="RenderCore\Vk_RhiDevice.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
     <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h" />

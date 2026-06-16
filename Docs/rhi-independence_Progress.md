@@ -31,9 +31,19 @@
   - Deleted `Vk_PlatformFrame.{h,cpp}`; platform frame orchestration now fully in App layer
 - **Verification:** `Verify-CI.ps1` Debug exit 0
 
-## Remaining (plan steps 2.2, 7, partial 4/8)
+## 2026-06-16 — Step 4 (renderer skeleton + scene DTO + contexts)
+
+- **Plan ref:** Step 4.1, 4.2, 4.3
+- **Files:** `Gfx_SceneGpuLoadParams.h`, `Application.cpp`, `Vk_Renderer.h`, `Vk_Renderer.cpp`, `Vk_RendererContexts.h`, `Vk_ScenePasses.*`
+- **What changed:**
+  - `Vk_Renderer::LoadSceneGpuResources` signature changed to `LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`
+  - RenderCore scene-load path no longer depends on `WorldState`; consumes App-built scene DTO pointers
+  - `Application` now builds and passes `Gfx_SceneGpuLoadParams` from `WorldState` before scene GPU activation
+  - Added `Vk_RendererContexts` and switched scene/imGui pass entrypoints to consume contexts bundle
+- **Verification:** `Verify-CI.ps1` Debug exit 0
+
+## Remaining (plan steps 2.2, 7, partial 8)
 
 - `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish)
-- `LoadSceneGpuResources(Gfx_SceneGpuLoadParams)` — drop `WorldState&`
 - FG v2 (`Vk_FrameGraph`, resource registry, barrier compiler)
 - `EngineArchitecture.md` policy sync at closeout

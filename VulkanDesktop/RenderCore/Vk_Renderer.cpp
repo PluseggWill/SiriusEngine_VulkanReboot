@@ -1,7 +1,6 @@
 // Module: Vk_Renderer - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Renderer.h"
-#include "../App/WorldState.h"
 #include "../App/App_PlatformHost.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
@@ -186,19 +185,19 @@ void Vk_Renderer::InitRenderDevice() {
 }
 
 // Scene-load orchestration: GPU pipelines + resource tables + descriptors (CPU scene state is App-owned).
-void Vk_Renderer::LoadSceneGpuResources( WorldState& aWorld ) {
+void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadParams ) {
     if ( mySceneGpuLoaded ) {
         throw std::runtime_error( "LoadSceneGpuResources: scene already loaded; call UnloadSceneGpuResources first." );
     }
-    if ( !aWorld.myHasLoadedScene ) {
-        throw std::runtime_error( "LoadSceneGpuResources: WorldState has no loaded scene." );
+    if ( aLoadParams.mySceneDesc == nullptr || aLoadParams.mySceneIdTables == nullptr || aLoadParams.mySceneSoA == nullptr ) {
+        throw std::runtime_error( "LoadSceneGpuResources: invalid Gfx_SceneGpuLoadParams (null pointers)." );
     }
 
     UtilLogger::Info( "SCENE", "LoadSceneGpuResources." );
-    myLoadedSceneLogicalPath = aWorld.myLogicalPath;
-    myBoundSceneSoA          = &aWorld.mySceneSoA;
+    myLoadedSceneLogicalPath = aLoadParams.myLogicalPath;
+    myBoundSceneSoA          = aLoadParams.mySceneSoA;
 
-    ( void )Gfx_GetSceneShader( aWorld.myLoadedScene, "lit" );
+    ( void )Gfx_GetSceneShader( *aLoadParams.mySceneDesc, "lit" );
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
     vertShaderPath                             = activePerm.myVertSpvLogicalPath;
     fragShaderPath                             = activePerm.myFragSpvLogicalPath;
@@ -218,7 +217,7 @@ void Vk_Renderer::LoadSceneGpuResources( WorldState& aWorld ) {
 
     {
         Gfx_ResourceManifest manifest{};
-        Gfx_BuildResourceManifestFromSceneDesc( aWorld.myLoadedScene, aWorld.mySceneIdTables, manifest );
+        Gfx_BuildResourceManifestFromSceneDesc( *aLoadParams.mySceneDesc, *aLoadParams.mySceneIdTables, manifest );
         mySceneGpuCtx.myTextureImageMipLevels = 1;
         const VkPipeline opaquePipe =
             myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ? mySceneGpuCtx.myBasicPipelineBindless : mySceneGpuCtx.myBasicPipeline;
@@ -229,7 +228,8 @@ void Vk_Renderer::LoadSceneGpuResources( WorldState& aWorld ) {
         SyncResourceContext();
         mySceneGpuCtx.myResourceTables.LoadFromManifest( EngineConfig(), manifest, myRhi.myResourceContext, mySceneGpuCtx.mySceneDeletionQueue,
                                                          mySceneGpuCtx.myTextureImageMipLevels, opaquePipe, transPipe, layout );
-        Gfx_ApplyMeshLocalBoundsToSceneSoA( aWorld.myLoadedScene, aWorld.mySceneIdTables, mySceneGpuCtx.myResourceTables.CollectMeshLocalBounds(), aWorld.mySceneSoA );
+        Gfx_ApplyMeshLocalBoundsToSceneSoA( *aLoadParams.mySceneDesc, *aLoadParams.mySceneIdTables, mySceneGpuCtx.myResourceTables.CollectMeshLocalBounds(),
+                                            *aLoadParams.mySceneSoA );
     }
 
     Vk_DescriptorSystem::InitSceneDescriptors( *this );
@@ -802,11 +802,12 @@ Vk_FrameResult Vk_Renderer::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles,
 
     Vk_GpuCull::RecordDispatches( *this, frameData.myCommandBuffer, aPrep );
 
-    Vk_ScenePasses::RecordScene( *this, aToggles, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
+    Vk_RendererContexts contexts = BuildContexts();
+    Vk_ScenePasses::RecordScene( contexts, aToggles, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
                                  aPrep.myActiveViewCount, aPrep.myViewPackets );
 
     ImGui::Render();
-    Vk_ScenePasses::RecordImGui( *this, frameData.myCommandBuffer, aPrep.myImageIndex );
+    Vk_ScenePasses::RecordImGui( contexts, frameData.myCommandBuffer, aPrep.myImageIndex );
 
     if ( vkEndCommandBuffer( frameData.myCommandBuffer ) != VK_SUCCESS ) {
         throw std::runtime_error( "failed to record command buffer!" );
@@ -846,6 +847,10 @@ void Vk_Renderer::CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const {
 
 bool Vk_Renderer::AreCommandDebugLabelsEnabled() const {
     return myPlatformCtx.myRenderDoc.AreCommandLabelsEnabled();
+}
+
+Vk_RendererContexts Vk_Renderer::BuildContexts() {
+    return Vk_RendererContexts{ *this };
 }
 
 void Vk_Renderer::LogM1PerfSnapshot() const {

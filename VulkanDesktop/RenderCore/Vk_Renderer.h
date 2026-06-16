@@ -15,6 +15,7 @@
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_PostSettings.h"
 #include "../Gfx/Gfx_RenderView.h"
+#include "../Gfx/Gfx_SceneGpuLoadParams.h"
 
 #include "../Util/Util_FrameStats.h"
 
@@ -51,6 +52,7 @@
 
 #include "Vk_ResourceContext.h"
 #include "Vk_RhiDevice.h"
+#include "Vk_RendererContexts.h"
 
 #include "Vk_SceneGpuContext.h"
 
@@ -67,10 +69,6 @@ struct Vk_AllocatedImage;
 struct Vk_AllocatedBuffer;
 
 struct GLFWwindow;
-
-struct WorldState;
-
-struct Gfx_SceneDesc;
 
 struct Util_EngineConfig;
 class App_PlatformHost;
@@ -105,8 +103,8 @@ public:
 
     void InitRenderDevice();
 
-    // Application must call App_LoadSceneCpuState first. Binds myBoundSceneSoA for shadow bounds.
-    void LoadSceneGpuResources( WorldState& aWorld );
+    // Application must call App_LoadSceneCpuState first and pass scene DTO from App layer.
+    void LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadParams );
 
     void UnloadSceneGpuResources();
 
@@ -167,6 +165,7 @@ public:
 
     // VK_EXT_debug_utils labels loaded (--renderdoc + extension); used to skip label formatting on hot path.
     bool AreCommandDebugLabelsEnabled() const;
+    Vk_RendererContexts BuildContexts();
 
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
