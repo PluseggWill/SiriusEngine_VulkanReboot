@@ -232,7 +232,13 @@
     <ClCompile Include="RenderCore\Vk_RenderDevice.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_RenderBackend.cpp">
+    <ClCompile Include="RenderCore\Vk_FrameGraph.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_FgResourceRegistry.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_FgBarrierCompiler.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp">
@@ -241,8 +247,8 @@
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_FrameGraphBuilder.cpp">
-      <Filter>RenderCore</Filter>
+    <ClCompile Include="Gfx\Gfx_FramePacketValidation.cpp">
+      <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp">
       <Filter>RenderCore</Filter>
@@ -522,7 +528,13 @@
     <ClInclude Include="RenderCore\Vk_RenderDevice.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_RenderBackend.h">
+    <ClInclude Include="RenderCore\Vk_FrameGraph.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FgResourceRegistry.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FgBarrierCompiler.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_AoSettings.h">
@@ -540,8 +552,8 @@
     <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_FrameGraphBuilder.h">
-      <Filter>RenderCore</Filter>
+    <ClInclude Include="Gfx\Gfx_FramePacketValidation.h">
+      <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_PostProcessPass.h">
       <Filter>RenderCore</Filter>

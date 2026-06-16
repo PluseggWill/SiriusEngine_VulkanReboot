@@ -60,7 +60,7 @@ Follow-ons 2026-06-16: HBAO+ [`hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan
 
 Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/s7-post-fg_Plan.md)
 
-**Shipped:** HDR intermediate, tonemap + exposure, optional bloom, `Vk_FrameGraphBuilder` v1 with shadow/AO/bloom toggles.
+**Shipped:** HDR intermediate, tonemap + exposure, optional bloom, `Vk_FrameGraph` (registry + barrier compiler + topo execute) with shadow/AO/bloom toggles.
 
 **Deferred to S13 (lab infra):** presets `Low/Base/High/Custom`, GPU timestamps, benchmark runbook, screenshot capture, RenderDoc preset notes — see [§S13](#s13--render-lab-infrastructure-deferred).
 
@@ -256,5 +256,5 @@ Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/
 - [ ] **RHI-E1** — Instance/device `apiVersion` 1.2+
 - [ ] **RHI-E2** — Timeline semaphores — *deps: S7 frame graph*
 - [ ] **RHI-E3** — Dynamic rendering spike (`VK_KHR_dynamic_rendering`)
-- [ ] **RHI-E4** — Injectable render device / de-singleton `Vk_Core` for headless CI
+- **RHI-E4 (shipped)** — Injectable render device / de-singleton `Vk_Core` for headless CI (now `Vk_RhiDevice` + `Vk_Renderer` + `App_PlatformHost`)
 - [ ] **RHI-E5** — Dynamic MSAA sample count or remove dead MSAA branches

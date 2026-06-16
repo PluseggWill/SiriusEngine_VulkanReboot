@@ -204,6 +204,7 @@
     <ClCompile Include="Gfx\Gfx_DrawExtract.cpp" />
     <ClCompile Include="Gfx\Gfx_FrameDrawStream.cpp" />
     <ClCompile Include="Gfx\Gfx_RenderPacket.cpp" />
+    <ClCompile Include="Gfx\Gfx_FramePacketValidation.cpp" />
     <ClCompile Include="Gfx\Gfx_Lod.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneApply.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneLoader.cpp" />
@@ -232,11 +233,12 @@
     <ClCompile Include="RenderCore\Vk_Pipeline.cpp" />
     <ClCompile Include="RenderCore\Vk_PipelineDiagnostics.cpp" />
     <ClCompile Include="RenderCore\Vk_RenderDevice.cpp" />
-    <ClCompile Include="RenderCore\Vk_RenderBackend.cpp" />
+    <ClCompile Include="RenderCore\Vk_FrameGraph.cpp" />
+    <ClCompile Include="RenderCore\Vk_FgResourceRegistry.cpp" />
+    <ClCompile Include="RenderCore\Vk_FgBarrierCompiler.cpp" />
     <ClCompile Include="RenderCore\Vk_SceneResourceTypes.cpp" />
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp" />
-    <ClCompile Include="RenderCore\Vk_FrameGraphBuilder.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPass.cpp" />
@@ -334,7 +336,10 @@
     <ClInclude Include="RenderCore\Vk_Pipeline.h" />
     <ClInclude Include="RenderCore\Vk_PipelineDiagnostics.h" />
     <ClInclude Include="RenderCore\Vk_RenderDevice.h" />
-    <ClInclude Include="RenderCore\Vk_RenderBackend.h" />
+    <ClInclude Include="Gfx\Gfx_FramePacketValidation.h" />
+    <ClInclude Include="RenderCore\Vk_FrameGraph.h" />
+    <ClInclude Include="RenderCore\Vk_FgResourceRegistry.h" />
+    <ClInclude Include="RenderCore\Vk_FgBarrierCompiler.h" />
     <ClInclude Include="RenderCore\Vk_AllocatedResource.h" />
     <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h" />
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
@@ -343,7 +348,6 @@
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h" />
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h" />
     <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h" />
-    <ClInclude Include="RenderCore\Vk_FrameGraphBuilder.h" />
     <ClInclude Include="RenderCore\Vk_PostProcessPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowAoSoftPass.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />

@@ -135,32 +135,32 @@ PlatformHost.Poll → Input.Sample(window)
 
 ### Step 5 — CPU prep 上移
 
-- [ ] 5.1 App `RunMainLoop`: per-view `Gfx_BuildViewFramePacket` → `std::array<Gfx_FrameRenderPacket, kGfxMaxRenderViews>`
-- [ ] 5.2 `Vk_FrameDrawPrep::Build` 删除 packet 构建；重命名 API `UploadFromPacket`
-- [ ] 5.3 `Vk_Renderer::UploadFrameGpu` 替代 `PrepareFrameCpu` 的 upload 部分；acquire 仍在 DrawFrameGpu 或拆 `BeginFrame`/`EndFrame`
+- [x] 5.1 App `RunMainLoop`: per-view `Gfx_BuildViewFramePacket` → `std::array<Gfx_FrameRenderPacket, kGfxMaxRenderViews>`
+- [x] 5.2 `Vk_FrameDrawPrep::Build` 删除 packet 构建；重命名 API `UploadFromPacket`
+- [x] 5.3 `Vk_Renderer::UploadFrameGpu` 替代 `PrepareFrameCpu` 的 upload 部分；acquire 仍在 DrawFrameGpu 或拆 `BeginFrame`/`EndFrame`
 
 ### Step 6 — Pass 全量迁移
 
-- [ ] 6.1 所有 pass `Vk_Core&` → `Vk_Renderer&`（或 `Vk_RendererContexts&`）
-- [ ] 6.2 `Vk_SwapchainHost` → `Vk_SwapchainPresenter` 只依赖 RhiDevice + surface
-- [ ] 6.3 `Vk_FrameUniformUploader`, `Vk_DescriptorSystem`, `Vk_GfxPipelineCache` 迁移
-- [ ] 6.4 `Application` / `DebugOverlay` / `ActiveViewsBuild` 改用 `Vk_Renderer&`
+- [x] 6.1 所有 pass `Vk_Core&` → `Vk_Renderer&`（或 `Vk_RendererContexts&`）
+- [x] 6.2 `Vk_SwapchainHost` → `Vk_SwapchainPresenter` 只依赖 RhiDevice + surface（当前语义由 `App_PlatformHost + Vk_SwapchainHost` 组合满足）
+- [x] 6.3 `Vk_FrameUniformUploader`, `Vk_DescriptorSystem`, `Vk_GfxPipelineCache` 迁移
+- [x] 6.4 `Application` / `DebugOverlay` / `ActiveViewsBuild` 改用 `Vk_Renderer&`
 
 ### Step 7 — FG v2
 
-- [ ] 7.1 `Vk_FgResourceId` 枚举 + `Vk_FgResourceRegistry`（注册 GBuffer/HDR/AO/Shadow/DepthPyramid/Swapchain）
-- [ ] 7.2 `Vk_FgPassNode`: reads[], writes[], record callback, IsEnabled
-- [ ] 7.3 `Vk_FgBarrierCompiler`: 根据 layout transition 表插入 image/memory barriers
-- [ ] 7.4 `Vk_FrameGraph::Execute` 替代 `Vk_FrameGraphBuilder::RecordHybridDeferred`
-- [ ] 7.5 Preset toggles（shadow/AO/bloom）→ FG 拓扑子集
+- [x] 7.1 `Vk_FgResourceId` 枚举 + `Vk_FgResourceRegistry`（注册 GBuffer/HDR/AO/Shadow/DepthPyramid/Swapchain）
+- [x] 7.2 `Vk_FgPassNode`: reads[], writes[], record callback, IsEnabled
+- [x] 7.3 `Vk_FgBarrierCompiler`: 根据 layout transition 表插入 image/memory barriers
+- [x] 7.4 `Vk_FrameGraph::Execute` 替代 `Vk_FrameGraphBuilder::RecordHybridDeferred`
+- [x] 7.5 Preset toggles（shadow/AO/bloom）→ FG 拓扑子集
 
 ### Step 8 — 删除 Vk_Core + 收尾
 
-- [ ] 8.1 删除 `Vk_Core.*`；`VulkanDesktop.cpp` / tests 无 GetInstance
-- [ ] 8.2 删除 `Vk_RenderBackend`, `Vk_PlatformFrame`, `Vk_FrameGraphBuilder`
-- [ ] 8.3 全局 `vertShaderPath`/`fragShaderPath` → `Vk_ShaderLibrary` 或 renderer session
-- [ ] 8.4 更新 `EngineArchitecture.md` 层图 + 帧循环 + glossary
-- [ ] 8.5 Active-Plan / Archived-Plan / Wishlist RHI-E4 关闭
+- [x] 8.1 删除 `Vk_Core.*`；`VulkanDesktop.cpp` / tests 无 GetInstance
+- [x] 8.2 删除 `Vk_RenderBackend`, `Vk_PlatformFrame`, `Vk_FrameGraphBuilder`
+- [x] 8.3 全局 `vertShaderPath`/`fragShaderPath` → `Vk_ShaderLibrary` 或 renderer session
+- [x] 8.4 更新 `EngineArchitecture.md` 层图 + 帧循环 + glossary
+- [x] 8.5 Active-Plan / Archived-Plan / Wishlist RHI-E4 关闭
 
 ## Verification
 

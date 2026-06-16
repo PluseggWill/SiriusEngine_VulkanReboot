@@ -7,7 +7,7 @@
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
-#include "Vk_RenderBackend.h"
+#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "Vk_ResourceTables.h"
 
 #include <cstring>
@@ -44,7 +44,7 @@ bool Vk_FrameDrawPrep::UploadFromPacket( const Vk_FrameDrawPrepBuildParams& aPar
         myDrawTemplateOverflowLogged = true;
     }
 
-    if ( !Vk_RenderBackend::ValidateFramePacket( myFramePacket ) ) {
+    if ( !Gfx_FramePacketValidation::ValidateFramePacket( myFramePacket ) ) {
         UtilLogger::Warn( "RENDER", "Frame render packet validation failed." );
     }
 

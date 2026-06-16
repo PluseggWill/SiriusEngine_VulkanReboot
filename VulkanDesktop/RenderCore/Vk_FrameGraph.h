@@ -2,8 +2,6 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>
-#include <vector>
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_RenderPacket.h"
@@ -15,10 +13,8 @@ struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
-// FG v1 pass ids for HybridDeferred preset (topological order enforced by Vk_FrameGraphBuilder).
 enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSAO, ShadowAoSoft, DeferredTransparent, Post, Count };
 
-// Per-frame inputs shared by all FG record callbacks.
 struct Vk_FrameGraphContext {
     Vk_Renderer*                                                   myCore             = nullptr;
     const Gfx_FrameDebugToggles*                                   myToggles          = nullptr;
@@ -32,9 +28,9 @@ struct Vk_FrameGraphContext {
     const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >* myViewPackets      = nullptr;
 };
 
-namespace Vk_FrameGraphBuilder {
+namespace Vk_FrameGraph {
 
-// Registers nodes + deps, topologically sorts enabled passes, invokes Record(ctx).
-void RecordHybridDeferred( Vk_FrameGraphContext& aCtx );
+void Execute( Vk_FrameGraphContext& aCtx );
 
-}  // namespace Vk_FrameGraphBuilder
+}  // namespace Vk_FrameGraph
+

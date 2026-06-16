@@ -38,8 +38,8 @@ flowchart TB
   end
 
   subgraph RC [RenderCore/ — Vulkan only]
-    CORE[Vk_Core orchestrator]
-    PEEL[Vk_RenderDevice · SwapchainHost · ScenePasses · …]
+    CORE[Vk_Renderer orchestrator]
+    PEEL[Vk_RhiDevice · Vk_FrameGraph · ScenePasses · …]
     TABLES[Vk_ResourceTables]
   end
 
@@ -61,7 +61,7 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
-**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Core::LoadSceneGpuResources`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
 ### Frame / naming glossary (RenderCore)
 
@@ -125,7 +125,7 @@ sequenceDiagram
   participant Main
   participant App as Application
   participant CFG as EngineConfig
-  participant VK as Vk_Core
+  participant VK as Vk_Renderer
 
   Main->>App: Run()
   App->>CFG: Initialize CLI + engine.json
@@ -399,7 +399,7 @@ Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodol
 | Risk | Guard |
 |------|-------|
 | Fake data-oriented (maps, smart pointers in hot loop) | Profile extract/sort/record |
-| Monolith `Vk_Core` | Ownership peeled; context slices + smaller orchestrator — further split optional |
+| Monolith orchestrator growth (`Vk_Renderer`) | Keep pass work in modules + `Vk_FrameGraph` nodes; preserve DTO boundaries |
 | GPU path without parity | Automated CPU vs GPU compare before drop fallback |
 | Permutation explosion | Preset maps to small offline subset |
 | Sim ↔ render coupling | Sim writes SoA only |

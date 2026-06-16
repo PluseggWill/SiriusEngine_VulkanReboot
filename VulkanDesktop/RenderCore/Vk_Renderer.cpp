@@ -61,10 +61,6 @@
 #include <vk_mem_alloc.h>
 #endif
 
-// Set from loaded scene before CreateGfxPipeline (repo-relative paths).
-std::string vertShaderPath;
-std::string fragShaderPath;
-std::string bindlessFragShaderPath = "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv";
 Vk_Renderer::Vk_Renderer() {}
 Vk_Renderer::~Vk_Renderer() {}
 
@@ -199,8 +195,8 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
 
     ( void )Gfx_GetSceneShader( *aLoadParams.mySceneDesc, "lit" );
     const Gfx_ShaderPermutationDef& activePerm = Gfx_ShaderPermutation::GetActiveDefinition();
-    vertShaderPath                             = activePerm.myVertSpvLogicalPath;
-    fragShaderPath                             = activePerm.myFragSpvLogicalPath;
+    mySceneVertShaderPath                      = activePerm.myVertSpvLogicalPath;
+    mySceneFragShaderPath                      = activePerm.myFragSpvLogicalPath;
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 

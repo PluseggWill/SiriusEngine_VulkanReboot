@@ -42,8 +42,18 @@
   - Added `Vk_RendererContexts` and switched scene/imGui pass entrypoints to consume contexts bundle
 - **Verification:** `Verify-CI.ps1` Debug exit 0
 
-## Remaining (plan steps 2.2, 7, partial 8)
+## 2026-06-16 — Step 5–8 closeout (FG v2 + legacy deletion)
+
+- **Plan ref:** Step 5, Step 6, Step 7, Step 8
+- **Files:** `Vk_FrameGraph.*`, `Vk_FgResourceRegistry.*`, `Vk_FgBarrierCompiler.*`, `Gfx_FramePacketValidation.*`, `Vk_GBufferPass.cpp`, `Vk_ScenePasses.cpp`, `Vk_FrameDrawPrep.cpp`, `Vk_GfxPipelineCache.cpp`, docs + project files
+- **What changed:**
+  - Added FG v2 entrypoints: `Vk_FrameGraph::Execute` + resource registry + barrier compiler
+  - Removed legacy FG v1 and packet validator wrappers: deleted `Vk_FrameGraphBuilder.*` and `Vk_RenderBackend.*`
+  - Promoted packet validation to Gfx boundary helper: `Gfx_FramePacketValidation::*`
+  - Removed global shader path variables; moved to `Vk_Renderer` session state (`mySceneVertShaderPath`/`mySceneFragShaderPath`/`mySceneBindlessFragShaderPath`)
+  - Synced architecture + roadmap docs for de-singleton and FG v2 closeout
+- **Verification:** `Verify-CI.ps1` Debug exit 0
+
+## Remaining (plan steps 2.2 optional polish)
 
 - `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish)
-- FG v2 (`Vk_FrameGraph`, resource registry, barrier compiler)
-- `EngineArchitecture.md` policy sync at closeout

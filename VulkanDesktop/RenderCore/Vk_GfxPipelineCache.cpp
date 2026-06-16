@@ -14,9 +14,6 @@
 
 #include <array>
 
-extern std::string vertShaderPath;
-extern std::string fragShaderPath;
-extern std::string bindlessFragShaderPath;
 
 void Vk_GfxPipelineCache::InitScenePipelines( Vk_Renderer& aCore ) {
     DestroyScenePipelines( aCore );
@@ -74,8 +71,8 @@ void Vk_GfxPipelineCache::DestroyScenePipelines( Vk_Renderer& aCore ) {
 
 void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "Creating graphics pipeline." );
-    VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
-    VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
+    VkShaderModule vertShaderModule = aCore.CreateShaderModule( aCore.GetSceneVertShaderPath() );
+    VkShaderModule fragShaderModule = aCore.CreateShaderModule( aCore.GetSceneFragShaderPath() );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
     auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
@@ -127,8 +124,8 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
 
     Vk_GraphicsPipelineBuildInfo pipelineDiag{};
     pipelineDiag.myLabel                   = "basic-lit";
-    pipelineDiag.myVertShaderPath          = vertShaderPath.c_str();
-    pipelineDiag.myFragShaderPath          = fragShaderPath.c_str();
+    pipelineDiag.myVertShaderPath          = aCore.GetSceneVertShaderPath().c_str();
+    pipelineDiag.myFragShaderPath          = aCore.GetSceneFragShaderPath().c_str();
     pipelineDiag.myPipelineLayoutSetCount  = pipelineLayoutCreateInfo.setLayoutCount;
     pipelineDiag.myPipelineLayoutPushCount = 0;
     pipelineDiag.myColorFormat             = aCore.mySwapchainCtx.mySwapChainImageFormat;
@@ -151,8 +148,8 @@ void Vk_GfxPipelineCache::CreateGfxPipeline( Vk_Renderer& aCore ) {
 void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "Creating bindless graphics pipelines." );
 
-    VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
-    VkShaderModule fragShaderModule = aCore.CreateShaderModule( bindlessFragShaderPath );
+    VkShaderModule vertShaderModule = aCore.CreateShaderModule( aCore.GetSceneVertShaderPath() );
+    VkShaderModule fragShaderModule = aCore.CreateShaderModule( aCore.GetSceneBindlessFragShaderPath() );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
     auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
@@ -191,8 +188,8 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
 
     Vk_GraphicsPipelineBuildInfo diag{};
     diag.myLabel          = "basic-lit-bindless";
-    diag.myVertShaderPath = vertShaderPath.c_str();
-    diag.myFragShaderPath = bindlessFragShaderPath.c_str();
+    diag.myVertShaderPath = aCore.GetSceneVertShaderPath().c_str();
+    diag.myFragShaderPath = aCore.GetSceneBindlessFragShaderPath().c_str();
     diag.myColorFormat    = aCore.mySwapchainCtx.mySwapChainImageFormat;
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
@@ -237,8 +234,8 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
 
     const VkRenderPass hybridRenderPass = aCore.myPostProcessState.myHybridRenderPass;
 
-    VkShaderModule vertShaderModule = aCore.CreateShaderModule( vertShaderPath );
-    VkShaderModule fragShaderModule = aCore.CreateShaderModule( fragShaderPath );
+    VkShaderModule vertShaderModule = aCore.CreateShaderModule( aCore.GetSceneVertShaderPath() );
+    VkShaderModule fragShaderModule = aCore.CreateShaderModule( aCore.GetSceneFragShaderPath() );
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
     auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
@@ -276,8 +273,8 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
 
     Vk_GraphicsPipelineBuildInfo diag{};
     diag.myLabel          = "basic-lit-opaque-hybrid-resolve";
-    diag.myVertShaderPath = vertShaderPath.c_str();
-    diag.myFragShaderPath = fragShaderPath.c_str();
+    diag.myVertShaderPath = aCore.GetSceneVertShaderPath().c_str();
+    diag.myFragShaderPath = aCore.GetSceneFragShaderPath().c_str();
     diag.myColorFormat    = kPostSceneColorFormat;
     diag.myDepthFormat    = aCore.FindDepthFormat();
 
@@ -292,13 +289,13 @@ void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) 
         pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 
     if ( aCore.myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        VkShaderModule bindlessFragModule      = aCore.CreateShaderModule( bindlessFragShaderPath );
+        VkShaderModule bindlessFragModule      = aCore.CreateShaderModule( aCore.GetSceneBindlessFragShaderPath() );
         pipelineBuilder.myShaderStages[ 1 ]    = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, bindlessFragModule, "main" );
         pipelineBuilder.myPipelineLayout       = aCore.mySceneGpuCtx.myBindlessPipelineLayout;
         pipelineBuilder.myDepthStencil         = depthStencilInfo;
         pipelineBuilder.myColorBlendAttachment = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
         diag.myLabel                           = "basic-lit-bindless-opaque-hybrid-resolve";
-        diag.myFragShaderPath                  = bindlessFragShaderPath.c_str();
+        diag.myFragShaderPath                  = aCore.GetSceneBindlessFragShaderPath().c_str();
         aCore.mySceneGpuCtx.myBasicPipelineBindlessHybridResolve =
             pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, hybridRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, &diag );
 

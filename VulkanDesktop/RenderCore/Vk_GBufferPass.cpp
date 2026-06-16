@@ -1,5 +1,5 @@
 // Module: Vk_GBufferPass — FG v1 (HybridDeferred preset).
-// Chain driven by Vk_FrameGraphBuilder: Shadow -> GBuffer -> Cluster -> HiZ/SSAO -> HDR hybrid -> Post.
+// Chain driven by Vk_FrameGraph: Shadow -> GBuffer -> Cluster -> HiZ/SSAO -> HDR hybrid -> Post.
 // G-buffer format: Docs/Archived/plans/s3-fg-s1-preset-gbuffer_Plan.md (not EngineArchitecture until locked).
 #include "Vk_GBufferPass.h"
 
@@ -16,13 +16,13 @@
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_DescriptorPolicy.h"
-#include "Vk_FrameGraphBuilder.h"
+#include "Vk_FrameGraph.h"
 #include "Vk_FrameUniformUploader.h"
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
-#include "Vk_RenderBackend.h"
+#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "Vk_Renderer.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowAoSoftPass.h"
@@ -464,7 +464,7 @@ void RecordFrame( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkC
     fgCtx.myViewCount        = aViewCount;
     fgCtx.myViewPackets      = &aViewPackets;
 
-    Vk_FrameGraphBuilder::RecordHybridDeferred( fgCtx );
+    Vk_FrameGraph::Execute( fgCtx );
 
     constexpr uint32_t           viewIndex        = 0;
     const Gfx_FrameRenderPacket* packet           = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;

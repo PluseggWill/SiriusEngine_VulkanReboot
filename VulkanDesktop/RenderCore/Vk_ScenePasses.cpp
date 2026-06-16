@@ -24,7 +24,7 @@
 
 #include "../Gfx/Gfx_RenderPacket.h"
 
-#include "Vk_RenderBackend.h"
+#include "../Gfx/Gfx_FramePacketValidation.h"
 
 #include <array>
 #include <cstdio>
@@ -319,7 +319,7 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Renderer& aCore, const Gfx_FrameDebugT
 
                                  nullptr );
 
-        if ( !Vk_RenderBackend::ValidateFramePacket( packet ) ) {
+        if ( !Gfx_FramePacketValidation::ValidateFramePacket( packet ) ) {
 
             if ( !sPacketSkipLoggedOnce ) {
 
@@ -463,7 +463,7 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDe
 
     for ( uint32_t viewIndex = 1; viewIndex < aViewCount; ++viewIndex ) {
         const Gfx_FrameRenderPacket& packet = aViewPackets[ viewIndex ];
-        if ( !Vk_RenderBackend::ValidateFramePacket( packet ) ) {
+        if ( !Gfx_FramePacketValidation::ValidateFramePacket( packet ) ) {
             continue;
         }
 

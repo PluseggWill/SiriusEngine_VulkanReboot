@@ -40,7 +40,7 @@
 #include "Vk_DeferredLightingPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameDrawPrep.h"
-#include "Vk_FrameGraphBuilder.h"
+#include "Vk_FrameGraph.h"
 #include "Vk_GBufferPass.h"
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
@@ -166,6 +166,9 @@ public:
     // VK_EXT_debug_utils labels loaded (--renderdoc + extension); used to skip label formatting on hot path.
     bool AreCommandDebugLabelsEnabled() const;
     Vk_RendererContexts BuildContexts();
+    const std::string& GetSceneVertShaderPath() const { return mySceneVertShaderPath; }
+    const std::string& GetSceneFragShaderPath() const { return mySceneFragShaderPath; }
+    const std::string& GetSceneBindlessFragShaderPath() const { return mySceneBindlessFragShaderPath; }
 
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
@@ -321,6 +324,9 @@ public:
     bool mySceneGpuLoaded = false;
 
     std::string myLoadedSceneLogicalPath;
+    std::string mySceneVertShaderPath;
+    std::string mySceneFragShaderPath;
+    std::string mySceneBindlessFragShaderPath = "VulkanDesktop/Shader_Generated/TrianglePix_Bindless.spv";
 
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
