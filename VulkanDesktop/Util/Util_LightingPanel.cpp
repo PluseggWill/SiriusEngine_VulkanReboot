@@ -162,6 +162,9 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::Checkbox( "AO enabled", &aAoSettings.myEnabled );
     ImGui::SliderFloat( "AO radius", &aAoSettings.myRadius, 0.05f, 2.0f );
     ImGui::SliderFloat( "AO bias", &aAoSettings.myBias, 0.001f, 0.1f );
+    ImGui::SliderFloat( "AO normal-aware radius", &aAoSettings.myNormalAwareRadius, 0.0f, 1.0f );
+    ImGui::Checkbox( "AO temporal enabled", &aAoSettings.myTemporalEnabled );
+    ImGui::SliderFloat( "AO temporal blend", &aAoSettings.myTemporalBlend, 0.0f, 0.98f );
     ImGui::SliderFloat( "AO intensity", &aAoSettings.myIntensity, 0.f, 1.f );
     ImGui::SliderFloat( "AO power", &aAoSettings.myPower, 0.5f, 4.f );
     if ( aAoSettings.myMethod == Gfx_AoMethod::HbaoPlus ) {

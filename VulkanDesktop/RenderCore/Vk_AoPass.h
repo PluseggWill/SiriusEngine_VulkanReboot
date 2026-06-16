@@ -2,6 +2,8 @@
 
 #include <array>
 
+#include <glm/mat4x4.hpp>
+
 #include "Vk_FrameLimits.h"
 
 #include "Vk_Types.h"
@@ -56,6 +58,8 @@ struct Vk_AoState {
 
     Gfx_Texture myAoBlur{};  // classic SSAO separable blur ping-pong
 
+    Gfx_Texture myAoHistory[ 2 ]{};  // temporal AO history ping-pong
+
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myClassicDescriptorSets{};
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myHalfResDescriptorSets{};
@@ -65,6 +69,19 @@ struct Vk_AoState {
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBlurHorizDescriptorSets{};
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBlurVertDescriptorSets{};
+
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTemporalDescriptorSets{};
+
+    VkPipeline myTemporalPipeline = VK_NULL_HANDLE;
+
+    VkPipelineLayout myTemporalPipelineLayout = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout myTemporalSetLayout = VK_NULL_HANDLE;
+
+    uint32_t myTemporalReadIndex    = 0u;
+    bool     myTemporalHistoryValid = false;
+
+    glm::mat4 myPrevViewProj{ 1.0f };
 
     bool myInitialized = false;
 };

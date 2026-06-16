@@ -19,6 +19,9 @@ struct GpuAoSettings {
     uint32_t    myGtaoStepsPerSlice     = 4u;
     float       myGtaoFalloff           = 2.0f;
     float       myUpsampleDepthSigma    = 0.025f;
+    float       myNormalAwareRadius     = 0.5f;
+    bool        myTemporalEnabled       = true;
+    float       myTemporalBlend         = 0.9f;
     bool        myContactSoftEnabled    = true;
     float       myContactSoftBlurRadius = 2.0f;
     float       myContactSoftDepthSigma = 0.025f;

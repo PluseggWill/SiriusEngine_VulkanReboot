@@ -170,6 +170,13 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\SsaoBlur.spv"
 
+"%GLSLC%" "%SHADER_DIR%AoTemporal.comp" -o "%GEN_DIR%AoTemporal.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: AoTemporal.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\AoTemporal.spv"
+
 "%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%ShadowAoPack.comp" -o "%GEN_DIR%ShadowAoPack.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: ShadowAoPack.comp"

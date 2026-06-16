@@ -1,6 +1,6 @@
 # Epic Plan: ddgi-lighting
 
-**Status:** Planned  
+**Status:** In Progress  
 **Scope:** Stage 3 of lighting evolution (optional feature set)  
 **Related:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
@@ -49,9 +49,17 @@ flowchart LR
 
 **Deps:** Stage 2 hybrid deferred accepted; frame graph and deferred lighting contracts stable.
 
+- [ ] Land temporal AO stability baseline (motion vectors + AO history/reprojection) to provide a stable pre-DDGI lighting baseline and debug comparison path.
 - [ ] Define probe volume placement, resolution tiers, and scene binding policy.
 - [ ] Define probe textures/buffers and versioning for runtime updates.
 - [ ] Define update budget model (full update vs staggered update).
+
+#### A execution detail
+
+1. Temporal AO baseline: add AO history ping-pong resource, reprojection compute pass, and debug controls (`enabled`, `blend`) in lighting panel.
+2. Probe volume v0 data model: lock one volume-per-scene contract (origin, extents, probe counts, spacing) and define runtime ownership (`RenderCore` state + settings contract).
+3. Probe storage contract: define irradiance / visibility textures and probe metadata buffer layout with explicit versioning marker for future migration.
+4. Update budget policy: define `full update` and `staggered update` modes with per-frame probe quota and deterministic probe index traversal.
 
 ### B. Frame graph integration
 
@@ -61,6 +69,12 @@ flowchart LR
 - [ ] Add lighting resolve hook to sample DDGI contributions in deferred opaque pass.
 - [ ] Document resource barriers/import-export contracts for DDGI history/state.
 
+#### B execution detail
+
+1. Add `ProbeUpdate` compute pass in FG between cluster/depth-driven context and deferred resolve.
+2. Add DDGI sample input path in deferred lighting shader with explicit feature toggle branch.
+3. Add barrier/layout contract notes for probe textures and history resources, including resize/recreate path.
+
 ### C. Quality/performance controls
 
 **Deps:** B complete; benchmark and preset infra from S7 available.
@@ -69,6 +83,12 @@ flowchart LR
 - [ ] Add debug visualization (probe occupancy/contribution overlays).
 - [ ] Add benchmark script/checklist for DDGI on/off deltas.
 
+#### C execution detail
+
+1. Preset controls: `DDGI Off/On` plus budget tiers (`Low/Balanced/High`) with fixed probe update quotas.
+2. Debug views: probe occupancy, indirect-only, and DDGI contribution heat overlay.
+3. Benchmark path: add scripted `DDGI Off` vs `DDGI On` runbook (Sponza first; San Miguel optional later) with frame-time deltas.
+
 ### D. Stability and rollout
 
 **Deps:** C complete; parity baselines from Stage 1 and Stage 2 retained for regression checks.
@@ -76,6 +96,12 @@ flowchart LR
 - [ ] Keep non-DDGI presets behaviorally unchanged.
 - [ ] Define acceptance scenes for interior/exterior validation.
 - [ ] Record known artifacts and mitigation policy in docs.
+
+#### D execution detail
+
+1. Regression guard: non-DDGI path byte-for-byte resource wiring unchanged in FG and deferred pass.
+2. Acceptance scenes: Sponza interior mandatory, plus one exterior sanity scene for leak/noise checks.
+3. Artifact registry: ghosting/light leaking/noise cases with mitigation switches and default-safe values.
 
 ## Acceptance
 

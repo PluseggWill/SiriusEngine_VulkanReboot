@@ -24,6 +24,7 @@ constexpr char     kHbaoShaderPath[]     = "VulkanDesktop/Shader_Generated/HbaoP
 constexpr char     kGtaoShaderPath[]     = "VulkanDesktop/Shader_Generated/Gtao.spv";
 constexpr char     kUpsampleShaderPath[] = "VulkanDesktop/Shader_Generated/AoUpsample.spv";
 constexpr char     kBlurShaderPath[]     = "VulkanDesktop/Shader_Generated/SsaoBlur.spv";
+constexpr char     kTemporalShaderPath[] = "VulkanDesktop/Shader_Generated/AoTemporal.spv";
 constexpr VkFormat kAoFormat             = VK_FORMAT_R8_UNORM;
 
 VkImageLayout sAoRawLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -69,6 +70,16 @@ struct AoBlurPushConstants {
 
 static_assert( sizeof( AoBlurPushConstants ) == 8, "AoBlurPushConstants must match SsaoBlur.comp push block" );
 
+struct AoTemporalPushConstants {
+    alignas( 16 ) glm::mat4 currViewProj;
+    alignas( 16 ) glm::mat4 prevViewProj;
+    alignas( 4 ) float historyBlend;
+    alignas( 4 ) float historyValid;
+    alignas( 8 ) glm::vec2 pad;
+};
+
+static_assert( sizeof( AoTemporalPushConstants ) == 144, "AoTemporalPushConstants must match AoTemporal.comp push block" );
+
 VkExtent2D HalfExtent( uint32_t aWidth, uint32_t aHeight ) {
     return { std::max( 1u, ( aWidth + 1u ) / 2u ), std::max( 1u, ( aHeight + 1u ) / 2u ) };
 }
@@ -102,6 +113,8 @@ void DestroyAoImages( Vk_Renderer& aCore ) {
     DestroyAoTexture( aCore, aCore.myAoState.myAoRaw );
     DestroyAoTexture( aCore, aCore.myAoState.myAoHalf );
     DestroyAoTexture( aCore, aCore.myAoState.myAoBlur );
+    DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 0 ] );
+    DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 1 ] );
     sAoRawLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     sAoHalfLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     sAoBlurLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -121,6 +134,8 @@ void CreateAoImages( Vk_Renderer& aCore ) {
     const VkExtent2D full = aCore.mySwapchainCtx.mySwapChainExtent;
     CreateAoImage( aCore, full, aCore.myAoState.myAoRaw );
     CreateAoImage( aCore, full, aCore.myAoState.myAoBlur );
+    CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 0 ] );
+    CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 1 ] );
     CreateAoImage( aCore, HalfExtent( full.width, full.height ), aCore.myAoState.myAoHalf );
 
     UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
@@ -231,6 +246,40 @@ void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescri
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
 
+void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+    Vk_AoState& state = aCore.myAoState;
+
+    const uint32_t readIndex  = state.myTemporalReadIndex % 2u;
+    const uint32_t writeIndex = ( readIndex + 1u ) % 2u;
+
+    VkDescriptorImageInfo worldPosInfo{};
+    worldPosInfo.sampler     = state.myGBufferSampler;
+    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
+    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo currentAoInfo{};
+    currentAoInfo.sampler     = state.myGBufferSampler;
+    currentAoInfo.imageView   = state.myAoRaw.ImageView();
+    currentAoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo historyInfo{};
+    historyInfo.sampler     = state.myGBufferSampler;
+    historyInfo.imageView   = state.myAoHistory[ readIndex ].ImageView();
+    historyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo outInfo{};
+    outInfo.imageView   = state.myAoHistory[ writeIndex ].ImageView();
+    outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    std::array< VkWriteDescriptorSet, 4 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &currentAoInfo, 1, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 2, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outInfo, 3, 1 ),
+    };
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
 void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     Vk_AoState& state = aCore.myAoState;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
@@ -239,6 +288,7 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
         UpdateUpsampleDescriptorSet( aCore, i );
         UpdateBlurDescriptorSet( aCore, i, state.myBlurHorizDescriptorSets[ i ], state.myAoRaw.ImageView(), state.myAoBlur.ImageView() );
         UpdateBlurDescriptorSet( aCore, i, state.myBlurVertDescriptorSets[ i ], state.myAoBlur.ImageView(), state.myAoRaw.ImageView() );
+        UpdateTemporalDescriptorSet( aCore, i );
     }
 }
 
@@ -337,6 +387,20 @@ void CreatePipelines( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_AoPass: failed to create blur descriptor set layout" );
     }
 
+    const std::array< VkDescriptorSetLayoutBinding, 4 > temporalBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
+    };
+    VkDescriptorSetLayoutCreateInfo temporalLayoutInfo{};
+    temporalLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    temporalLayoutInfo.bindingCount = static_cast< uint32_t >( temporalBindings.size() );
+    temporalLayoutInfo.pBindings    = temporalBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &temporalLayoutInfo, nullptr, &state.myTemporalSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_AoPass: failed to create temporal AO descriptor set layout" );
+    }
+
     VkPushConstantRange classicPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( ClassicAoPushConstants ) };
     state.myClassicPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kClassicShaderPath ), state.myClassicSetLayout,
                                                      state.myClassicPipelineLayout, classicPushRange );
@@ -354,6 +418,10 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     state.myBlurPipeline =
         CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath ), state.myBlurSetLayout, state.myBlurPipelineLayout, blurPushRange );
 
+    VkPushConstantRange temporalPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoTemporalPushConstants ) };
+    state.myTemporalPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kTemporalShaderPath ), state.myTemporalSetLayout,
+                                                      state.myTemporalPipelineLayout, temporalPushRange );
+
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter               = VK_FILTER_LINEAR;
@@ -369,12 +437,12 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 8 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 8 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 11 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 9 },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 5;
+    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 6;
     poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
     poolInfo.pPoolSizes    = poolSizes.data();
     if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
@@ -387,19 +455,23 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     const VkPipeline            gtaoPipeline           = state.myGtaoPipeline;
     const VkPipeline            upsamplePipeline       = state.myUpsamplePipeline;
     const VkPipeline            blurPipeline           = state.myBlurPipeline;
+    const VkPipeline            temporalPipeline       = state.myTemporalPipeline;
     const VkPipelineLayout      classicPipelineLayout  = state.myClassicPipelineLayout;
     const VkPipelineLayout      halfResPipelineLayout  = state.myHalfResPipelineLayout;
     const VkPipelineLayout      upsamplePipelineLayout = state.myUpsamplePipelineLayout;
     const VkPipelineLayout      blurPipelineLayout     = state.myBlurPipelineLayout;
+    const VkPipelineLayout      temporalPipelineLayout = state.myTemporalPipelineLayout;
     const VkDescriptorSetLayout classicSetLayout       = state.myClassicSetLayout;
     const VkDescriptorSetLayout halfResSetLayout       = state.myHalfResSetLayout;
     const VkDescriptorSetLayout upsampleSetLayout      = state.myUpsampleSetLayout;
     const VkDescriptorSetLayout blurSetLayout          = state.myBlurSetLayout;
+    const VkDescriptorSetLayout temporalSetLayout      = state.myTemporalSetLayout;
     const VkDescriptorPool      descriptorPool         = state.myDescriptorPool;
     const VkSampler             gbufferSampler         = state.myGBufferSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, classicPipelineLayout,
-                                                            halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, classicSetLayout, halfResSetLayout,
-                                                            upsampleSetLayout, blurSetLayout, descriptorPool, gbufferSampler ]() {
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, temporalPipeline,
+                                                            classicPipelineLayout, halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, temporalPipelineLayout,
+                                                            classicSetLayout, halfResSetLayout, upsampleSetLayout, blurSetLayout, temporalSetLayout, descriptorPool,
+                                                            gbufferSampler ]() {
         auto destroyPipe = [ device ]( VkPipeline p ) {
             if ( p != VK_NULL_HANDLE ) {
                 vkDestroyPipeline( device, p, nullptr );
@@ -410,6 +482,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
         destroyPipe( gtaoPipeline );
         destroyPipe( upsamplePipeline );
         destroyPipe( blurPipeline );
+        destroyPipe( temporalPipeline );
         if ( classicPipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, classicPipelineLayout, nullptr );
         }
@@ -422,6 +495,9 @@ void CreatePipelines( Vk_Renderer& aCore ) {
         if ( blurPipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, blurPipelineLayout, nullptr );
         }
+        if ( temporalPipelineLayout != VK_NULL_HANDLE ) {
+            vkDestroyPipelineLayout( device, temporalPipelineLayout, nullptr );
+        }
         if ( classicSetLayout != VK_NULL_HANDLE ) {
             vkDestroyDescriptorSetLayout( device, classicSetLayout, nullptr );
         }
@@ -433,6 +509,9 @@ void CreatePipelines( Vk_Renderer& aCore ) {
         }
         if ( blurSetLayout != VK_NULL_HANDLE ) {
             vkDestroyDescriptorSetLayout( device, blurSetLayout, nullptr );
+        }
+        if ( temporalSetLayout != VK_NULL_HANDLE ) {
+            vkDestroyDescriptorSetLayout( device, temporalSetLayout, nullptr );
         }
         if ( descriptorPool != VK_NULL_HANDLE ) {
             vkDestroyDescriptorPool( device, descriptorPool, nullptr );
@@ -471,6 +550,10 @@ void AllocateDescriptorSets( Vk_Renderer& aCore ) {
         }
         if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_AoPass: failed to allocate vertical blur descriptor set" );
+        }
+        allocInfo.pSetLayouts = &state.myTemporalSetLayout;
+        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTemporalDescriptorSets[ i ] ) != VK_SUCCESS ) {
+            throw std::runtime_error( "Vk_AoPass: failed to allocate temporal AO descriptor set" );
         }
     }
     UpdateAllDescriptorSets( aCore );
@@ -529,7 +612,7 @@ void RecordClassicSsao( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint
     push.view       = aCore.myCamera.myView;
     push.proj       = aCore.myCamera.myProj;
     push.viewProj   = aCore.myCamera.myProj * aCore.myCamera.myView;
-    push.params     = glm::vec4( ao.myRadius, ao.myBias, 0.0f, ao.myEnabled ? 1.0f : 0.0f );
+    push.params     = glm::vec4( ao.myRadius, ao.myBias, ao.myNormalAwareRadius, ao.myEnabled ? 1.0f : 0.0f );
     push.screenSize = glm::vec2( static_cast< float >( aWidth ), static_cast< float >( aHeight ) );
     vkCmdPushConstants( aCommandBuffer, state.myClassicPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
 
@@ -599,7 +682,7 @@ void RecordHbaoPlus( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
     HalfResAoPushConstants push{};
     push.view           = aCore.myCamera.myView;
     push.proj           = aCore.myCamera.myProj;
-    push.params         = glm::vec4( ao.myRadius, ao.myBias, ao.myEnabled ? 1.0f : 0.0f, 0.0f );
+    push.params         = glm::vec4( ao.myRadius, ao.myBias, ao.myEnabled ? 1.0f : 0.0f, ao.myNormalAwareRadius );
     push.sliceCount     = glm::uvec2( std::clamp( ao.myHbaoDirections, 1u, 8u ), 0u );
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myHbaoSteps, 1u, 8u ), 0u );
     push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
@@ -616,7 +699,7 @@ void RecordGtao( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
     HalfResAoPushConstants push{};
     push.view           = aCore.myCamera.myView;
     push.proj           = aCore.myCamera.myProj;
-    push.params         = glm::vec4( ao.myRadius, 0.0f, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
+    push.params         = glm::vec4( ao.myRadius, ao.myNormalAwareRadius, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
     push.sliceCount     = glm::uvec2( std::clamp( ao.myGtaoSlices, 1u, 16u ), 0u );
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myGtaoStepsPerSlice, 1u, 16u ), 0u );
     push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
@@ -641,6 +724,87 @@ void RecordClassicBlur( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &blurWritten );
 
     CmdDispatchBlur( aCore, aCommandBuffer, state.myBlurVertDescriptorSets[ aFrameIndex ], 0, 1, aWidth, aHeight, "Pass=AO BlurV" );
+}
+
+void RecordTemporalFilter( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, const Gfx_AoSettings& ao ) {
+    Vk_AoState& state = aCore.myAoState;
+    if ( !ao.myTemporalEnabled ) {
+        state.myTemporalHistoryValid = false;
+        return;
+    }
+
+    UpdateTemporalDescriptorSet( aCore, aFrameIndex );
+
+    const uint32_t readIndex  = state.myTemporalReadIndex % 2u;
+    const uint32_t writeIndex = ( readIndex + 1u ) % 2u;
+
+    VkImageMemoryBarrier currentAoReadable =
+        ColorImageBarrier( state.myAoRaw.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &currentAoReadable );
+    sAoRawLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const VkImageLayout        historyReadOld      = state.myTemporalHistoryValid ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    const VkPipelineStageFlags historyReadSrcStage = state.myTemporalHistoryValid ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkImageMemoryBarrier       historyReadBarrier  = ColorImageBarrier( state.myAoHistory[ readIndex ].Image(), historyReadOld, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                 state.myTemporalHistoryValid ? VK_ACCESS_SHADER_WRITE_BIT : 0, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, historyReadSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyReadBarrier );
+
+    const VkImageLayout        historyWriteOld      = state.myTemporalHistoryValid ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    const VkPipelineStageFlags historyWriteSrcStage = state.myTemporalHistoryValid ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkImageMemoryBarrier       historyWriteGeneral =
+        ColorImageBarrier( state.myAoHistory[ writeIndex ].Image(), historyWriteOld, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, historyWriteSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyWriteGeneral );
+
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myTemporalPipeline );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myTemporalPipelineLayout, 0, 1, &state.myTemporalDescriptorSets[ aFrameIndex ], 0,
+                             nullptr );
+
+    AoTemporalPushConstants push{};
+    push.currViewProj = aCore.myCamera.myProj * aCore.myCamera.myView;
+    push.prevViewProj = state.myPrevViewProj;
+    push.historyBlend = std::clamp( ao.myTemporalBlend, 0.0f, 0.98f );
+    push.historyValid = state.myTemporalHistoryValid ? 1.0f : 0.0f;
+    vkCmdPushConstants( aCommandBuffer, state.myTemporalPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
+
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=AO Temporal" );
+    }
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    vkCmdDispatch( aCommandBuffer, ( width + 7 ) / 8, ( height + 7 ) / 8, 1 );
+    if ( aCore.AreCommandDebugLabelsEnabled() ) {
+        aCore.CmdEndDebugLabel( aCommandBuffer );
+    }
+
+    VkImageMemoryBarrier historyWriteReadable    = ColorImageBarrier( state.myAoHistory[ writeIndex ].Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                                      VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT );
+    VkImageMemoryBarrier rawTransferDst          = ColorImageBarrier( state.myAoRaw.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                      VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT );
+    std::array< VkImageMemoryBarrier, 2 > toCopy = { historyWriteReadable, rawTransferDst };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( toCopy.size() ), toCopy.data() );
+
+    VkImageCopy copy{};
+    copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.srcSubresource.layerCount = 1;
+    copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.dstSubresource.layerCount = 1;
+    copy.extent                    = { width, height, 1 };
+    vkCmdCopyImage( aCommandBuffer, state.myAoHistory[ writeIndex ].Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, state.myAoRaw.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &copy );
+
+    VkImageMemoryBarrier rawReadForDeferred      = ColorImageBarrier( state.myAoRaw.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                      VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    VkImageMemoryBarrier historyReadForNext      = ColorImageBarrier( state.myAoHistory[ writeIndex ].Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
+    std::array< VkImageMemoryBarrier, 2 > toRead = { rawReadForDeferred, historyReadForNext };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0,
+                          nullptr, static_cast< uint32_t >( toRead.size() ), toRead.data() );
+
+    state.myTemporalReadIndex    = writeIndex;
+    state.myTemporalHistoryValid = true;
+    state.myPrevViewProj         = push.currViewProj;
+    sAoRawLayout                 = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void TransitionRawForDeferred( VkCommandBuffer aCommandBuffer, VkImage aRawImage ) {
@@ -668,8 +832,12 @@ void Destroy( Vk_Renderer& aCore ) {
         aCore.myAoState.myUpsampleDescriptorSets[ i ]  = VK_NULL_HANDLE;
         aCore.myAoState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
         aCore.myAoState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
+        aCore.myAoState.myTemporalDescriptorSets[ i ]  = VK_NULL_HANDLE;
     }
-    aCore.myAoState.myInitialized = false;
+    aCore.myAoState.myTemporalReadIndex    = 0u;
+    aCore.myAoState.myTemporalHistoryValid = false;
+    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.myAoState.myInitialized          = false;
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -681,6 +849,9 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     }
     DestroyAoImages( aCore );
     CreateAoImages( aCore );
+    aCore.myAoState.myTemporalReadIndex    = 0u;
+    aCore.myAoState.myTemporalHistoryValid = false;
+    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
     UpdateAllDescriptorSets( aCore );
 }
 
@@ -692,7 +863,10 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipelines( aCore );
     CreateAoImages( aCore );
     AllocateDescriptorSets( aCore );
-    aCore.myAoState.myInitialized = true;
+    aCore.myAoState.myTemporalReadIndex    = 0u;
+    aCore.myAoState.myTemporalHistoryValid = false;
+    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.myAoState.myInitialized          = true;
 }
 
 void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
@@ -721,6 +895,8 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         RecordClassicSsao( aCore, aCommandBuffer, aFrameIndex, width, height, ao );
     }
 
+    RecordTemporalFilter( aCore, aCommandBuffer, aFrameIndex, ao );
+
     const bool contactSoft = ao.myContactSoftEnabled && aCore.myShadowAoSoftState.myInitialized;
     if ( contactSoft ) {
         // Raw AO may be SHADER_READ_ONLY after prior frame; ShadowAoSoft pack reads via sampler.
@@ -731,7 +907,10 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         RecordClassicBlur( aCore, aCommandBuffer, aFrameIndex, width, height );
     }
 
-    TransitionRawForDeferred( aCommandBuffer, state.myAoRaw.Image() );
+    if ( !ao.myTemporalEnabled ) {
+        state.myPrevViewProj = aCore.myCamera.myProj * aCore.myCamera.myView;
+        TransitionRawForDeferred( aCommandBuffer, state.myAoRaw.Image() );
+    }
 }
 
 VkImageView GetRawAoImageView( const Vk_Renderer& aCore ) {
