@@ -14,6 +14,7 @@
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_ScenePanel.h"
 #include "ActiveViewsBuild.h"
+#include "App_PlatformHost.h"
 #include "DebugOverlay.h"
 #include "SceneCpuLoad.h"
 #include <GLFW/glfw3.h>
@@ -85,9 +86,13 @@ int Application::Run( int argc, char** argv ) {
         InitApp( argc, argv );
         LoadAndVerifyScene();
 
-        Vk_Renderer& rendererRef = *myRenderer;
+        Vk_Renderer&      rendererRef = *myRenderer;
+        App_PlatformHost  platformHost;
+        myPlatformHost = &platformHost;
+        rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
-        rendererRef.InitWindow();
+        platformHost.InitWindow( myConfig.GetWindowWidth(), myConfig.GetWindowHeight(), rendererRef );
+        rendererRef.SetPlatformWindow( platformHost.GetWindow() );
         UtilLogger::Info( "APP", "InitRenderDevice." );
         rendererRef.InitRenderDevice();
         UtilLogger::Info( "APP", "LoadScene." );
@@ -104,6 +109,8 @@ int Application::Run( int argc, char** argv ) {
         myDebugUI.myScenePanel.myCurrentScenePath.clear();
         UtilLogger::Info( "APP", "Shutdown." );
         rendererRef.Shutdown();
+        platformHost.ShutdownWindow();
+        myPlatformHost = nullptr;
         myRenderer = nullptr;
         UtilLogger::Info( "APP", "Engine exited run loop normally." );
         return EXIT_SUCCESS;
@@ -151,6 +158,7 @@ void Application::LoadAndVerifyScene() {
 
 void Application::RunMainLoop() {
     Vk_Renderer& renderer        = *myRenderer;
+    App_PlatformHost& platformHost = *myPlatformHost;
     const int    smokeFrameLimit = myConfig.GetSmokeFrameLimit();
     const double smokeSeconds    = myConfig.GetSmokeSeconds();
     int          renderedFrames  = 0;
@@ -159,11 +167,11 @@ void Application::RunMainLoop() {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }
     UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
-    while ( !renderer.ShouldClose() ) {
+    while ( !platformHost.ShouldClose() ) {
         float frameSeconds = 0.0f;
-        renderer.BeginPlatformFrame( frameSeconds );
-        myInput.Sample( renderer.GetWindow() );
-        renderer.BeginImGuiFrame();
+        platformHost.BeginFrame( renderer, frameSeconds );
+        myInput.Sample( platformHost.GetWindow() );
+        platformHost.BeginImGuiFrame( renderer );
         renderer.ApplyCameraInput( frameSeconds, myInput.GetSnapshot(), myDebugUI.myCameraSettings );
         if ( myInput.HasLastSampleTime() ) {
             renderer.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
@@ -205,10 +213,10 @@ void Application::RunMainLoop() {
         Vk_FrameCpuPrepResult prep{};
         if ( renderer.PrepareFrameCpu( prepInput, toggles, views, viewCount, viewPackets, prep ) ) {
             BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, renderer, prep );
-            ProcessAppKeyboardShortcuts( renderer.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, renderer );
+            ProcessAppKeyboardShortcuts( platformHost.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, renderer );
 
             if ( renderer.DrawFrameGpu( toggles, prep ) == Vk_FrameResult::RequestShutdown ) {
-                glfwSetWindowShouldClose( renderer.GetWindow(), GLFW_TRUE );
+                platformHost.RequestClose();
             }
         }
 
@@ -225,7 +233,7 @@ void Application::RunMainLoop() {
             if ( smokeFrameLimit > 0 ) {
                 UtilLogger::Info( "APP", "Smoke frame limit reached (" + std::to_string( smokeFrameLimit ) + "); requesting exit." );
             }
-            glfwSetWindowShouldClose( renderer.GetWindow(), GLFW_TRUE );
+            platformHost.RequestClose();
         }
     }
     UtilLogger::Info( "APP", "Main loop ended." );

@@ -189,6 +189,7 @@
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="App\ActiveViewsBuild.cpp" />
     <ClCompile Include="App\Application.cpp" />
+    <ClCompile Include="App\App_PlatformHost.cpp" />
     <ClCompile Include="App\DebugOverlay.cpp" />
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="App\WorldState.cpp" />
@@ -224,7 +225,6 @@
     <ClCompile Include="RenderCore\Vk_GpuCull.cpp" />
     <ClCompile Include="RenderCore\Vk_DevicePipelineCache.cpp" />
     <ClCompile Include="RenderCore\Vk_GfxPipelineCache.cpp" />
-    <ClCompile Include="RenderCore\Vk_PlatformFrame.cpp" />
     <ClCompile Include="RenderCore\Vk_RenderDoc.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceTables.cpp" />
@@ -263,6 +263,7 @@
   <ItemGroup>
     <ClInclude Include="App\ActiveViewsBuild.h" />
     <ClInclude Include="App\Application.h" />
+    <ClInclude Include="App\App_PlatformHost.h" />
     <ClInclude Include="RenderCore\Vk_ActiveRenderView.h" />
     <ClInclude Include="RenderCore\Vk_DeviceContext.h" />
     <ClInclude Include="RenderCore\Vk_FrameContext.h" />
@@ -314,7 +315,6 @@
     <ClInclude Include="RenderCore\Vk_Bindless.h" />
     <ClInclude Include="RenderCore\Vk_DevicePipelineCache.h" />
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h" />
-    <ClInclude Include="RenderCore\Vk_PlatformFrame.h" />
     <ClInclude Include="RenderCore\Vk_RenderDoc.h" />
     <ClInclude Include="RenderCore\Vk_Renderer.h" />
     <ClInclude Include="RenderCore\Vk_RhiDevice.h" />

@@ -123,9 +123,9 @@ PlatformHost.Poll → Input.Sample(window)
 
 ### Step 3 — App_PlatformHost
 
-- [ ] 3.1 `App_PlatformHost`: GLFW window, resize callback, `CreateSurface(Vk_RhiDevice&)`, poll, ShouldClose
-- [ ] 3.2 ImGui init/shutdown/frame begin 移入 PlatformHost 或 `Util_ImGuiLayer` 由 App 驱动
-- [ ] 3.3 删除 `Vk_Core` 内 ImGui/GLFW 逻辑
+- [x] 3.1 `App_PlatformHost`: GLFW window, resize callback, `CreateSurface(Vk_RhiDevice&)`, poll, ShouldClose
+- [x] 3.2 ImGui init/shutdown/frame begin 移入 PlatformHost 或 `Util_ImGuiLayer` 由 App 驱动
+- [x] 3.3 删除 `Vk_Core` 内 ImGui/GLFW 逻辑（现等价为从 `Vk_Renderer`/`Vk_PlatformFrame` 剥离到 App）
 
 ### Step 4 — Vk_Renderer 骨架 + 去 WorldState
 

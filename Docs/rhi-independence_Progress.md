@@ -20,10 +20,20 @@
   - GfxTests: `TestRhiDeviceHeadlessConstruct` (headless `VkInstance` create/destroy)
 - **Verification:** `Verify-CI.ps1` Debug exit 0
 
-## Remaining (plan steps 2.2, 3, 7, partial 4/8)
+## 2026-06-16 — Step 3 (App_PlatformHost peel)
+
+- **Plan ref:** Step 3.1–3.3
+- **Files:** `Application.*`, `App_PlatformHost.*`, `Vk_Renderer.*`, `Vk_RenderDevice.*`, project files
+- **What changed:**
+  - New `App_PlatformHost`: owns GLFW window + poll/delta/close + `CreateSurface(Vk_RhiDevice&)`/`RecreateSurface`
+  - `Application` main loop drives platform host (input sample / ImGui frame), renderer only consumes window + timestamps
+  - `Vk_Renderer` no longer initializes/destroys GLFW; delegates surface create/recreate to platform host; exposes `BindPlatformHost`/`SetPlatformWindow`
+  - Deleted `Vk_PlatformFrame.{h,cpp}`; platform frame orchestration now fully in App layer
+- **Verification:** `Verify-CI.ps1` Debug exit 0
+
+## Remaining (plan steps 2.2, 7, partial 4/8)
 
 - `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish)
-- `App_PlatformHost` (GLFW/ImGui out of RenderCore)
 - `LoadSceneGpuResources(Gfx_SceneGpuLoadParams)` — drop `WorldState&`
 - FG v2 (`Vk_FrameGraph`, resource registry, barrier compiler)
 - `EngineArchitecture.md` policy sync at closeout

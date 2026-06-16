@@ -73,6 +73,7 @@ struct WorldState;
 struct Gfx_SceneDesc;
 
 struct Util_EngineConfig;
+class App_PlatformHost;
 
 class Vk_Renderer;
 
@@ -102,8 +103,6 @@ public:
 
     void Reset();
 
-    void InitWindow();
-
     void InitRenderDevice();
 
     // Application must call App_LoadSceneCpuState first. Binds myBoundSceneSoA for shadow bounds.
@@ -122,8 +121,8 @@ public:
 
     void Shutdown();
 
-    void BeginPlatformFrame( float& aOutDeltaSeconds );
     void BeginImGuiFrame();  // after InputSystem::Sample; see Vk_PlatformFrame.h
+    void OnPlatformFrameStart( std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds );
 
     void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings );
 
@@ -169,12 +168,9 @@ public:
     // VK_EXT_debug_utils labels loaded (--renderdoc + extension); used to skip label formatting on hot path.
     bool AreCommandDebugLabelsEnabled() const;
 
-    bool ShouldClose() const;
-
-    GLFWwindow* GetWindow() const {
-
-        return myPlatformCtx.myWindow;
-    }
+    void SetPlatformWindow( GLFWwindow* aWindow );
+    void NotifyFramebufferResized();
+    void BindPlatformHost( App_PlatformHost* aPlatformHost );
 
     const Vk_Camera& GetFlyCamera() const {
 
@@ -227,8 +223,6 @@ public:
     void CreateInstance();
 
     void CreateSurface();
-
-    // SURFACE_LOST recovery: destroy and recreate WSI surface (window unchanged).
     void RecreateSurface();
 
     const Vk_ResourceContext& GetResourceContext() const {
@@ -268,8 +262,6 @@ public:
     void RefreshMaterialPipelinesAfterSwapchainRecreate();
 
     void SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const VkViewport& aViewport, const VkRect2D& aScissor ) const;
-
-    static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
     bool myVsync = false;
 
@@ -334,6 +326,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
+    App_PlatformHost* myPlatformHost = nullptr;
 
 private:
     void Clear();

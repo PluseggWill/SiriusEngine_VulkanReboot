@@ -1,15 +1,16 @@
 #include "Vk_RenderDevice.h"
 
+#include "../App/App_PlatformHost.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Bindless.h"
 #include "Vk_DevicePipelineCache.h"
 #include "Vk_Renderer.h"
 
-void Vk_RenderDevice::Init( Vk_Renderer& aCore ) {
+void Vk_RenderDevice::Init( Vk_Renderer& aCore, App_PlatformHost& aPlatformHost ) {
     UtilLogger::Info( "VULKAN", "Vk_RenderDevice::Init: instance/device/allocator." );
 
     aCore.CreateInstance();
-    aCore.CreateSurface();
+    aPlatformHost.CreateSurface( aCore.myRhi );
     aCore.PickPhysicalDevice();
     aCore.myRhi.myDeviceCtx.myBindlessCaps = Vk_ProbeBindlessCapabilities( aCore.myRhi.myDeviceCtx.myPhysicalDevice, aCore.myRhi.myDeviceCtx.myDeviceExtensions );
     aCore.InitVk_QueueFamilyIndices();

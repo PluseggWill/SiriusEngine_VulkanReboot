@@ -34,6 +34,9 @@
     <ClCompile Include="App\Application.cpp">
       <Filter>App</Filter>
     </ClCompile>
+    <ClCompile Include="App\App_PlatformHost.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
     <ClCompile Include="App\InputSystem.cpp">
       <Filter>App</Filter>
     </ClCompile>
@@ -202,9 +205,6 @@
     <ClCompile Include="RenderCore\Vk_GfxPipelineCache.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_PlatformFrame.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
     <ClCompile Include="RenderCore\Vk_RenderDoc.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -307,6 +307,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="App\Application.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App\App_PlatformHost.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="App\WorldState.h">
@@ -460,9 +463,6 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_GfxPipelineCache.h">
-      <Filter>RenderCore</Filter>
-    </ClInclude>
-    <ClInclude Include="RenderCore\Vk_PlatformFrame.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_RenderDoc.h">

@@ -2,6 +2,7 @@
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Renderer.h"
 #include "../App/WorldState.h"
+#include "../App/App_PlatformHost.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
@@ -26,7 +27,6 @@
 #include "Vk_GpuCull.h"
 #include "Vk_IblResources.h"
 #include "Vk_PipelineDiagnostics.h"
-#include "Vk_PlatformFrame.h"
 #include "Vk_RenderDevice.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
@@ -109,10 +109,6 @@ void Vk_Renderer::Reset() {
     Clear();
 }
 
-bool Vk_Renderer::ShouldClose() const {
-    return myPlatformCtx.myWindow != nullptr && glfwWindowShouldClose( myPlatformCtx.myWindow );
-}
-
 void Vk_Renderer::ConfigureRenderDoc( bool aEnableRenderDoc ) {
     myPlatformCtx.myRenderDoc.Configure( aEnableRenderDoc );
 }
@@ -130,11 +126,6 @@ void Vk_Renderer::Shutdown() {
         vkDeviceWaitIdle( myRhi.myDeviceCtx.myDevice );
     }
     Clear();
-}
-
-// Delegates platform/window bootstrap to Vk_PlatformFrame to keep Core focused on render orchestration.
-void Vk_Renderer::InitWindow() {
-    Vk_PlatformFrame::InitWindow( *this );
 }
 
 void Vk_Renderer::Clear() {
@@ -161,9 +152,7 @@ void Vk_Renderer::Clear() {
     UtilDebugMessenger::Destroy( myRhi.myDeviceCtx.myInstance );
     vkDestroyInstance( myRhi.myDeviceCtx.myInstance, nullptr );
 
-    glfwDestroyWindow( myPlatformCtx.myWindow );
-
-    glfwTerminate();
+    myPlatformCtx.myWindow = nullptr;
     myPlatformCtx.myRenderDoc.Shutdown();
     UtilLogger::Info( "CORE", "Resource cleanup completed." );
 }
@@ -173,7 +162,10 @@ void Vk_Renderer::InitRenderDevice() {
     UtilLogger::Info( "VULKAN", "InitRenderDevice: instance, device, swapchain (no scene resources)." );
     // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
     myPlatformCtx.myRenderDoc.InitRuntime();
-    Vk_RenderDevice::Init( *this );
+    if ( myPlatformHost == nullptr ) {
+        throw std::runtime_error( "Vk_Renderer::InitRenderDevice requires bound App_PlatformHost" );
+    }
+    Vk_RenderDevice::Init( *this, *myPlatformHost );
     myPlatformCtx.myRenderDoc.BindVulkanHandles( myRhi.myDeviceCtx.myDevice );
 
     Vk_SwapchainHost::Init( *this );
@@ -471,19 +463,17 @@ void Vk_Renderer::CreateLogicalDevice() {
 }
 
 void Vk_Renderer::CreateSurface() {
-    if ( glfwCreateWindowSurface( myRhi.myDeviceCtx.myInstance, myPlatformCtx.myWindow, nullptr, &myRhi.myDeviceCtx.mySurface ) != VK_SUCCESS ) {
-        UtilLogger::Error( "VULKAN", "glfwCreateWindowSurface failed." );
-        throw std::runtime_error( "failed to create window surface!" );
+    if ( myPlatformHost == nullptr ) {
+        throw std::runtime_error( "Vk_Renderer::CreateSurface requires bound App_PlatformHost" );
     }
-    UtilLogger::Info( "VULKAN", "Window surface created." );
+    myPlatformHost->CreateSurface( myRhi );
 }
 
 void Vk_Renderer::RecreateSurface() {
-    if ( myRhi.myDeviceCtx.mySurface != VK_NULL_HANDLE ) {
-        vkDestroySurfaceKHR( myRhi.myDeviceCtx.myInstance, myRhi.myDeviceCtx.mySurface, nullptr );
-        myRhi.myDeviceCtx.mySurface = VK_NULL_HANDLE;
+    if ( myPlatformHost == nullptr ) {
+        throw std::runtime_error( "Vk_Renderer::RecreateSurface requires bound App_PlatformHost" );
     }
-    CreateSurface();
+    myPlatformHost->RecreateSurface( myRhi );
 }
 
 void Vk_Renderer::SyncResourceContext() {
@@ -1131,12 +1121,6 @@ void Vk_Renderer::SetGraphicsDynamicState( VkCommandBuffer aCommandBuffer, const
     vkCmdSetLineWidth( aCommandBuffer, 1.0f );
 }
 
-void Vk_Renderer::FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight ) {
-    const auto vkCore = reinterpret_cast< Vk_Renderer* >( glfwGetWindowUserPointer( aWindow ) );
-
-    vkCore->mySwapchainCtx.myFramebufferResized = true;
-}
-
 uint32_t Vk_Renderer::FindMemoryType( uint32_t aTypeFiler, VkMemoryPropertyFlags someProperties ) const {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties( myRhi.myDeviceCtx.myPhysicalDevice, &memProperties );
@@ -1214,13 +1198,16 @@ VkSampleCountFlagBits Vk_Renderer::GetMaxUsableSampleCount() const {
     return myRhi.GetMaxUsableSampleCount();
 }
 
-// Platform tick and ImGui NewFrame bootstrap are delegated to Vk_PlatformFrame.
-void Vk_Renderer::BeginPlatformFrame( float& aOutDeltaSeconds ) {
-    Vk_PlatformFrame::BeginFrame( *this, aOutDeltaSeconds );
+void Vk_Renderer::BeginImGuiFrame() {
+    myPlatformCtx.myImGuiLayer.NewFrame();
 }
 
-void Vk_Renderer::BeginImGuiFrame() {
-    Vk_PlatformFrame::BeginImGuiFrame( *this );
+void Vk_Renderer::OnPlatformFrameStart( std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds ) {
+    if ( myPlatformCtx.myHasLastFrameTime ) {
+        myFrameStats.PushFrameTime( aDeltaSeconds * 1000.f );
+    }
+    myPlatformCtx.myLastFrameTime    = aFrameStart;
+    myPlatformCtx.myHasLastFrameTime = true;
 }
 
 void Vk_Renderer::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings ) {
@@ -1234,6 +1221,18 @@ void Vk_Renderer::SetFrameInputSampleTime( std::chrono::high_resolution_clock::t
 
 size_t Vk_Renderer::PadUniformBufferSize( size_t anOriginalSize ) const {
     return myRhi.PadUniformBufferSize( anOriginalSize );
+}
+
+void Vk_Renderer::SetPlatformWindow( GLFWwindow* aWindow ) {
+    myPlatformCtx.myWindow = aWindow;
+}
+
+void Vk_Renderer::NotifyFramebufferResized() {
+    mySwapchainCtx.myFramebufferResized = true;
+}
+
+void Vk_Renderer::BindPlatformHost( App_PlatformHost* aPlatformHost ) {
+    myPlatformHost = aPlatformHost;
 }
 
 #pragma endregion
