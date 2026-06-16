@@ -11,6 +11,7 @@
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
+#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_DeferredLightingPass.h"
@@ -22,7 +23,6 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
-#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "Vk_Renderer.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowAoSoftPass.h"

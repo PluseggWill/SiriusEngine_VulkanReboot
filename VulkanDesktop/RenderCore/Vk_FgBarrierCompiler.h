@@ -13,4 +13,3 @@ void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aC
 void CmdCopyGBufferDepthToSwapchain( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer );
 
 }  // namespace Vk_FgBarrierCompiler
-

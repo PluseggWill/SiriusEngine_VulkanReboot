@@ -52,7 +52,7 @@ void App_PlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSecon
     if ( myHasLastFrameTime ) {
         aOutDeltaSeconds = std::chrono::duration< float >( frameStart - myLastFrameTime ).count();
     }
-    myLastFrameTime = frameStart;
+    myLastFrameTime    = frameStart;
     myHasLastFrameTime = true;
     aRenderer.OnPlatformFrameStart( frameStart, aOutDeltaSeconds );
 }

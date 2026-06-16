@@ -14,7 +14,6 @@
 
 #include <array>
 
-
 void Vk_GfxPipelineCache::InitScenePipelines( Vk_Renderer& aCore ) {
     DestroyScenePipelines( aCore );
     CreateGfxPipeline( aCore );

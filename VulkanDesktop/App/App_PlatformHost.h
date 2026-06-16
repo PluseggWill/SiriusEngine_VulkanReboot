@@ -23,12 +23,14 @@ public:
     void CreateSurface( Vk_RhiDevice& aRhiDevice );
     void RecreateSurface( Vk_RhiDevice& aRhiDevice );
 
-    GLFWwindow* GetWindow() const { return myWindow; }
+    GLFWwindow* GetWindow() const {
+        return myWindow;
+    }
 
 private:
     static void FramebufferResizeCallback( GLFWwindow* aWindow, int aWidth, int aHeight );
 
-    GLFWwindow* myWindow = nullptr;
+    GLFWwindow*                                    myWindow = nullptr;
     std::chrono::high_resolution_clock::time_point myLastFrameTime{};
-    bool myHasLastFrameTime = false;
+    bool                                           myHasLastFrameTime = false;
 };

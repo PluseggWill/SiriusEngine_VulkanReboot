@@ -50,9 +50,9 @@
 
 #include "Vk_PlatformContext.h"
 
+#include "Vk_RendererContexts.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_RhiDevice.h"
-#include "Vk_RendererContexts.h"
 
 #include "Vk_SceneGpuContext.h"
 
@@ -164,11 +164,17 @@ public:
     void CmdEndDebugLabel( VkCommandBuffer aCommandBuffer ) const;
 
     // VK_EXT_debug_utils labels loaded (--renderdoc + extension); used to skip label formatting on hot path.
-    bool AreCommandDebugLabelsEnabled() const;
+    bool                AreCommandDebugLabelsEnabled() const;
     Vk_RendererContexts BuildContexts();
-    const std::string& GetSceneVertShaderPath() const { return mySceneVertShaderPath; }
-    const std::string& GetSceneFragShaderPath() const { return mySceneFragShaderPath; }
-    const std::string& GetSceneBindlessFragShaderPath() const { return mySceneBindlessFragShaderPath; }
+    const std::string&  GetSceneVertShaderPath() const {
+        return mySceneVertShaderPath;
+    }
+    const std::string& GetSceneFragShaderPath() const {
+        return mySceneFragShaderPath;
+    }
+    const std::string& GetSceneBindlessFragShaderPath() const {
+        return mySceneBindlessFragShaderPath;
+    }
 
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
@@ -331,7 +337,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
-    App_PlatformHost* myPlatformHost = nullptr;
+    App_PlatformHost*        myPlatformHost = nullptr;
 
 private:
     void Clear();

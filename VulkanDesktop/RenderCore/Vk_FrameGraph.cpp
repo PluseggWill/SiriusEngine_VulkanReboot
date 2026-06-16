@@ -94,18 +94,24 @@ bool IsShadowPassEnabled( const Vk_FrameGraphContext& aCtx ) {
     return aCtx.myCore->myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCtx.myCore->myLightingSettings.myShadowsEnabled, sunDir );
 }
 
-bool IsDepthPyramidEnabled( const Vk_FrameGraphContext& aCtx ) { return aCtx.myCore->myDepthPyramidState.myInitialized; }
-bool IsAoPassEnabled( const Vk_FrameGraphContext& aCtx ) { return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && IsDepthPyramidEnabled( aCtx ); }
-bool IsShadowAoSoftEnabled( const Vk_FrameGraphContext& aCtx ) { return aCtx.myCore->myShadowAoSoftState.myInitialized && aCtx.myCore->myAoSettings.myContactSoftEnabled; }
+bool IsDepthPyramidEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myDepthPyramidState.myInitialized;
+}
+bool IsAoPassEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && IsDepthPyramidEnabled( aCtx );
+}
+bool IsShadowAoSoftEnabled( const Vk_FrameGraphContext& aCtx ) {
+    return aCtx.myCore->myShadowAoSoftState.myInitialized && aCtx.myCore->myAoSettings.myContactSoftEnabled;
+}
 
 void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
     aOutNodes.clear();
     aOutNodes.reserve( static_cast< size_t >( Vk_FrameGraphPassId::Count ) );
 
     aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::Shadow, {}, IsShadowPassEnabled, []( Vk_FrameGraphContext& aCtx ) {
-                                            constexpr uint32_t           viewIndex = 0;
-                                            const Gfx_FrameRenderPacket* packet    = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
-                                            const bool emitDebugLabels = aCtx.myCore->AreCommandDebugLabelsEnabled();
+                                            constexpr uint32_t           viewIndex       = 0;
+                                            const Gfx_FrameRenderPacket* packet          = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
+                                            const bool                   emitDebugLabels = aCtx.myCore->AreCommandDebugLabelsEnabled();
                                             if ( packet != nullptr && !packet->myShadowCasterPass.myDraws.empty() ) {
                                                 Vk_ShadowMapPass::RecordDraw( *aCtx.myCore, aCtx.myCommandBuffer, packet->myShadowCasterPass, emitDebugLabels );
                                             }
@@ -114,112 +120,129 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                                             }
                                         } } );
 
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::GBuffer, { Vk_FrameGraphPassId::Shadow }, []( const Vk_FrameGraphContext& ) { return true; },
-                                         []( Vk_FrameGraphContext& aCtx ) {
-                                             Vk_Renderer& aCore = *aCtx.myCore;
-                                             const Vk_RenderMaterialPath materialPath    = aCore.myRhi.myDeviceCtx.myMaterialPath;
-                                             const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-                                             const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-                                             const VkPipeline gbufferPipeline = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
-                                             const bool       legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-                                             const bool       gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-                                             const bool       emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
-                                             Vk_FrameData&    frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
-                                             const VkBuffer   indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
-                                             constexpr uint32_t viewIndex      = 0;
-                                             const Gfx_FrameRenderPacket* packet = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
-                                             if ( !IsShadowPassEnabled( aCtx ) ) {
-                                                 Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
-                                             }
-                                             VkRenderPassBeginInfo gbufferBegin{};
-                                             gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-                                             gbufferBegin.renderPass        = aCore.myGBufferState.myRenderPass;
-                                             gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
-                                             gbufferBegin.renderArea.offset = { 0, 0 };
-                                             gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-                                             std::array< VkClearValue, 4 > gbufferClears{};
-                                             gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-                                             gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
-                                             gbufferClears[ 2 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-                                             gbufferClears[ 3 ].depthStencil = { 1.0f, 0 };
-                                             gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
-                                             gbufferBegin.pClearValues       = gbufferClears.data();
-                                             vkCmdBeginRenderPass( aCtx.myCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
-                                             if ( packet != nullptr && aCtx.myViewports != nullptr && aCtx.myScissors != nullptr && aCtx.myFrameDescriptors != nullptr ) {
-                                                 aCore.SetGraphicsDynamicState( aCtx.myCommandBuffer, ( *aCtx.myViewports )[ viewIndex ], ( *aCtx.myScissors )[ viewIndex ] );
-                                                 BindHybridSceneDescriptors( aCore, aCtx.myCommandBuffer, frameBindLayout, ( *aCtx.myFrameDescriptors )[ viewIndex ], bindless );
-                                                 if ( gbufferPipeline != VK_NULL_HANDLE && Gfx_FramePacketValidation::ValidateFramePacket( *packet ) && !aCtx.myToggles->mySkipOpaquePass ) {
-                                                     if ( emitDebugLabels ) aCore.CmdBeginDebugLabel( aCtx.myCommandBuffer, "Pass=GBufferOpaque" );
-                                                     Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCtx.myCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer,
-                                                                                              gpuCullRecord, legacyDirectDraw, emitDebugLabels, gbufferPipeline );
-                                                     if ( emitDebugLabels ) aCore.CmdEndDebugLabel( aCtx.myCommandBuffer );
-                                                 }
-                                             }
-                                             vkCmdEndRenderPass( aCtx.myCommandBuffer );
-                                         } } );
+    aOutNodes.push_back(
+        FrameGraphNode{ Vk_FrameGraphPassId::GBuffer,
+                        { Vk_FrameGraphPassId::Shadow },
+                        []( const Vk_FrameGraphContext& ) { return true; },
+                        []( Vk_FrameGraphContext& aCtx ) {
+                            Vk_Renderer&                 aCore            = *aCtx.myCore;
+                            const Vk_RenderMaterialPath  materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
+                            const bool                   bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
+                            const VkPipelineLayout       frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+                            const VkPipeline             gbufferPipeline  = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
+                            const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+                            const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+                            const bool                   emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
+                            Vk_FrameData&                frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
+                            const VkBuffer               indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
+                            constexpr uint32_t           viewIndex        = 0;
+                            const Gfx_FrameRenderPacket* packet           = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
+                            if ( !IsShadowPassEnabled( aCtx ) ) {
+                                Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
+                            }
+                            VkRenderPassBeginInfo gbufferBegin{};
+                            gbufferBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+                            gbufferBegin.renderPass        = aCore.myGBufferState.myRenderPass;
+                            gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
+                            gbufferBegin.renderArea.offset = { 0, 0 };
+                            gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
+                            std::array< VkClearValue, 4 > gbufferClears{};
+                            gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+                            gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
+                            gbufferClears[ 2 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+                            gbufferClears[ 3 ].depthStencil = { 1.0f, 0 };
+                            gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
+                            gbufferBegin.pClearValues       = gbufferClears.data();
+                            vkCmdBeginRenderPass( aCtx.myCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
+                            if ( packet != nullptr && aCtx.myViewports != nullptr && aCtx.myScissors != nullptr && aCtx.myFrameDescriptors != nullptr ) {
+                                aCore.SetGraphicsDynamicState( aCtx.myCommandBuffer, ( *aCtx.myViewports )[ viewIndex ], ( *aCtx.myScissors )[ viewIndex ] );
+                                BindHybridSceneDescriptors( aCore, aCtx.myCommandBuffer, frameBindLayout, ( *aCtx.myFrameDescriptors )[ viewIndex ], bindless );
+                                if ( gbufferPipeline != VK_NULL_HANDLE && Gfx_FramePacketValidation::ValidateFramePacket( *packet ) && !aCtx.myToggles->mySkipOpaquePass ) {
+                                    if ( emitDebugLabels )
+                                        aCore.CmdBeginDebugLabel( aCtx.myCommandBuffer, "Pass=GBufferOpaque" );
+                                    Vk_ScenePasses::RecordOpaquePacketDraws( aCore, aCtx.myCommandBuffer, packet->myOpaquePass, packet->myDrawBufferBaseIndex, indirectBuffer,
+                                                                             gpuCullRecord, legacyDirectDraw, emitDebugLabels, gbufferPipeline );
+                                    if ( emitDebugLabels )
+                                        aCore.CmdEndDebugLabel( aCtx.myCommandBuffer );
+                                }
+                            }
+                            vkCmdEndRenderPass( aCtx.myCommandBuffer );
+                        } } );
 
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::ClusterBuild, { Vk_FrameGraphPassId::GBuffer }, []( const Vk_FrameGraphContext& ) { return true; },
-                                         []( Vk_FrameGraphContext& aCtx ) { Vk_ClusterBuildPass::RecordDispatch( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); } } );
+    aOutNodes.push_back(
+        FrameGraphNode{ Vk_FrameGraphPassId::ClusterBuild,
+                        { Vk_FrameGraphPassId::GBuffer },
+                        []( const Vk_FrameGraphContext& ) { return true; },
+                        []( Vk_FrameGraphContext& aCtx ) { Vk_ClusterBuildPass::RecordDispatch( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); } } );
 
     aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::DepthPyramid, { Vk_FrameGraphPassId::ClusterBuild }, IsDepthPyramidEnabled, []( Vk_FrameGraphContext& aCtx ) {
                                             Vk_FgBarrierCompiler::CmdBarrierGBufferColorsForDeferredRead( *aCtx.myCore, aCtx.myCommandBuffer );
                                             Vk_FgBarrierCompiler::CmdBarrierGBufferDepthForShaderRead( *aCtx.myCore, aCtx.myCommandBuffer );
                                             Vk_DepthPyramidPass::RecordBuild( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex );
                                         } } );
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::SSAO, { Vk_FrameGraphPassId::DepthPyramid }, IsAoPassEnabled,
-                                         []( Vk_FrameGraphContext& aCtx ) { Vk_AoPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex ); } } );
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::ShadowAoSoft, { Vk_FrameGraphPassId::GBuffer, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::SSAO },
-                                         IsShadowAoSoftEnabled,
-                                         []( Vk_FrameGraphContext& aCtx ) { Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) ); } } );
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::DeferredTransparent,
-                                         { Vk_FrameGraphPassId::ClusterBuild, Vk_FrameGraphPassId::SSAO, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::ShadowAoSoft },
-                                         []( const Vk_FrameGraphContext& ) { return true; }, []( Vk_FrameGraphContext& aCtx ) {
-                                             Vk_Renderer& aCore = *aCtx.myCore;
-                                             Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCtx.myCommandBuffer );
-                                             Vk_FgBarrierCompiler::CmdCopyGBufferDepthToSwapchain( aCore, aCtx.myCommandBuffer );
-                                             VkRenderPassBeginInfo hybridBegin{};
-                                             hybridBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-                                             hybridBegin.renderPass        = aCore.myPostProcessState.myHybridRenderPass;
-                                             hybridBegin.framebuffer       = aCore.myPostProcessState.myHybridFramebuffer;
-                                             hybridBegin.renderArea.offset = { 0, 0 };
-                                             hybridBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-                                             std::array< VkClearValue, 2 > hybridClears{};
-                                             hybridClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-                                             hybridClears[ 1 ].depthStencil = { 1.0f, 0 };
-                                             hybridBegin.clearValueCount    = static_cast< uint32_t >( hybridClears.size() );
-                                             hybridBegin.pClearValues       = hybridClears.data();
-                                             vkCmdBeginRenderPass( aCtx.myCommandBuffer, &hybridBegin, VK_SUBPASS_CONTENTS_INLINE );
-                                             const Vk_RenderMaterialPath materialPath    = aCore.myRhi.myDeviceCtx.myMaterialPath;
-                                             const bool                  bindless        = materialPath == Vk_RenderMaterialPath::Bindless;
-                                             const VkPipelineLayout      frameBindLayout = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-                                             const bool       legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-                                             const bool       gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
-                                             const bool       emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
-                                             Vk_FrameData&    frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
-                                             const VkBuffer   indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
-                                             constexpr uint32_t viewIndex      = 0;
-                                             const Gfx_FrameRenderPacket* packet = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
-                                             if ( aCtx.myViewports != nullptr && aCtx.myScissors != nullptr ) {
-                                                 aCore.SetGraphicsDynamicState( aCtx.myCommandBuffer, ( *aCtx.myViewports )[ viewIndex ], ( *aCtx.myScissors )[ viewIndex ] );
-                                             }
-                                             Vk_DeferredLightingPass::RecordDraw( aCore, aCtx.myCommandBuffer, aCtx.myFrameIndex );
-                                             if ( packet != nullptr && aCtx.myFrameDescriptors != nullptr && Gfx_FramePacketValidation::ValidateFramePacket( *packet )
-                                                  && !aCtx.myToggles->mySkipTransparentPass && !packet->myTransparentPass.myDraws.empty() ) {
-                                                 BindHybridSceneDescriptors( aCore, aCtx.myCommandBuffer, frameBindLayout, ( *aCtx.myFrameDescriptors )[ viewIndex ], bindless );
-                                                 if ( emitDebugLabels ) aCore.CmdBeginDebugLabel( aCtx.myCommandBuffer, "Pass=ForwardTransparent" );
-                                                 Vk_ScenePasses::RecordTransparentPacketDraws( aCore, aCtx.myCommandBuffer, packet->myTransparentPass, packet->myDrawBufferBaseIndex,
-                                                                                               indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels );
-                                                 if ( emitDebugLabels ) aCore.CmdEndDebugLabel( aCtx.myCommandBuffer );
-                                             }
-                                             if ( aCtx.myViewports != nullptr && aCtx.myScissors != nullptr && aCtx.myFrameDescriptors != nullptr && aCtx.myViewPackets != nullptr ) {
-                                                 Vk_ScenePasses::RecordHybridPiPViews( aCore, *aCtx.myToggles, aCtx.myCommandBuffer, *aCtx.myViewports, *aCtx.myScissors,
-                                                                                       *aCtx.myFrameDescriptors, aCtx.myViewCount, *aCtx.myViewPackets );
-                                             }
-                                             vkCmdEndRenderPass( aCtx.myCommandBuffer );
-                                         } } );
-    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::Post, { Vk_FrameGraphPassId::DeferredTransparent },
-                                         []( const Vk_FrameGraphContext& aCtx ) { return Vk_PostProcessPass::HasHybridResolve( *aCtx.myCore ); },
-                                         []( Vk_FrameGraphContext& aCtx ) { Vk_PostProcessPass::RecordPost( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myImageIndex, aCtx.myFrameIndex ); } } );
+    aOutNodes.push_back( FrameGraphNode{ Vk_FrameGraphPassId::SSAO, { Vk_FrameGraphPassId::DepthPyramid }, IsAoPassEnabled, []( Vk_FrameGraphContext& aCtx ) {
+                                            Vk_AoPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex );
+                                        } } );
+    aOutNodes.push_back( FrameGraphNode{
+        Vk_FrameGraphPassId::ShadowAoSoft,
+        { Vk_FrameGraphPassId::GBuffer, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::SSAO },
+        IsShadowAoSoftEnabled,
+        []( Vk_FrameGraphContext& aCtx ) { Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) ); } } );
+    aOutNodes.push_back(
+        FrameGraphNode{ Vk_FrameGraphPassId::DeferredTransparent,
+                        { Vk_FrameGraphPassId::ClusterBuild, Vk_FrameGraphPassId::SSAO, Vk_FrameGraphPassId::Shadow, Vk_FrameGraphPassId::ShadowAoSoft },
+                        []( const Vk_FrameGraphContext& ) { return true; },
+                        []( Vk_FrameGraphContext& aCtx ) {
+                            Vk_Renderer& aCore = *aCtx.myCore;
+                            Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCtx.myCommandBuffer );
+                            Vk_FgBarrierCompiler::CmdCopyGBufferDepthToSwapchain( aCore, aCtx.myCommandBuffer );
+                            VkRenderPassBeginInfo hybridBegin{};
+                            hybridBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+                            hybridBegin.renderPass        = aCore.myPostProcessState.myHybridRenderPass;
+                            hybridBegin.framebuffer       = aCore.myPostProcessState.myHybridFramebuffer;
+                            hybridBegin.renderArea.offset = { 0, 0 };
+                            hybridBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
+                            std::array< VkClearValue, 2 > hybridClears{};
+                            hybridClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+                            hybridClears[ 1 ].depthStencil = { 1.0f, 0 };
+                            hybridBegin.clearValueCount    = static_cast< uint32_t >( hybridClears.size() );
+                            hybridBegin.pClearValues       = hybridClears.data();
+                            vkCmdBeginRenderPass( aCtx.myCommandBuffer, &hybridBegin, VK_SUBPASS_CONTENTS_INLINE );
+                            const Vk_RenderMaterialPath  materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
+                            const bool                   bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
+                            const VkPipelineLayout       frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
+                            const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
+                            const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+                            const bool                   emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
+                            Vk_FrameData&                frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
+                            const VkBuffer               indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
+                            constexpr uint32_t           viewIndex        = 0;
+                            const Gfx_FrameRenderPacket* packet           = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
+                            if ( aCtx.myViewports != nullptr && aCtx.myScissors != nullptr ) {
+                                aCore.SetGraphicsDynamicState( aCtx.myCommandBuffer, ( *aCtx.myViewports )[ viewIndex ], ( *aCtx.myScissors )[ viewIndex ] );
+                            }
+                            Vk_DeferredLightingPass::RecordDraw( aCore, aCtx.myCommandBuffer, aCtx.myFrameIndex );
+                            if ( packet != nullptr && aCtx.myFrameDescriptors != nullptr && Gfx_FramePacketValidation::ValidateFramePacket( *packet )
+                                 && !aCtx.myToggles->mySkipTransparentPass && !packet->myTransparentPass.myDraws.empty() ) {
+                                BindHybridSceneDescriptors( aCore, aCtx.myCommandBuffer, frameBindLayout, ( *aCtx.myFrameDescriptors )[ viewIndex ], bindless );
+                                if ( emitDebugLabels )
+                                    aCore.CmdBeginDebugLabel( aCtx.myCommandBuffer, "Pass=ForwardTransparent" );
+                                Vk_ScenePasses::RecordTransparentPacketDraws( aCore, aCtx.myCommandBuffer, packet->myTransparentPass, packet->myDrawBufferBaseIndex,
+                                                                              indirectBuffer, gpuCullRecord, legacyDirectDraw, emitDebugLabels );
+                                if ( emitDebugLabels )
+                                    aCore.CmdEndDebugLabel( aCtx.myCommandBuffer );
+                            }
+                            if ( aCtx.myViewports != nullptr && aCtx.myScissors != nullptr && aCtx.myFrameDescriptors != nullptr && aCtx.myViewPackets != nullptr ) {
+                                Vk_ScenePasses::RecordHybridPiPViews( aCore, *aCtx.myToggles, aCtx.myCommandBuffer, *aCtx.myViewports, *aCtx.myScissors,
+                                                                      *aCtx.myFrameDescriptors, aCtx.myViewCount, *aCtx.myViewPackets );
+                            }
+                            vkCmdEndRenderPass( aCtx.myCommandBuffer );
+                        } } );
+    aOutNodes.push_back(
+        FrameGraphNode{ Vk_FrameGraphPassId::Post,
+                        { Vk_FrameGraphPassId::DeferredTransparent },
+                        []( const Vk_FrameGraphContext& aCtx ) { return Vk_PostProcessPass::HasHybridResolve( *aCtx.myCore ); },
+                        []( Vk_FrameGraphContext& aCtx ) { Vk_PostProcessPass::RecordPost( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myImageIndex, aCtx.myFrameIndex ); } } );
 }
 }  // namespace
 
@@ -235,10 +258,12 @@ void Execute( Vk_FrameGraphContext& aCtx ) {
     const std::vector< Vk_FrameGraphPassId > sorted = TopologicalSort( nodes );
     for ( Vk_FrameGraphPassId passId : sorted ) {
         const auto nodeIt = std::find_if( nodes.begin(), nodes.end(), [ passId ]( const FrameGraphNode& aNode ) { return aNode.myId == passId; } );
-        if ( nodeIt == nodes.end() ) continue;
-        if ( nodeIt->myIsEnabled && !nodeIt->myIsEnabled( aCtx ) ) continue;
-        if ( nodeIt->myRecord ) nodeIt->myRecord( aCtx );
+        if ( nodeIt == nodes.end() )
+            continue;
+        if ( nodeIt->myIsEnabled && !nodeIt->myIsEnabled( aCtx ) )
+            continue;
+        if ( nodeIt->myRecord )
+            nodeIt->myRecord( aCtx );
     }
 }
 }  // namespace Vk_FrameGraph
-

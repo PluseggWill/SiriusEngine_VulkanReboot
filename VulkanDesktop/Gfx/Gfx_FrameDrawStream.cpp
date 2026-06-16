@@ -32,8 +32,8 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
             }
             const glm::vec3 center = Gfx_BoundsCenter( aParams.myScene->GetBounds( draw.myEntityIndex ) );
             const float     dist   = glm::length( center - aParams.myCameraEye );
-            UtilLogger::Info( "LOD", "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" + std::to_string( aParams.myLodDebugLogicalMeshId )
-                                         + " resolvedMeshId=" + std::to_string( draw.myMeshId ) + " dist=" + std::to_string( dist ) );
+            UtilLogger::Debug( "LOD", "slot=" + std::to_string( draw.myEntityIndex ) + " logical=" + std::to_string( aParams.myLodDebugLogicalMeshId )
+                                          + " resolvedMeshId=" + std::to_string( draw.myMeshId ) + " dist=" + std::to_string( dist ) );
         }
         aLogs.myLodLoggedOnce = true;
     }
@@ -46,22 +46,22 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
     Gfx_BuildOpaqueDrawBatches( aOut.myUnculledOpaque.myDrawInstances, aOut.myShadowCasterBatchRuns );
 
     if ( !aLogs.myBatchLoggedOnce ) {
-        UtilLogger::Info( "BATCH",
-                          "opaque runs=" + std::to_string( aOut.myOpaqueBatchRuns.size() ) + " draws=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() ) );
+        UtilLogger::Debug( "BATCH",
+                           "opaque runs=" + std::to_string( aOut.myOpaqueBatchRuns.size() ) + " draws=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() ) );
         aLogs.myBatchLoggedOnce = true;
     }
 
     if ( !aLogs.myTransLoggedOnce ) {
-        UtilLogger::Info( "TRANSP",
-                          "runs=" + std::to_string( aOut.myTransparentBatchRuns.size() ) + " draws=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) );
+        UtilLogger::Debug( "TRANSP", "runs=" + std::to_string( aOut.myTransparentBatchRuns.size() )
+                                         + " draws=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) );
         aLogs.myTransLoggedOnce = true;
     }
 
     if ( !aLogs.myExtractLoggedOnce ) {
-        UtilLogger::Info( "EXTRACT", "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" + std::to_string( aOut.myDrawCountBeforeCull ) );
+        UtilLogger::Debug( "EXTRACT", "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" + std::to_string( aOut.myDrawCountBeforeCull ) );
         const char* cullMode = aParams.myGpuCullEnabled ? "gpu-deferred" : "frustum+layer";
-        UtilLogger::Info( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
-                                      + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (" + cullMode + ")" );
+        UtilLogger::Debug( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
+                                       + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (" + cullMode + ")" );
         aLogs.myExtractLoggedOnce = true;
     }
 }

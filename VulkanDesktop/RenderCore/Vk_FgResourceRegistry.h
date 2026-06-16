@@ -17,4 +17,3 @@ enum class Vk_FgResourceId : uint8_t {
 struct Vk_FgResourceRegistry {
     static bool IsDepth( Vk_FgResourceId aId );
 };
-

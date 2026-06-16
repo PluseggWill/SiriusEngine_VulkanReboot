@@ -33,4 +33,3 @@ namespace Vk_FrameGraph {
 void Execute( Vk_FrameGraphContext& aCtx );
 
 }  // namespace Vk_FrameGraph
-

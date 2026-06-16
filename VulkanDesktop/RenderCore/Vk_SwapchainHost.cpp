@@ -138,7 +138,7 @@ void DiscardPendingSwapchainDeletor( Vk_Renderer& aCore ) {
 }
 
 void Vk_SwapchainHost::RecreateWsiOnly( Vk_Renderer& aCore, VkSwapchainKHR aSupersededSwapChain ) {
-    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=wsi" );
+    UtilLogger::Debug( "SWAPCHAIN", "rebuild layer=wsi" );
     aCore.myPlatformCtx.myImGuiLayer.DestroySwapchainResources();
 
     DestroySwapchainImageViews( aCore );
@@ -171,7 +171,7 @@ void RunExtentDeletorsBeforeSwapchain( Vk_Renderer& aCore, bool aIncludeRenderPa
 }
 
 void Vk_SwapchainHost::RebuildExtentDependentResources( Vk_Renderer& aCore, bool aIncludeRenderPass ) {
-    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=extent renderPass=" + std::string( aIncludeRenderPass ? "yes" : "reuse" ) );
+    UtilLogger::Debug( "SWAPCHAIN", "rebuild layer=extent renderPass=" + std::string( aIncludeRenderPass ? "yes" : "reuse" ) );
     RunExtentDeletorsBeforeSwapchain( aCore, aIncludeRenderPass );
 
     if ( aIncludeRenderPass ) {
@@ -188,7 +188,7 @@ void Vk_SwapchainHost::RebuildScenePipelinesIfNeeded( Vk_Renderer& aCore ) {
     if ( !aCore.HasLoadedScene() ) {
         return;
     }
-    UtilLogger::Info( "SWAPCHAIN", "rebuild layer=pipeline" );
+    UtilLogger::Debug( "SWAPCHAIN", "rebuild layer=pipeline" );
     Vk_GfxPipelineCache::DestroyScenePipelines( aCore );
     Vk_GfxPipelineCache::InitScenePipelines( aCore );
     aCore.RefreshMaterialPipelinesAfterSwapchainRecreate();
@@ -207,14 +207,14 @@ void Vk_SwapchainHost::Recreate( Vk_Renderer& aCore ) {
     VkExtent2D       targetExtent{};
     const bool       needsRebuild = NeedsSwapchainRebuild( aCore, targetExtent );
     if ( aCore.mySwapchainCtx.myFramebufferResized ) {
-        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: framebuffer resize flag set." );
+        UtilLogger::Debug( "SWAPCHAIN", "Recreate precheck: framebuffer resize flag set." );
     }
     else if ( !needsRebuild ) {
-        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent unchanged (suboptimal/out-of-date path)." );
+        UtilLogger::Debug( "SWAPCHAIN", "Recreate precheck: extent unchanged (suboptimal/out-of-date path)." );
     }
     else {
-        UtilLogger::Info( "SWAPCHAIN", "Recreate precheck: extent " + std::to_string( previousExtent.width ) + "x" + std::to_string( previousExtent.height ) + " -> "
-                                           + std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
+        UtilLogger::Debug( "SWAPCHAIN", "Recreate precheck: extent " + std::to_string( previousExtent.width ) + "x" + std::to_string( previousExtent.height ) + " -> "
+                                            + std::to_string( targetExtent.width ) + "x" + std::to_string( targetExtent.height ) );
     }
 
     const bool extentChanged                  = targetExtent.width != previousExtent.width || targetExtent.height != previousExtent.height;
@@ -266,7 +266,7 @@ bool Vk_SwapchainHost::AcquireNextImage( Vk_Renderer& aCore, const Vk_FrameData&
     }
 
     if ( !sAcquirePathLogged ) {
-        UtilLogger::Info( "SWAPCHAIN", "Acquire path delegated to Vk_SwapchainHost." );
+        UtilLogger::Debug( "SWAPCHAIN", "Acquire path delegated to Vk_SwapchainHost." );
         sAcquirePathLogged = true;
     }
     return true;
@@ -329,7 +329,7 @@ Vk_FrameResult Vk_SwapchainHost::SubmitAndPresent( Vk_Renderer& aCore, const Vk_
         return ClassifyQueueResult( result, "vkQueuePresentKHR" );
     }
     if ( !sPresentPathLogged ) {
-        UtilLogger::Info( "SWAPCHAIN", "Present path delegated to Vk_SwapchainHost." );
+        UtilLogger::Debug( "SWAPCHAIN", "Present path delegated to Vk_SwapchainHost." );
         sPresentPathLogged = true;
     }
     return Vk_FrameResult::Ok;
@@ -384,8 +384,8 @@ void Vk_SwapchainHost::CreateSwapChain( Vk_Renderer& aCore, VkSwapchainKHR aSupe
     vkGetSwapchainImagesKHR( aCore.myRhi.myDeviceCtx.myDevice, aCore.mySwapchainCtx.mySwapChain, &imageCount, aCore.mySwapchainCtx.mySwapChainImages.data() );
     aCore.mySwapchainCtx.mySwapChainImageFormat = surfaceFormat.format;
     aCore.mySwapchainCtx.mySwapChainExtent      = extent;
-    UtilLogger::Info( "SWAPCHAIN", "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha )
-                                       + " extent=" + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
+    UtilLogger::Debug( "SWAPCHAIN", "imageCount=" + std::to_string( requestedImageCount ) + " compositeAlpha=" + CompositeAlphaName( compositeAlpha )
+                                        + " extent=" + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
     aCore.mySwapchainCtx.mySwapChainImageViews.resize( imageCount );
     for ( size_t i = 0; i < imageCount; ++i ) {
         aCore.mySwapchainCtx.mySwapChainImageViews[ i ] =
@@ -566,7 +566,7 @@ void Vk_SwapchainHost::CreateDepthResources( Vk_Renderer& aCore ) {
 
 void Vk_SwapchainHost::CreateColorResources( Vk_Renderer& aCore ) {
     if ( aCore.mySwapchainCtx.myMSAASamples == VK_SAMPLE_COUNT_1_BIT ) {
-        UtilLogger::Info( "RESOURCE", "Skipping MSAA color target (single-sample / direct swapchain)." );
+        UtilLogger::Debug( "RESOURCE", "Skipping MSAA color target (single-sample / direct swapchain)." );
         return;
     }
 

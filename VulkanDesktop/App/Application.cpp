@@ -4,8 +4,8 @@
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
-#include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneGpuLoadParams.h"
+#include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_ViewPacketBuild.h"
@@ -92,8 +92,8 @@ int Application::Run( int argc, char** argv ) {
         InitApp( argc, argv );
         LoadAndVerifyScene();
 
-        Vk_Renderer&      rendererRef = *myRenderer;
-        App_PlatformHost  platformHost;
+        Vk_Renderer&     rendererRef = *myRenderer;
+        App_PlatformHost platformHost;
         myPlatformHost = &platformHost;
         rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
@@ -117,7 +117,7 @@ int Application::Run( int argc, char** argv ) {
         rendererRef.Shutdown();
         platformHost.ShutdownWindow();
         myPlatformHost = nullptr;
-        myRenderer = nullptr;
+        myRenderer     = nullptr;
         UtilLogger::Info( "APP", "Engine exited run loop normally." );
         return EXIT_SUCCESS;
     }
@@ -163,12 +163,12 @@ void Application::LoadAndVerifyScene() {
 }
 
 void Application::RunMainLoop() {
-    Vk_Renderer& renderer        = *myRenderer;
-    App_PlatformHost& platformHost = *myPlatformHost;
-    const int    smokeFrameLimit = myConfig.GetSmokeFrameLimit();
-    const double smokeSeconds    = myConfig.GetSmokeSeconds();
-    int          renderedFrames  = 0;
-    const auto   smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    Vk_Renderer&      renderer        = *myRenderer;
+    App_PlatformHost& platformHost    = *myPlatformHost;
+    const int         smokeFrameLimit = myConfig.GetSmokeFrameLimit();
+    const double      smokeSeconds    = myConfig.GetSmokeSeconds();
+    int               renderedFrames  = 0;
+    const auto        smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if ( smokeSeconds > 0.0 ) {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }

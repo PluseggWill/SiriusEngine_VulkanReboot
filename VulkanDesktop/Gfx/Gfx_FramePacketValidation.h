@@ -8,4 +8,3 @@ namespace Gfx_FramePacketValidation {
 bool ValidateFramePacket( const Gfx_FrameRenderPacket& aPacket );
 
 }  // namespace Gfx_FramePacketValidation
-

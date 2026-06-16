@@ -237,7 +237,7 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
 
 void Vk_Renderer::UnloadSceneGpuResources() {
     if ( !mySceneGpuLoaded ) {
-        UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: no scene loaded (skipped)." );
+        UtilLogger::Debug( "SCENE", "UnloadSceneGpuResources: no scene loaded (skipped)." );
         return;
     }
 
@@ -291,12 +291,12 @@ void Vk_Renderer::InitImGui() {
     myPlatformCtx.myImGuiLayer.Init( myPlatformCtx.myWindow, myRhi.myDeviceCtx.myInstance, myRhi.myDeviceCtx.myPhysicalDevice, myRhi.myDeviceCtx.myDevice,
                                      myRhi.myDeviceCtx.myQueueFamilyIndices.myGraphicsFamily.value(), myRhi.myDeviceCtx.myGraphicsQueue, mySwapchainCtx.mySwapChainImageFormat,
                                      mySwapchainCtx.mySwapChainExtent, mySwapchainCtx.mySwapChainImageViews, imageCount, minImageCount );
-    UtilLogger::Info( "IMGUI", "ImGui overlay initialized." );
+    UtilLogger::Debug( "IMGUI", "ImGui overlay initialized." );
 }
 
 void Vk_Renderer::ShutdownImGui() {
     myPlatformCtx.myImGuiLayer.Shutdown();
-    UtilLogger::Info( "IMGUI", "ImGui overlay shut down." );
+    UtilLogger::Debug( "IMGUI", "ImGui overlay shut down." );
 }
 
 void Vk_Renderer::CreateInstance() {
@@ -539,8 +539,8 @@ void Vk_Renderer::CreateInstanceSlabs() {
         } );
     }
 
-    UtilLogger::Info( "RESOURCE", "Instance slab: entries=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries )
-                                      + " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
+    UtilLogger::Debug( "RESOURCE", "Instance slab: entries=" + std::to_string( VkDescriptorPolicy::kMaxInstanceSlabEntries )
+                                       + " stride=" + std::to_string( InstanceSlabStride() ) + " bytes/frame=" + std::to_string( slabSize ) );
 }
 
 // M2 prep: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
@@ -577,8 +577,8 @@ void Vk_Renderer::CreateDrawTemplateBuffers() {
         } );
     }
 
-    UtilLogger::Info( "RESOURCE", "Draw-template buffers: entries=" + std::to_string( VkDescriptorPolicy::kMaxDrawTemplateEntries )
-                                      + " indirectBytes/frame=" + std::to_string( indirectBytes ) + " templateBytes/frame=" + std::to_string( templateBytes ) );
+    UtilLogger::Debug( "RESOURCE", "Draw-template buffers: entries=" + std::to_string( VkDescriptorPolicy::kMaxDrawTemplateEntries )
+                                       + " indirectBytes/frame=" + std::to_string( indirectBytes ) + " templateBytes/frame=" + std::to_string( templateBytes ) );
 }
 
 // P3: per SoA slot entity-record SSBO (CPU fill in FillEntityRecords; compute cull reads same layout).
@@ -602,7 +602,7 @@ void Vk_Renderer::CreateEntityRecordBuffers() {
         } );
     }
 
-    UtilLogger::Info( "RESOURCE", "Entity-record buffer: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/frame=" + std::to_string( recordBytes ) );
+    UtilLogger::Debug( "RESOURCE", "Entity-record buffer: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/frame=" + std::to_string( recordBytes ) );
 }
 
 void Vk_Renderer::CreateUniformBuffers() {
@@ -767,8 +767,8 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
     }
 
     if ( !myBindlessLoggedOnce && myRhi.myDeviceCtx.myMaterialPath == Vk_RenderMaterialPath::Bindless ) {
-        UtilLogger::Info( "BINDLESS", "recording with materialTableGeneration=" + std::to_string( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() )
-                                          + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
+        UtilLogger::Debug( "BINDLESS", "recording with materialTableGeneration=" + std::to_string( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() )
+                                           + " materialSetBinds=" + std::to_string( myFrameStats.myMaterialSetBinds ) );
         myBindlessLoggedOnce = true;
     }
 
@@ -915,9 +915,9 @@ void Vk_Renderer::CheckExtensionSupport() const {
     std::vector< VkExtensionProperties > extensions( extensionCount );
     vkEnumerateInstanceExtensionProperties( nullptr, &extensionCount, extensions.data() );
 
-    UtilLogger::Info( "VULKAN", "Instance extension discovery (" + std::to_string( extensionCount ) + "):" );
+    UtilLogger::Debug( "VULKAN", "Instance extension discovery (" + std::to_string( extensionCount ) + "):" );
     for ( const VkExtensionProperties& extension : extensions ) {
-        UtilLogger::Info( "VULKAN", std::string( "  " ) + extension.extensionName );
+        UtilLogger::Debug( "VULKAN", std::string( "  " ) + extension.extensionName );
     }
 }
 
@@ -1094,7 +1094,7 @@ VkShaderModule Vk_Renderer::CreateShaderModule( const std::vector< char >& someS
 }
 
 VkShaderModule Vk_Renderer::CreateShaderModule( const std::string aShaderPath ) const {
-    UtilLogger::Info( "SHADER", "Loading shader module: " + aShaderPath );
+    UtilLogger::Debug( "SHADER", "Loading shader module: " + aShaderPath );
     const auto shaderCode = UtilLoader::ReadFile( EngineConfig(), aShaderPath );
 
     VkShaderModuleCreateInfo createInfo{};
