@@ -2,7 +2,7 @@
 // G-buffer contract: RT0.a = metallic, RT1.w = roughness (use Pbr_ClampMetallicRoughness before encode).
 
 const float PBR_PI = 3.14159265358979323846;
-const float PBR_MIN_ROUGHNESS = 0.04;
+const float PBR_MIN_ROUGHNESS = 0.15;  // was 0.04 — too sharp, created glassy specular on rough stone/fabric (perceptual ~0.02)
 const float PBR_DIELECTRIC_F0 = 0.04;
 
 vec2 Pbr_ClampMetallicRoughness(float metallic, float roughness)
