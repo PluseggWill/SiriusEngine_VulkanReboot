@@ -162,15 +162,16 @@ inline Gfx_DirectionalShadowSetup Gfx_ComputeKhronosDirectionalShadowSetup( cons
     setup.myLightViewProj        = Gfx_ComputeKhronosShadowMatrix( lightView, ortho );
     setup.myLightSpaceDepthRange = std::max( 0.001f, ortho.myFar - ortho.myNear );
 
-    // Scene-scale-aware shadow bias: primary defence is normal-offset in vertex shader;
-    // hardware depth bias provides a secondary guard scaled to the ortho depth range.
+    // Scene-scale-aware shadow bias: hardware depth bias factors scaled to ortho depth range.
+    // Normal-offset in vertex shader (myNormalBias) is intentionally 0 — it produces texel-grid
+    // artifacts on flat surfaces. The orthographic depth bias below provides sufficient guard.
     const float orthoWidth        = ortho.myRight - ortho.myLeft;
     const float orthoHeight       = ortho.myTop - ortho.myBottom;
     const float safeShadowMapSize = static_cast< float >( std::max( 1u, aShadowMapSize ) );
     setup.myWorldTexelSize        = std::max( orthoWidth, orthoHeight ) / safeShadowMapSize;
-    setup.myNormalBias            = setup.myWorldTexelSize * 1.0f;  // 1 shadow-map texel
-    setup.myDepthBiasConstant     = -setup.myLightSpaceDepthRange * 10.0f;
-    setup.myDepthBiasSlope        = -setup.myLightSpaceDepthRange * 2.0f;
+    setup.myNormalBias            = 0.0f;
+    setup.myDepthBiasConstant     = -setup.myLightSpaceDepthRange * 80.0f;  // ~1.5cm world bias (was 10 → 1.8mm, too small)
+    setup.myDepthBiasSlope        = -setup.myLightSpaceDepthRange * 40.0f;  // ~2.5mm for 45° surface
     return setup;
 }
 
