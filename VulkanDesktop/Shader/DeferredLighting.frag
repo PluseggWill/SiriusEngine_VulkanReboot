@@ -30,6 +30,9 @@ layout(push_constant) uniform PushConstants {
     vec4 viewWorldPos;
     vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
     vec4 contactSoftParams;  // x = contact soft enabled, y = ddgi enabled, z = ddgi intensity, w = ddgi debug overlay
+    uvec4 ddgiProbeCounts;   // x/y/z probe counts
+    vec4 ddgiVolumeMin;
+    vec4 ddgiVolumeMax;
     mat4 invViewProj;
 } pc;
 
@@ -58,6 +61,7 @@ layout(set = 0, binding = 12) uniform sampler2D gbufferWorldPosition;
 layout(set = 0, binding = 13) uniform sampler2D aoMap;
 layout(set = 0, binding = 14) uniform sampler2D hiZPyramid;
 layout(set = 0, binding = 15) uniform sampler2D ddgiProbeAtlas;
+layout(set = 0, binding = 16) uniform sampler2D ddgiVisibilityAtlas;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -99,16 +103,92 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorld
     return aLitColor;
 }
 
-vec3 sampleDdgiIrradiance(vec3 aWorldPos) {
+uint ddgiProbeIndex(uvec3 aCoord, uvec3 aDims) {
+    return aCoord.x + aCoord.y * aDims.x + aCoord.z * aDims.x * aDims.y;
+}
+
+vec2 ddgiProbeUv(uint aProbeIndex, uvec2 aAtlasSize) {
+    const uint px = aProbeIndex % aAtlasSize.x;
+    const uint py = aProbeIndex / aAtlasSize.x;
+    return (vec2(px, py) + 0.5) / vec2(aAtlasSize);
+}
+
+vec3 sampleDdgiIrradiance(vec3 aWorldPos, vec3 aNormal) {
     const float ddgiEnabled = pc.contactSoftParams.y;
     if (ddgiEnabled < 0.5) {
         return vec3(0.0);
     }
 
-    // S8 v0: map world XY to probe atlas UV; Y contributes as vertical term.
-    const vec2 uv = fract(aWorldPos.xy * 0.05 + vec2(0.5));
-    const vec3 probe = texture(ddgiProbeAtlas, uv).rgb;
-    return probe * pc.contactSoftParams.z;
+    const vec3 minP = pc.ddgiVolumeMin.xyz;
+    const vec3 maxP = pc.ddgiVolumeMax.xyz;
+    const vec3 extents = maxP - minP;
+    if (extents.x <= 1e-4 || extents.y <= 1e-4 || extents.z <= 1e-4) {
+        return vec3(0.0);
+    }
+
+    const uvec3 dims = max(pc.ddgiProbeCounts.xyz, uvec3(1u));
+    const vec3 local = clamp((aWorldPos - minP) / extents, 0.0, 1.0);
+    const vec3 gridPos = local * vec3(max(dims - uvec3(1u), uvec3(1u)));
+    const ivec3 base = ivec3(floor(gridPos));
+    const vec3 fracW = fract(gridPos);
+    const uvec2 atlasSize = uvec2(textureSize(ddgiProbeAtlas, 0));
+
+    vec3 accum = vec3(0.0);
+    float accumW = 0.0;
+    for (uint dz = 0u; dz < 2u; ++dz) {
+        for (uint dy = 0u; dy < 2u; ++dy) {
+            for (uint dx = 0u; dx < 2u; ++dx) {
+                const uvec3 c = uvec3(clamp(base + ivec3(dx, dy, dz), ivec3(0), ivec3(dims) - ivec3(1)));
+                const uint idx = ddgiProbeIndex(c, dims);
+                const vec2 uv = ddgiProbeUv(idx, atlasSize);
+                const vec3 probeIrr = texture(ddgiProbeAtlas, uv).rgb;
+                const float probeVis = texture(ddgiVisibilityAtlas, uv).r;
+
+                const vec3 probePos = mix(minP, maxP, vec3(c) / vec3(max(dims - uvec3(1u), uvec3(1u))));
+                const vec3 toProbe = normalize(probePos - aWorldPos);
+                const float facing = max(0.05, dot(aNormal, toProbe) * 0.5 + 0.5);
+                const vec3 w3 = mix(vec3(1.0) - fracW, fracW, vec3(dx, dy, dz));
+                const float triW = w3.x * w3.y * w3.z;
+                const float w = triW * facing * clamp(probeVis, 0.02, 1.0);
+                accum += probeIrr * w;
+                accumW += w;
+            }
+        }
+    }
+    if (accumW <= 1e-6) {
+        return vec3(0.0);
+    }
+    return (accum / accumW);
+}
+
+vec3 sampleDdgiDebugView(vec3 aWorldPos, vec3 aNormal) {
+    const vec3 minP = pc.ddgiVolumeMin.xyz;
+    const vec3 maxP = pc.ddgiVolumeMax.xyz;
+    const vec3 extents = maxP - minP;
+    if (extents.x <= 1e-4 || extents.y <= 1e-4 || extents.z <= 1e-4) {
+        return vec3(0.0);
+    }
+
+    const vec3 local = clamp((aWorldPos - minP) / extents, 0.0, 1.0);
+    const uvec3 dims = max(pc.ddgiProbeCounts.xyz, uvec3(1u));
+    const vec3 gridPos = local * vec3(max(dims - uvec3(1u), uvec3(1u)));
+    const ivec3 nearest = ivec3(round(gridPos));
+    const uvec3 c = uvec3(clamp(nearest, ivec3(0), ivec3(dims) - ivec3(1)));
+    const uvec2 atlasSize = uvec2(textureSize(ddgiProbeAtlas, 0));
+    const uint idx = ddgiProbeIndex(c, dims);
+    const vec2 uv = ddgiProbeUv(idx, atlasSize);
+    const vec3 probeIrr = texture(ddgiProbeAtlas, uv).rgb;
+    const float probeVis = texture(ddgiVisibilityAtlas, uv).r;
+
+    // Grid line emphasis to show probe-cell structure in scene.
+    const vec3 gridFrac = abs(fract(gridPos) - 0.5);
+    const float line = 1.0 - smoothstep(0.42, 0.50, min(gridFrac.x, min(gridFrac.y, gridFrac.z)));
+    const float facing = max(0.0, dot(aNormal, normalize(mix(minP, maxP, vec3(c) / vec3(max(dims - uvec3(1u), uvec3(1u)))) - aWorldPos)));
+
+    vec3 debugColor = probeIrr * (0.4 + 0.6 * clamp(probeVis, 0.0, 1.0));
+    debugColor += vec3(0.15, 0.7, 1.0) * line * 0.35;
+    debugColor *= (0.25 + 0.75 * facing);
+    return debugColor;
 }
 
 void main()
@@ -148,10 +228,24 @@ void main()
     }
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
-    // sunShadow may be contact-soft blurred; specular IBL only (diffuse stays full).
-    const float specularShadowScale = Pbr_IblSpecularShadowScale(sunShadow, lightingGlobals.iblParams.w);
-    vec3 ambient = Pbr_EvalIbl(N, V, albedo, metallic, roughness, irradianceMap, prefilterMap, brdfLut, lightingGlobals.iblParams.x, iblEnabled,
-                               lightingGlobals.iblParams.z, specularShadowScale);
+    vec3 diffuseIbl  = vec3(0.0);
+    vec3 specularIbl = vec3(0.0);
+    if (iblEnabled != 0u) {
+        const float clampedRoughness = clamp(max(roughness, PBR_MIN_ROUGHNESS), 0.0, 1.0);
+        const vec3  F0               = mix(vec3(PBR_DIELECTRIC_F0), albedo, metallic);
+        const vec3  R                = reflect(-V, N);
+        const float NdotV            = max(dot(N, V), 0.0);
+        const vec3  F                = Pbr_FresnelSchlick(NdotV, F0);
+        // Diffuse IBL — not attenuated by sun shadow; full hemispherical irradiance.
+        const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
+        diffuseIbl = Pbr_SampleIrradiance(irradianceMap, N) * kD * albedo * lightingGlobals.iblParams.x;
+        // Specular IBL — attenuated in sun-shadow zones (removes dominant sun-specular baked into prefilter).
+        const float specularShadowScale = Pbr_IblSpecularShadowScale(sunShadow, lightingGlobals.iblParams.w);
+        const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
+        const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
+        specularIbl = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
+    }
+    vec3 ambient = diffuseIbl + specularIbl;
     if (iblEnabled == 0u) {
         ambient = pc.ambientColor.rgb * albedo;
     }
@@ -164,8 +258,11 @@ void main()
         ao = 1.0;
     }
 
-    vec3 ddgi = sampleDdgiIrradiance(worldPos);
-    vec3 lit = (ambient + ddgi) * ao;
+    vec3 ddgi = sampleDdgiIrradiance(worldPos, N);
+    // AO attenuates diffuse IBL + DDGI (short-range local occlusion); specular IBL is environment-wide reflections.
+    vec3 lit = (diffuseIbl + ddgi) * ao + specularIbl;
+    ambient = diffuseIbl + specularIbl;  // keep ambient for ddgi-debug overlay blend below
+    lit = mix(lit, ddgi, clamp(pc.contactSoftParams.w, 0.0, 1.0));
 
     const ClusterLightList cluster = lists[clusterId];
     const uint lightCount = min(cluster.lightCount, kMaxLightsPerCluster);
@@ -180,7 +277,7 @@ void main()
     }
 
     if (uint(pc.legacyAndDebug.z + 0.5) == kDebugViewDdgi) {
-        outColor = vec4(ddgi, 1.0);
+        outColor = vec4(sampleDdgiDebugView(worldPos, N), 1.0);
         return;
     }
     outColor = applyDebugView(vec4(lit, 1.0), N, depth, worldPos, vUV, ao);
