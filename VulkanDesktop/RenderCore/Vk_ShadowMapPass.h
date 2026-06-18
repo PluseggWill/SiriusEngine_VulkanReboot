@@ -30,6 +30,10 @@ struct Vk_ShadowMapState {
 
     glm::mat4 myLightViewProj{ 1.0f };
 
+    float myNormalBias        = 0.0f;
+    float myDepthBiasConstant = 0.0f;
+    float myDepthBiasSlope    = 0.0f;
+
     // Tracked for explicit barriers (render pass initialLayout is ATTACHMENT_OPTIMAL).
     VkImageLayout myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 };

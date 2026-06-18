@@ -27,6 +27,10 @@ struct Gfx_KhronosShadowOrtho {
 struct Gfx_DirectionalShadowSetup {
     glm::mat4 myLightViewProj{ 1.0f };
     float     myLightSpaceDepthRange = 1.0f;
+    float     myWorldTexelSize       = 1.0f;   // max(orthoWidth, orthoHeight) / shadowMapSize
+    float     myNormalBias           = 0.0f;   // world-space vertex normal offset (1–2 texels)
+    float     myDepthBiasConstant    = 0.0f;   // scaled depthBiasConstantFactor for vkCmdSetDepthBias
+    float     myDepthBiasSlope       = 0.0f;   // scaled depthBiasSlopeFactor for vkCmdSetDepthBias
 };
 
 struct Gfx_LightSpaceBounds {
@@ -157,6 +161,16 @@ inline Gfx_DirectionalShadowSetup Gfx_ComputeKhronosDirectionalShadowSetup( cons
     Gfx_DirectionalShadowSetup setup{};
     setup.myLightViewProj        = Gfx_ComputeKhronosShadowMatrix( lightView, ortho );
     setup.myLightSpaceDepthRange = std::max( 0.001f, ortho.myFar - ortho.myNear );
+
+    // Scene-scale-aware shadow bias: primary defence is normal-offset in vertex shader;
+    // hardware depth bias provides a secondary guard scaled to the ortho depth range.
+    const float orthoWidth        = ortho.myRight - ortho.myLeft;
+    const float orthoHeight       = ortho.myTop - ortho.myBottom;
+    const float safeShadowMapSize = static_cast< float >( std::max( 1u, aShadowMapSize ) );
+    setup.myWorldTexelSize        = std::max( orthoWidth, orthoHeight ) / safeShadowMapSize;
+    setup.myNormalBias            = setup.myWorldTexelSize * 1.0f;  // 1 shadow-map texel
+    setup.myDepthBiasConstant     = -setup.myLightSpaceDepthRange * 10.0f;
+    setup.myDepthBiasSlope        = -setup.myLightSpaceDepthRange * 2.0f;
     return setup;
 }
 

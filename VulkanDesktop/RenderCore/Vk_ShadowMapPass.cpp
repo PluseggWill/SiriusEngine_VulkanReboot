@@ -22,16 +22,13 @@ namespace {
 constexpr char kShadowVertSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapVert.spv";
 constexpr char kShadowFragSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapFrag.spv";
 
-// Khronos Vulkan-Samples multithreading_render_passes shadow subpass defaults.
-// Bias is in depth-buffer units (not world light-space range) — use Khronos constants verbatim.
-constexpr float kKhronosDepthBiasConstant = -1.4f;
-constexpr float kKhronosDepthBiasSlope    = -1.7f;
-
+// Shadow push-constant block — must match ShadowMap.vert layout.
 struct ShadowPushConstants {
-    alignas( 16 ) glm::mat4 lightViewProj;
+    alignas( 16 ) glm::mat4 myLightViewProj;
+    alignas( 16 ) glm::vec4 myBiasParams;  // x = normalBias (world-space), yzw = reserved
 };
 
-static_assert( sizeof( ShadowPushConstants ) == 64, "ShadowPushConstants must match ShadowMap.vert push block" );
+static_assert( sizeof( ShadowPushConstants ) == 80, "ShadowPushConstants must match ShadowMap.vert push block" );
 
 void CreateShadowResources( Vk_Renderer& aCore ) {
     Vk_ShadowMapState& state       = aCore.myShadowMapState;
@@ -197,7 +194,8 @@ void RecordShadowDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, cons
     const VkPipelineLayout layout           = aCore.myShadowMapState.myPipelineLayout;
 
     ShadowPushConstants push{};
-    push.lightViewProj = aCore.myShadowMapState.myLightViewProj;
+    push.myLightViewProj       = aCore.myShadowMapState.myLightViewProj;
+    push.myBiasParams.x        = aCore.myShadowMapState.myNormalBias;
     vkCmdPushConstants( aCommandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( push ), &push );
 
     for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
@@ -321,7 +319,10 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_P
     const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
         Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
 
-    aCore.myShadowMapState.myLightViewProj = shadowSetup.myLightViewProj;
+    aCore.myShadowMapState.myLightViewProj    = shadowSetup.myLightViewProj;
+    aCore.myShadowMapState.myNormalBias        = shadowSetup.myNormalBias;
+    aCore.myShadowMapState.myDepthBiasConstant = shadowSetup.myDepthBiasConstant;
+    aCore.myShadowMapState.myDepthBiasSlope    = shadowSetup.myDepthBiasSlope;
 
     Vk_ShadowMapState& state = aCore.myShadowMapState;
 
@@ -353,7 +354,7 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_P
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipeline );
     vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
     vkCmdSetScissor( aCommandBuffer, 0, 1, &scissor );
-    vkCmdSetDepthBias( aCommandBuffer, kKhronosDepthBiasConstant, 0.0f, kKhronosDepthBiasSlope );
+    vkCmdSetDepthBias( aCommandBuffer, state.myDepthBiasConstant, 0.0f, state.myDepthBiasSlope );
 
     if ( !aCasterPass.myDraws.empty() ) {
         RecordShadowDraws( aCore, aCommandBuffer, aCasterPass, aEmitDebugLabels );
