@@ -16,18 +16,23 @@ struct GpuLightingGlobals {
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
 
 struct GpuLightingSettings {
-    bool     myShadowsEnabled       = true;
-    bool     myIblEnabled           = true;
-    float    myIblIntensity         = 1.35f;
-    float    myIblSpecularShadowMin = 0.15f;
-    bool     myDdgiEnabled          = false;
-    bool     myDdgiStaggeredUpdate  = true;
-    float    myDdgiIntensity        = 1.0f;
-    float    myDdgiDebugOverlay     = 0.0f;
-    uint32_t myDdgiProbeCountX      = 12u;
-    uint32_t myDdgiProbeCountY      = 8u;
-    uint32_t myDdgiProbeCountZ      = 12u;
-    uint32_t myDdgiUpdateBudget     = 64u;
+    bool      myShadowsEnabled       = true;
+    bool      myIblEnabled           = true;
+    float     myIblIntensity         = 1.35f;
+    float     myIblSpecularShadowMin = 0.40f;  // shadow-zone specular IBL floor (was 0.15 — too dark, lost environment reflections)
+    bool      myDdgiEnabled          = false;
+    bool      myDdgiStaggeredUpdate  = true;
+    float     myDdgiIntensity        = 1.0f;
+    float     myDdgiDebugOverlay     = 0.0f;
+    float     myDdgiHistoryBlend     = 0.9f;
+    uint32_t  myDdgiProbeCountX      = 12u;
+    uint32_t  myDdgiProbeCountY      = 8u;
+    uint32_t  myDdgiProbeCountZ      = 12u;
+    uint32_t  myDdgiUpdateBudget     = 64u;
+    glm::vec3 myDdgiVolumeCenter{ 0.0f, 0.0f, 1.0f };
+    float     myDdgiVolumePad0 = 0.0f;
+    glm::vec3 myDdgiVolumeExtents{ 20.0f, 20.0f, 8.0f };
+    float     myDdgiVolumePad1 = 0.0f;
 };
 
 inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,
