@@ -37,6 +37,8 @@ struct Vk_SceneGpuContext {
     VkSampler myTextureSampler        = VK_NULL_HANDLE;
     uint32_t  myTextureImageMipLevels = 0;
 
+    Gfx_Texture myAoFallbackWhite{};  // 1×1 white R8G8B8A8_UNORM, bound to Set 0 binding 8 (aoMap)
+
     Vk_ResourceTables               myResourceTables;
     std::vector< Gfx_RenderObject > myRenderObjects;
     Vk_FrameDrawPrep                myDrawPrep;

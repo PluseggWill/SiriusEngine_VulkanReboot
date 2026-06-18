@@ -19,7 +19,8 @@ enum eDescriptorBinding {
     eVk_PrefilterMapBinding    = 5,  // FRAGMENT | samplerCube prefiltered specular
     eVk_BrdfLutBinding         = 6,  // FRAGMENT | sampler2D BRDF LUT
     eVk_SkyMapBinding          = 7,  // FRAGMENT | samplerCube sky background
-    eVk_FrameBindingCount      = 8,
+    eVk_AoMapBinding           = 8,  // FRAGMENT | sampler2D AO (forward path — 1×1 white fallback)
+    eVk_FrameBindingCount      = 9,
 };
 
 // Set 1 (Material) - TriangleFrag_Lit.frag set 1; bound once per material batch.

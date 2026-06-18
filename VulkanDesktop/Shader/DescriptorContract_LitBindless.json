@@ -53,6 +53,12 @@
           "name": "skyMap",
           "descriptorType": "COMBINED_IMAGE_SAMPLER",
           "stages": ["FRAGMENT"]
+        },
+        {
+          "binding": 8,
+          "name": "aoMap",
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "stages": ["FRAGMENT"]
         }
       ]
     },

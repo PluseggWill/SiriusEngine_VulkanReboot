@@ -376,6 +376,54 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     skyInfo.imageView   = aCore.myIblResourcesState.mySky.ImageView();
     skyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    // 1×1 white fallback for aoMap binding (forward path; deferred path binds the actual AO texture at runtime).
+    VkDescriptorImageInfo aoInfo{};
+    {
+        Gfx_Texture& tex = aCore.mySceneGpuCtx.myAoFallbackWhite;
+        aCore.CreateImage( VkExtent2D{ 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
+                           tex.AllocImage() );
+        tex.ImageView() = aCore.CreateImageView( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT );
+
+        // Upload a single white pixel.
+        const uint8_t white[ 4 ] = { 255, 255, 255, 255 };
+        Vk_AllocatedBuffer staging{};
+        aCore.GetResourceContext().CreateBuffer( 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, staging, true );
+        void* mapped = nullptr;
+        vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation, &mapped );
+        memcpy( mapped, white, 4 );
+        vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation );
+
+        const VkImageSubresourceLayers subresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        aCore.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
+        {
+            VkBufferImageCopy region{};
+            region.bufferOffset      = 0;
+            region.imageSubresource  = subresource;
+            region.imageExtent       = { 1, 1, 1 };
+            VkCommandBuffer cmd = aCore.BeginSingleTimeCommands();
+            vkCmdCopyBufferToImage( cmd, staging.myBuffer, tex.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
+            aCore.EndSingleTimeCommands( cmd );
+        }
+        aCore.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+
+        vmaDestroyBuffer( aCore.myRhi.myDeviceCtx.myAllocator, staging.myBuffer, staging.myAllocation );
+        aoInfo.sampler     = aCore.mySceneGpuCtx.myTextureSampler;
+        aoInfo.imageView   = tex.ImageView();
+        aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        // Register for scene GPU teardown.
+        const VkDevice     dev = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator alloc = aCore.myRhi.myDeviceCtx.myAllocator;
+        const VkImage      img = tex.Image();
+        const VmaAllocation vmaAlloc = tex.Allocation();
+        const VkImageView  view = tex.ImageView();
+        aCore.GetSceneDeletionQueue().pushFunction( [ dev, alloc, img, vmaAlloc, view ]() {
+            if ( view != VK_NULL_HANDLE ) vkDestroyImageView( dev, view, nullptr );
+            if ( img != VK_NULL_HANDLE ) vmaDestroyImage( alloc, img, vmaAlloc );
+        } );
+    }
+
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = aCore.myEnvDataBuffer.myBuffer;
@@ -413,6 +461,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &prefilterInfo, eVk_PrefilterMapBinding, 1 ),
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &brdfLutInfo, eVk_BrdfLutBinding, 1 ),
                 VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, eVk_SkyMapBinding, 1 ),
+                VkInit::DescriptorSetWriteCreateInfo( globalSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, eVk_AoMapBinding, 1 ),
             };
             vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( descriptorWrites.size() ), descriptorWrites.data(), 0, nullptr );
         }

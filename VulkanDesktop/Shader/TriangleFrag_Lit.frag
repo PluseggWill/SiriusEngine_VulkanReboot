@@ -61,7 +61,9 @@ void main()
     const vec3 V = normalize(envData.viewWorldPos.xyz - inWorldPos);
     const vec2 mr = Pbr_ClampMetallicRoughness(material.metallic, material.roughness);
 
-    vec3 color = Pbr_EvalSceneAmbient(N, V, albedo, mr.x, mr.y, envData.ambientColor.rgb, inWorldPos);
+    vec3 specularIbl;
+    vec3 color = Pbr_EvalSceneAmbient(N, V, albedo, mr.x, mr.y, envData.ambientColor.rgb, inWorldPos, specularIbl);
+    color += specularIbl;  // specular IBL not AO-attenuated (environment-wide reflections)
 
     const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(inWorldPos, envData.sunlightColor.rgb);
     color += Pbr_EvalDirect(N, V, normalize(envData.sunlightDirection.xyz), albedo, mr.x, mr.y, sunRadiance);

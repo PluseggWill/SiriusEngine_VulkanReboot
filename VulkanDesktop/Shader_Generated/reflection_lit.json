@@ -99,6 +99,18 @@
           "stages": [
             "FRAGMENT"
           ]
+        },
+        {
+          "binding": 8,
+          "count": 1,
+          "descriptorType": "COMBINED_IMAGE_SAMPLER",
+          "name": "aoMap",
+          "seenIn": [
+            "TrianglePix.spv"
+          ],
+          "stages": [
+            "FRAGMENT"
+          ]
         }
       ],
       "set": 0
