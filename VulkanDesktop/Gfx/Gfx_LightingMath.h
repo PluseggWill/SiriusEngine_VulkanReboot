@@ -82,7 +82,7 @@ inline glm::mat4 Gfx_ComputeDirectionalLightView( const glm::vec3& aSunDirection
 inline float Gfx_ComputeShadowOrthoPadding( const Gfx_Bounds& aSceneBounds ) {
     const glm::vec3 extent    = aSceneBounds.myMax - aSceneBounds.myMin;
     const float     maxExtent = std::max( extent.x, std::max( extent.y, extent.z ) );
-    return std::max( 0.005f, maxExtent * 0.08f );
+    return std::max( 0.005f, maxExtent * 0.15f );  // was 0.08 — too tight, caused border-lit light leaks at frustum edges
 }
 
 inline void Gfx_ExpandLightSpaceBounds( Gfx_LightSpaceBounds& aBounds, const glm::mat4& aLightView, const glm::vec3& aWorldPoint ) {
