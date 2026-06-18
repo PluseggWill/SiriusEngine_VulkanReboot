@@ -170,8 +170,8 @@ inline Gfx_DirectionalShadowSetup Gfx_ComputeKhronosDirectionalShadowSetup( cons
     const float safeShadowMapSize = static_cast< float >( std::max( 1u, aShadowMapSize ) );
     setup.myWorldTexelSize        = std::max( orthoWidth, orthoHeight ) / safeShadowMapSize;
     setup.myNormalBias            = 0.0f;
-    setup.myDepthBiasConstant     = -setup.myLightSpaceDepthRange * 80.0f;  // ~1.5cm world bias (was 10 → 1.8mm, too small)
-    setup.myDepthBiasSlope        = -setup.myLightSpaceDepthRange * 40.0f;  // ~2.5mm for 45° surface
+    setup.myDepthBiasConstant     = -1.4f;  // Khronos-recommended constant (depth-buffer units)
+    setup.myDepthBiasSlope        = -1.7f;  // Khronos-recommended slope (depth-buffer units)
     return setup;
 }
 
