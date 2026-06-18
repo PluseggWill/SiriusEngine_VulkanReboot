@@ -394,18 +394,10 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         memcpy( mapped, white, 4 );
         vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation );
 
-        const VkImageSubresourceLayers subresource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-        aCore.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
-        {
-            VkBufferImageCopy region{};
-            region.bufferOffset      = 0;
-            region.imageSubresource  = subresource;
-            region.imageExtent       = { 1, 1, 1 };
-            VkCommandBuffer cmd = aCore.BeginSingleTimeCommands();
-            vkCmdCopyBufferToImage( cmd, staging.myBuffer, tex.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
-            aCore.EndSingleTimeCommands( cmd );
-        }
-        aCore.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+        const Vk_ResourceContext& rc = aCore.GetResourceContext();
+        rc.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
+        rc.CopyBufferToImage( staging.myBuffer, tex.Image(), 1, 1 );
+        rc.TransitionImageLayout( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
 
         vmaDestroyBuffer( aCore.myRhi.myDeviceCtx.myAllocator, staging.myBuffer, staging.myAllocation );
         aoInfo.sampler     = aCore.mySceneGpuCtx.myTextureSampler;
@@ -418,7 +410,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         const VkImage      img = tex.Image();
         const VmaAllocation vmaAlloc = tex.Allocation();
         const VkImageView  view = tex.ImageView();
-        aCore.GetSceneDeletionQueue().pushFunction( [ dev, alloc, img, vmaAlloc, view ]() {
+        aCore.mySceneGpuCtx.mySceneDeletionQueue.pushFunction( [ dev, alloc, img, vmaAlloc, view ]() {
             if ( view != VK_NULL_HANDLE ) vkDestroyImageView( dev, view, nullptr );
             if ( img != VK_NULL_HANDLE ) vmaDestroyImage( alloc, img, vmaAlloc );
         } );
