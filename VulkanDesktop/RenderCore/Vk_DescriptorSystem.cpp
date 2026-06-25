@@ -380,13 +380,12 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     VkDescriptorImageInfo aoInfo{};
     {
         Gfx_Texture& tex = aCore.mySceneGpuCtx.myAoFallbackWhite;
-        aCore.CreateImage( VkExtent2D{ 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
-                           tex.AllocImage() );
+        aCore.CreateImage( VkExtent2D{ 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                           VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, tex.AllocImage() );
         tex.ImageView() = aCore.CreateImageView( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT );
 
         // Upload a single white pixel.
-        const uint8_t white[ 4 ] = { 255, 255, 255, 255 };
+        const uint8_t      white[ 4 ] = { 255, 255, 255, 255 };
         Vk_AllocatedBuffer staging{};
         aCore.GetResourceContext().CreateBuffer( 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, staging, true );
         void* mapped = nullptr;
@@ -405,14 +404,16 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         // Register for scene GPU teardown.
-        const VkDevice     dev = aCore.myRhi.myDeviceCtx.myDevice;
-        const VmaAllocator alloc = aCore.myRhi.myDeviceCtx.myAllocator;
-        const VkImage      img = tex.Image();
+        const VkDevice      dev      = aCore.myRhi.myDeviceCtx.myDevice;
+        const VmaAllocator  alloc    = aCore.myRhi.myDeviceCtx.myAllocator;
+        const VkImage       img      = tex.Image();
         const VmaAllocation vmaAlloc = tex.Allocation();
-        const VkImageView  view = tex.ImageView();
+        const VkImageView   view     = tex.ImageView();
         aCore.mySceneGpuCtx.mySceneDeletionQueue.pushFunction( [ dev, alloc, img, vmaAlloc, view ]() {
-            if ( view != VK_NULL_HANDLE ) vkDestroyImageView( dev, view, nullptr );
-            if ( img != VK_NULL_HANDLE ) vmaDestroyImage( alloc, img, vmaAlloc );
+            if ( view != VK_NULL_HANDLE )
+                vkDestroyImageView( dev, view, nullptr );
+            if ( img != VK_NULL_HANDLE )
+                vmaDestroyImage( alloc, img, vmaAlloc );
         } );
     }
 

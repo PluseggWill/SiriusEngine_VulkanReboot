@@ -203,6 +203,17 @@ void Util_EngineConfig::ApplyJsonFile( const std::filesystem::path& aConfigPath 
         if ( lighting.contains( "ddgiUpdateBudget" ) && lighting[ "ddgiUpdateBudget" ].is_number_unsigned() ) {
             myLightingSettings.myDdgiUpdateBudget = lighting[ "ddgiUpdateBudget" ].get< uint32_t >();
         }
+        if ( lighting.contains( "ddgiHistoryBlend" ) && lighting[ "ddgiHistoryBlend" ].is_number() ) {
+            myLightingSettings.myDdgiHistoryBlend = lighting[ "ddgiHistoryBlend" ].get< float >();
+        }
+        if ( lighting.contains( "ddgiVolumeCenter" ) && lighting[ "ddgiVolumeCenter" ].is_array() && lighting[ "ddgiVolumeCenter" ].size() == 3 ) {
+            myLightingSettings.myDdgiVolumeCenter = glm::vec3( lighting[ "ddgiVolumeCenter" ][ 0 ].get< float >(), lighting[ "ddgiVolumeCenter" ][ 1 ].get< float >(),
+                                                               lighting[ "ddgiVolumeCenter" ][ 2 ].get< float >() );
+        }
+        if ( lighting.contains( "ddgiVolumeExtents" ) && lighting[ "ddgiVolumeExtents" ].is_array() && lighting[ "ddgiVolumeExtents" ].size() == 3 ) {
+            myLightingSettings.myDdgiVolumeExtents = glm::vec3( lighting[ "ddgiVolumeExtents" ][ 0 ].get< float >(), lighting[ "ddgiVolumeExtents" ][ 1 ].get< float >(),
+                                                                lighting[ "ddgiVolumeExtents" ][ 2 ].get< float >() );
+        }
     }
 }
 
@@ -633,7 +644,8 @@ void Util_EngineConfig::LogResolvedSummary() const {
     UtilLogger::Info( "CONFIG", std::string( "gpuCull=" ) + ( myGpuCullEnabled ? "true" : "false" ) );
     UtilLogger::Info( "CONFIG", std::string( "lighting shadows=" ) + ( myLightingSettings.myShadowsEnabled ? "1" : "0" )
                                     + " ibl=" + ( myLightingSettings.myIblEnabled ? "1" : "0" ) + " iblIntensity=" + std::to_string( myLightingSettings.myIblIntensity )
-                                    + " ddgi=" + ( myLightingSettings.myDdgiEnabled ? "1" : "0" ) + " environment=" + myEnvironmentPath );
+                                    + " ddgi=" + ( myLightingSettings.myDdgiEnabled ? "1" : "0" ) + " ddgiBlend=" + std::to_string( myLightingSettings.myDdgiHistoryBlend )
+                                    + " environment=" + myEnvironmentPath );
 
     if ( myValidationResolved ) {
         const char* source = "build default";

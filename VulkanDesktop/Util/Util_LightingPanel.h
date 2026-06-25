@@ -11,5 +11,5 @@ namespace UtilLightingPanel {
 void BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings );
 
 // Foreground overlay: world-space sun ray + view-relative HUD compass (call after ImGui::NewFrame panels).
-void DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Vk_Camera& aCamera );
+void DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Vk_Camera& aCamera );
 }  // namespace UtilLightingPanel

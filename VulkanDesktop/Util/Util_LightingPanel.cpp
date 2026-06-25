@@ -10,13 +10,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include <array>
 #include <cmath>
+#include <utility>
 
 #include <imgui.h>
 
 namespace {
 
 bool sShowViewportSunGizmo = true;
+bool sShowDdgiVolumeBounds = true;
 
 bool ProjectWorldToScreen( const glm::mat4& aView, const glm::mat4& aProj, const glm::vec2& aViewportSize, const glm::vec3& aWorldPos, ImVec2& aOutScreen ) {
     const glm::vec4 clip = aProj * aView * glm::vec4( aWorldPos, 1.0f );
@@ -50,6 +53,46 @@ void DrawScreenArrow( ImDrawList* aDrawList, ImVec2 aFrom, ImVec2 aTo, ImU32 aCo
     const ImVec2 wingA{ tip.x - unit.x * headLen + perp.x * headLen * 0.45f, tip.y - unit.y * headLen + perp.y * headLen * 0.45f };
     const ImVec2 wingB{ tip.x - unit.x * headLen - perp.x * headLen * 0.45f, tip.y - unit.y * headLen - perp.y * headLen * 0.45f };
     aDrawList->AddTriangleFilled( tip, wingA, wingB, aColor );
+}
+
+void DrawDdgiVolumeBounds( ImDrawList* aDrawList, const ImVec2& aViewportPos, const ImVec2& aViewportSize, const Vk_Camera& aCamera,
+                           const Gfx_LightingSettings& aLightingSettings ) {
+    const glm::vec3 minP = aLightingSettings.myDdgiVolumeCenter - aLightingSettings.myDdgiVolumeExtents;
+    const glm::vec3 maxP = aLightingSettings.myDdgiVolumeCenter + aLightingSettings.myDdgiVolumeExtents;
+    if ( maxP.x <= minP.x || maxP.y <= minP.y || maxP.z <= minP.z ) {
+        return;
+    }
+
+    const std::array< glm::vec3, 8 > corners = {
+        glm::vec3( minP.x, minP.y, minP.z ), glm::vec3( maxP.x, minP.y, minP.z ), glm::vec3( maxP.x, maxP.y, minP.z ), glm::vec3( minP.x, maxP.y, minP.z ),
+        glm::vec3( minP.x, minP.y, maxP.z ), glm::vec3( maxP.x, minP.y, maxP.z ), glm::vec3( maxP.x, maxP.y, maxP.z ), glm::vec3( minP.x, maxP.y, maxP.z ),
+    };
+    const std::array< std::pair< int, int >, 12 > edges = {
+        std::pair< int, int >( 0, 1 ), std::pair< int, int >( 1, 2 ), std::pair< int, int >( 2, 3 ), std::pair< int, int >( 3, 0 ),
+        std::pair< int, int >( 4, 5 ), std::pair< int, int >( 5, 6 ), std::pair< int, int >( 6, 7 ), std::pair< int, int >( 7, 4 ),
+        std::pair< int, int >( 0, 4 ), std::pair< int, int >( 1, 5 ), std::pair< int, int >( 2, 6 ), std::pair< int, int >( 3, 7 ),
+    };
+
+    std::array< ImVec2, 8 > projected{};
+    std::array< bool, 8 >   visible{};
+    for ( int i = 0; i < 8; ++i ) {
+        visible[ i ] = ProjectWorldToScreen( aCamera.myView, aCamera.myProj, glm::vec2( aViewportSize.x, aViewportSize.y ), corners[ i ], projected[ i ] );
+        if ( visible[ i ] ) {
+            projected[ i ].x += aViewportPos.x;
+            projected[ i ].y += aViewportPos.y;
+        }
+    }
+
+    const ImU32 lineColor = IM_COL32( 80, 190, 255, 220 );
+    for ( const auto& edge : edges ) {
+        if ( visible[ edge.first ] && visible[ edge.second ] ) {
+            aDrawList->AddLine( projected[ edge.first ], projected[ edge.second ], lineColor, 2.0f );
+        }
+    }
+
+    if ( visible[ 6 ] ) {
+        aDrawList->AddText( ImVec2( projected[ 6 ].x + 6.0f, projected[ 6 ].y - 6.0f ), lineColor, "DDGI Volume" );
+    }
 }
 
 void DrawSunDirectionDiagram( const glm::vec3& aSunDirTowardLight ) {
@@ -129,6 +172,10 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Yellow arrow in the 3D view: world sun direction from look target.\nHUD compass: sun bearing relative to fly camera." );
     }
+    ImGui::Checkbox( "Viewport DDGI volume bounds", &sShowDdgiVolumeBounds );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Draw world-space DDGI volume AABB wireframe in the viewport." );
+    }
 
     DrawSunDirectionDiagram( glm::vec3( anEnvironment.mySunlightDirection ) );
 
@@ -148,6 +195,7 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     }
     ImGui::Checkbox( "DDGI enabled", &aLightingSettings.myDdgiEnabled );
     ImGui::SliderFloat( "DDGI intensity", &aLightingSettings.myDdgiIntensity, 0.0f, 2.0f );
+    ImGui::SliderFloat( "DDGI history blend", &aLightingSettings.myDdgiHistoryBlend, 0.0f, 0.99f );
     ImGui::Checkbox( "DDGI staggered update", &aLightingSettings.myDdgiStaggeredUpdate );
     int ddgiBudget = static_cast< int >( aLightingSettings.myDdgiUpdateBudget );
     if ( ImGui::SliderInt( "DDGI update budget", &ddgiBudget, 1, 512 ) ) {
@@ -165,6 +213,8 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     if ( ImGui::SliderInt( "DDGI probes Z", &probeZ, 2, 24 ) ) {
         aLightingSettings.myDdgiProbeCountZ = static_cast< uint32_t >( probeZ );
     }
+    ImGui::DragFloat3( "DDGI volume center", &aLightingSettings.myDdgiVolumeCenter.x, 0.1f );
+    ImGui::DragFloat3( "DDGI volume extents", &aLightingSettings.myDdgiVolumeExtents.x, 0.1f, 0.5f, 200.0f );
     ImGui::SliderFloat( "DDGI debug overlay", &aLightingSettings.myDdgiDebugOverlay, 0.0f, 1.0f );
 
     ImGui::Separator();
@@ -234,7 +284,7 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     LogLightingSettingsIfChanged( aLightingSettings );
 }
 
-void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Vk_Camera& aCamera ) {
+void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Vk_Camera& aCamera ) {
     if ( !sShowViewportSunGizmo ) {
         return;
     }
@@ -246,6 +296,10 @@ void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnviro
     const ImVec2         vpPos    = viewport->WorkPos;
     const ImVec2         vpSize   = viewport->WorkSize;
     ImDrawList*          draw     = ImGui::GetForegroundDrawList();
+
+    if ( sShowDdgiVolumeBounds && aLightingSettings.myDdgiEnabled ) {
+        DrawDdgiVolumeBounds( draw, vpPos, vpSize, aCamera, aLightingSettings );
+    }
 
     // World-space ray from fly look target along sun direction (visible in scene).
     const float     rayLen = std::max( 0.75f, glm::length( aCamera.myEye - aCamera.myCenter ) * 2.0f );

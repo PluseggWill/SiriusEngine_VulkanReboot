@@ -242,14 +242,14 @@ $Repo = "<repo-root>"
 - `ForwardLit` ↔ `HybridDeferred` switch without validation errors.
 
 <a id="validation-g4"></a>
-## G4 validation (Stage 2 acceptance)
+## G4 validation (Stage 2 acceptance) — ✅ Done (2026-06-16)
 
-**Unlocks:** S8 DDGI. **Checklist:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) Acceptance + S7 evidence above.
+**Unlocks:** S8 DDGI ✓. **Checklist:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) Acceptance + S7 evidence above.
 
-- Opaque: `GBufferOpaque + DeferredLighting` with **full PBR** on Sponza.
-- Transparent: forward pass composites over deferred depth.
-- Shadow + IBL + AO/post verified on benchmark scene.
-- Parity runbook: forward vs hybrid documented with captures.
+- [x] Opaque: `GBufferOpaque + DeferredLighting` with **full PBR** on Sponza.
+- [x] Transparent: forward pass composites over deferred depth.
+- [x] Shadow + IBL + AO/post verified on benchmark scene.
+- [x] Parity runbook: forward vs hybrid documented with captures.
 
 <a id="validation-s8"></a>
 ## S8 validation (Lighting-5 — DDGI)

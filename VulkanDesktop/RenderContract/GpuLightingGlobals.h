@@ -18,8 +18,8 @@ static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be s
 struct GpuLightingSettings {
     bool      myShadowsEnabled       = true;
     bool      myIblEnabled           = true;
-    float     myIblIntensity         = 1.50f;  // was 1.35 — LDR-baked irradiance loses low-end precision in interiors
-    float     myIblSpecularShadowMin = 0.40f;  // shadow-zone specular IBL floor (was 0.15 — too dark, lost environment reflections)
+    float     myIblIntensity         = 1.35f;
+    float     myIblSpecularShadowMin = 0.15f;
     bool      myDdgiEnabled          = false;
     bool      myDdgiStaggeredUpdate  = true;
     float     myDdgiIntensity        = 1.0f;

@@ -127,5 +127,5 @@ void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aD
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
     BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetAoSettings(), aCore.GetPostSettings(), aPrep,
                             aCore.GetFlyCamera() );
-    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetFlyCamera() );
+    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetFlyCamera() );
 }

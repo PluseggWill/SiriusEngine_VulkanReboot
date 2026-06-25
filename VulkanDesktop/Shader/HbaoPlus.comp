@@ -9,7 +9,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(push_constant) uniform PushConstants {
     mat4 view;
     mat4 proj;
-    vec4 params; // x=radius (world/view units), y=bias, z=enabled (0/1), w=unused
+    vec4 params; // x=radius (world/view units), y=bias, z=enabled (0/1), w=normalAwareRadius(0..1)
     uvec2 sliceCount;
     uvec2 stepsPerSlice;
     vec2 halfScreenSize;
@@ -51,7 +51,8 @@ void main()
     Ao_BuildWorldTangentBasis(Nworld, tangentW, bitangentW);
 
     // Constant world/view radius — do not scale with camera distance (was causing far-ground darkening).
-    const float sampleRadius = max(pc.params.x, 1e-4);
+    const float normalScale = mix(1.0, clamp(abs(Nview.z), 0.35, 1.0), clamp(pc.params.w, 0.0, 1.0));
+    const float sampleRadius = max(pc.params.x * normalScale, 1e-4);
 
     const int numDirs = int(clamp(pc.sliceCount.x, 1u, 8u));
     const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 8u));

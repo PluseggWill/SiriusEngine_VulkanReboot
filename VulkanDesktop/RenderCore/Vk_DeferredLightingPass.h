@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <glm/vec3.hpp>
 
 #include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
@@ -21,12 +22,17 @@ struct Vk_DeferredLightingState {
     VkDescriptorPool      myDdgiProbeDescriptorPool       = VK_NULL_HANDLE;
 
     Gfx_Texture myDdgiProbeIrradianceAtlas{};
+    Gfx_Texture myDdgiProbeVisibilityAtlas{};
     uint32_t    myDdgiProbeCountX     = 12u;
     uint32_t    myDdgiProbeCountY     = 8u;
     uint32_t    myDdgiProbeCountZ     = 12u;
     uint32_t    myDdgiTotalProbeCount = 0u;
     uint32_t    myDdgiUpdateCursor    = 0u;
     bool        myDdgiAtlasReadable   = false;
+    glm::vec3   myDdgiPrevVolumeCenter{ 0.0f };
+    glm::vec3   myDdgiPrevVolumeExtents{ 0.0f };
+    glm::vec3   myDdgiPrevCameraEye{ 0.0f };
+    bool        myDdgiHistoryForceReset = true;
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDdgiProbeDescriptorSets{};

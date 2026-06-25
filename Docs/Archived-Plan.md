@@ -537,4 +537,16 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## G4 — Stage 2 acceptance *(closed 2026-06-16)*
+
+| | |
+|--|--|
+| **Outcome** | Hybrid deferred full PBR on Sponza accepted; `ForwardLit` ↔ `HybridDeferred` parity runbook complete; G4 gate met → S8 DDGI unblocked |
+| **Validation** | [`SprintOutcomeValidation.md`](./SprintOutcomeValidation.md) §G4 |
+| **Epic** | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) |
+
+- [x] **[G4]** Stage 2 acceptance — hybrid opaque full PBR deferred, transparent forward composite, shadow + IBL + AO/post chain on Sponza — 2026-06-16
+
+---
+
 *When closing a task: move here, tag sprint (`[S0]`…`[S8]`, `[parallel]`), note verification. Update `EngineArchitecture.md` when boundaries or render target change.*

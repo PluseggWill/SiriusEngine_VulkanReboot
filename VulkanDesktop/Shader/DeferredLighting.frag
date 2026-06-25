@@ -30,7 +30,7 @@ layout(push_constant) uniform PushConstants {
     vec4 viewWorldPos;
     vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
     vec4 contactSoftParams;  // x = contact soft enabled, y = ddgi enabled, z = ddgi intensity, w = ddgi debug overlay
-    uvec4 ddgiProbeCounts;   // x/y/z probe counts
+    uvec4 ddgiProbeCounts;   // xyz = probe counts; w unused (std140 pad)
     vec4 ddgiVolumeMin;
     vec4 ddgiVolumeMax;
     mat4 invViewProj;

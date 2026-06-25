@@ -1,6 +1,6 @@
 # Epic Plan: ddgi-lighting
 
-**Status:** Closed (2026-06-16)  
+**Status:** Closed (2026-06-16, DDGI gap-fill pass)  
 **Scope:** Stage 3 of lighting evolution (optional feature set)  
 **Related:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
@@ -108,6 +108,77 @@ flowchart LR
 - [x] DDGI is selectable per preset and disabled by default unless explicitly chosen.
 - [x] Hybrid deferred remains stable and visually correct with DDGI off.
 - [x] DDGI on-path passes validation and documented perf thresholds on benchmark scenes (Sponza; see [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S8 after **G4**).
+
+## 2026-06-16 gap-fill addendum (missing-parts closure)
+
+### Scope
+
+- [x] Add probe visibility channel alongside irradiance atlas.
+- [x] Replace DDGI sampling placeholder with minimal 8-probe trilinear sampling plus normal-facing and visibility attenuation.
+- [x] Add probe history blending (EMA-style) for update stability.
+- [x] Parameterize DDGI volume bounds (center/extents) instead of fixed mapping.
+
+### Touch list
+
+- `VulkanDesktop/RenderCore/Vk_DeferredLightingPass.h`
+- `VulkanDesktop/RenderCore/Vk_DeferredLightingPass.cpp`
+- `VulkanDesktop/RenderContract/GpuLightingGlobals.h`
+- `VulkanDesktop/Gfx/Gfx_ClusterLighting.h`
+- `VulkanDesktop/Shader/DeferredLighting.frag`
+- `VulkanDesktop/Shader/DdgiProbeUpdate.comp`
+- `VulkanDesktop/Util/Util_LightingPanel.cpp`
+- `VulkanDesktop/Util/Util_EngineConfig.cpp`
+
+### Verification plan
+
+1. `powershell -File Scripts/Verify-CI.ps1` (expect shader drift for updated SPIR-V artifacts).
+2. `powershell -File Scripts/Verify-Smoke.ps1` (track known gpu-cull token issue separately).
+3. `x64/Debug/VulkanDesktop.exe --asset-root . --scene Data/Scenes/sponza.json --validation --smoke-frames 120 --smoke-seconds 6 --ddgi`.
+
+### Risks / limits
+
+- Probe update is still non-raytraced synthetic lighting data; this pass closes sampling/visibility/history plumbing, not full ray-traced GI.
+- Validation availability depends on local Vulkan layer install (`VK_LAYER_KHRONOS_validation`).
+
+## 2026-06-16 P2 addendum (scene-aware probe integration)
+
+### Scope
+
+- [x] Upgrade `DdgiProbeUpdate` from synthetic stripe-only write to scene-aware probe integration.
+- [x] Reuse existing GBuffer data (`world position`, `normal`) as the first non-RT sampling source.
+- [x] Preserve existing budget/staggered/history framework and DDGI atlas contracts.
+
+### Implementation steps
+
+1. Expand DDGI probe compute descriptor set with read bindings for `gbufferWorldPosition` and `gbufferNormalRoughness`.
+2. Add probe integration push params (volume bounds + integration params) and keep budget cursor traversal unchanged.
+3. Implement multi-sample integration in `DdgiProbeUpdate.comp`: sample screen-space scene points, evaluate normal-facing + distance attenuation, accumulate irradiance/visibility, then apply history blend.
+4. Re-run CI/smoke/validation gates and record residual limitations.
+
+### Risks / limits
+
+- This is still a non-RT approximation (screen-space driven), so off-screen geometry is not represented in probe integration.
+- Quality is constrained by screen sample count and current GBuffer availability; intended as P2 bridge before full RT/voxel/scene-ray backend.
+
+## 2026-06-16 P3 addendum (stability + debug usability)
+
+### Scope
+
+- [x] Add explicit DDGI-only debug view path in Render Debug panel.
+- [x] Add probe history reset strategy for significant camera jump / volume parameter changes.
+- [x] Keep current single-volume architecture but improve operability and diagnosis for runtime tuning.
+
+### Implementation steps
+
+1. Extend `Gfx_DebugViewMode` with `Ddgi` mode and wire corresponding UI option in `Util_RenderDebugPanel`.
+2. Track previous DDGI volume and camera position in deferred-lighting runtime state.
+3. In DDGI probe update record path, invalidate history blend when volume changes or camera jump exceeds threshold.
+4. Re-run CI/smoke/validation checks and document remaining limitations.
+
+### Risks / limits
+
+- Reset thresholds are heuristic and may need scene-specific tuning.
+- Multi-volume DDGI architecture remains out of this pass; this phase focuses on stability and debuggability of the existing single-volume path.
 
 ## Exit criteria
 

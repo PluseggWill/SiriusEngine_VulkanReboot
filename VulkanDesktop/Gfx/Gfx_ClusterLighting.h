@@ -54,14 +54,22 @@ struct Gfx_DeferredLightingPushConstants {
     float    legacyShininess        = 1.0f;
     float    debugView              = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
     float    legacyPad              = 0.0f;
-    float    contactSoftEnabled     = 1.0f;  // 1 = sample RG contact map for AO + sun shadow
-    float    contactSoftPad[ 3 ]    = {};
+    float    contactSoftEnabled     = 1.0f;  // contactSoftParams.x: RG contact map for AO + sun shadow
+    float    ddgiEnabled            = 0.0f;  // contactSoftParams.y
+    float    ddgiIntensity          = 0.0f;  // contactSoftParams.z
+    float    ddgiDebugOverlay       = 0.0f;  // contactSoftParams.w
+    uint32_t ddgiProbeCountX        = 1;     // ddgiProbeCounts.x
+    uint32_t ddgiProbeCountY        = 1;     // ddgiProbeCounts.y
+    uint32_t ddgiProbeCountZ        = 1;     // ddgiProbeCounts.z
+    uint32_t ddgiProbeCountPad      = 0u;    // ddgiProbeCounts.w (unused in DeferredLighting.frag)
+    float    ddgiVolumeMin[ 4 ]     = {};
+    float    ddgiVolumeMax[ 4 ]     = {};
     float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct
 };
 
 static_assert( sizeof( GpuClusterLight ) == 32, "GpuClusterLight must match ClusterBuild.comp std430 layout" );
 static_assert( sizeof( GpuClusterLightList ) == sizeof( uint32_t ) * ( 1 + kMaxLightsPerCluster ), "GpuClusterLightList must match ClusterBuild.comp" );
 static_assert( sizeof( Gfx_ClusterBuildPushConstants ) == 16, "push constants must match ClusterBuild.comp" );
-static_assert( sizeof( Gfx_DeferredLightingPushConstants ) == 144, "push constants must match DeferredLighting.frag" );
+static_assert( sizeof( Gfx_DeferredLightingPushConstants ) == 192, "push constants must match DeferredLighting.frag" );
 
 }  // namespace Gfx_ClusterLighting

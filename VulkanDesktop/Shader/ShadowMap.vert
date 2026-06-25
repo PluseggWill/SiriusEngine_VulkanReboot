@@ -2,7 +2,6 @@
 
 layout(push_constant) uniform ShadowPush {
     mat4 lightViewProj;
-    vec4 biasParams;  // x = normalBias (world-space units)
 } pc;
 
 layout(set = 0, binding = 0) uniform ObjectData {
@@ -17,10 +16,6 @@ layout(location = 3) in vec3 inNormal;
 
 void main()
 {
-    vec4 worldPosition = objectData.model * vec4(inPosition, 1.0);
-    // Offset along world-space vertex normal to prevent shadow acne.
-    // Applied in world space to avoid object-scale dependency (e.g. Sponza 0.01 scale).
-    vec3 worldNormal = normalize(mat3(objectData.model) * inNormal);
-    worldPosition.xyz += worldNormal * pc.biasParams.x;
+    const vec4 worldPosition = objectData.model * vec4(inPosition, 1.0);
     gl_Position = pc.lightViewProj * worldPosition;
 }

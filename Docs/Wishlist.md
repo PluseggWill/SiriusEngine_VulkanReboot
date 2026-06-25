@@ -6,7 +6,7 @@
 
 **Promote:** copy `[ ]` lines into Active-Plan when a gate opens. **Ship:** move `[x]` to [`Archived-Plan.md`](Archived-Plan.md) — never duplicate done items here.
 
-**Pivot:** Lighting **S4–S7** implementation shipped (2026-06-15/16). **G4 Stage 2 acceptance** is the active gate; then **S8 DDGI**. **Meshlet / mesh shader / GPU mesh** → [**§ Geometry track (S10–S12)**](#geometry-track--meshlet--mesh-shader-deferred) — gate **G3** applies to S10 only.
+**Pivot:** Lighting **S4–S7** implementation shipped (2026-06-15/16); **S8 DDGI shipped** (2026-06-16); **G4 Stage 2 accepted**. **Meshlet / mesh shader / GPU mesh** → [**§ Geometry track (S10–S12)**](#geometry-track--meshlet--mesh-shader-deferred) — gate **G3** applies to S10 only.
 
 ---
 
@@ -19,14 +19,14 @@
 | **S5** | Lighting-2 | IBL, skybox, shadows | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S6** | Lighting-3 | SSAO + Hi-Z + modular AO | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S7** | Lighting-4 | Post + frame graph v1 | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **G4** | Stage 2 gate | Hybrid acceptance on Sponza | [`Active-Plan.md`](Active-Plan.md) § G4 |
-| **S8** | Lighting-5 | DDGI / GI (Stage 3) | [below](#s8--global-illumination-ddgi--stage-3) · gate **G4** |
+| **G4** ✓ | Stage 2 gate | Hybrid acceptance on Sponza | → [`Archived-Plan.md`](Archived-Plan.md) |
+| **S8** ✓ | Lighting-5 | DDGI / GI (Stage 3) | → [`Archived-Plan.md`](Archived-Plan.md) |
 | **S9** | Simulation | Physics / anim / AI | [below](#s9--simulation-physics--animation--ai) · gate **G2** ✓ |
 | **S10–S12** | M3–M5 | Geometry (deferred) | [Geometry track](#geometry-track--meshlet--mesh-shader-deferred) |
 | **S13** | M6 infra | Render lab + RHI | [below](#s13--render-lab-infrastructure-deferred) |
 | **Parallel** | Full slice | Vertical slice extras | [below](#parallel--vertical-slice) |
 
-**Lighting epics:** Stage 2 [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (S4–S7 shipped; **G4** sign-off) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) (S8).
+**Lighting epics:** Stage 2 [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (S4–S7 shipped; **G4** accepted) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) (S8 shipped).
 
 **Bindless contract:** [`shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance · [`EngineArchitecture.md`](EngineArchitecture.md) §6.
 

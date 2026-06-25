@@ -25,10 +25,9 @@ constexpr char kShadowFragSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapFrag.
 // Shadow push-constant block — must match ShadowMap.vert layout.
 struct ShadowPushConstants {
     alignas( 16 ) glm::mat4 myLightViewProj;
-    alignas( 16 ) glm::vec4 myBiasParams;  // x = normalBias (world-space), yzw = reserved
 };
 
-static_assert( sizeof( ShadowPushConstants ) == 80, "ShadowPushConstants must match ShadowMap.vert push block" );
+static_assert( sizeof( ShadowPushConstants ) == 64, "ShadowPushConstants must match ShadowMap.vert push block" );
 
 void CreateShadowResources( Vk_Renderer& aCore ) {
     Vk_ShadowMapState& state       = aCore.myShadowMapState;
@@ -194,8 +193,7 @@ void RecordShadowDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, cons
     const VkPipelineLayout layout           = aCore.myShadowMapState.myPipelineLayout;
 
     ShadowPushConstants push{};
-    push.myLightViewProj       = aCore.myShadowMapState.myLightViewProj;
-    push.myBiasParams.x        = aCore.myShadowMapState.myNormalBias;
+    push.myLightViewProj = aCore.myShadowMapState.myLightViewProj;
     vkCmdPushConstants( aCommandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( push ), &push );
 
     for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
@@ -319,8 +317,7 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_P
     const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
         Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
 
-    aCore.myShadowMapState.myLightViewProj    = shadowSetup.myLightViewProj;
-    aCore.myShadowMapState.myNormalBias        = shadowSetup.myNormalBias;
+    aCore.myShadowMapState.myLightViewProj     = shadowSetup.myLightViewProj;
     aCore.myShadowMapState.myDepthBiasConstant = shadowSetup.myDepthBiasConstant;
     aCore.myShadowMapState.myDepthBiasSlope    = shadowSetup.myDepthBiasSlope;
 

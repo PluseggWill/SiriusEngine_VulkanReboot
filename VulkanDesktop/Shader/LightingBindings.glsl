@@ -12,7 +12,7 @@ layout(set = 0, binding = 4) uniform samplerCube irradianceMap;
 layout(set = 0, binding = 5) uniform samplerCube prefilterMap;
 layout(set = 0, binding = 6) uniform sampler2D brdfLut;
 layout(set = 0, binding = 7) uniform samplerCube skyMap;
-layout(set = 0, binding = 8) uniform sampler2D aoMap;
+layout(set = 0, binding = 8) uniform sampler2D aoMap;  // reserved; forward path does not sample yet (1x1 white fallback)
 
 float Pbr_SceneSunShadow(vec3 worldPos)
 {
@@ -43,9 +43,8 @@ vec3 Pbr_EvalSceneAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float rou
         const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
         const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
         outSpecularIbl = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
-        // AO from the deferred pass (R channel, or 1.0 when pass didn't run)
-        float ao = texture(aoMap, vec2(0.5)).r;  // sample center; fallback 1×1 white texture yields 1.0
-        return diffuseIbl * ao;
+        // Forward path does not have a stable screen-space AO UV mapping yet.
+        return diffuseIbl;
     }
     return fallbackAmbient * albedo;
 }

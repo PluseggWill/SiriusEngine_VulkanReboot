@@ -18,6 +18,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <stdexcept>
@@ -69,6 +70,14 @@ void DestroyDdgiAtlas( Vk_Renderer& aCore ) {
         vmaDestroyImage( aCore.myRhi.myDeviceCtx.myAllocator, state.myDdgiProbeIrradianceAtlas.Image(), state.myDdgiProbeIrradianceAtlas.Allocation() );
         state.myDdgiProbeIrradianceAtlas.AllocImage() = {};
     }
+    if ( state.myDdgiProbeVisibilityAtlas.ImageView() != VK_NULL_HANDLE ) {
+        vkDestroyImageView( aCore.myRhi.myDeviceCtx.myDevice, state.myDdgiProbeVisibilityAtlas.ImageView(), nullptr );
+        state.myDdgiProbeVisibilityAtlas.ImageView() = VK_NULL_HANDLE;
+    }
+    if ( state.myDdgiProbeVisibilityAtlas.Image() != VK_NULL_HANDLE ) {
+        vmaDestroyImage( aCore.myRhi.myDeviceCtx.myAllocator, state.myDdgiProbeVisibilityAtlas.Image(), state.myDdgiProbeVisibilityAtlas.Allocation() );
+        state.myDdgiProbeVisibilityAtlas.AllocImage() = {};
+    }
 }
 
 void CreateDdgiAtlas( Vk_Renderer& aCore ) {
@@ -82,7 +91,15 @@ void CreateDdgiAtlas( Vk_Renderer& aCore ) {
     aCore.CreateImage( atlasExtent, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
                        1, VK_SAMPLE_COUNT_1_BIT, state.myDdgiProbeIrradianceAtlas.AllocImage() );
     state.myDdgiProbeIrradianceAtlas.ImageView() = aCore.CreateImageView( state.myDdgiProbeIrradianceAtlas.Image(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT );
+
+    aCore.CreateImage( atlasExtent, VK_FORMAT_R16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
+                       VK_SAMPLE_COUNT_1_BIT, state.myDdgiProbeVisibilityAtlas.AllocImage() );
+    state.myDdgiProbeVisibilityAtlas.ImageView() = aCore.CreateImageView( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT );
     state.myDdgiAtlasReadable                    = false;
+    state.myDdgiHistoryForceReset                = true;
+    state.myDdgiPrevVolumeCenter                 = aCore.myLightingSettings.myDdgiVolumeCenter;
+    state.myDdgiPrevVolumeExtents                = aCore.myLightingSettings.myDdgiVolumeExtents;
+    state.myDdgiPrevCameraEye                    = aCore.myCamera.myEye;
 }
 
 // Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.
@@ -169,7 +186,12 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     ddgiProbeInfo.imageView   = state.myDdgiProbeIrradianceAtlas.ImageView();
     ddgiProbeInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkWriteDescriptorSet, 16 > writes = {
+    VkDescriptorImageInfo ddgiVisibilityInfo{};
+    ddgiVisibilityInfo.sampler     = state.myGBufferSampler;
+    ddgiVisibilityInfo.imageView   = state.myDdgiProbeVisibilityAtlas.ImageView();
+    ddgiVisibilityInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 17 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
@@ -186,6 +208,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 14, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiProbeInfo, 15, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiVisibilityInfo, 16, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -197,7 +220,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 16 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 17 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
@@ -214,6 +237,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 13 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 14 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 15 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 16 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -252,7 +276,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 13 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 14 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
     };
@@ -279,8 +303,11 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 
     CreateDdgiAtlas( aCore );
 
-    const std::array< VkDescriptorSetLayoutBinding, 1 > ddgiBindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 4 > ddgiBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
     };
     VkDescriptorSetLayoutCreateInfo ddgiLayoutInfo{};
     ddgiLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -292,7 +319,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 
     VkPushConstantRange ddgiPushRange{};
     ddgiPushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    ddgiPushRange.size       = sizeof( uint32_t ) * 8 + sizeof( float ) * 4;
+    ddgiPushRange.size       = sizeof( uint32_t ) * 8 + sizeof( float ) * 16;
 
     VkPipelineLayoutCreateInfo ddgiPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     ddgiPipelineLayoutInfo.setLayoutCount             = 1;
@@ -315,11 +342,14 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     }
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, ddgiModule, nullptr );
 
-    VkDescriptorPoolSize       ddgiPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT };
+    std::array< VkDescriptorPoolSize, 2 > ddgiPoolSizes = {
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 2 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 2 },
+    };
     VkDescriptorPoolCreateInfo ddgiPoolInfo{};
     ddgiPoolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ddgiPoolInfo.poolSizeCount = 1;
-    ddgiPoolInfo.pPoolSizes    = &ddgiPoolSize;
+    ddgiPoolInfo.poolSizeCount = static_cast< uint32_t >( ddgiPoolSizes.size() );
+    ddgiPoolInfo.pPoolSizes    = ddgiPoolSizes.data();
     ddgiPoolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
     if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &ddgiPoolInfo, nullptr, &state.myDdgiProbeDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe descriptor pool" );
@@ -335,10 +365,26 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
             throw std::runtime_error( "Vk_DeferredLightingPass: failed to allocate DDGI probe descriptor set" );
         }
         VkDescriptorImageInfo outProbe{};
-        outProbe.imageView               = state.myDdgiProbeIrradianceAtlas.ImageView();
-        outProbe.imageLayout             = VK_IMAGE_LAYOUT_GENERAL;
-        const VkWriteDescriptorSet write = VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 );
-        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
+        outProbe.imageView   = state.myDdgiProbeIrradianceAtlas.ImageView();
+        outProbe.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        VkDescriptorImageInfo outVisibility{};
+        outVisibility.imageView   = state.myDdgiProbeVisibilityAtlas.ImageView();
+        outVisibility.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        VkDescriptorImageInfo worldPosInfo{};
+        worldPosInfo.sampler     = state.myGBufferSampler;
+        worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
+        worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo normalInfo{};
+        normalInfo.sampler                           = state.myGBufferSampler;
+        normalInfo.imageView                         = aCore.myGBufferState.myNormalRoughness.ImageView();
+        normalInfo.imageLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        std::array< VkWriteDescriptorSet, 4 > writes = {
+            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 ),
+            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outVisibility, 1, 1 ),
+            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
+            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 3, 1 ),
+        };
+        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
@@ -358,8 +404,12 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const VkImageView           ddgiProbeView           = state.myDdgiProbeIrradianceAtlas.ImageView();
     const VkImage               ddgiProbeImage          = state.myDdgiProbeIrradianceAtlas.Image();
     const VmaAllocation         ddgiProbeAlloc          = state.myDdgiProbeIrradianceAtlas.Allocation();
+    const VkImageView           ddgiVisibilityView      = state.myDdgiProbeVisibilityAtlas.ImageView();
+    const VkImage               ddgiVisibilityImage     = state.myDdgiProbeVisibilityAtlas.Image();
+    const VmaAllocation         ddgiVisibilityAlloc     = state.myDdgiProbeVisibilityAtlas.Allocation();
     aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, allocator, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipeline, ddgiProbePipelineLayout,
-                                                            ddgiProbeSetLayout, ddgiProbeDescriptorPool, ddgiProbeView, ddgiProbeImage, ddgiProbeAlloc ]() {
+                                                            ddgiProbeSetLayout, ddgiProbeDescriptorPool, ddgiProbeView, ddgiProbeImage, ddgiProbeAlloc, ddgiVisibilityView,
+                                                            ddgiVisibilityImage, ddgiVisibilityAlloc ]() {
         if ( pipelineLayout != VK_NULL_HANDLE ) {
             vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
         }
@@ -390,6 +440,12 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         if ( ddgiProbeImage != VK_NULL_HANDLE ) {
             vmaDestroyImage( allocator, ddgiProbeImage, ddgiProbeAlloc );
         }
+        if ( ddgiVisibilityView != VK_NULL_HANDLE ) {
+            vkDestroyImageView( device, ddgiVisibilityView, nullptr );
+        }
+        if ( ddgiVisibilityImage != VK_NULL_HANDLE ) {
+            vmaDestroyImage( allocator, ddgiVisibilityImage, ddgiVisibilityAlloc );
+        }
     } );
 
     UtilLogger::Info( "PIPELINE", "DeferredLighting graphics pipeline created." );
@@ -409,9 +465,22 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.legacyShininess        = aCore.myAoSettings.myIntensity;
     push.legacyPad              = aCore.myAoSettings.myPower;
     push.contactSoftEnabled     = ( aCore.myAoSettings.myContactSoftEnabled && aCore.myShadowAoSoftState.myInitialized ) ? 1.0f : 0.0f;
-    push.contactSoftPad[ 0 ]    = aCore.myLightingSettings.myDdgiEnabled ? 1.0f : 0.0f;
-    push.contactSoftPad[ 1 ]    = aCore.myLightingSettings.myDdgiIntensity;
-    push.contactSoftPad[ 2 ]    = aCore.myLightingSettings.myDdgiDebugOverlay;
+    push.ddgiEnabled            = aCore.myLightingSettings.myDdgiEnabled ? 1.0f : 0.0f;
+    push.ddgiIntensity          = aCore.myLightingSettings.myDdgiIntensity;
+    push.ddgiDebugOverlay       = aCore.myLightingSettings.myDdgiDebugOverlay;
+    push.ddgiProbeCountX        = aCore.myDeferredLightingState.myDdgiProbeCountX;
+    push.ddgiProbeCountY        = aCore.myDeferredLightingState.myDdgiProbeCountY;
+    push.ddgiProbeCountZ        = aCore.myDeferredLightingState.myDdgiProbeCountZ;
+    const glm::vec3 volumeMin   = aCore.myLightingSettings.myDdgiVolumeCenter - aCore.myLightingSettings.myDdgiVolumeExtents;
+    const glm::vec3 volumeMax   = aCore.myLightingSettings.myDdgiVolumeCenter + aCore.myLightingSettings.myDdgiVolumeExtents;
+    push.ddgiVolumeMin[ 0 ]     = volumeMin.x;
+    push.ddgiVolumeMin[ 1 ]     = volumeMin.y;
+    push.ddgiVolumeMin[ 2 ]     = volumeMin.z;
+    push.ddgiVolumeMin[ 3 ]     = 0.0f;
+    push.ddgiVolumeMax[ 0 ]     = volumeMax.x;
+    push.ddgiVolumeMax[ 1 ]     = volumeMax.y;
+    push.ddgiVolumeMax[ 2 ]     = volumeMax.z;
+    push.ddgiVolumeMax[ 3 ]     = 0.0f;
     push.depthSlice =
         std::min( aCore.myAoSettings.myHiZDebugMip, Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u );
 
@@ -466,9 +535,25 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
         VkDescriptorImageInfo outProbe{};
         outProbe.imageView   = aCore.myDeferredLightingState.myDdgiProbeIrradianceAtlas.ImageView();
         outProbe.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        const VkWriteDescriptorSet write =
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 );
-        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
+        VkDescriptorImageInfo outVisibility{};
+        outVisibility.imageView   = aCore.myDeferredLightingState.myDdgiProbeVisibilityAtlas.ImageView();
+        outVisibility.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        VkDescriptorImageInfo worldPosInfo{};
+        worldPosInfo.sampler     = aCore.myDeferredLightingState.myGBufferSampler;
+        worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
+        worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo normalInfo{};
+        normalInfo.sampler                           = aCore.myDeferredLightingState.myGBufferSampler;
+        normalInfo.imageView                         = aCore.myGBufferState.myNormalRoughness.ImageView();
+        normalInfo.imageLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        std::array< VkWriteDescriptorSet, 4 > writes = {
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 ),
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outVisibility, 1, 1 ),
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2,
+                                                  1 ),
+            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 3, 1 ),
+        };
+        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
     const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
@@ -519,26 +604,47 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
         return;
     }
 
-    VkImageMemoryBarrier toGeneral{};
-    toGeneral.sType                         = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toGeneral.oldLayout                     = state.myDdgiAtlasReadable ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    toGeneral.newLayout                     = VK_IMAGE_LAYOUT_GENERAL;
-    toGeneral.srcAccessMask                 = state.myDdgiAtlasReadable ? VK_ACCESS_SHADER_READ_BIT : 0;
-    toGeneral.dstAccessMask                 = VK_ACCESS_SHADER_WRITE_BIT;
-    toGeneral.image                         = state.myDdgiProbeIrradianceAtlas.Image();
-    toGeneral.subresourceRange              = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    const VkPipelineStageFlags ddgiSrcStage = state.myDdgiAtlasReadable ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    vkCmdPipelineBarrier( aCommandBuffer, ddgiSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toGeneral );
+    VkImageMemoryBarrier toGeneralIrr{};
+    toGeneralIrr.sType                                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    toGeneralIrr.oldLayout                             = state.myDdgiAtlasReadable ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    toGeneralIrr.newLayout                             = VK_IMAGE_LAYOUT_GENERAL;
+    toGeneralIrr.srcAccessMask                         = state.myDdgiAtlasReadable ? VK_ACCESS_SHADER_READ_BIT : 0;
+    toGeneralIrr.dstAccessMask                         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    toGeneralIrr.image                                 = state.myDdgiProbeIrradianceAtlas.Image();
+    toGeneralIrr.subresourceRange                      = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VkImageMemoryBarrier toGeneralVis                  = toGeneralIrr;
+    toGeneralVis.image                                 = state.myDdgiProbeVisibilityAtlas.Image();
+    const VkPipelineStageFlags            ddgiSrcStage = state.myDdgiAtlasReadable ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    std::array< VkImageMemoryBarrier, 2 > toGeneral    = { toGeneralIrr, toGeneralVis };
+    vkCmdPipelineBarrier( aCommandBuffer, ddgiSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, static_cast< uint32_t >( toGeneral.size() ),
+                          toGeneral.data() );
 
     struct DdgiProbePush {
         glm::uvec4 probeGrid;
         glm::uvec4 updateInfo;
         glm::vec4  ambient;
+        glm::vec4  blend;
+        glm::vec4  volumeMin;
+        glm::vec4  volumeMax;
+        glm::vec4  integrateParams;
     } push{};
-    push.probeGrid        = glm::uvec4( state.myDdgiProbeCountX, state.myDdgiProbeCountY, state.myDdgiProbeCountZ, state.myDdgiTotalProbeCount );
-    const uint32_t budget = std::max( 1u, std::min( aCore.myLightingSettings.myDdgiUpdateBudget, state.myDdgiTotalProbeCount ) );
-    push.updateInfo       = glm::uvec4( aCore.myFrameCtx.myFrameNumber, budget, state.myDdgiUpdateCursor, aCore.myLightingSettings.myDdgiStaggeredUpdate ? 1u : 0u );
-    push.ambient = glm::vec4( glm::vec3( aCore.myEnvironmentData.myAmbientColor ) * aCore.myLightingSettings.myDdgiIntensity, aCore.myLightingSettings.myDdgiIntensity );
+    push.probeGrid           = glm::uvec4( state.myDdgiProbeCountX, state.myDdgiProbeCountY, state.myDdgiProbeCountZ, state.myDdgiTotalProbeCount );
+    const uint32_t budget    = std::max( 1u, std::min( aCore.myLightingSettings.myDdgiUpdateBudget, state.myDdgiTotalProbeCount ) );
+    push.updateInfo          = glm::uvec4( aCore.myFrameCtx.myFrameNumber, budget, state.myDdgiUpdateCursor, aCore.myLightingSettings.myDdgiStaggeredUpdate ? 1u : 0u );
+    push.ambient             = glm::vec4( glm::vec3( aCore.myEnvironmentData.myAmbientColor ), aCore.myLightingSettings.myDdgiIntensity );
+    const bool volumeChanged = glm::length( aCore.myLightingSettings.myDdgiVolumeCenter - state.myDdgiPrevVolumeCenter ) > 0.01f
+                               || glm::length( aCore.myLightingSettings.myDdgiVolumeExtents - state.myDdgiPrevVolumeExtents ) > 0.01f;
+    const bool cameraJumped = glm::length( aCore.myCamera.myEye - state.myDdgiPrevCameraEye ) > 2.5f;
+    if ( volumeChanged || cameraJumped ) {
+        state.myDdgiHistoryForceReset = true;
+    }
+    const float historyValid  = ( state.myDdgiAtlasReadable && !state.myDdgiHistoryForceReset ) ? 1.0f : 0.0f;
+    push.blend                = glm::vec4( std::clamp( aCore.myLightingSettings.myDdgiHistoryBlend, 0.0f, 0.99f ), historyValid, 0.0f, 0.0f );
+    const glm::vec3 volumeMin = aCore.myLightingSettings.myDdgiVolumeCenter - aCore.myLightingSettings.myDdgiVolumeExtents;
+    const glm::vec3 volumeMax = aCore.myLightingSettings.myDdgiVolumeCenter + aCore.myLightingSettings.myDdgiVolumeExtents;
+    push.volumeMin            = glm::vec4( volumeMin, 0.0f );
+    push.volumeMax            = glm::vec4( volumeMax, 0.0f );
+    push.integrateParams      = glm::vec4( 16.0f, 25.0f, 3.0f, 0.12f );  // samples, maxDistance, distanceFalloff, minVisibility
 
     if ( aCore.AreCommandDebugLabelsEnabled() ) {
         aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=DDGI ProbeUpdate" );
@@ -555,16 +661,24 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
         aCore.CmdEndDebugLabel( aCommandBuffer );
     }
 
-    VkImageMemoryBarrier toRead{};
-    toRead.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toRead.oldLayout        = VK_IMAGE_LAYOUT_GENERAL;
-    toRead.newLayout        = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    toRead.srcAccessMask    = VK_ACCESS_SHADER_WRITE_BIT;
-    toRead.dstAccessMask    = VK_ACCESS_SHADER_READ_BIT;
-    toRead.image            = state.myDdgiProbeIrradianceAtlas.Image();
-    toRead.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toRead );
-    state.myDdgiAtlasReadable = true;
+    VkImageMemoryBarrier toReadIrr{};
+    toReadIrr.sType                              = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    toReadIrr.oldLayout                          = VK_IMAGE_LAYOUT_GENERAL;
+    toReadIrr.newLayout                          = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    toReadIrr.srcAccessMask                      = VK_ACCESS_SHADER_WRITE_BIT;
+    toReadIrr.dstAccessMask                      = VK_ACCESS_SHADER_READ_BIT;
+    toReadIrr.image                              = state.myDdgiProbeIrradianceAtlas.Image();
+    toReadIrr.subresourceRange                   = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VkImageMemoryBarrier toReadVis               = toReadIrr;
+    toReadVis.image                              = state.myDdgiProbeVisibilityAtlas.Image();
+    std::array< VkImageMemoryBarrier, 2 > toRead = { toReadIrr, toReadVis };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( toRead.size() ), toRead.data() );
+    state.myDdgiAtlasReadable     = true;
+    state.myDdgiHistoryForceReset = false;
+    state.myDdgiPrevVolumeCenter  = aCore.myLightingSettings.myDdgiVolumeCenter;
+    state.myDdgiPrevVolumeExtents = aCore.myLightingSettings.myDdgiVolumeExtents;
+    state.myDdgiPrevCameraEye     = aCore.myCamera.myEye;
 
     if ( aCore.myLightingSettings.myDdgiStaggeredUpdate ) {
         state.myDdgiUpdateCursor = ( state.myDdgiUpdateCursor + budget ) % state.myDdgiTotalProbeCount;

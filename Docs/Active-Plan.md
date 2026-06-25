@@ -5,7 +5,7 @@
 
 Done → move line to Archived-Plan; no `[x]` here.
 
-**Roadmap pivot (2026-06):** S3 FG v0 + GPU indirect are closed. **Defer meshlet / mesh shader / GPU mesh tasks** to Wishlist **§ Geometry track (S10–S12)**. **S4–S7 lighting implementation shipped** (2026-06-15/16); active queue is **G4 Stage 2 acceptance** → **S8 DDGI** → parallel S9 / S13 lab.
+**Roadmap pivot (2026-06):** S3 FG v0 + GPU indirect are closed. **Defer meshlet / mesh shader / GPU mesh tasks** to Wishlist **§ Geometry track (S10–S12)**. **S4–S7 lighting implementation shipped** (2026-06-15/16); **S8 DDGI shipped** (2026-06-16); **G4 Stage 2 accepted**. Active queue is **S9 Simulation** → **S13 Render lab**.
 
 ---
 
@@ -13,25 +13,11 @@ Done → move line to Archived-Plan; no `[x]` here.
 
 | # | Sprint / gate | Focus | Epic / plan | Blocked by |
 |---|---------------|--------|-------------|------------|
-| **1** | **G4** | Stage 2 acceptance — hybrid PBR on Sponza | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §G4 | — |
-| 2 | **S8** | DDGI / GI preset (Stage 3) | [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) | **G4** |
-| — | **S9** | Simulation | [`Wishlist.md`](Wishlist.md) §S9 | **G2** ✓ (parallel) |
+| **1** | **S9** | Simulation | [`Wishlist.md`](Wishlist.md) §S9 | **G2** ✓ |
 | — | **S13** | Render lab infra (S7 lab carryover + WSI) | [`Wishlist.md`](Wishlist.md) §S13 | — (parallel) |
 | — | **S10–S12** | Meshlet → mesh shader → GPU mesh *(deferred)* | Wishlist § Geometry track | **G3** (S10 only) |
 
 **Default benchmark scene:** `Data/Scenes/sponza.json` (vendored). CI smoke remains `stress.json`.
-
----
-
-## G4 — current focus (open)
-
-*Implementation landed in S4–S7; this gate is **sign-off**, not new feature work.*
-
-- [ ] Run G4 checklist on Sponza: opaque full PBR deferred, transparent forward composite, shadow + IBL + AO/post chain.
-- [ ] `ForwardLit` ↔ `HybridDeferred` parity runbook with screenshots / RenderDoc notes ([`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §G4).
-- [ ] Record evidence in PR or progress notes; mark **G4** ✓ in gates table when accepted.
-
-**Optional polish (non-blocking for G4):** S6 temporal AO · S7 lab presets/timestamps → Wishlist §S13.
 
 ---
 
@@ -44,10 +30,11 @@ flowchart TB
   S5[S5 IBL + skybox + shadows — done]
   S6[S6 SSAO + Hi-Z + modular AO — done]
   S7[S7 Post + frame graph v1 — done]
-  G4{G4 Stage 2 acceptance}
-  S8[S8 DDGI optional GI]
+  G4[G4 Stage 2 acceptance — done]
+  S8[S8 DDGI optional GI — done]
 
-  S3 --> S4 --> S5 --> S6 --> S7 --> G4 --> S8
+  S3 --> S4 --> S5 --> S6 --> S7 --> G4
+  G4 -.-> S8
 
   GEO[G10–12 Geometry track]
   G3{G3 MeshImport}
@@ -66,9 +53,7 @@ flowchart TB
 | **G1** ✓ | CPU vs GPU cull parity *(2026-06-10)* | S3 FG v0 |
 | **G2** ✓ | P4 complete *(2026-06-11)* | S9 simulation |
 | **G3** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A (MeshImport v0) | **S10** meshlets only *(not active queue)* |
-| **G4** | Stage 2 acceptance — hybrid opaque **full PBR**, transparent forward, shadow + IBL + AO/post on benchmark scene; `ForwardLit`/`HybridDeferred` parity runbook | **S8** DDGI |
-
-**G4 checklist (summary):** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) Acceptance + [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §G4 on Sponza.
+| **G4** ✓ | Stage 2 acceptance — hybrid opaque **full PBR**, transparent forward, shadow + IBL + AO/post on benchmark scene; `ForwardLit`/`HybridDeferred` parity runbook *(2026-06-16)* | **S8** DDGI |
 
 Pass topology (current): [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 

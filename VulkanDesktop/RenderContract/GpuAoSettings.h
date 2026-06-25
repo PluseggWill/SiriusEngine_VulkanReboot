@@ -24,7 +24,7 @@ struct GpuAoSettings {
     float       myTemporalBlend         = 0.9f;
     bool        myContactSoftEnabled    = true;
     float       myContactSoftBlurRadius = 1.0f;   // ±2 texels with 5-tap kernel (was 2.0 = ±4, dissolved hard contact shadows)
-    float       myContactSoftDepthSigma = 0.04f;   // tighter depth-edge rejection (was 0.025, leaked across depth discontinuities)
+    float       myContactSoftDepthSigma = 0.04f;  // tighter depth-edge rejection (was 0.025, leaked across depth discontinuities)
 };
 
 inline uint32_t Gpu_ComputeHiZMipLevelCount( uint32_t aWidth, uint32_t aHeight, uint32_t aMaxMips = 8u ) {

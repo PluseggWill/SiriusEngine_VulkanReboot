@@ -1,6 +1,6 @@
 # Epic Plan: hybrid-deferred
 
-**Status:** Implementation shipped (S4–S7, 2026-06-15/16) — **G4 Stage 2 acceptance pending**  
+**Status:** Closed (S4–S7 shipped 2026-06-15/16; **G4 Stage 2 accepted** 2026-06-16)  
 **Scope:** Stage 2 of lighting evolution  
 **Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
 
@@ -86,9 +86,9 @@ flowchart LR
 
 ## Acceptance
 
-- [ ] Opaque renders through `GBufferOpaque + DeferredLighting` (clustered) passes with full PBR support.
-- [ ] Transparent renders through forward pass with correct compositing over deferred opaque.
-- [ ] Presets allow deterministic switching between forward baseline and hybrid deferred.
+- [x] Opaque renders through `GBufferOpaque + DeferredLighting` (clustered) passes with full PBR support.
+- [x] Transparent renders through forward pass with correct compositing over deferred opaque.
+- [x] Presets allow deterministic switching between forward baseline and hybrid deferred.
 
 ## Exit criteria for Stage 3
 
