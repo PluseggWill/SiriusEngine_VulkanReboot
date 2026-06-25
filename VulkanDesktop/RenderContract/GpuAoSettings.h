@@ -6,21 +6,21 @@
 
 // Runtime AO tuning (ImGui → Renderer session). Not scene SoA data.
 struct GpuAoSettings {
-    GpuAoMethod myMethod                = GpuAoMethod::HbaoPlus;
+    GpuAoMethod myMethod                = GpuAoMethod::Gtao;
     bool        myEnabled               = true;
-    float       myRadius                = 0.1f;
-    float       myBias                  = 0.02f;
-    float       myIntensity             = 0.5f;
+    float       myRadius                = 0.26f;
+    float       myBias                  = 0.024f;
+    float       myIntensity             = 0.55f;
     float       myPower                 = 1.5f;
     uint32_t    myHiZDebugMip           = 0u;
     uint32_t    myHbaoDirections        = 4u;
     uint32_t    myHbaoSteps             = 4u;
-    uint32_t    myGtaoSlices            = 8u;
-    uint32_t    myGtaoStepsPerSlice     = 4u;
+    uint32_t    myGtaoSlices            = 4u;
+    uint32_t    myGtaoStepsPerSlice     = 3u;
     float       myGtaoFalloff           = 2.0f;
     float       myUpsampleDepthSigma    = 0.025f;
-    float       myNormalAwareRadius     = 0.5f;
-    bool        myTemporalEnabled       = true;
+    float       myNormalAwareRadius     = 0.35f;
+    bool        myTemporalEnabled       = false;
     float       myTemporalBlend         = 0.9f;
     bool        myContactSoftEnabled    = true;
     float       myContactSoftBlurRadius = 1.0f;   // ±2 texels with 5-tap kernel (was 2.0 = ±4, dissolved hard contact shadows)
