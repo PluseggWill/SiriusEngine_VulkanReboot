@@ -91,6 +91,12 @@
     <ClCompile Include="Util\Util_ScenePanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_TuningPrefs.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_TuningPanel.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_StatsOverlay.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -358,6 +364,12 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_InputSnapshot.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_TuningPrefs.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_TuningPanel.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_LightingPanel.h">

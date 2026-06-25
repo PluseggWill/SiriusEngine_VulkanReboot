@@ -14,6 +14,7 @@
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_ScenePanel.h"
+#include "../Util/Util_TuningPanel.h"
 #include "ActiveViewsBuild.h"
 #include "App_PlatformHost.h"
 #include "DebugOverlay.h"
@@ -76,6 +77,8 @@ void ActivateSceneGpu( Vk_Renderer& aRenderer, WorldState& aWorld, DebugUIState&
     loadParams.myLogicalPath   = aWorld.myLogicalPath;
     aRenderer.LoadSceneGpuResources( loadParams );
     App_InitScenePresentation( aRenderer, aWorld );
+    // user-tuning.json overrides scene env + renderer session knobs (lighting/AO/post/camera).
+    UtilTuningPanel::LoadAndApplyIfPresent( aConfig.GetAssetRoot(), aRenderer, aDebugUI );
 }
 
 }  // namespace

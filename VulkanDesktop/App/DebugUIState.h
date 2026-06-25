@@ -18,8 +18,15 @@ struct DebugUIState {
         uint32_t mySecondaryCameraIndex = 1;
     };
 
+    // Viewport overlay draw toggles (Lighting / DDGI tabs; persisted via user-tuning.json).
+    struct ViewportOverlays {
+        bool mySunGizmo         = true;
+        bool myDdgiVolumeBounds = true;
+    };
+
     PanelVisibility             myPanelVisibility;
     MultiViewState              myMultiView;
+    ViewportOverlays            myViewportOverlays;
     UtilScenePanel::State       myScenePanel;
     UtilRenderDebugPanel::State myRenderDebug;
     Util_CameraSettings         myCameraSettings;

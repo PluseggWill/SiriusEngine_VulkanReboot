@@ -63,10 +63,14 @@ void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
     aCore.myCamera.SetLens( fovDeg, nearPlane, farPlane, aspect );
     aCore.myCamera.LookAt( eye, center, up );
 
+    App_ApplyDefaultEnvironment( aCore );
+    aCore.myEnvironmentData.myViewWorldPos = { aCore.myCamera.myEye, 1.0f };
+}
+
+void App_ApplyDefaultEnvironment( Vk_Renderer& aCore ) {
     aCore.myEnvironmentData.myAmbientColor      = { 0.24f, 0.26f, 0.30f, 1.0f };
     aCore.myEnvironmentData.myFogColor          = { 0.92f, 0.95f, 1.0f, 1.0f };
-    aCore.myEnvironmentData.myFogDistance       = { 0.65f, 48.0f, 1.0f, 0.0f };
+    aCore.myEnvironmentData.myFogDistance       = { 0.0f, 0.0f, 1.0f, aCore.myEnvironmentData.myFogDistance.w };
     aCore.myEnvironmentData.mySunlightDirection = { glm::vec4( Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight(), 0.0f ) };
     aCore.myEnvironmentData.mySunlightColor     = { 1.15f, 1.12f, 1.02f, 1.0f };
-    aCore.myEnvironmentData.myViewWorldPos      = { aCore.myCamera.myEye, 1.0f };
 }

@@ -18,9 +18,6 @@
 
 namespace {
 
-bool sShowViewportSunGizmo = true;
-bool sShowDdgiVolumeBounds = true;
-
 bool ProjectWorldToScreen( const glm::mat4& aView, const glm::mat4& aProj, const glm::vec2& aViewportSize, const glm::vec3& aWorldPos, ImVec2& aOutScreen ) {
     const glm::vec4 clip = aProj * aView * glm::vec4( aWorldPos, 1.0f );
     if ( clip.w <= 0.0001f ) {
@@ -156,7 +153,7 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
 
 }  // namespace
 
-void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings ) {
+void UtilLightingPanel::BuildSunContents( GpuEnvironmentData& anEnvironment, bool& aShowSunGizmo ) {
     ImGui::ColorEdit3( "Ambient", &anEnvironment.myAmbientColor.x );
     ImGui::ColorEdit3( "Sun color", &anEnvironment.mySunlightColor.x );
     ImGui::DragFloat3( "Sun direction", &anEnvironment.mySunlightDirection.x, 0.02f, -1.f, 1.f );
@@ -168,18 +165,15 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
         }
     }
 
-    ImGui::Checkbox( "Viewport sun gizmo", &sShowViewportSunGizmo );
+    ImGui::Checkbox( "Viewport sun gizmo", &aShowSunGizmo );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Yellow arrow in the 3D view: world sun direction from look target.\nHUD compass: sun bearing relative to fly camera." );
     }
-    ImGui::Checkbox( "Viewport DDGI volume bounds", &sShowDdgiVolumeBounds );
-    if ( ImGui::IsItemHovered() ) {
-        ImGui::SetTooltip( "Draw world-space DDGI volume AABB wireframe in the viewport." );
-    }
 
     DrawSunDirectionDiagram( glm::vec3( anEnvironment.mySunlightDirection ) );
+}
 
-    ImGui::Separator();
+void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingSettings ) {
     ImGui::Checkbox( "Shadows enabled", &aLightingSettings.myShadowsEnabled );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Directional shadow map (2048). Auto-disabled when sun is below horizon (Z-up)." );
@@ -187,12 +181,17 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::Checkbox( "IBL enabled", &aLightingSettings.myIblEnabled );
     ImGui::SliderFloat( "IBL intensity", &aLightingSettings.myIblIntensity, 0.f, 3.f );
     if ( ImGui::IsItemHovered() ) {
-        ImGui::SetTooltip( "When IBL is off, ambient color scales the legacy fallback." );
+        ImGui::SetTooltip( "When IBL is off, ambient color scales the ambient fallback." );
     }
     ImGui::SliderFloat( "IBL spec shadow min", &aLightingSettings.myIblSpecularShadowMin, 0.f, 1.f );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Specular IBL in full sun shadow: mix(min, 1.0, sunShadow). Diffuse IBL unchanged." );
     }
+
+    LogLightingSettingsIfChanged( aLightingSettings );
+}
+
+void UtilLightingPanel::BuildDdgiContents( Gfx_LightingSettings& aLightingSettings, bool& aShowVolumeBounds ) {
     ImGui::Checkbox( "DDGI enabled", &aLightingSettings.myDdgiEnabled );
     ImGui::SliderFloat( "DDGI intensity", &aLightingSettings.myDdgiIntensity, 0.0f, 2.0f );
     ImGui::SliderFloat( "DDGI history blend", &aLightingSettings.myDdgiHistoryBlend, 0.0f, 0.99f );
@@ -218,17 +217,22 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::SliderFloat( "DDGI debug overlay", &aLightingSettings.myDdgiDebugOverlay, 0.0f, 1.0f );
 
     ImGui::Separator();
-    ImGui::Text( "Screen-space AO" );
-    {
-        const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ), Gfx_AoMethodLabel( Gfx_AoMethod::Gtao ) };
-        int         method   = static_cast< int >( aAoSettings.myMethod );
-        if ( ImGui::Combo( "AO method", &method, labels, IM_ARRAYSIZE( labels ) ) ) {
-            aAoSettings.myMethod = static_cast< Gfx_AoMethod >( method );
-        }
-        if ( ImGui::IsItemHovered() ) {
-            ImGui::SetTooltip( "Algorithm in Vk_AoPass — swap without changing deferred or contact-soft pass." );
-        }
+    ImGui::Checkbox( "Viewport DDGI volume bounds", &aShowVolumeBounds );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Draw world-space DDGI volume AABB wireframe in the viewport." );
     }
+}
+
+void UtilLightingPanel::BuildAoContents( Gfx_AoSettings& aAoSettings ) {
+    const char* labels[] = { Gfx_AoMethodLabel( Gfx_AoMethod::ClassicSsao ), Gfx_AoMethodLabel( Gfx_AoMethod::HbaoPlus ), Gfx_AoMethodLabel( Gfx_AoMethod::Gtao ) };
+    int         method   = static_cast< int >( aAoSettings.myMethod );
+    if ( ImGui::Combo( "AO method", &method, labels, IM_ARRAYSIZE( labels ) ) ) {
+        aAoSettings.myMethod = static_cast< Gfx_AoMethod >( method );
+    }
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Algorithm in Vk_AoPass — swap without changing deferred or contact-soft pass." );
+    }
+
     ImGui::Checkbox( "AO enabled", &aAoSettings.myEnabled );
     ImGui::SliderFloat( "AO radius", &aAoSettings.myRadius, 0.05f, 2.0f );
     ImGui::SliderFloat( "AO bias", &aAoSettings.myBias, 0.001f, 0.1f );
@@ -237,6 +241,7 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
     ImGui::SliderFloat( "AO temporal blend", &aAoSettings.myTemporalBlend, 0.0f, 0.98f );
     ImGui::SliderFloat( "AO intensity", &aAoSettings.myIntensity, 0.f, 1.f );
     ImGui::SliderFloat( "AO power", &aAoSettings.myPower, 0.5f, 4.f );
+
     if ( aAoSettings.myMethod == Gfx_AoMethod::HbaoPlus ) {
         int dirs  = static_cast< int >( aAoSettings.myHbaoDirections );
         int steps = static_cast< int >( aAoSettings.myHbaoSteps );
@@ -260,32 +265,21 @@ void UtilLightingPanel::BuildContents( GpuEnvironmentData& anEnvironment, Gfx_Li
         ImGui::SliderFloat( "GTAO falloff", &aAoSettings.myGtaoFalloff, 0.5f, 4.0f );
         ImGui::SliderFloat( "Upsample depth edge", &aAoSettings.myUpsampleDepthSigma, 0.01f, 0.06f );
     }
+}
 
-    ImGui::Separator();
-    ImGui::Text( "Contact softening (AO + shadow)" );
+void UtilLightingPanel::BuildContactSoftContents( Gfx_AoSettings& aAoSettings ) {
+    ImGui::TextDisabled( "Screen-space blur on AO and sun shadow edges (HybridDeferred)." );
     ImGui::Checkbox( "Contact soft enabled", &aAoSettings.myContactSoftEnabled );
-    if ( ImGui::IsItemHovered() ) {
-        ImGui::SetTooltip( "Screen-space blur on AO and sun shadow edges (HybridDeferred)." );
-    }
     ImGui::SliderFloat( "Soft blur radius", &aAoSettings.myContactSoftBlurRadius, 1.f, 4.f );
     ImGui::SliderFloat( "Soft depth edge", &aAoSettings.myContactSoftDepthSigma, 0.01f, 0.06f );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Bilateral depth threshold — lower = sharper edges, higher = softer blur across depth gaps." );
     }
-
-    ImGui::Separator();
-    ImGui::TextDisabled( "Specular / shininess: unused under PBR (material roughness/metallic)" );
-    ImGui::BeginDisabled();
-    ImGui::SliderFloat( "Specular strength (legacy)", &anEnvironment.myFogDistance.x, 0.f, 2.f );
-    ImGui::SliderFloat( "Shininess (legacy)", &anEnvironment.myFogDistance.y, 1.f, 256.f );
-    ImGui::EndDisabled();
-    ImGui::SliderFloat( "Gfx_Texture blend", &anEnvironment.myFogDistance.z, 0.f, 1.f );
-
-    LogLightingSettingsIfChanged( aLightingSettings );
 }
 
-void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Vk_Camera& aCamera ) {
-    if ( !sShowViewportSunGizmo ) {
+void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Vk_Camera& aCamera,
+                                              bool aShowSunGizmo, bool aShowDdgiVolumeBounds ) {
+    if ( !aShowSunGizmo ) {
         return;
     }
 
@@ -297,7 +291,7 @@ void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnviro
     const ImVec2         vpSize   = viewport->WorkSize;
     ImDrawList*          draw     = ImGui::GetForegroundDrawList();
 
-    if ( sShowDdgiVolumeBounds && aLightingSettings.myDdgiEnabled ) {
+    if ( aShowDdgiVolumeBounds && aLightingSettings.myDdgiEnabled ) {
         DrawDdgiVolumeBounds( draw, vpPos, vpSize, aCamera, aLightingSettings );
     }
 

@@ -179,6 +179,8 @@
     <ClCompile Include="Util\Util_PostProcessPanel.cpp" />
     <ClCompile Include="Util\Util_RenderDebugPanel.cpp" />
     <ClCompile Include="Util\Util_ScenePanel.cpp" />
+    <ClCompile Include="Util\Util_TuningPrefs.cpp" />
+    <ClCompile Include="Util\Util_TuningPanel.cpp" />
     <ClCompile Include="Util\Util_StatsOverlay.cpp" />
     <ClCompile Include="Util\Util_ImGuiLayer.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
@@ -283,6 +285,8 @@
     <ClInclude Include="Util\Util_PostProcessPanel.h" />
     <ClInclude Include="Util\Util_RenderDebugPanel.h" />
     <ClInclude Include="Util\Util_ScenePanel.h" />
+    <ClInclude Include="Util\Util_TuningPrefs.h" />
+    <ClInclude Include="Util\Util_TuningPanel.h" />
     <ClInclude Include="Util\Util_StatsOverlay.h" />
     <ClInclude Include="Util\Util_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />

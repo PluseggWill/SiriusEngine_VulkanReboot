@@ -372,6 +372,9 @@ FodyWeavers.xsd
 imgui.ini
 **/imgui.ini
 
+# Local ImGui tuning overrides (Lighting / DDGI / AO / Post / Camera)
+Config/user-tuning.json
+
 # Downloaded Poly Haven HDR cache (regenerate via Scripts/Generate-DefaultIblAssets.ps1).
 Data/Environments/default/source/
 

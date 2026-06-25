@@ -39,7 +39,7 @@ void BuildContents( const Util_EngineConfig& aConfig, State& aState, GpuEnvironm
     ImGui::Separator();
     ImGui::Text( "Visible draws: opaque %u  transparent %u", aVisibleOpaqueDraws, aVisibleTransparentDraws );
 
-    // CONTRACT: fogDistances.w encodes Gfx_DebugViewMode for TriangleFrag_Lit*.frag (xyz = lighting tunables).
+    // CONTRACT: fogDistances.w encodes Gfx_DebugViewMode for TriangleFrag_Lit*.frag.
     anEnvironment.myFogDistance.w = Gfx_DebugViewModeToShaderPacked( aState.myDebugViewMode );
 }
 

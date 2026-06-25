@@ -15,6 +15,7 @@
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
+#include "../Util/Util_TuningPanel.h"
 #include "DebugUIState.h"
 #include "WorldState.h"
 #include <imgui.h>
@@ -77,18 +78,24 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
     ImGui::Text( "Active views: %u", aPrep.myActiveViewCount );
 }
 
-void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, GpuEnvironmentData& anEnvironment,
-                             Gfx_LightingSettings& aLightingSettings, Gfx_AoSettings& aAoSettings, Gfx_PostSettings& aPostSettings, const Vk_FrameCpuPrepResult& aPrep,
-                             const Vk_Camera& aFlyCamera ) {
+void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
 
+    GpuEnvironmentData&   anEnvironment     = aCore.GetEnvironmentData();
+    Gfx_LightingSettings& aLightingSettings = aCore.GetLightingSettings();
+    Gfx_AoSettings&       aAoSettings       = aCore.GetAoSettings();
+    Gfx_PostSettings&     aPostSettings     = aCore.GetPostSettings();
+    const Vk_Camera&      aFlyCamera        = aCore.GetFlyCamera();
+
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos( ImVec2( 10.f, display.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );
-    ImGui::SetNextWindowSize( ImVec2( 440.f, 340.f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 440.f, 380.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.9f );
     if ( ImGui::Begin( "Engine Debug", &aDebugUI.myPanelVisibility.myShowEngineDebug ) ) {
+        UtilTuningPanel::BuildToolbar( aConfig, aCore, aDebugUI );
+        ImGui::Separator();
         if ( ImGui::BeginTabBar( "EngineDebugTabs", ImGuiTabBarFlags_None ) ) {
             if ( ImGui::BeginTabItem( "Scene" ) ) {
                 UtilScenePanel::BuildContents( aConfig, aDebugUI.myScenePanel );
@@ -97,8 +104,22 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
             if ( ImGui::BeginTabItem( "Render" ) ) {
                 UtilRenderDebugPanel::BuildContents( aConfig, aDebugUI.myRenderDebug, anEnvironment, aPrep.myTotalOpaqueDraws, aPrep.myTotalTransparentDraws );
                 aAoSettings.myHiZDebugMip = aDebugUI.myRenderDebug.myHiZDebugMip;
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "Lighting" ) ) {
+                UtilLightingPanel::BuildSunContents( anEnvironment, aDebugUI.myViewportOverlays.mySunGizmo );
                 ImGui::Separator();
-                UtilLightingPanel::BuildContents( anEnvironment, aLightingSettings, aAoSettings );
+                UtilLightingPanel::BuildShadowIblContents( aLightingSettings );
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "DDGI" ) ) {
+                UtilLightingPanel::BuildDdgiContents( aLightingSettings, aDebugUI.myViewportOverlays.myDdgiVolumeBounds );
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "AO" ) ) {
+                UtilLightingPanel::BuildAoContents( aAoSettings );
+                ImGui::Separator();
+                UtilLightingPanel::BuildContactSoftContents( aAoSettings );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Post" ) ) {
@@ -125,7 +146,7 @@ void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aD
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetAoSettings(), aCore.GetPostSettings(), aPrep,
-                            aCore.GetFlyCamera() );
-    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetFlyCamera() );
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore, aPrep );
+    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetFlyCamera(), aDebugUI.myViewportOverlays.mySunGizmo,
+                                             aDebugUI.myViewportOverlays.myDdgiVolumeBounds );
 }
