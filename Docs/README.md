@@ -8,7 +8,7 @@
 |-------|--------|
 | **Gate** | **G4** ✓ (closed) |
 | **Next sprint** | **S8** DDGI · [`Wishlist.md`](Wishlist.md) § S8 |
-| **WIP task** | **ddgi-lighting kickoff** — Stage 3 scope prep + temporal AO baseline carry-in · [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) / [`ddgi-lighting-epic_Progress.md`](ddgi-lighting-epic_Progress.md) |
+| **WIP task** | **specular-ibl-stack** Phase A (prefilter mips + specular occlusion) · [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) / [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md) |
 | **Last closed** | GTAO v0 + modular `Vk_AoPass` — [`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md) |
 | **Epic** | Stage 2 sign-off [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) |
 
@@ -28,6 +28,6 @@
 | [`SprintPlan.md`](SprintPlan.md) | Redirect → this index |
 | [`bootstrap.md`](bootstrap.md) · [`CLI.md`](CLI.md) · [`Platform.md`](Platform.md) | Onboarding |
 
-**Epics / plans:** `hybrid-deferred-epic_Plan.md`, `vulkan-rhi-hardening-epic_Plan.md`, `content-pipeline_Plan.md`, … — design only; tasks live in Active-Plan or Wishlist.
+**Epics / plans:** `hybrid-deferred-epic_Plan.md`, `vulkan-rhi-hardening-epic_Plan.md`, `content-pipeline_Plan.md`, [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md), … — design only; tasks live in Active-Plan or Wishlist.
 
 **Closed implementation logs:** [`Archived/plans/`](Archived/plans/)

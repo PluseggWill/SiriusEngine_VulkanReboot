@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "name": "default",
   "sourceHdri": {
     "provider": "Poly Haven (CC0)",
@@ -8,7 +8,12 @@
     "url": "https://polyhaven.com/a/kloppenheim_02"
   },
   "irradiance": "irradiance",
-  "prefilter": "prefilter",
+  "prefilter": {
+    "layout": "per-mip-faces",
+    "baseDir": "prefilter",
+    "baseSize": 128,
+    "mipCount": 8
+  },
   "brdfLut": "brdf_lut.png",
   "sky": "sky"
 }

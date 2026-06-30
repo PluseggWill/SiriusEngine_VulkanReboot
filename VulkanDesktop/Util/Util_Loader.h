@@ -14,6 +14,10 @@ bool LoadTexture( const Util_EngineConfig& aConfig, const std::string& aFilename
 bool LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig, const std::string& aDirectory, const Vk_ResourceContext& aContext, VkFormat aFormat,
                                    Gfx_Texture& aTextureOut, uint32_t aMipLevels );
 
+// Offline GGX prefilter mips: aRootDir/mip00..mipNN/{face}.png (no GPU box-filter mips).
+bool LoadCubemapMipChainFromFaceDirectories( const Util_EngineConfig& aConfig, const std::string& aRootDir, const Vk_ResourceContext& aContext, VkFormat aFormat,
+                                             Gfx_Texture& aTextureOut, uint32_t aMipCount );
+
 // 2D image without sRGB (BRDF LUT).
 bool LoadImage2D( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, VkFormat aFormat, Gfx_Texture& aTextureOut );
 }  // namespace UtilLoader

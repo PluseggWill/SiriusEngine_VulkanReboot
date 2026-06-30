@@ -3,7 +3,7 @@
 
 layout(set = 0, binding = 2) uniform LightingGlobals {
     mat4 lightViewProj;
-    vec4 shadowParams;  // z = compare active (0/1), w = 1/shadowMapSize
+    vec4 shadowParams;  // x unused, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
     vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip level, w = specular shadow min
 } lightingGlobals;
 

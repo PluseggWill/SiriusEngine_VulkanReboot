@@ -27,6 +27,15 @@ float Pbr_IblSpecularShadowScale(float sunShadow, float specularShadowMin)
     return mix(clamp(specularShadowMin, 0.0, 1.0), 1.0, clamp(sunShadow, 0.0, 1.0));
 }
 
+// Frostbite Listing 26 / Filament SpecularAO_Lagarde — roughness-aware specular occlusion from SSAO visibility.
+float Pbr_SpecularOcclusion(float aNdotV, float aVisibility, float aRoughness)
+{
+    const float clampedRoughness = clamp(aRoughness, 0.0, 1.0);
+    const float visibility = clamp(aVisibility, 0.0, 1.0);
+    const float ndotv = clamp(aNdotV, 0.0, 1.0);
+    return clamp(pow(ndotv + visibility, exp2(-16.0 * clampedRoughness - 1.0)) - 1.0 + visibility, 0.0, 1.0);
+}
+
 // specularShadowScale: mix(specularShadowMin, 1.0, sunShadow) — direct sun shadow only; diffuse unchanged.
 vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
                  samplerCube irradianceMap, samplerCube prefilterMap, sampler2D brdfLut,

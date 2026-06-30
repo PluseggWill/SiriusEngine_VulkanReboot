@@ -348,41 +348,58 @@ def bake_irradiance(env_root: Path, hdr: np.ndarray, size: int, exposure_scale: 
         write_png_rgba8(out_dir / f"{face}.png", size, size, pixels)
 
 
-def bake_prefilter(env_root: Path, hdr: np.ndarray, size: int, exposure_scale: float, sample_count: int = 128) -> None:
+def bake_prefilter_face(hdr: np.ndarray, face: str, size: int, roughness: float, exposure_scale: float, sample_count: int) -> list[tuple[int, int, int, int]]:
+    pixels: list[tuple[int, int, int, int]] = []
+    for y in range(size):
+        v = (y + 0.5) / size
+        for x in range(size):
+            u = (x + 0.5) / size
+            n = cubemap_direction(face, u, v)
+            v_dir = n
+            prefiltered = [0.0, 0.0, 0.0]
+            total = 0.0
+            for i in range(sample_count):
+                xi = hammersley(i, sample_count)
+                h = importance_sample_ggx(xi, roughness, n)
+                l = reflect_vector(v_dir, h)
+                ndotl = max(0.0, l[0] * n[0] + l[1] * n[1] + l[2] * n[2])
+                ndoth = max(0.0, h[0] * n[0] + h[1] * n[1] + h[2] * n[2])
+                vdoth = max(0.0, v_dir[0] * h[0] + v_dir[1] * h[1] + v_dir[2] * h[2])
+                if ndotl <= 0.0:
+                    continue
+                d = distribution_ggx(ndoth, roughness)
+                pdf = d * ndoth / max(4.0 * vdoth, 1e-4) + 1e-4
+                sample = sample_equirect_scaled(hdr, l, exposure_scale)
+                weight = ndotl / pdf
+                prefiltered[0] += sample[0] * weight
+                prefiltered[1] += sample[1] * weight
+                prefiltered[2] += sample[2] * weight
+                total += weight
+            if total > 1e-4:
+                prefiltered = [c / total for c in prefiltered]
+            else:
+                prefiltered = list(sample_equirect_scaled(hdr, n, exposure_scale))
+            pixels.append((linear_to_byte(prefiltered[0]), linear_to_byte(prefiltered[1]), linear_to_byte(prefiltered[2]), 255))
+    return pixels
+
+
+def bake_prefilter_mip_chain(env_root: Path, hdr: np.ndarray, base_size: int, mip_count: int, exposure_scale: float, sample_count: int = 128) -> None:
+    out_root = env_root / "prefilter"
+    for mip in range(mip_count):
+        roughness = 0.0 if mip_count <= 1 else float(mip) / float(mip_count - 1)
+        size = max(1, base_size >> mip)
+        mip_samples = max(16, sample_count // (1 + mip // 2))
+        mip_dir = out_root / f"mip{mip:02d}"
+        print(f"  prefilter mip{mip:02d} size={size} roughness={roughness:.3f} samples={mip_samples}")
+        for face in FACE_ORDER:
+            pixels = bake_prefilter_face(hdr, face, size, roughness, exposure_scale, mip_samples)
+            write_png_rgba8(mip_dir / f"{face}.png", size, size, pixels)
+
+
+def bake_prefilter_legacy_flat(env_root: Path, hdr: np.ndarray, size: int, exposure_scale: float, sample_count: int = 128) -> None:
     out_dir = env_root / "prefilter"
-    roughness = 0.0
     for face in FACE_ORDER:
-        pixels: list[tuple[int, int, int, int]] = []
-        for y in range(size):
-            v = (y + 0.5) / size
-            for x in range(size):
-                u = (x + 0.5) / size
-                n = cubemap_direction(face, u, v)
-                v_dir = n
-                prefiltered = [0.0, 0.0, 0.0]
-                total = 0.0
-                for i in range(sample_count):
-                    xi = hammersley(i, sample_count)
-                    h = importance_sample_ggx(xi, roughness, n)
-                    l = reflect_vector(v_dir, h)
-                    ndotl = max(0.0, l[0] * n[0] + l[1] * n[1] + l[2] * n[2])
-                    ndoth = max(0.0, h[0] * n[0] + h[1] * n[1] + h[2] * n[2])
-                    vdoth = max(0.0, v_dir[0] * h[0] + v_dir[1] * h[1] + v_dir[2] * h[2])
-                    if ndotl <= 0.0:
-                        continue
-                    d = distribution_ggx(ndoth, roughness)
-                    pdf = d * ndoth / max(4.0 * vdoth, 1e-4) + 1e-4
-                    sample = sample_equirect_scaled(hdr, l, exposure_scale)
-                    weight = ndotl / pdf
-                    prefiltered[0] += sample[0] * weight
-                    prefiltered[1] += sample[1] * weight
-                    prefiltered[2] += sample[2] * weight
-                    total += weight
-                if total > 1e-4:
-                    prefiltered = [c / total for c in prefiltered]
-                else:
-                    prefiltered = list(sample_equirect_scaled(hdr, n, exposure_scale))
-                pixels.append((linear_to_byte(prefiltered[0]), linear_to_byte(prefiltered[1]), linear_to_byte(prefiltered[2]), 255))
+        pixels = bake_prefilter_face(hdr, face, size, 0.0, exposure_scale, sample_count)
         write_png_rgba8(out_dir / f"{face}.png", size, size, pixels)
 
 
@@ -399,7 +416,30 @@ def bake_brdf_lut(env_root: Path, size: int = 512, sample_count: int = 128) -> N
     write_png_rgba8(env_root / "brdf_lut.png", size, size, pixels)
 
 
-def write_manifest(env_root: Path, hdri_slug: str, hdri_resolution: str) -> None:
+def write_manifest_mip_chain(env_root: Path, hdri_slug: str, hdri_resolution: str, prefilter_mip_count: int, prefilter_base_size: int) -> None:
+    manifest = {
+        "schemaVersion": 3,
+        "name": "default",
+        "sourceHdri": {
+            "provider": "Poly Haven (CC0)",
+            "slug": hdri_slug,
+            "resolution": hdri_resolution,
+            "url": f"https://polyhaven.com/a/{hdri_slug}",
+        },
+        "irradiance": "irradiance",
+        "prefilter": {
+            "layout": "per-mip-faces",
+            "baseDir": "prefilter",
+            "baseSize": prefilter_base_size,
+            "mipCount": prefilter_mip_count,
+        },
+        "brdfLut": "brdf_lut.png",
+        "sky": "sky",
+    }
+    (env_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def write_manifest_legacy_flat(env_root: Path, hdri_slug: str, hdri_resolution: str) -> None:
     manifest = {
         "schemaVersion": 2,
         "name": "default",
@@ -425,8 +465,11 @@ def main() -> None:
     parser.add_argument("--sky-size", type=int, default=512)
     parser.add_argument("--irradiance-size", type=int, default=32)
     parser.add_argument("--prefilter-size", type=int, default=128)
+    parser.add_argument("--prefilter-mips", type=int, default=8, help="GGX prefilter mip count (per-mip-faces layout)")
+    parser.add_argument("--prefilter-legacy-flat", action="store_true", help="Write single-mip flat prefilter/ (schema v2)")
     parser.add_argument("--exposure-scale", type=float, default=None, help="Linear scale before LDR encode; auto when omitted")
     parser.add_argument("--skip-brdf", action="store_true")
+    parser.add_argument("--prefilter-only", action="store_true", help="Rebake prefilter + manifest only (reuse cached HDRI)")
     args = parser.parse_args()
 
     env_root = args.repo_root / "Data" / "Environments" / "default"
@@ -438,18 +481,23 @@ def main() -> None:
     exposure_scale = args.exposure_scale if args.exposure_scale is not None else compute_exposure_scale(hdr)
     print(f"HDRI shape={hdr.shape[1]}x{hdr.shape[0]} exposureScale={exposure_scale:.4f}")
 
-    print("Sky cubemap...")
-    bake_sky_faces(env_root, hdr, args.sky_size, exposure_scale)
-    print("Irradiance cubemap...")
-    bake_irradiance(env_root, hdr, args.irradiance_size, exposure_scale)
-    print("Prefilter cubemap (mip0)...")
-    bake_prefilter(env_root, hdr, args.prefilter_size, exposure_scale)
+    if not args.prefilter_only:
+        print("Sky cubemap...")
+        bake_sky_faces(env_root, hdr, args.sky_size, exposure_scale)
+        print("Irradiance cubemap...")
+        bake_irradiance(env_root, hdr, args.irradiance_size, exposure_scale)
+    print("Prefilter cubemap...")
+    if args.prefilter_legacy_flat:
+        bake_prefilter_legacy_flat(env_root, hdr, args.prefilter_size, exposure_scale)
+        write_manifest_legacy_flat(env_root, args.hdri_slug, args.hdri_resolution)
+    else:
+        bake_prefilter_mip_chain(env_root, hdr, args.prefilter_size, args.prefilter_mips, exposure_scale)
+        write_manifest_mip_chain(env_root, args.hdri_slug, args.hdri_resolution, args.prefilter_mips, args.prefilter_size)
     if not args.skip_brdf:
         print("BRDF LUT...")
         bake_brdf_lut(env_root)
     else:
         print("Skipping BRDF LUT (unchanged).")
-    write_manifest(env_root, args.hdri_slug, args.hdri_resolution)
     print("Done.")
 
 

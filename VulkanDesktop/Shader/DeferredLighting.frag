@@ -47,7 +47,7 @@ layout(set = 0, binding = 3) readonly buffer ClusterLists {
 layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 5) uniform LightingGlobals {
     mat4 lightViewProj;
-    vec4 shadowParams;  // z = compare active (0/1), w = 1/shadowMapSize
+    vec4 shadowParams;  // x unused, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
     vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = specular shadow min
 } lightingGlobals;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
@@ -259,8 +259,14 @@ void main()
     }
 
     vec3 ddgi = sampleDdgiIrradiance(worldPos, N);
-    // AO attenuates diffuse IBL + DDGI (short-range local occlusion); specular IBL is environment-wide reflections.
-    vec3 lit = (diffuseIbl + ddgi) * ao + specularIbl;
+    // AO attenuates diffuse IBL + DDGI; specular IBL uses roughness-aware specular occlusion (Frostbite §4.10.2).
+    const float specularOccEnabled = lightingGlobals.shadowParams.y;
+    float specularOcc = 1.0;
+    if (specularOccEnabled > 0.5) {
+        const float ndotv = max(dot(N, V), 0.0);
+        specularOcc = Pbr_SpecularOcclusion(ndotv, ao, roughness);
+    }
+    vec3 lit = (diffuseIbl + ddgi) * ao + specularIbl * specularOcc;
     ambient = diffuseIbl + specularIbl;  // keep ambient for ddgi-debug overlay blend below
     lit = mix(lit, ddgi, clamp(pc.contactSoftParams.w, 0.0, 1.0));
 

@@ -16,14 +16,42 @@ namespace {
 constexpr VkFormat kSkyCubemapFormat    = VK_FORMAT_R8G8B8A8_SRGB;
 constexpr VkFormat kLinearCubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;  // irradiance + prefilter baked in linear
 constexpr VkFormat kBrdfLutFormat       = VK_FORMAT_R8G8B8A8_UNORM;
-constexpr uint32_t kPrefilterMipLevels  = 1u;  // mip0 only until offline roughness mips are baked (GPU box mips are not GGX-prefiltered)
+
+struct PrefilterManifest {
+    std::string myDir;
+    uint32_t    myMipCount    = 1u;
+    bool        myPerMipFaces = false;
+};
 
 struct EnvironmentManifest {
-    std::string myIrradianceDir;
-    std::string myPrefilterDir;
-    std::string mySkyDir;
-    std::string myBrdfLutPath;
+    std::string       myIrradianceDir;
+    PrefilterManifest myPrefilter;
+    std::string       mySkyDir;
+    std::string       myBrdfLutPath;
 };
+
+PrefilterManifest ParsePrefilterEntry( const std::string& aEnvironmentRoot, const nlohmann::json& aPrefilter ) {
+    PrefilterManifest prefilter{};
+    if ( aPrefilter.is_string() ) {
+        prefilter.myDir         = aEnvironmentRoot + "/" + aPrefilter.get< std::string >();
+        prefilter.myMipCount    = 1u;
+        prefilter.myPerMipFaces = false;
+        return prefilter;
+    }
+
+    const std::string baseDir = aPrefilter.at( "baseDir" ).get< std::string >();
+    prefilter.myDir           = aEnvironmentRoot + "/" + baseDir;
+    prefilter.myMipCount      = aPrefilter.value( "mipCount", 1u );
+    const std::string layout  = aPrefilter.value( "layout", std::string( "per-mip-faces" ) );
+    if ( layout != "per-mip-faces" ) {
+        throw std::runtime_error( "Vk_IblResources: unsupported prefilter layout: " + layout );
+    }
+    prefilter.myPerMipFaces = true;
+    if ( prefilter.myMipCount == 0u ) {
+        throw std::runtime_error( "Vk_IblResources: prefilter mipCount must be >= 1" );
+    }
+    return prefilter;
+}
 
 EnvironmentManifest LoadManifest( const Util_EngineConfig& aConfig, const std::string& aEnvironmentRoot ) {
     const std::string manifestPath = UtilLoader::ResolvePath( aConfig, aEnvironmentRoot + "/manifest.json" );
@@ -37,7 +65,7 @@ EnvironmentManifest LoadManifest( const Util_EngineConfig& aConfig, const std::s
 
     EnvironmentManifest manifest{};
     manifest.myIrradianceDir = aEnvironmentRoot + "/" + root.at( "irradiance" ).get< std::string >();
-    manifest.myPrefilterDir  = aEnvironmentRoot + "/" + root.at( "prefilter" ).get< std::string >();
+    manifest.myPrefilter     = ParsePrefilterEntry( aEnvironmentRoot, root.at( "prefilter" ) );
     manifest.mySkyDir        = aEnvironmentRoot + "/" + root.at( "sky" ).get< std::string >();
     manifest.myBrdfLutPath   = aEnvironmentRoot + "/" + root.at( "brdfLut" ).get< std::string >();
     return manifest;
@@ -104,6 +132,18 @@ VkSampler CreateBrdfLutSampler( VkDevice aDevice ) {
     return sampler;
 }
 
+void LoadPrefilterCubemap( const Util_EngineConfig& aConfig, const PrefilterManifest& aPrefilter, const Vk_ResourceContext& aContext, Gfx_Texture& aOutTexture,
+                           float& aOutMaxMipLevel ) {
+    if ( aPrefilter.myPerMipFaces ) {
+        UtilLoader::LoadCubemapMipChainFromFaceDirectories( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, aPrefilter.myMipCount );
+        aOutMaxMipLevel = static_cast< float >( aPrefilter.myMipCount - 1u );
+        return;
+    }
+
+    UtilLoader::LoadCubemapFromFaceDirectory( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, 1 );
+    aOutMaxMipLevel = 0.0f;
+}
+
 }  // namespace
 
 namespace Vk_IblResources {
@@ -126,12 +166,10 @@ void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
 
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.GetResourceContext(), kLinearCubemapFormat,
                                               aCore.myIblResourcesState.myIrradiance, 1 );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myPrefilterDir, aCore.GetResourceContext(), kLinearCubemapFormat,
-                                              aCore.myIblResourcesState.myPrefilter, kPrefilterMipLevels );
+    LoadPrefilterCubemap( aCore.EngineConfig(), manifest.myPrefilter, aCore.GetResourceContext(), aCore.myIblResourcesState.myPrefilter,
+                          aCore.myIblResourcesState.myPrefilterMaxMipLevel );
     UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.GetResourceContext(), kSkyCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
     UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.GetResourceContext(), kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
-
-    aCore.myIblResourcesState.myPrefilterMaxMipLevel = static_cast< float >( kPrefilterMipLevels - 1u );
 
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myIrradiance );
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myPrefilter );
@@ -154,7 +192,7 @@ void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
     } );
 
     aCore.myIblResourcesState.myInitialized = true;
-    UtilLogger::Info( "IBL", "Loaded environment '" + aEnvironmentLogicalPath + "' from manifest" );
+    UtilLogger::Info( "IBL", "Loaded environment '" + aEnvironmentLogicalPath + "' prefilterMaxMip=" + std::to_string( aCore.myIblResourcesState.myPrefilterMaxMipLevel ) );
 }
 
 }  // namespace Vk_IblResources

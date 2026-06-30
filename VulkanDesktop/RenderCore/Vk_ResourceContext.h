@@ -39,7 +39,7 @@ struct Vk_ResourceContext {
     void TransitionImageLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
     void TransitionCubemapLayout( VkImage aImage, VkFormat aFormat, VkImageLayout anOldLayout, VkImageLayout aNewLayout, uint32_t aMipLevel ) const;
     void CopyBufferToImage( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight ) const;
-    void CopyBufferToCubemapFace( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight, uint32_t aFaceIndex ) const;
+    void CopyBufferToCubemapFace( VkBuffer aBuffer, VkImage aImage, uint32_t aWidth, uint32_t aHeight, uint32_t aFaceIndex, uint32_t aMipLevel = 0 ) const;
     void CopyBuffer( VkBuffer aSrcBuffer, VkBuffer aDstBuffer, VkDeviceSize aSize ) const;
     // Staging teardown after CopyBuffer; deferred until EndSceneUploadBatch when batch active.
     void        DestroyStagingBuffer( Vk_AllocatedBuffer& aBuffer ) const;

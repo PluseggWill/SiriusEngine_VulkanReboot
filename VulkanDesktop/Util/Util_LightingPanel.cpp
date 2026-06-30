@@ -187,6 +187,10 @@ void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingS
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Specular IBL in full sun shadow: mix(min, 1.0, sunShadow). Diffuse IBL unchanged." );
     }
+    ImGui::Checkbox( "Specular occlusion (IBL)", &aLightingSettings.mySpecularOcclusionEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Roughness-aware specular occlusion from SSAO (Frostbite Lagarde). Attenuates distant cubemap reflections in occluded areas." );
+    }
 
     LogLightingSettingsIfChanged( aLightingSettings );
 }
