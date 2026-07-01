@@ -1,5 +1,6 @@
 // PbrShadow.glsl — directional shadow compare (direct sun only). No #version.
-// CONTRACT: shadowParams.z = compare active (0/1); shadowParams.w = 1/shadowMapSize for PCF texel stride; shadowParams.y = specular occlusion enabled.
+// CONTRACT: shadowParams.x = SSR enabled; shadowParams.y = specular occlusion enabled;
+// shadowParams.z = compare active (0/1); shadowParams.w = 1/shadowMapSize for PCF texel stride.
 // IBL diffuse is not modulated by sun shadow; specular IBL uses mix(kMin, 1.0, sunShadow) in deferred/forward.
 
 void Pbr_ShadowProject(mat4 lightViewProj, vec3 worldPos, out vec2 shadowUv, out float compareDepth)

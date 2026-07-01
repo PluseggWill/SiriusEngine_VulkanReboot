@@ -47,6 +47,7 @@
 #include "Vk_PostProcessPass.h"
 #include "Vk_ShadowAoSoftPass.h"
 #include "Vk_ShadowMapPass.h"
+#include "Vk_SsrPass.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -292,6 +293,7 @@ public:
     Vk_DepthPyramidState myDepthPyramidState;
 
     Vk_AoState           myAoState;
+    Vk_SsrState          mySsrState;
     Vk_ShadowAoSoftState myShadowAoSoftState;
 
     Vk_PostProcessState myPostProcessState;

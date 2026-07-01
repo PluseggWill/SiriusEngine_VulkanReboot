@@ -1,0 +1,74 @@
+#version 450
+
+// Hi-Z SSR v0 — traces reflected view rays; rgb = G-buffer albedo at hit (lit HDR upgrade in follow-up).
+#include "SsrCommon.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    mat4 view;
+    mat4 proj;
+    vec4 params; // x=maxDistance, y=maxRoughness, z=enabled (0/1), w=thickness
+    uvec4 trace; // x=maxSteps, y=hiZMaxMip (as float bits in shader via float(trace.y)), zw unused
+    vec2 screenSize;
+    vec2 pad;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
+layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
+layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
+layout(set = 0, binding = 3) uniform sampler2D gbufferAlbedo;
+layout(set = 0, binding = 4) uniform sampler2D hiZPyramid;
+layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D ssrOut;
+
+void main()
+{
+    const ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 size = ivec2(pc.screenSize);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const vec2 uv = (vec2(pix) + 0.5) / vec2(size);
+    if (pc.params.z < 0.5) {
+        imageStore(ssrOut, pix, vec4(0.0));
+        return;
+    }
+
+    const float depth = texture(gbufferDepth, uv).r;
+    if (depth >= 0.999) {
+        imageStore(ssrOut, pix, vec4(0.0));
+        return;
+    }
+
+    const vec4 normalRoughness = texture(gbufferNormalRoughness, uv);
+    const float roughness = normalRoughness.w;
+    if (roughness > pc.params.y) {
+        imageStore(ssrOut, pix, vec4(0.0));
+        return;
+    }
+
+    const vec3 worldPos = texture(gbufferWorldPosition, uv).rgb;
+    const vec3 Nworld = normalize(normalRoughness.xyz);
+    const vec3 fragPosView = (pc.view * vec4(worldPos, 1.0)).xyz;
+    const vec3 Vview = normalize(-fragPosView);
+    const vec3 Nview = Ao_WorldNormalToView(Nworld, pc.view);
+    const vec3 Rview = reflect(-Vview, Nview);
+
+    if (dot(Rview, Vview) <= 0.0) {
+        imageStore(ssrOut, pix, vec4(0.0));
+        return;
+    }
+
+    vec2 hitUV = vec2(0.0);
+    const int maxSteps = int(pc.trace.x);
+    const float hiZMaxMip = float(pc.trace.y);
+    const bool hit = Ssr_TraceHiZ(fragPosView, Rview, pc.proj, pc.screenSize, hiZPyramid, maxSteps, pc.params.x, pc.params.w, hiZMaxMip, hitUV);
+    if (!hit) {
+        imageStore(ssrOut, pix, vec4(0.0));
+        return;
+    }
+
+    const vec3 reflectedAlbedo = texture(gbufferAlbedo, hitUV).rgb;
+    imageStore(ssrOut, pix, vec4(reflectedAlbedo, 1.0));
+}

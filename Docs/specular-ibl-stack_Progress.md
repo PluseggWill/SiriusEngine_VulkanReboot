@@ -13,6 +13,27 @@
 ## 2026-06-30 — A1–A4 Phase A implementation
 
 - **Plan ref:** A1 bake, A2 loader, A3 shaders, A4 UI
-- **Files:** `Scripts/bake_default_ibl.py`, `Data/Environments/default/manifest.json`, `Data/Environments/default/prefilter/mip00..07/*`, `VulkanDesktop/Util/Util_Loader.*`, `VulkanDesktop/RenderCore/Vk_ResourceContext.*`, `VulkanDesktop/RenderCore/Vk_IblResources.cpp`, `VulkanDesktop/Shader/PbrIbl.glsl`, `VulkanDesktop/Shader/DeferredLighting.frag`, `VulkanDesktop/RenderContract/GpuLightingGlobals.h`, `VulkanDesktop/Util/Util_LightingPanel.cpp`, `VulkanDesktop/Shader_Generated/DeferredLightingFrag.spv`
-- **What changed:** Offline GGX prefilter 8-mip chain (manifest v3); `LoadCubemapMipChainFromFaceDirectories`; Lagarde `Pbr_SpecularOcclusion` on deferred specular IBL (`shadowParams.y` toggle); ImGui checkbox.
-- **Verification:** MSBuild Debug|x64 OK; GfxTests pending; shader drift = uncommitted `DeferredLightingFrag.spv` (expected pre-commit); G0-validation manual pending.
+- **Files:** `Scripts/bake_default_ibl.py`, `Data/Environments/default/manifest.json`, `prefilter/mip00..07/*`, `Util_Loader.*`, `Vk_ResourceContext.*`, `Vk_IblResources.cpp`, `PbrIbl.glsl`, `DeferredLighting.frag`, `GpuLightingGlobals.h`, `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`, `DeferredLightingFrag.spv`
+- **What changed:** Offline GGX prefilter 8-mip chain (manifest v3); `LoadCubemapMipChainFromFaceDirectories`; Lagarde `Pbr_SpecularOcclusion` on deferred specular IBL (`shadowParams.y` toggle); ImGui checkbox + tuning prefs.
+- **Verification:** MSBuild Debug|x64 OK; GfxTests OK; Verify-CI OK; G0-validation Sponza stress `--validation` exit 0.
+
+## 2026-06-30 — A5 closeout + commit
+
+- **Commit:** `3a044a9` — `[Lighting] Add GGX prefilter mips and Lagarde specular occlusion (Phase A).`
+- **Review pass:** `GpuLightingGlobals` packing comment; `PrefilterMipSubdir()` helper; manifest layout reject; tuning prefs for specular occlusion.
+- **Verification:** `powershell -File Scripts/Verify-CI.ps1` exit 0 post-commit.
+
+## 2026-06-30 — B1–B3 Phase B (in progress)
+
+- **Plan ref:** B1 SSR scaffold, B2 Hi-Z trace v0, B3 deferred composite
+- **Files:** `SsrCommon.glsl`, `SsrTrace.comp`, `Vk_SsrPass.*`, `Vk_FrameGraph.*`, `DeferredLighting.frag` binding 17, `GpuLightingGlobals.h` (`shadowParams.x` SSR toggle), `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`
+- **What changed:** Hi-Z SSR compute pass after DepthPyramid; `mix(prefilter, ssr, confidence) * specularOcc` in deferred; v0 hit radiance = G-buffer albedo at hit UV (lit HDR / temporal follow-up).
+- **Verification:** MSBuild Debug|x64 OK; GfxTests OK; G0-validation Sponza stress `--validation` exit 0; Verify-CI pending Spv commit.
+
+## 2026-07-01 — B1–B3 Phase B closeout
+
+- **Plan ref:** B1 SSR scaffold, B2 Hi-Z trace v0, B3 deferred composite
+- **Files:** `SsrCommon.glsl`, `SsrTrace.comp`, `Vk_SsrPass.*`, `Vk_FrameGraph.*`, `DeferredLighting.frag` binding 17, `GpuLightingGlobals.h` (`shadowParams.x`), `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`, `SsrTrace.spv`, `DeferredLightingFrag.spv`
+- **What changed:** Hi-Z SSR compute after DepthPyramid; `mix(prefilter, ssr, confidence) * specularOcc`; ImGui SSR toggles; default off.
+- **Note:** v0 hit radiance = G-buffer albedo at hit UV (lit HDR / temporal reprojection follow-up).
+- **Verification:** GfxTests OK; G0-validation exit 0; FG log shows `DepthPyramid -> SSR -> AO -> ...`.

@@ -204,6 +204,7 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
         Vk_DepthPyramidPass::Init( *this );
+        Vk_SsrPass::Init( *this );
         Vk_AoPass::Init( *this );
         Vk_ShadowAoSoftPass::Init( *this );
         Vk_PostProcessPass::Init( *this );
@@ -251,6 +252,7 @@ void Vk_Renderer::UnloadSceneGpuResources() {
     Vk_PostProcessPass::Destroy( *this );
     Vk_ShadowAoSoftPass::Destroy( *this );
     Vk_AoPass::Destroy( *this );
+    Vk_SsrPass::Destroy( *this );
     Vk_DepthPyramidPass::Destroy( *this );
     Vk_ClusterBuildPass::Destroy( *this );
     Vk_GBufferPass::Destroy( *this );

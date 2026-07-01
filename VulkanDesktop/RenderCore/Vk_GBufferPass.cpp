@@ -421,6 +421,7 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     }
     RebuildResources( aCore );
     Vk_DepthPyramidPass::RecreateForExtent( aCore );
+    Vk_SsrPass::RecreateForExtent( aCore );
     Vk_AoPass::RecreateForExtent( aCore );
     Vk_ShadowAoSoftPass::RecreateForExtent( aCore );
     Vk_PostProcessPass::RecreateForExtent( aCore );

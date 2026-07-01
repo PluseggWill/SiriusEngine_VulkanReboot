@@ -7,7 +7,7 @@
 #include <cstdint>
 
 // std140 UBO — Set 0 binding eVk_LightingGlobalsBinding.
-// myShadowParams: x unused, y = specular occlusion enabled (0/1), z = shadow compare, w = 1/shadowMapSize.
+// myShadowParams: x = SSR enabled (0/1), y = specular occlusion enabled (0/1), z = shadow compare, w = 1/shadowMapSize.
 struct GpuLightingGlobals {
     alignas( 16 ) glm::mat4 myLightViewProj{};
     alignas( 16 ) glm::vec4 myShadowParams{ 0.0f, 0.0f, 1.0f, 0.0f };
@@ -22,6 +22,11 @@ struct GpuLightingSettings {
     float     myIblIntensity             = 1.35f;
     float     myIblSpecularShadowMin     = 0.15f;
     bool      mySpecularOcclusionEnabled = true;
+    bool      mySsrEnabled               = false;
+    float     mySsrMaxRoughness          = 0.35f;
+    float     mySsrMaxDistance           = 40.0f;
+    float     mySsrThickness             = 0.05f;
+    uint32_t  mySsrMaxSteps              = 32u;
     bool      myDdgiEnabled              = false;
     bool      myDdgiStaggeredUpdate      = true;
     float     myDdgiIntensity            = 1.0f;
@@ -41,9 +46,10 @@ inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& a
                                                     const glm::vec3& aSunDirectionTowardLight, uint32_t aShadowMapSize ) {
     GpuLightingGlobals globals{};
     globals.myLightViewProj  = aLightViewProj;
+    globals.myShadowParams.x = aSettings.mySsrEnabled ? 1.0f : 0.0f;
+    globals.myShadowParams.y = aSettings.mySpecularOcclusionEnabled ? 1.0f : 0.0f;
     globals.myShadowParams.z = Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aSettings.myShadowsEnabled, aSunDirectionTowardLight ) ? 1.0f : 0.0f;
     globals.myShadowParams.w = aShadowMapSize > 0u ? 1.0f / static_cast< float >( aShadowMapSize ) : 0.0f;
-    globals.myShadowParams.y = aSettings.mySpecularOcclusionEnabled ? 1.0f : 0.0f;
     globals.myIblParams.x    = aSettings.myIblIntensity;
     globals.myIblParams.y    = aSettings.myIblEnabled ? 1.0f : 0.0f;
     globals.myIblParams.z    = aPrefilterMaxMipLevel;

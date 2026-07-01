@@ -192,6 +192,19 @@ void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingS
         ImGui::SetTooltip( "Roughness-aware specular occlusion from SSAO (Frostbite Lagarde). Attenuates distant cubemap reflections in occluded areas." );
     }
 
+    ImGui::Separator();
+    ImGui::Checkbox( "SSR enabled", &aLightingSettings.mySsrEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Hi-Z screen-space reflections blended over distant prefilter IBL (Frostbite reflection stack v0)." );
+    }
+    ImGui::SliderFloat( "SSR max roughness", &aLightingSettings.mySsrMaxRoughness, 0.05f, 1.0f );
+    ImGui::SliderFloat( "SSR max distance", &aLightingSettings.mySsrMaxDistance, 5.0f, 120.0f );
+    ImGui::SliderFloat( "SSR thickness", &aLightingSettings.mySsrThickness, 0.01f, 0.2f );
+    int ssrSteps = static_cast< int >( aLightingSettings.mySsrMaxSteps );
+    if ( ImGui::SliderInt( "SSR max steps", &ssrSteps, 8, 64 ) ) {
+        aLightingSettings.mySsrMaxSteps = static_cast< uint32_t >( ssrSteps );
+    }
+
     LogLightingSettingsIfChanged( aLightingSettings );
 }
 

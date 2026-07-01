@@ -243,6 +243,7 @@
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_SsrPass.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
@@ -354,6 +355,7 @@
     <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h" />
     <ClInclude Include="RenderCore\Vk_PostProcessPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowAoSoftPass.h" />
+    <ClInclude Include="RenderCore\Vk_SsrPass.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_AoMethod.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />

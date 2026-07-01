@@ -135,6 +135,13 @@ if errorlevel 1 (
 )
 call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\DepthPyramid.spv"
 
+"%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%SsrTrace.comp" -o "%GEN_DIR%SsrTrace.spv"
+if errorlevel 1 (
+    call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: SsrTrace.comp"
+    exit /b 1
+)
+call "%~dp0ShaderBuild_Common.bat" log INFO SHADER_GLSLC "Compute OK: Shader_Generated\SsrTrace.spv"
+
 "%GLSLC%" -I%SHADER_DIR% "%SHADER_DIR%Ssao.comp" -o "%GEN_DIR%Ssao.spv"
 if errorlevel 1 (
     call "%~dp0ShaderBuild_Common.bat" log ERROR SHADER_GLSLC "Compute failed: Ssao.comp"

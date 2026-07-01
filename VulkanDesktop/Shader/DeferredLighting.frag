@@ -47,7 +47,7 @@ layout(set = 0, binding = 3) readonly buffer ClusterLists {
 layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 5) uniform LightingGlobals {
     mat4 lightViewProj;
-    vec4 shadowParams;  // x unused, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
+    vec4 shadowParams;  // x = SSR enabled, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
     vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = specular shadow min
 } lightingGlobals;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
@@ -62,6 +62,7 @@ layout(set = 0, binding = 13) uniform sampler2D aoMap;
 layout(set = 0, binding = 14) uniform sampler2D hiZPyramid;
 layout(set = 0, binding = 15) uniform sampler2D ddgiProbeAtlas;
 layout(set = 0, binding = 16) uniform sampler2D ddgiVisibilityAtlas;
+layout(set = 0, binding = 17) uniform sampler2D ssrMap;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -244,6 +245,11 @@ void main()
         const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
         const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
         specularIbl = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
+        const float ssrEnabled = lightingGlobals.shadowParams.x;
+        if (ssrEnabled > 0.5) {
+            const vec4 ssr = texture(ssrMap, vUV);
+            specularIbl = mix(specularIbl, ssr.rgb, clamp(ssr.a, 0.0, 1.0));
+        }
     }
     vec3 ambient = diffuseIbl + specularIbl;
     if (iblEnabled == 0u) {

@@ -53,6 +53,11 @@ namespace {
             { "iblIntensity", aLighting.myIblIntensity },
             { "iblSpecularShadowMin", aLighting.myIblSpecularShadowMin },
             { "specularOcclusionEnabled", aLighting.mySpecularOcclusionEnabled },
+            { "ssrEnabled", aLighting.mySsrEnabled },
+            { "ssrMaxRoughness", aLighting.mySsrMaxRoughness },
+            { "ssrMaxDistance", aLighting.mySsrMaxDistance },
+            { "ssrThickness", aLighting.mySsrThickness },
+            { "ssrMaxSteps", aLighting.mySsrMaxSteps },
             { "ddgiEnabled", aLighting.myDdgiEnabled },
             { "ddgiStaggeredUpdate", aLighting.myDdgiStaggeredUpdate },
             { "ddgiIntensity", aLighting.myDdgiIntensity },
@@ -82,6 +87,21 @@ namespace {
         }
         if ( aJson.contains( "specularOcclusionEnabled" ) ) {
             aOut.mySpecularOcclusionEnabled = aJson[ "specularOcclusionEnabled" ].get< bool >();
+        }
+        if ( aJson.contains( "ssrEnabled" ) ) {
+            aOut.mySsrEnabled = aJson[ "ssrEnabled" ].get< bool >();
+        }
+        if ( aJson.contains( "ssrMaxRoughness" ) ) {
+            aOut.mySsrMaxRoughness = aJson[ "ssrMaxRoughness" ].get< float >();
+        }
+        if ( aJson.contains( "ssrMaxDistance" ) ) {
+            aOut.mySsrMaxDistance = aJson[ "ssrMaxDistance" ].get< float >();
+        }
+        if ( aJson.contains( "ssrThickness" ) ) {
+            aOut.mySsrThickness = aJson[ "ssrThickness" ].get< float >();
+        }
+        if ( aJson.contains( "ssrMaxSteps" ) ) {
+            aOut.mySsrMaxSteps = aJson[ "ssrMaxSteps" ].get< uint32_t >();
         }
         if ( aJson.contains( "ddgiEnabled" ) ) {
             aOut.myDdgiEnabled = aJson[ "ddgiEnabled" ].get< bool >();
