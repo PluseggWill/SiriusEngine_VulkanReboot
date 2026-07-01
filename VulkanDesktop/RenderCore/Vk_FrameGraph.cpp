@@ -254,6 +254,8 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                                                                       *aCtx.myFrameDescriptors, aCtx.myViewCount, *aCtx.myViewPackets );
                             }
                             vkCmdEndRenderPass( aCtx.myCommandBuffer );
+                            // Copy lit scene color into SSR history (1-frame lag for temporal hit radiance).
+                            Vk_SsrPass::RecordHistoryUpdate( aCore, aCtx.myCommandBuffer );
                         } } );
     aOutNodes.push_back(
         FrameGraphNode{ Vk_FrameGraphPassId::Post,

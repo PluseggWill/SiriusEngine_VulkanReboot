@@ -56,6 +56,8 @@ struct Vk_AoState {
 
     Gfx_Texture myAoHalf{};  // half-res R8 — HBAO+ / GTAO intermediate
 
+    Gfx_Texture myBentNormalHalf{};  // half-res RG8 octahedral bent normal (GTAO only; deferred binding 18)
+
     Gfx_Texture myAoBlur{};  // classic SSAO separable blur ping-pong
 
     Gfx_Texture myAoHistory[ 2 ]{};  // temporal AO history ping-pong
@@ -97,6 +99,8 @@ void RecreateForExtent( Vk_Renderer& aCore );
 void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 
 VkImageView GetRawAoImageView( const Vk_Renderer& aCore );
+
+VkImageView GetBentNormalHalfView( const Vk_Renderer& aCore );
 
 void NoteRawAoLayout( VkImageLayout aLayout );
 

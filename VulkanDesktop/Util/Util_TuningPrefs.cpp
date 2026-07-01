@@ -58,6 +58,12 @@ namespace {
             { "ssrMaxDistance", aLighting.mySsrMaxDistance },
             { "ssrThickness", aLighting.mySsrThickness },
             { "ssrMaxSteps", aLighting.mySsrMaxSteps },
+            { "ssrHistoryDepthReject", aLighting.mySsrHistoryDepthReject },
+            { "specularOcclusionUseCones", aLighting.mySpecularOcclusionUseCones },
+            { "localReflectionProbeEnabled", aLighting.myLocalReflectionProbeEnabled },
+            { "localProbeIntensity", aLighting.myLocalProbeIntensity },
+            { "localProbeCenter", nlohmann::json::array( { aLighting.myLocalProbeCenter.x, aLighting.myLocalProbeCenter.y, aLighting.myLocalProbeCenter.z } ) },
+            { "localProbeExtents", nlohmann::json::array( { aLighting.myLocalProbeExtents.x, aLighting.myLocalProbeExtents.y, aLighting.myLocalProbeExtents.z } ) },
             { "ddgiEnabled", aLighting.myDdgiEnabled },
             { "ddgiStaggeredUpdate", aLighting.myDdgiStaggeredUpdate },
             { "ddgiIntensity", aLighting.myDdgiIntensity },
@@ -102,6 +108,24 @@ namespace {
         }
         if ( aJson.contains( "ssrMaxSteps" ) ) {
             aOut.mySsrMaxSteps = aJson[ "ssrMaxSteps" ].get< uint32_t >();
+        }
+        if ( aJson.contains( "ssrHistoryDepthReject" ) ) {
+            aOut.mySsrHistoryDepthReject = aJson[ "ssrHistoryDepthReject" ].get< float >();
+        }
+        if ( aJson.contains( "specularOcclusionUseCones" ) ) {
+            aOut.mySpecularOcclusionUseCones = aJson[ "specularOcclusionUseCones" ].get< bool >();
+        }
+        if ( aJson.contains( "localReflectionProbeEnabled" ) ) {
+            aOut.myLocalReflectionProbeEnabled = aJson[ "localReflectionProbeEnabled" ].get< bool >();
+        }
+        if ( aJson.contains( "localProbeIntensity" ) ) {
+            aOut.myLocalProbeIntensity = aJson[ "localProbeIntensity" ].get< float >();
+        }
+        if ( aJson.contains( "localProbeCenter" ) ) {
+            aOut.myLocalProbeCenter = JsonToVec3( aJson[ "localProbeCenter" ] );
+        }
+        if ( aJson.contains( "localProbeExtents" ) ) {
+            aOut.myLocalProbeExtents = JsonToVec3( aJson[ "localProbeExtents" ] );
         }
         if ( aJson.contains( "ddgiEnabled" ) ) {
             aOut.myDdgiEnabled = aJson[ "ddgiEnabled" ].get< bool >();

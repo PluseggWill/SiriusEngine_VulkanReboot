@@ -30,7 +30,7 @@ layout(push_constant) uniform PushConstants {
     vec4 viewWorldPos;
     vec4 legacyAndDebug;     // x = AO enabled, y = AO intensity, z = Gfx_DebugViewMode, w = AO power
     vec4 contactSoftParams;  // x = contact soft enabled, y = ddgi enabled, z = ddgi intensity, w = ddgi debug overlay
-    uvec4 ddgiProbeCounts;   // xyz = probe counts; w unused (std140 pad)
+    uvec4 ddgiProbeCounts;   // xyz = probe counts; w = feature flags (bit0 cones, bit2 local probe)
     vec4 ddgiVolumeMin;
     vec4 ddgiVolumeMax;
     mat4 invViewProj;
@@ -63,6 +63,7 @@ layout(set = 0, binding = 14) uniform sampler2D hiZPyramid;
 layout(set = 0, binding = 15) uniform sampler2D ddgiProbeAtlas;
 layout(set = 0, binding = 16) uniform sampler2D ddgiVisibilityAtlas;
 layout(set = 0, binding = 17) uniform sampler2D ssrMap;
+layout(set = 0, binding = 18) uniform sampler2D bentNormalMap;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -229,13 +230,13 @@ void main()
     }
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
+    const vec3 R = reflect(-V, N);
+    const float NdotV = max(dot(N, V), 0.0);
     vec3 diffuseIbl  = vec3(0.0);
     vec3 specularIbl = vec3(0.0);
     if (iblEnabled != 0u) {
         const float clampedRoughness = clamp(max(roughness, PBR_MIN_ROUGHNESS), 0.0, 1.0);
         const vec3  F0               = mix(vec3(PBR_DIELECTRIC_F0), albedo, metallic);
-        const vec3  R                = reflect(-V, N);
-        const float NdotV            = max(dot(N, V), 0.0);
         const vec3  F                = Pbr_FresnelSchlick(NdotV, F0);
         // Diffuse IBL — not attenuated by sun shadow; full hemispherical irradiance.
         const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
@@ -244,7 +245,21 @@ void main()
         const float specularShadowScale = Pbr_IblSpecularShadowScale(sunShadow, lightingGlobals.iblParams.w);
         const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
         const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
-        specularIbl = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
+        vec3 specularEnv = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
+        // Reflection stack (Frostbite §4.9): distant prefilter → local box probe → SSR (before specular occlusion).
+        const uint featureFlags = pc.ddgiProbeCounts.w;
+        const bool localProbe = (featureFlags & 2u) != 0u;
+        if (localProbe) {
+            const vec3 probeMin = pc.ddgiVolumeMin.xyz;
+            const vec3 probeMax = pc.ddgiVolumeMax.xyz;
+            const vec3 boxCenter = 0.5 * (probeMin + probeMax);
+            const vec3 boxExtents = max(0.5 * (probeMax - probeMin), vec3(1e-4));
+            const vec3 rel = abs(worldPos - boxCenter) / boxExtents;
+            const float probeWeight = clamp(1.0 - max(rel.x, max(rel.y, rel.z)), 0.0, 1.0) * pc.contactSoftParams.z;
+            const vec3 probeSpec = Pbr_SampleParallaxBoxProbe(prefilterMap, worldPos, R, probeMin, probeMax, clampedRoughness, lightingGlobals.iblParams.z);
+            specularEnv = mix(specularEnv, probeSpec * lightingGlobals.iblParams.x, probeWeight);
+        }
+        specularIbl = specularEnv;
         const float ssrEnabled = lightingGlobals.shadowParams.x;
         if (ssrEnabled > 0.5) {
             const vec4 ssr = texture(ssrMap, vUV);
@@ -269,8 +284,17 @@ void main()
     const float specularOccEnabled = lightingGlobals.shadowParams.y;
     float specularOcc = 1.0;
     if (specularOccEnabled > 0.5) {
-        const float ndotv = max(dot(N, V), 0.0);
-        specularOcc = Pbr_SpecularOcclusion(ndotv, ao, roughness);
+        const uint featureFlags = pc.ddgiProbeCounts.w;
+        const bool useCones = (featureFlags & 1u) != 0u;
+        if (useCones) {
+            vec3 bentN = Pbr_DecodeOctahedral(texture(bentNormalMap, vUV).rg);
+            if (length(bentN) < 0.1) {
+                bentN = N;
+            }
+            specularOcc = Pbr_SpecularOcclusionCones(bentN, R, ao, roughness);
+        } else {
+            specularOcc = Pbr_SpecularOcclusion(NdotV, ao, roughness);
+        }
     }
     vec3 lit = (diffuseIbl + ddgi) * ao + specularIbl * specularOcc;
     ambient = diffuseIbl + specularIbl;  // keep ambient for ddgi-debug overlay blend below

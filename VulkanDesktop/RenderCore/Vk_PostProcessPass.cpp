@@ -76,7 +76,8 @@ void CreateSceneColorImage( Vk_Renderer& aCore ) {
     if ( extent.width == 0 || extent.height == 0 ) {
         return;
     }
-    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
+                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                        VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.mySceneColor.AllocImage() );
     aCore.myPostProcessState.mySceneColor.ImageView() =
         aCore.CreateImageView( aCore.myPostProcessState.mySceneColor.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );

@@ -42,6 +42,17 @@ float Ao_GtaoDistanceFalloff(float aDist, float aRadius, float aPower)
     return 1.0 - clamp(pow(aDist / max(aRadius, 1e-4), aPower), 0.0, 1.0);
 }
 
+// Octahedral normal encode for bent-normal export (RG8).
+vec2 Ao_EncodeOctahedral(vec3 aN)
+{
+    const vec3 n = normalize(aN);
+    vec2 p = n.xy * (1.0 / (abs(n.x) + abs(n.y) + abs(n.z)));
+    if (n.z < 0.0) {
+        p = (1.0 - abs(p.yx)) * sign(p);
+    }
+    return p * 0.5 + 0.5;
+}
+
 // Occluder height above the surface tangent plane (view space). ~0 on coplanar ground.
 float Ao_SurfaceElevation(vec3 aDeltaView, vec3 aNormalView)
 {

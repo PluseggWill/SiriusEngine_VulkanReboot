@@ -1,4 +1,4 @@
-// Module: Vk_SsrPass — Hi-Z screen-space reflections for hybrid deferred (specular-ibl-stack Phase B).
+// Module: Vk_SsrPass — Hi-Z screen-space reflections (specular-ibl-stack Phase B + temporal lit HDR).
 #include "Vk_SsrPass.h"
 
 #include "../Util/Util_Loader.h"
@@ -6,6 +6,7 @@
 
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
+#include "Vk_PostProcessPass.h"
 #include "Vk_Renderer.h"
 
 #include <glm/glm.hpp>
@@ -19,18 +20,21 @@ namespace {
 constexpr char     kSsrShaderPath[] = "VulkanDesktop/Shader_Generated/SsrTrace.spv";
 constexpr VkFormat kSsrFormat       = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-VkImageLayout sSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout                  sSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+std::array< VkImageLayout, 2 > sHistoryLayouts{ VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
 
 struct SsrPushConstants {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
+    alignas( 16 ) glm::mat4 prevViewProj;
     alignas( 16 ) glm::vec4 params;
     alignas( 16 ) glm::uvec4 trace;
     alignas( 8 ) glm::vec2 screenSize;
-    alignas( 8 ) glm::vec2 pad;
+    alignas( 4 ) float historyValid;
+    alignas( 4 ) float depthRejectSigma;
 };
 
-static_assert( sizeof( SsrPushConstants ) == 176, "SsrPushConstants must match SsrTrace.comp push block" );
+static_assert( sizeof( SsrPushConstants ) == 240, "SsrPushConstants must match SsrTrace.comp push block" );
 
 VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
     VkImageMemoryBarrier barrier{};
@@ -58,6 +62,37 @@ void DestroySsrImage( Vk_Renderer& aCore ) {
         texture.AllocImage() = {};
     }
     sSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+void DestroySsrImages( Vk_Renderer& aCore ) {
+    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
+    for ( Gfx_Texture& history : aCore.mySsrState.myLitHdrHistory ) {
+        if ( history.ImageView() != VK_NULL_HANDLE ) {
+            vkDestroyImageView( device, history.ImageView(), nullptr );
+            history.ImageView() = VK_NULL_HANDLE;
+        }
+        if ( history.Image() != VK_NULL_HANDLE ) {
+            vmaDestroyImage( allocator, history.Image(), history.Allocation() );
+            history.AllocImage() = {};
+        }
+    }
+    sHistoryLayouts = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
+}
+
+void CreateHistoryImages( Vk_Renderer& aCore ) {
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+
+    for ( Gfx_Texture& history : aCore.mySsrState.myLitHdrHistory ) {
+        aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
+                           VK_SAMPLE_COUNT_1_BIT, history.AllocImage() );
+        history.ImageView() = aCore.CreateImageView( history.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    }
+
+    UtilLogger::Info( "SSR", "lit HDR history ping-pong: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
 }
 
 void CreateSsrImage( Vk_Renderer& aCore ) {
@@ -92,27 +127,35 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
     worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    VkDescriptorImageInfo albedoInfo{};
-    albedoInfo.sampler     = state.myGBufferSampler;
-    albedoInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
-    albedoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo historyInfo{};
+    historyInfo.sampler = state.myGBufferSampler;
+    // Read buffer written at end of previous frame (RecordHistoryUpdate).
+    const uint32_t readIndex = state.myHistoryWriteIndex;
+    historyInfo.imageView    = state.myLitHdrHistory[ readIndex ].ImageView();
+    historyInfo.imageLayout  = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo hiZInfo{};
     hiZInfo.sampler     = aCore.myDepthPyramidState.myPyramidSampler;
     hiZInfo.imageView   = aCore.myDepthPyramidState.myPyramid.ImageView();
     hiZInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo albedoInfo{};
+    albedoInfo.sampler     = state.myGBufferSampler;
+    albedoInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
+    albedoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkDescriptorImageInfo ssrOutInfo{};
     ssrOutInfo.imageView   = state.mySsrOutput.ImageView();
     ssrOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    std::array< VkWriteDescriptorSet, 6 > writes = {
+    std::array< VkWriteDescriptorSet, 7 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 3, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 3, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 4, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &ssrOutInfo, 5, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 5, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &ssrOutInfo, 6, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -120,13 +163,14 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
 void CreatePipeline( Vk_Renderer& aCore ) {
     Vk_SsrState& state = aCore.mySsrState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 6 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 7 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 5 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -175,7 +219,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 5 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 7 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -241,8 +285,11 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroySsrImage( aCore );
-    aCore.mySsrState.myDescriptorSets = {};
-    aCore.mySsrState.myInitialized    = false;
+    DestroySsrImages( aCore );
+    aCore.mySsrState.myDescriptorSets    = {};
+    aCore.mySsrState.myHistoryValid      = false;
+    aCore.mySsrState.myHistoryWriteIndex = 0u;
+    aCore.mySsrState.myInitialized       = false;
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -253,7 +300,10 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroySsrImage( aCore );
+    DestroySsrImages( aCore );
     CreateSsrImage( aCore );
+    CreateHistoryImages( aCore );
+    aCore.mySsrState.myHistoryValid = false;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdateDescriptorSet( aCore, i );
     }
@@ -263,12 +313,17 @@ void Init( Vk_Renderer& aCore ) {
     if ( aCore.mySsrState.myInitialized ) {
         return;
     }
-    if ( !aCore.myGBufferState.myInitialized || !aCore.myDepthPyramidState.myInitialized ) {
-        throw std::runtime_error( "Vk_SsrPass::Init requires GBuffer and DepthPyramid" );
+    if ( !aCore.myGBufferState.myInitialized || !aCore.myDepthPyramidState.myInitialized || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
+        throw std::runtime_error( "Vk_SsrPass::Init requires GBuffer, DepthPyramid, and PostProcess hybrid resolve" );
     }
     UtilLogger::Info( "FG", "Vk_SsrPass::Init." );
     CreatePipeline( aCore );
     CreateSsrImage( aCore );
+    CreateHistoryImages( aCore );
+    aCore.mySsrState.myPrevViewProj      = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.mySsrState.myPrevCameraEye     = aCore.myCamera.myEye;
+    aCore.mySsrState.myHistoryValid      = false;
+    aCore.mySsrState.myHistoryWriteIndex = 0u;
     AllocateDescriptorSets( aCore );
     aCore.mySsrState.myInitialized = true;
 }
@@ -284,6 +339,12 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         return;
     }
 
+    if ( glm::length( aCore.myCamera.myEye - state.myPrevCameraEye ) > 2.5f ) {
+        state.myHistoryValid = false;
+    }
+
+    UpdateDescriptorSet( aCore, aFrameIndex );
+
     const VkImageLayout        oldLayout = sSsrLayout;
     VkImageMemoryBarrier       toGeneral = ColorImageBarrier( state.mySsrOutput.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL,
                                                         oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT );
@@ -292,13 +353,16 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     sSsrLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     SsrPushConstants push{};
-    push.view   = aCore.myCamera.myView;
-    push.proj   = aCore.myCamera.myProj;
-    push.params = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness, aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f,
-                             aCore.myLightingSettings.mySsrThickness );
+    push.view         = aCore.myCamera.myView;
+    push.proj         = aCore.myCamera.myProj;
+    push.prevViewProj = state.myPrevViewProj;
+    push.params       = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness, aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f,
+                                   aCore.myLightingSettings.mySsrThickness );
     const uint32_t hiZMaxMip = Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u;
     push.trace               = glm::uvec4( aCore.myLightingSettings.mySsrMaxSteps, hiZMaxMip, 0u, 0u );
     push.screenSize          = glm::vec2( static_cast< float >( extent.width ), static_cast< float >( extent.height ) );
+    push.historyValid        = state.myHistoryValid ? 1.0f : 0.0f;
+    push.depthRejectSigma    = aCore.myLightingSettings.mySsrHistoryDepthReject;
 
     if ( aCore.AreCommandDebugLabelsEnabled() ) {
         aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=SSR" );
@@ -319,6 +383,60 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
 
 VkImageView GetOutputImageView( const Vk_Renderer& aCore ) {
     return aCore.mySsrState.mySsrOutput.ImageView();
+}
+
+void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
+    // Called after hybrid deferred resolve ends: copy lit scene color into ping-pong history for next-frame SSR.
+    Vk_SsrState& state = aCore.mySsrState;
+    if ( !state.myInitialized || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
+        return;
+    }
+
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+
+    Gfx_Texture& sceneColor = aCore.myPostProcessState.mySceneColor;
+    if ( sceneColor.Image() == VK_NULL_HANDLE ) {
+        return;
+    }
+
+    const uint32_t writeIndex = 1u - state.myHistoryWriteIndex;
+    Gfx_Texture&   history    = state.myLitHdrHistory[ writeIndex ];
+
+    VkImageMemoryBarrier sceneToSrc = ColorImageBarrier( sceneColor.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                         VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &sceneToSrc );
+
+    VkImageLayout&             historyLayout   = sHistoryLayouts[ writeIndex ];
+    VkImageMemoryBarrier       historyToDst    = ColorImageBarrier( history.Image(), historyLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                           historyLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT );
+    const VkPipelineStageFlags historySrcStage = historyLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    vkCmdPipelineBarrier( aCommandBuffer, historySrcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyToDst );
+
+    VkImageCopy copyRegion{};
+    copyRegion.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.srcSubresource.mipLevel       = 0;
+    copyRegion.srcSubresource.baseArrayLayer = 0;
+    copyRegion.srcSubresource.layerCount     = 1;
+    copyRegion.dstSubresource                = copyRegion.srcSubresource;
+    copyRegion.extent                        = { extent.width, extent.height, 1 };
+    vkCmdCopyImage( aCommandBuffer, sceneColor.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, history.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion );
+
+    VkImageMemoryBarrier                  sceneToRead = ColorImageBarrier( sceneColor.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                           VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
+    VkImageMemoryBarrier                  historyToRead = ColorImageBarrier( history.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    std::array< VkImageMemoryBarrier, 2 > toRead        = { sceneToRead, historyToRead };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( toRead.size() ), toRead.data() );
+
+    historyLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    state.myHistoryWriteIndex = writeIndex;
+    state.myHistoryValid      = true;
+    state.myPrevViewProj      = aCore.myCamera.myProj * aCore.myCamera.myView;
+    state.myPrevCameraEye     = aCore.myCamera.myEye;
 }
 
 }  // namespace Vk_SsrPass

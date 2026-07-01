@@ -1,6 +1,6 @@
 #version 450
 
-// Hi-Z SSR v0 — traces reflected view rays; rgb = G-buffer albedo at hit (lit HDR upgrade in follow-up).
+// Hi-Z SSR — traces reflected view rays; rgb = temporally reprojected lit HDR (fallback: G-buffer albedo).
 #include "SsrCommon.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -8,18 +8,21 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(push_constant) uniform PushConstants {
     mat4 view;
     mat4 proj;
+    mat4 prevViewProj;
     vec4 params; // x=maxDistance, y=maxRoughness, z=enabled (0/1), w=thickness
-    uvec4 trace; // x=maxSteps, y=hiZMaxMip (as float bits in shader via float(trace.y)), zw unused
+    uvec4 trace; // x=maxSteps, y=hiZMaxMip, zw unused
     vec2 screenSize;
-    vec2 pad;
+    float historyValid;
+    float depthRejectSigma;
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
 layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
-layout(set = 0, binding = 3) uniform sampler2D gbufferAlbedo;
+layout(set = 0, binding = 3) uniform sampler2D litHdrHistory;
 layout(set = 0, binding = 4) uniform sampler2D hiZPyramid;
-layout(set = 0, binding = 5, rgba16f) uniform writeonly image2D ssrOut;
+layout(set = 0, binding = 5) uniform sampler2D gbufferAlbedo;
+layout(set = 0, binding = 6, rgba16f) uniform writeonly image2D ssrOut;
 
 void main()
 {
@@ -69,6 +72,16 @@ void main()
         return;
     }
 
-    const vec3 reflectedAlbedo = texture(gbufferAlbedo, hitUV).rgb;
-    imageStore(ssrOut, pix, vec4(reflectedAlbedo, 1.0));
+    const vec3 hitWorld = texture(gbufferWorldPosition, hitUV).rgb;
+    vec3 reflectedRgb = texture(gbufferAlbedo, hitUV).rgb;
+    float confidence = 1.0;
+
+    vec3 histRgb;
+    float histConf;
+    if (Ssr_SampleLitHdrHistory(litHdrHistory, gbufferWorldPosition, hitWorld, pc.prevViewProj, pc.historyValid, pc.depthRejectSigma, histRgb, histConf)) {
+        reflectedRgb = histRgb;
+        confidence = histConf;
+    }
+
+    imageStore(ssrOut, pix, vec4(reflectedRgb, confidence));
 }

@@ -2,11 +2,13 @@
 // Set 0: G-buffer samplers + ClusterBuild SSBOs (lights, per-frame cluster lists).
 #include "Vk_DeferredLightingPass.h"
 
+#include "../Gfx/Gfx_AoMethod.h"
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
+#include "Vk_AoPass.h"
 #include "Vk_Camera.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
@@ -197,7 +199,12 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     ssrInfo.imageView   = Vk_SsrPass::GetOutputImageView( aCore );
     ssrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkWriteDescriptorSet, 18 > writes = {
+    VkDescriptorImageInfo bentInfo{};
+    bentInfo.sampler     = state.myGBufferSampler;
+    bentInfo.imageView   = Vk_AoPass::GetBentNormalHalfView( aCore );
+    bentInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    std::array< VkWriteDescriptorSet, 19 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
@@ -216,6 +223,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiProbeInfo, 15, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiVisibilityInfo, 16, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ssrInfo, 17, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bentInfo, 18, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -227,7 +235,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
 
-    const std::array< VkDescriptorSetLayoutBinding, 18 > bindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 19 > bindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
@@ -246,6 +254,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 15 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 16 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 17 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 18 ),
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -284,7 +293,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     }
 
     std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 18 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 19 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
     };
@@ -479,16 +488,37 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.ddgiProbeCountX        = aCore.myDeferredLightingState.myDdgiProbeCountX;
     push.ddgiProbeCountY        = aCore.myDeferredLightingState.myDdgiProbeCountY;
     push.ddgiProbeCountZ        = aCore.myDeferredLightingState.myDdgiProbeCountZ;
-    const glm::vec3 volumeMin   = aCore.myLightingSettings.myDdgiVolumeCenter - aCore.myLightingSettings.myDdgiVolumeExtents;
-    const glm::vec3 volumeMax   = aCore.myLightingSettings.myDdgiVolumeCenter + aCore.myLightingSettings.myDdgiVolumeExtents;
-    push.ddgiVolumeMin[ 0 ]     = volumeMin.x;
-    push.ddgiVolumeMin[ 1 ]     = volumeMin.y;
-    push.ddgiVolumeMin[ 2 ]     = volumeMin.z;
-    push.ddgiVolumeMin[ 3 ]     = 0.0f;
-    push.ddgiVolumeMax[ 0 ]     = volumeMax.x;
-    push.ddgiVolumeMax[ 1 ]     = volumeMax.y;
-    push.ddgiVolumeMax[ 2 ]     = volumeMax.z;
-    push.ddgiVolumeMax[ 3 ]     = 0.0f;
+
+    // ddgiProbeCounts.w feature flags; ddgiVolume* / contactSoftParams.z repurposed when local probe active (DDGI off).
+    uint32_t featureFlags = 0u;
+    if ( aCore.myLightingSettings.mySpecularOcclusionUseCones && aCore.myAoSettings.myMethod == Gfx_AoMethod::Gtao ) {
+        featureFlags |= 1u;
+    }
+    const bool localProbeActive = aCore.myLightingSettings.myLocalReflectionProbeEnabled && !aCore.myLightingSettings.myDdgiEnabled;
+    if ( localProbeActive ) {
+        featureFlags |= 2u;
+    }
+    push.ddgiProbeCountPad = featureFlags;
+
+    glm::vec3 volumeMin{};
+    glm::vec3 volumeMax{};
+    if ( localProbeActive ) {
+        volumeMin          = aCore.myLightingSettings.myLocalProbeCenter - aCore.myLightingSettings.myLocalProbeExtents;
+        volumeMax          = aCore.myLightingSettings.myLocalProbeCenter + aCore.myLightingSettings.myLocalProbeExtents;
+        push.ddgiIntensity = aCore.myLightingSettings.myLocalProbeIntensity;
+    }
+    else if ( aCore.myLightingSettings.myDdgiEnabled ) {
+        volumeMin = aCore.myLightingSettings.myDdgiVolumeCenter - aCore.myLightingSettings.myDdgiVolumeExtents;
+        volumeMax = aCore.myLightingSettings.myDdgiVolumeCenter + aCore.myLightingSettings.myDdgiVolumeExtents;
+    }
+    push.ddgiVolumeMin[ 0 ] = volumeMin.x;
+    push.ddgiVolumeMin[ 1 ] = volumeMin.y;
+    push.ddgiVolumeMin[ 2 ] = volumeMin.z;
+    push.ddgiVolumeMin[ 3 ] = 0.0f;
+    push.ddgiVolumeMax[ 0 ] = volumeMax.x;
+    push.ddgiVolumeMax[ 1 ] = volumeMax.y;
+    push.ddgiVolumeMax[ 2 ] = volumeMax.z;
+    push.ddgiVolumeMax[ 3 ] = 0.0f;
     push.depthSlice =
         std::min( aCore.myAoSettings.myHiZDebugMip, Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u );
 

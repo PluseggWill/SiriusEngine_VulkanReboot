@@ -26,10 +26,12 @@ constexpr char     kUpsampleShaderPath[] = "VulkanDesktop/Shader_Generated/AoUps
 constexpr char     kBlurShaderPath[]     = "VulkanDesktop/Shader_Generated/SsaoBlur.spv";
 constexpr char     kTemporalShaderPath[] = "VulkanDesktop/Shader_Generated/AoTemporal.spv";
 constexpr VkFormat kAoFormat             = VK_FORMAT_R8_UNORM;
+constexpr VkFormat kBentNormalFormat     = VK_FORMAT_R8G8_UNORM;
 
-VkImageLayout sAoRawLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sAoHalfLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sAoBlurLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sAoRawLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sAoHalfLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sBentHalfLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sAoBlurLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
 
 struct ClassicAoPushConstants {
     alignas( 16 ) glm::mat4 view;
@@ -112,12 +114,14 @@ void DestroyAoTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
 void DestroyAoImages( Vk_Renderer& aCore ) {
     DestroyAoTexture( aCore, aCore.myAoState.myAoRaw );
     DestroyAoTexture( aCore, aCore.myAoState.myAoHalf );
+    DestroyAoTexture( aCore, aCore.myAoState.myBentNormalHalf );
     DestroyAoTexture( aCore, aCore.myAoState.myAoBlur );
     DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 0 ] );
     DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 1 ] );
-    sAoRawLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    sAoHalfLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    sAoBlurLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    sAoRawLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
+    sAoHalfLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBentHalfLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    sAoBlurLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 void CreateAoImage( Vk_Renderer& aCore, VkExtent2D aExtent, Gfx_Texture& aTexture ) {
@@ -137,6 +141,9 @@ void CreateAoImages( Vk_Renderer& aCore ) {
     CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 0 ] );
     CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 1 ] );
     CreateAoImage( aCore, HalfExtent( full.width, full.height ), aCore.myAoState.myAoHalf );
+    aCore.CreateImage( HalfExtent( full.width, full.height ), kBentNormalFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myAoState.myBentNormalHalf.AllocImage() );
+    aCore.myAoState.myBentNormalHalf.ImageView() = aCore.CreateImageView( aCore.myAoState.myBentNormalHalf.Image(), kBentNormalFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
     UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
                                 + " half=" + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
@@ -196,11 +203,16 @@ void UpdateHalfResDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     aoHalfInfo.imageView   = state.myAoHalf.ImageView();
     aoHalfInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    std::array< VkWriteDescriptorSet, 4 > writes = {
+    VkDescriptorImageInfo bentHalfInfo{};
+    bentHalfInfo.imageView   = state.myBentNormalHalf.ImageView();
+    bentHalfInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    std::array< VkWriteDescriptorSet, 5 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoHalfInfo, 3, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &bentHalfInfo, 4, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -348,11 +360,12 @@ void CreatePipelines( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_AoPass: failed to create classic AO descriptor set layout" );
     }
 
-    const std::array< VkDescriptorSetLayoutBinding, 4 > halfResBindings = {
+    const std::array< VkDescriptorSetLayoutBinding, 5 > halfResBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
     };
     VkDescriptorSetLayoutCreateInfo halfResLayoutInfo{};
     halfResLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -438,7 +451,7 @@ void CreatePipelines( Vk_Renderer& aCore ) {
 
     std::array< VkDescriptorPoolSize, 2 > poolSizes = {
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 11 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 9 },
+        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 11 },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -649,13 +662,16 @@ void RecordHalfResUpsample( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     }
 }
 
-// Dispatch one half-res AO shader (HBAO+ or GTAO) into myAoHalf.
+// Dispatch one half-res AO shader (HBAO+ or GTAO) into myAoHalf (and optional bent normal RG8).
 void RecordHalfResCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, VkPipeline aPipeline,
-                           const HalfResAoPushConstants& aPush, const char* aDebugLabel ) {
+                           const HalfResAoPushConstants& aPush, const char* aDebugLabel, bool aWritesBentNormal ) {
     Vk_AoState&      state = aCore.myAoState;
     const VkExtent2D half  = HalfExtent( aWidth, aHeight );
 
     CmdBarrierAoForComputeWrite( aCommandBuffer, state.myAoHalf.Image(), sAoHalfLayout );
+    if ( aWritesBentNormal ) {
+        CmdBarrierAoForComputeWrite( aCommandBuffer, state.myBentNormalHalf.Image(), sBentHalfLayout );
+    }
 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, aPipeline );
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myHalfResPipelineLayout, 0, 1, &state.myHalfResDescriptorSets[ aFrameIndex ], 0, nullptr );
@@ -673,6 +689,13 @@ void RecordHalfResCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, u
         ColorImageBarrier( state.myAoHalf.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &halfWritten );
     sAoHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    if ( aWritesBentNormal ) {
+        VkImageMemoryBarrier bentWritten = ColorImageBarrier( state.myBentNormalHalf.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bentWritten );
+        sBentHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
 }
 
 void RecordHbaoPlus( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, uint32_t aWidth, uint32_t aHeight, const Gfx_AoSettings& ao ) {
@@ -687,7 +710,7 @@ void RecordHbaoPlus( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myHbaoSteps, 1u, 8u ), 0u );
     push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
 
-    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myHbaoPipeline, push, "Pass=AO HBAO+" );
+    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myHbaoPipeline, push, "Pass=AO HBAO+", false );
     RecordHalfResUpsample( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, ao );
 }
 
@@ -704,7 +727,7 @@ void RecordGtao( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myGtaoStepsPerSlice, 1u, 16u ), 0u );
     push.halfScreenSize = glm::vec2( static_cast< float >( half.width ), static_cast< float >( half.height ) );
 
-    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myGtaoPipeline, push, "Pass=AO GTAO" );
+    RecordHalfResCompute( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, state.myGtaoPipeline, push, "Pass=AO GTAO", true );
     RecordHalfResUpsample( aCore, aCommandBuffer, aFrameIndex, aWidth, aHeight, ao );
 }
 
@@ -916,6 +939,13 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
 VkImageView GetRawAoImageView( const Vk_Renderer& aCore ) {
     if ( aCore.myAoState.myInitialized ) {
         return aCore.myAoState.myAoRaw.ImageView();
+    }
+    return VK_NULL_HANDLE;
+}
+
+VkImageView GetBentNormalHalfView( const Vk_Renderer& aCore ) {
+    if ( aCore.myAoState.myInitialized && aCore.myAoState.myBentNormalHalf.ImageView() != VK_NULL_HANDLE ) {
+        return aCore.myAoState.myBentNormalHalf.ImageView();
     }
     return VK_NULL_HANDLE;
 }

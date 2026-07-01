@@ -31,3 +31,13 @@
 - **What changed:** Hi-Z SSR compute after DepthPyramid; `mix(prefilter, ssr, confidence) * specularOcc`; ImGui SSR toggles; default off.
 - **Note:** v0 hit radiance = G-buffer albedo at hit UV (lit HDR / temporal reprojection follow-up).
 - **Verification:** Verify-CI exit 0; G0-validation exit 0; FG: `DepthPyramid -> SSR -> AO -> ...`.
+
+## 2026-06-30 — B+ temporal lit HDR + Phase C1/C2
+
+- **Plan ref:** B+ SSR history, C1 bent-normal cones, C2 local box probe
+- **Files:** `SsrTrace.comp`, `SsrCommon.glsl`, `Vk_SsrPass.*`, `Vk_FrameGraph.cpp`, `Vk_PostProcessPass.cpp`, `Gtao.comp`, `AoCommon.glsl`, `PbrIbl.glsl`, `DeferredLighting.frag`, `Vk_AoPass.*`, `Vk_DeferredLightingPass.cpp`, `GpuLightingGlobals.h`, `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`
+- **What changed:**
+  - SSR samples **previous-frame lit HDR** via ping-pong history + `prevViewProj` reprojection (albedo fallback when history invalid).
+  - GTAO exports half-res RG8 bent normals; deferred **cone specular occlusion** (feature flag bit0, requires GTAO).
+  - **Local parallax box probe** (feature flag bit2) reuses prefilter cubemap; volume from ImGui when DDGI off.
+- **Verification:** Verify-CI (MSBuild + GfxTests) OK; stress smoke 120 frames exit 0.

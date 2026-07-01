@@ -21,6 +21,7 @@ layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 1) uniform sampler2D gbufferNormalRoughness;
 layout(set = 0, binding = 2) uniform sampler2D gbufferWorldPosition;
 layout(set = 0, binding = 3, r8) uniform writeonly image2D aoHalfOut;
+layout(set = 0, binding = 4, rg8) uniform writeonly image2D bentHalfOut;
 
 const float kPiHalf = 1.5707963;
 
@@ -34,6 +35,7 @@ void main()
 
     if (pc.params.z < 0.5) {
         imageStore(aoHalfOut, pix, vec4(1.0));
+        imageStore(bentHalfOut, pix, vec4(Ao_EncodeOctahedral(vec3(0.0, 0.0, 1.0)), 0.0, 1.0));
         return;
     }
 
@@ -41,6 +43,7 @@ void main()
     const float depth = texture(gbufferDepth, uv).r;
     if (depth >= 0.999) {
         imageStore(aoHalfOut, pix, vec4(1.0));
+        imageStore(bentHalfOut, pix, vec4(Ao_EncodeOctahedral(vec3(0.0, 0.0, 1.0)), 0.0, 1.0));
         return;
     }
 
@@ -64,6 +67,8 @@ void main()
     const int numSteps = int(clamp(pc.stepsPerSlice.x, 1u, 16u));
 
     float visibility = 0.0;
+    vec3 bentAccum = vec3(0.0);
+    float bentWeightSum = 0.0;
 
     for (int s = 0; s < numSlices; ++s) {
         // World-stable slice direction (avoids camera-locked rotation like early HBAO).
@@ -124,10 +129,17 @@ void main()
         const float h0 = -acos(clamp(horizonCos1, -1.0, 1.0));
         const float h1 = acos(clamp(horizonCos0, -1.0, 1.0));
         visibility += projectedNormalLength * (Ao_GtaoIntegrateSide(h0, nAngle, cosNorm) + Ao_GtaoIntegrateSide(h1, nAngle, cosNorm));
+        const float openness = max(h1 - h0, 0.0);
+        bentAccum += sliceDirW * openness;
+        bentWeightSum += openness;
     }
 
     visibility /= float(numSlices);
-    // XeGTAO floor avoids fully black AO on visible pixels; matches deferred ao=1 baseline.
     const float ao = clamp(max(visibility, 0.03), 0.0, 1.0);
+    vec3 bentW = Nworld;
+    if (bentWeightSum > 1e-4) {
+        bentW = normalize(mix(Nworld, bentAccum / bentWeightSum, 0.65));
+    }
     imageStore(aoHalfOut, pix, vec4(ao));
+    imageStore(bentHalfOut, pix, vec4(Ao_EncodeOctahedral(bentW), 0.0, 1.0));
 }

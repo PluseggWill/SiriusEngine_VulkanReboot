@@ -17,25 +17,33 @@ struct GpuLightingGlobals {
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
 
 struct GpuLightingSettings {
-    bool      myShadowsEnabled           = true;
-    bool      myIblEnabled               = true;
-    float     myIblIntensity             = 1.35f;
-    float     myIblSpecularShadowMin     = 0.15f;
-    bool      mySpecularOcclusionEnabled = true;
-    bool      mySsrEnabled               = false;
-    float     mySsrMaxRoughness          = 0.35f;
-    float     mySsrMaxDistance           = 40.0f;
-    float     mySsrThickness             = 0.05f;
-    uint32_t  mySsrMaxSteps              = 32u;
-    bool      myDdgiEnabled              = false;
-    bool      myDdgiStaggeredUpdate      = true;
-    float     myDdgiIntensity            = 1.0f;
-    float     myDdgiDebugOverlay         = 0.0f;
-    float     myDdgiHistoryBlend         = 0.9f;
-    uint32_t  myDdgiProbeCountX          = 12u;
-    uint32_t  myDdgiProbeCountY          = 8u;
-    uint32_t  myDdgiProbeCountZ          = 12u;
-    uint32_t  myDdgiUpdateBudget         = 64u;
+    bool      myShadowsEnabled              = true;
+    bool      myIblEnabled                  = true;
+    float     myIblIntensity                = 1.35f;
+    float     myIblSpecularShadowMin        = 0.15f;
+    bool      mySpecularOcclusionEnabled    = true;
+    bool      mySsrEnabled                  = false;
+    float     mySsrMaxRoughness             = 0.35f;
+    float     mySsrMaxDistance              = 40.0f;
+    float     mySsrThickness                = 0.05f;
+    uint32_t  mySsrMaxSteps                 = 32u;
+    float     mySsrHistoryDepthReject       = 0.15f;  // temporal SSR: world-space reject sigma (see Ssr_SampleLitHdrHistory)
+    bool      mySpecularOcclusionUseCones   = false;  // Phase C: bent-normal cones (requires GTAO AO method)
+    bool      myLocalReflectionProbeEnabled = false;  // Phase C: parallax box probe (mutually exclusive with DDGI volume fields)
+    float     myLocalProbeIntensity         = 1.0f;
+    glm::vec3 myLocalProbeCenter{ 0.0f, 2.5f, 0.0f };
+    float     myLocalProbePad0 = 0.0f;
+    glm::vec3 myLocalProbeExtents{ 12.0f, 6.0f, 12.0f };
+    float     myLocalProbePad1      = 0.0f;
+    bool      myDdgiEnabled         = false;
+    bool      myDdgiStaggeredUpdate = true;
+    float     myDdgiIntensity       = 1.0f;
+    float     myDdgiDebugOverlay    = 0.0f;
+    float     myDdgiHistoryBlend    = 0.9f;
+    uint32_t  myDdgiProbeCountX     = 12u;
+    uint32_t  myDdgiProbeCountY     = 8u;
+    uint32_t  myDdgiProbeCountZ     = 12u;
+    uint32_t  myDdgiUpdateBudget    = 64u;
     glm::vec3 myDdgiVolumeCenter{ 0.0f, 0.0f, 1.0f };
     float     myDdgiVolumePad0 = 0.0f;
     glm::vec3 myDdgiVolumeExtents{ 20.0f, 20.0f, 8.0f };

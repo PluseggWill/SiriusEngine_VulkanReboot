@@ -48,3 +48,42 @@ bool Ssr_TraceHiZ(
     }
     return false;
 }
+
+// Sample previous-frame lit HDR at the hit world position (temporal reprojection).
+bool Ssr_SampleLitHdrHistory(
+    sampler2D aLitHistory,
+    sampler2D aWorldPosTex,
+    vec3 aHitWorld,
+    mat4 aPrevViewProj,
+    float aHistoryValid,
+    float aDepthRejectSigma,
+    out vec3 aOutRgb,
+    out float aOutConfidence)
+{
+    aOutRgb = vec3(0.0);
+    aOutConfidence = 0.0;
+    if (aHistoryValid < 0.5) {
+        return false;
+    }
+
+    const vec4 prevClip = aPrevViewProj * vec4(aHitWorld, 1.0);
+    if (abs(prevClip.w) < 1e-5) {
+        return false;
+    }
+
+    const vec2 histUv = prevClip.xy / prevClip.w * 0.5 + 0.5;
+    if (histUv.x < 0.0 || histUv.x > 1.0 || histUv.y < 0.0 || histUv.y > 1.0) {
+        return false;
+    }
+
+    const vec3 histWorld = texture(aWorldPosTex, histUv).rgb;
+    const float depthDiff = length(aHitWorld - histWorld);
+    const float depthWeight = exp(-depthDiff / max(aDepthRejectSigma, 1e-4));
+    if (depthWeight < 0.05) {
+        return false;
+    }
+
+    aOutRgb = texture(aLitHistory, histUv).rgb;
+    aOutConfidence = depthWeight;
+    return true;
+}

@@ -191,6 +191,10 @@ void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingS
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "Roughness-aware specular occlusion from SSAO (Frostbite Lagarde). Attenuates distant cubemap reflections in occluded areas." );
     }
+    ImGui::Checkbox( "Specular occlusion cones (GTAO)", &aLightingSettings.mySpecularOcclusionUseCones );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Bent-normal cone specular occlusion (requires AO method GTAO). Replaces Lagarde when enabled." );
+    }
 
     ImGui::Separator();
     ImGui::Checkbox( "SSR enabled", &aLightingSettings.mySsrEnabled );
@@ -203,6 +207,21 @@ void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingS
     int ssrSteps = static_cast< int >( aLightingSettings.mySsrMaxSteps );
     if ( ImGui::SliderInt( "SSR max steps", &ssrSteps, 8, 64 ) ) {
         aLightingSettings.mySsrMaxSteps = static_cast< uint32_t >( ssrSteps );
+    }
+    ImGui::SliderFloat( "SSR history depth reject", &aLightingSettings.mySsrHistoryDepthReject, 0.01f, 0.5f );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Reprojection depth tolerance for temporal lit HDR SSR hits (sigma in NDC depth units)." );
+    }
+
+    ImGui::Separator();
+    ImGui::Checkbox( "Local reflection probe", &aLightingSettings.myLocalReflectionProbeEnabled );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Parallax-corrected box probe (reuses prefilter cubemap). Disabled when DDGI is on." );
+    }
+    if ( aLightingSettings.myLocalReflectionProbeEnabled && !aLightingSettings.myDdgiEnabled ) {
+        ImGui::SliderFloat( "Local probe intensity", &aLightingSettings.myLocalProbeIntensity, 0.0f, 3.0f );
+        ImGui::DragFloat3( "Local probe center", &aLightingSettings.myLocalProbeCenter.x, 0.1f );
+        ImGui::DragFloat3( "Local probe extents", &aLightingSettings.myLocalProbeExtents.x, 0.1f, 0.5f, 200.0f );
     }
 
     LogLightingSettingsIfChanged( aLightingSettings );

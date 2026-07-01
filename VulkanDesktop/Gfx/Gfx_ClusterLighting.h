@@ -61,7 +61,7 @@ struct Gfx_DeferredLightingPushConstants {
     uint32_t ddgiProbeCountX        = 1;     // ddgiProbeCounts.x
     uint32_t ddgiProbeCountY        = 1;     // ddgiProbeCounts.y
     uint32_t ddgiProbeCountZ        = 1;     // ddgiProbeCounts.z
-    uint32_t ddgiProbeCountPad      = 0u;    // ddgiProbeCounts.w (unused in DeferredLighting.frag)
+    uint32_t ddgiProbeCountPad      = 0u;    // ddgiProbeCounts.w: bit0=bent-normal cones, bit2=local reflection probe
     float    ddgiVolumeMin[ 4 ]     = {};
     float    ddgiVolumeMax[ 4 ]     = {};
     float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct

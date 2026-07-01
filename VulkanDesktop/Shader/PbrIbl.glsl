@@ -36,6 +36,33 @@ float Pbr_SpecularOcclusion(float aNdotV, float aVisibility, float aRoughness)
     return clamp(pow(ndotv + visibility, exp2(-16.0 * clampedRoughness - 1.0)) - 1.0 + visibility, 0.0, 1.0);
 }
 
+// Jimenez 2016 / Filament SpecularAO_Cones — bent-normal cone vs reflection vector.
+float Pbr_SpecularOcclusionCones(vec3 aBentNormal, vec3 aReflection, float aVisibility, float aRoughness)
+{
+    const vec3 bentN = normalize(aBentNormal);
+    const vec3 R = normalize(aReflection);
+    const float visibility = clamp(aVisibility, 0.0, 1.0);
+    const float cosB = clamp(dot(bentN, R), 0.0, 1.0);
+    const float cosAlpha = clamp(1.0 - aRoughness * aRoughness, 0.0, 1.0);
+    return visibility * clamp((cosAlpha + cosB - cosAlpha * cosB) / max(cosB, 1e-4), 0.0, 1.0);
+}
+
+// Parallax-corrected box probe (Frostbite §4.9.5) — uses distant prefilter as probe content.
+vec3 Pbr_SampleParallaxBoxProbe(samplerCube aProbeMap, vec3 aWorldPos, vec3 aReflection, vec3 aBoxMin, vec3 aBoxMax, float aRoughness, float aMaxMipLevel)
+{
+    const vec3 nrdir = normalize(aReflection);
+    const vec3 rbmax = (aBoxMax - aWorldPos) / nrdir;
+    const vec3 rbmin = (aBoxMin - aWorldPos) / nrdir;
+    const vec3 rbminmax = mix(rbmin, rbmax, step(vec3(0.0), nrdir));
+    const float correction = min(rbminmax.x, min(rbminmax.y, rbminmax.z));
+    const vec3 pos = aWorldPos + nrdir * max(correction, 0.0);
+    const vec3 boxCenter = 0.5 * (aBoxMax + aBoxMin);
+    const vec3 localPos = pos - boxCenter;
+    const vec3 extents = max(0.5 * (aBoxMax - aBoxMin), vec3(1e-4));
+    const vec3 dir = localPos / extents;
+    return Pbr_SamplePrefilter(aProbeMap, dir, aRoughness, aMaxMipLevel);
+}
+
 // specularShadowScale: mix(specularShadowMin, 1.0, sunShadow) — direct sun shadow only; diffuse unchanged.
 vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
                  samplerCube irradianceMap, samplerCube prefilterMap, sampler2D brdfLut,
@@ -60,6 +87,27 @@ vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
     const vec3 specular = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale;
 
     return (diffuse + specular) * iblIntensity;
+}
+
+// Octahedral encode/decode for bent-normal export (GTAO → specular cones).
+vec2 Pbr_EncodeOctahedral(vec3 aN)
+{
+    const vec3 n = normalize(aN);
+    vec2 p = n.xy * (1.0 / (abs(n.x) + abs(n.y) + abs(n.z)));
+    if (n.z < 0.0) {
+        p = (1.0 - abs(p.yx)) * sign(p);
+    }
+    return p * 0.5 + 0.5;
+}
+
+vec3 Pbr_DecodeOctahedral(vec2 aEnc)
+{
+    vec2 f = aEnc * 2.0 - 1.0;
+    vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    if (n.z < 0.0) {
+        n.xy = (1.0 - abs(n.yx)) * sign(n.xy);
+    }
+    return normalize(n);
 }
 
 vec3 Pbr_SampleSky(samplerCube skyMap, vec3 worldPos, vec3 cameraPos)

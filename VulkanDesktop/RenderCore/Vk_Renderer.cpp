@@ -204,10 +204,11 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
         Vk_DepthPyramidPass::Init( *this );
+        // PostProcess before SSR: hybrid resolve render pass must exist; SSR history copies scene color after deferred.
+        Vk_PostProcessPass::Init( *this );
         Vk_SsrPass::Init( *this );
         Vk_AoPass::Init( *this );
         Vk_ShadowAoSoftPass::Init( *this );
-        Vk_PostProcessPass::Init( *this );
         Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( *this );
         Vk_DeferredLightingPass::Init( *this );
     }
