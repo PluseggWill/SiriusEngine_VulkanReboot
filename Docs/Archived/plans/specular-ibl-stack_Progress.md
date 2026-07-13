@@ -52,3 +52,8 @@
 - [ ] Forward lit SSAO bind (D4 parity).
 - [ ] Optional: same-frame lit HDR (move SSR after deferred — large FG change).
 - [ ] Archive line → `Archived-Plan.md`; clear README **Active now** when closed.
+
+## Closeout — 2026-07-13
+- **Outcome:** Specular IBL stack shipped through **Phase B** (SSR + prefilter blend) plus **Phase C v0** (bent-normal cones + local box probe v0) under commits `3a044a9`, `87be12f`, `087b38f`. The original regression class (“sky leaking in corners”) is addressed via **GGX prefilter mip chain + specular occlusion**, and reflections are layered via **SSR confidence → distant prefilter**.
+- **Verification:** `powershell -File Scripts/Verify-CI.ps1` exit 0 (per checkpoints above); `--validation` passes used during bring-up (Sponza stress, 120-frame smoke exit 0).
+- **Deviations:** Final close uses existing automated gates; **visual sign-off + perf note** were not captured as separate artifacts and are deferred as follow-ups (see remaining list). Remaining Phase C feature-completion items (scene JSON probe schema, dedicated probe cubemap, forward SSAO parity, cavity) are **not required** for closing this task and should be tracked as new items outside this WIP pair.

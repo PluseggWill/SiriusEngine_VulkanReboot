@@ -13,7 +13,6 @@ Done → Archived-Plan stub; no `[x]` here.
 
 | # | Sprint | Focus | Blocked by | Unlocks |
 |---|--------|--------|------------|---------|
-| **0** | **WIP** | Close [`specular-ibl-stack`](specular-ibl-stack_Plan.md) | — | Clean S9 |
 | **1** | **S9** | Temporal (MV + TAA) → **G5** | WIP preferred | Water/hair AA; cinematic post |
 | **2** | **S10** | **Content pipeline** (MeshImport + hot reload) | — | **G3**; rich test scenes for S11+ |
 | **3** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
@@ -53,7 +52,6 @@ flowchart TB
   S20[S20 Volumetrics + cinematic]
   S21[S21 Lab + RHI]
 
-  WIP --> S9
   S9 --> S12
   S9 --> S15
   S9 --> S20

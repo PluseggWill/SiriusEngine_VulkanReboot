@@ -1,47 +1,33 @@
 # Wishlist — staged backlog (render-first)
 
-**Not the execution queue.** Open `[ ]` only. Queue order: [`Active-Plan.md`](Active-Plan.md).  
+**Not the execution queue.** Open `[ ]` only. Queue order: `[Active-Plan.md](Active-Plan.md)`.  
 **Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc`
 
-**Shipped:** S0–S8, G4, RHI-E4 → [`Archived-Plan.md`](Archived-Plan.md)
+**Shipped:** S0–S8, G4, RHI-E4 → `[Archived-Plan.md](Archived-Plan.md)`
 
 **Principle:** **S10 content pipeline early** → complex test scenes; then VFX/env (particles → water → terrain → hair); then scale/geometry. Sim / slice stay **parallel**.
 
 ---
 
 ## Index
-
-| Sprint | Theme | Deps | Status |
-|--------|--------|------|--------|
-| **WIP** | Specular IBL closeout | — | Active |
-| **S9** | Temporal (MV + TAA) | WIP preferred | Next |
-| **S10** | **Content pipeline** | — | Open → **G3** *(early for rich scenes)* |
-| **S11** | **GPU particles** | Depth + FG ✓; S10 scenes preferred | Open |
-| **S12** | **Water** | Transparent + SSR ✓; S9 preferred | Open |
-| **S13** | Cascaded shadows | S5 ✓ | Open |
-| **S14** | **Terrain** | S13 CSM preferred | Open |
-| **S15** | **Hair / fur** | G-buffer ✓; S9 preferred | Open |
-| **S16** | Occlusion + compaction | S6 / S3 ✓ | Open |
-| **S17** | Meshlets | **G3** | After S10 |
-| **S18** | Mesh shader + GPU mesh | S17 | Deferred |
-| **S19** | Materials + decals | G-buffer ✓ | Open |
-| **S20** | Volumetrics + cinematic post | S7 ✓, **G5** | Open |
-| **S21** | Render lab + RHI | — | Parallel |
-| **P-Sim / P-Slice** | Simulation / slice | **G2** ✓ | Parallel |
-| **Backlog** | Unscheduled | — | Parking |
-
+| Sprint              | Theme                        | Deps                               | Status                                  |
+| ------------------- | ---------------------------- | ---------------------------------- | --------------------------------------- |
+| **S9**              | Temporal (MV + TAA)          | WIP preferred                      | Next                                    |
+| **S10**             | **Content pipeline**         | —                                  | Open → **G3** *(early for rich scenes)* |
+| **S11**             | **GPU particles**            | Depth + FG ✓; S10 scenes preferred | Open                                    |
+| **S12**             | **Water**                    | Transparent + SSR ✓; S9 preferred  | Open                                    |
+| **S13**             | Cascaded shadows             | S5 ✓                               | Open                                    |
+| **S14**             | **Terrain**                  | S13 CSM preferred                  | Open                                    |
+| **S15**             | **Hair / fur**               | G-buffer ✓; S9 preferred           | Open                                    |
+| **S16**             | Occlusion + compaction       | S6 / S3 ✓                          | Open                                    |
+| **S17**             | Meshlets                     | **G3**                             | After S10                               |
+| **S18**             | Mesh shader + GPU mesh       | S17                                | Deferred                                |
+| **S19**             | Materials + decals           | G-buffer ✓                         | Open                                    |
+| **S20**             | Volumetrics + cinematic post | S7 ✓, **G5**                       | Open                                    |
+| **S21**             | Render lab + RHI             | —                                  | Parallel                                |
+| **P-Sim / P-Slice** | Simulation / slice           | **G2** ✓                           | Parallel                                |
+| **Backlog**         | Unscheduled                  | —                                  | Parking                                 |
 ---
-
-## WIP — Specular IBL stack closeout
-
-**Plan:** [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md)
-
-- [ ] Sponza before/after visual sign-off (sky leak under arches).
-- [ ] Scene JSON box-probe component + optional dedicated probe cubemap.
-- [ ] Archive Plan/Progress when closed.
-
----
-
 ## S9 — Temporal foundation
 
 *AAA need: shared MV + TAA. **Gate G5**.*
@@ -57,9 +43,11 @@
 
 ---
 
+
+
 ## S10 — Content pipeline *(moved early — rich test scenes)*
 
-**Plan:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md) · unlocks **G3**.
+**Plan:** `[content-pipeline_Plan.md](content-pipeline_Plan.md)` · unlocks **G3**.
 
 *Why here:* later particles/water/terrain/hair need multi-mesh interiors/exteriors beyond Sponza/stress.
 
@@ -68,11 +56,9 @@
 - [ ] Offline/CLI: glTF (prefer) / OBJ → mesh blob (vb/ib/bounds/LOD).
 - [ ] Scene JSON blob id; manifest hash + bounds verify.
 - [ ] Reimport demo assets → identical draw counts vs legacy OBJ path.
-
 ### B — Material hot reload
 
 - [ ] Material pool recreate without full `UnloadScene`; reload Set 1 only.
-
 ### C — Rich scene pack — **Bistro interior** (dogfood for S11+)
 
 *Primary:* [Amazon Lumberyard Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro) (ORCA, CC-BY 4.0). **v0 = interior only**; exterior → Backlog. Depends on §A glTF MeshImport (not Sponza-style OBJ split).
@@ -82,11 +68,13 @@
 - [ ] `Scripts/Generate-BistroScene.ps1` → `Data/Scenes/bistro_interior.json` + `Config/engine.bistro.json`.
 - [ ] Z-up remap + recenter + camera spawn preset(s); `Data/Models/bistro/CREDITS.md`.
 - [ ] glTF PBR → engine materials; glass → transparent pass; import reports alpha stats.
-- [ ] Document dogfood path in Active-Plan / README after close. **CI smoke stays `stress.json`.**
+- [ ] Document dogfood path in Active-Plan / README after close. **CI smoke stays** `stress.json`**.**
 
 **Acceptance:** [ ] **G3** met; hot reload works; `bistro_interior.json` loads under HybridDeferred; metrics in closeout; glass readable; dev path documented (not Verify-Smoke).
 
 ---
+
+
 
 ## S11 — GPU particles
 
@@ -103,6 +91,8 @@
 
 ---
 
+
+
 ## S12 — Water
 
 **Deps:** Transparent + SSR ✓. **S9 preferred**. S10 rich outdoor/courtyard preferred.
@@ -116,6 +106,8 @@
 
 ---
 
+
+
 ## S13 — Cascaded shadow maps
 
 **Deps:** S5 ✓. **Preferred before S14.**
@@ -126,6 +118,8 @@
 **Acceptance:** [ ] Near + distant coverage on exterior path; cost documented.
 
 ---
+
+
 
 ## S14 — Terrain
 
@@ -139,6 +133,8 @@
 
 ---
 
+
+
 ## S15 — Hair / fur *(does not wait for S19)*
 
 **Deps:** G-buffer ✓. **S9 preferred**. S10 helps character mesh import.
@@ -151,6 +147,8 @@
 
 ---
 
+
+
 ## S16 — Visibility (Hi-Z occlusion + compaction)
 
 **Deps:** S6 Hi-Z ✓, S3 GPU cull ✓. Benefits from S10 dense scenes.
@@ -162,6 +160,8 @@
 
 ---
 
+
+
 ## S17 — Meshlets (M3)
 
 **Deps:** **G3** (S10).
@@ -172,6 +172,8 @@
 **M3 acceptance:** [ ] ≥1 production mesh correct segmentation.
 
 ---
+
+
 
 ## S18 — Mesh shader + GPU mesh tasks (M4–M5)
 
@@ -185,6 +187,8 @@
 
 ---
 
+
+
 ## S19 — Advanced materials + deferred decals
 
 **Deps:** G-buffer ✓. Share aniso with S15; do not duplicate.
@@ -197,6 +201,8 @@
 
 ---
 
+
+
 ## S20 — Volumetrics + cinematic post
 
 **Deps:** S7 ✓; **G5** for MB; S13 helps shafts.
@@ -208,9 +214,11 @@
 
 ---
 
+
+
 ## S21 — Render lab + RHI WSI *(parallel)*
 
-**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)
+**Plan:** `[vulkan-rhi-hardening-epic_Plan.md](vulkan-rhi-hardening-epic_Plan.md)`
 
 - [ ] Presets; GPU timestamps; benchmark runbook; screenshots; FG transient RT pool.
 - [ ] Bindless layout codegen; troubleshooting; licenses.
@@ -218,6 +226,8 @@
 - [ ] MSAA vs TAA matrix; SSR follow-ups; pipeline_binary research.
 
 ---
+
+
 
 ## P-Sim — Simulation *(parallel)*
 
@@ -230,6 +240,8 @@
 
 ---
 
+
+
 ## P-Slice — Vertical slice extras *(parallel)*
 
 - [ ] HUD; pause / frame advance; controller / game-state / events.
@@ -237,6 +249,8 @@
 - [ ] Load-smoke scene; missing-asset warn path.
 
 ---
+
+
 
 ## Backlog
 

@@ -1,6 +1,6 @@
 # Plan: specular-ibl-stack — Industry-aligned indirect specular (IBL + occlusion + reflection layers)
 
-**Status:** In progress — **Phase A–B shipped**; **Phase C v0** (cones + ImGui local probe); closeout pending  
+**Status:** Closed (2026-07-13) — **Phase A–B shipped**; **Phase C v0** (cones + ImGui local probe)  
 **Progress:** [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md)  
 **Commits:** `3a044a9` (A), `87be12f` (B), `087b38f` (B+ temporal + C1/C2 v0)  
 **Related:** [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md), [`Archived/plans/shadow-audit-fix_Plan.md`](Archived/plans/shadow-audit-fix_Plan.md), [`Archived/plans/hybrid-deferred-epic_Plan.md`](Archived/plans/hybrid-deferred-epic_Plan.md), [`Wishlist.md`](Wishlist.md) §WIP, [`EngineArchitecture.md`](EngineArchitecture.md) §7

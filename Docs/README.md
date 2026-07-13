@@ -8,7 +8,7 @@
 |-------|--------|
 | **Gate** | **G4** ✓ · next quality gate **G5** (S9 temporal) |
 | **Next sprint** | **S9** Temporal foundation · [`Wishlist.md`](Wishlist.md) § S9 |
-| **WIP task** | **specular-ibl-stack** closeout · [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) / [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md) |
+| **WIP task** | — |
 | **Last closed** | IBL lighting fix — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
 | **Track** | S9 → **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 
