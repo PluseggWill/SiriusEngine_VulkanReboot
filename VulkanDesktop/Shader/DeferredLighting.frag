@@ -70,6 +70,7 @@ layout(location = 0) out vec4 outColor;
 
 vec3 reconstructWorldPos(vec2 aUV, float aDepth)
 {
+    // aDepth = G-buffer clip Z (camera convention). Shadow uses ZO lightViewProj + ClipDepth.glsl.
     const vec4 ndc = vec4(aUV * 2.0 - 1.0, aDepth, 1.0);
     const vec4 worldH = pc.invViewProj * ndc;
     return worldH.xyz / worldH.w;

@@ -12,8 +12,8 @@
 
 namespace Gfx_LightingMath {
 
-// Khronos Vulkan-Samples OrthographicCamera + shadows/main.frag contract.
-// Reversed depth: glm::ortho(l, r, b, t, far_plane, near_plane) — near objects map to ~1.0 in the shadow map.
+// Directional shadow ortho: Vulkan clip Z [0,1] via glm::orthoRH_ZO (not OpenGL [-1,1] ortho).
+// Reverse-Z: pass (far, near) as ZO near/far args so near objects map to ~1.0 in the depth buffer.
 
 struct Gfx_KhronosShadowOrtho {
     float myLeft   = -1.0f;
@@ -56,6 +56,22 @@ inline glm::mat4 Gfx_VulkanStyleProjection( glm::mat4 aProjection ) {
     return aProjection;
 }
 
+// Vulkan viewport depth from clip Z after perspective divide (spec: z_fb = z_ndc*(max-min)+min).
+inline float Gfx_ClipZToFramebufferDepth( float aClipZ, float aMinDepth = 0.0f, float aMaxDepth = 1.0f ) {
+    return aClipZ * ( aMaxDepth - aMinDepth ) + aMinDepth;
+}
+
+// Shadow compare ref must match what the shadow pass wrote (ZO clip + [0,1] viewport ⇒ identity).
+inline float Gfx_MapClipZToShadowCompareDepth( float aClipZ ) {
+    return Gfx_ClipZToFramebufferDepth( aClipZ );
+}
+
+// Directional reverse-Z ortho: nearDist/farDist are positive eye distances (nearDist < farDist).
+// ZO near/far args are swapped so near → clipZ≈1, far → clipZ≈0.
+inline glm::mat4 Gfx_MakeVulkanOrthoReverseZ( float aLeft, float aRight, float aBottom, float aTop, float aNearDist, float aFarDist ) {
+    return Gfx_VulkanStyleProjection( glm::orthoRH_ZO( aLeft, aRight, aBottom, aTop, aFarDist, aNearDist ) );
+}
+
 inline float Gfx_ComputeDirectionalLightReach( const Gfx_Bounds& aSceneBounds ) {
     const glm::vec3 extent    = aSceneBounds.myMax - aSceneBounds.myMin;
     const float     maxExtent = std::max( extent.x, std::max( extent.y, extent.z ) );
@@ -80,7 +96,7 @@ inline glm::mat4 Gfx_ComputeDirectionalLightView( const glm::vec3& aSunDirection
 inline float Gfx_ComputeShadowOrthoPadding( const Gfx_Bounds& aSceneBounds ) {
     const glm::vec3 extent    = aSceneBounds.myMax - aSceneBounds.myMin;
     const float     maxExtent = std::max( extent.x, std::max( extent.y, extent.z ) );
-    return std::max( 0.005f, maxExtent * 0.15f );  // was 0.08 — too tight, caused border-lit light leaks at frustum edges
+    return std::max( 0.005f, maxExtent * 0.15f );  // was 0.08 — too tight; receivers near ortho edge sample border
 }
 
 inline void Gfx_ExpandLightSpaceBounds( Gfx_LightSpaceBounds& aBounds, const glm::mat4& aLightView, const glm::vec3& aWorldPoint ) {
@@ -90,20 +106,13 @@ inline void Gfx_ExpandLightSpaceBounds( Gfx_LightSpaceBounds& aBounds, const glm
 }
 
 inline glm::mat4 Gfx_ComputeKhronosShadowMatrix( const glm::mat4& aLightView, const Gfx_KhronosShadowOrtho& aOrtho ) {
-    glm::mat4 lightProjection = glm::ortho( aOrtho.myLeft, aOrtho.myRight, aOrtho.myBottom, aOrtho.myTop, aOrtho.myFar, aOrtho.myNear );
-    lightProjection           = Gfx_VulkanStyleProjection( lightProjection );
-    return lightProjection * aLightView;
+    return Gfx_MakeVulkanOrthoReverseZ( aOrtho.myLeft, aOrtho.myRight, aOrtho.myBottom, aOrtho.myTop, aOrtho.myNear, aOrtho.myFar ) * aLightView;
 }
 
 inline float Gfx_ComputeShadowDepthBiasConstant( float /*aLightSpaceDepthRange*/ ) {
     // Khronos shadow subpass uses fixed depth-buffer bias (-1.4, -1.7), not scaled by world ortho extent.
     constexpr float kKhronosDepthBiasConstant = -1.4f;
     return kKhronosDepthBiasConstant;
-}
-
-// Map GLM OpenGL clip Z ([-1, 1]) to Vulkan depth-compare reference ([0, 1]) — must match shadow pass viewport transform.
-inline float Gfx_MapClipZToShadowCompareDepth( float aClipZ ) {
-    return aClipZ * 0.5f + 0.5f;
 }
 
 // Snap ortho XY to shadow-map texels so the matrix stays stable when the fly camera moves.

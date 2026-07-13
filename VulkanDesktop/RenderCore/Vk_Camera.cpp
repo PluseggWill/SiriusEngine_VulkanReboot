@@ -65,6 +65,7 @@ void Vk_Camera::UpdateViewProjMatrix() {
     myLookUp                = myWorldUp;
 
     myView = glm::lookAt( myEye, myCenter, myLookUp );
+    // CONTRACT: glm::perspective = OpenGL clip Z [-1,1]; shadow uses ZO [0,1] (vulkan-clip-depth.mdc).
     myProj = glm::perspective( glm::radians( myFov ), myAspect, myNear, myFar );
     myProj[ 1 ][ 1 ] *= -1;  // Vulkan NDC: Y points down (GLM perspective is Y-up OpenGL style)
 }

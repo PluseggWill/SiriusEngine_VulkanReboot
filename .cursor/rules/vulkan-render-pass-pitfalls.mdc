@@ -30,6 +30,7 @@ Lessons from PostProcess / SSAO / depth-pyramid bring-up. Read before adding or 
 
 - Split barriers (copy → shader read, depth → copy src, etc.): **src/dst stage + access** on both sides must match the actual producer/consumer.
 - Mismatch often cascades into hundreds of `[VULKAN-VALIDATION]` lines — fix the **first** barrier error, not symptoms downstream.
+- **Clip Z / shadow compare:** see **`vulkan-clip-depth.mdc`** — ZO `[0,1]` clip, no OpenGL `z*0.5+0.5` on depth.
 
 ## Compute / post-process chains
 

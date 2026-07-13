@@ -265,10 +265,21 @@ void TestDirectionalLightViewOrientation() {
     Expect( beyondEyeViewZ > 0.0f, "point beyond light eye should be behind directional light view" );
 }
 
-void TestShadowCompareDepthViewportMap() {
-    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( -1.0f ) == 0.0f, "clip z -1 maps to compare 0" );
-    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( 0.0f ) == 0.5f, "clip z 0 maps to compare 0.5" );
-    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( 1.0f ) == 1.0f, "clip z 1 maps to compare 1" );
+void TestVulkanViewportClipZContract() {
+    // Vulkan viewport: z_fb = z_ndc * (maxDepth - minDepth) + minDepth. Default range [0,1] ⇒ identity.
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.0f ) == 0.0f, "viewport [0,1]: clip 0 -> fb 0" );
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.5f ) == 0.5f, "viewport [0,1]: clip 0.5 -> fb 0.5" );
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 1.0f ) == 1.0f, "viewport [0,1]: clip 1 -> fb 1" );
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.25f, 0.0f, 1.0f ) == 0.25f, "explicit [0,1] range" );
+
+    // Anti-regression: OpenGL-style Z remap must NOT be used for Vulkan ZO clip Z.
+    constexpr float kOpenGlRemapMid = 0.5f * 0.5f + 0.5f;  // 0.75
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.5f ) != kOpenGlRemapMid, "must not apply OpenGL clipZ*0.5+0.5" );
+    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( 0.5f ) == Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.5f ),
+            "shadow compare depth matches framebuffer depth helper" );
+
+    // Non-default viewport range still uses the linear Vulkan formula (not OpenGL remap).
+    Expect( Gfx_LightingMath::Gfx_ClipZToFramebufferDepth( 0.5f, 0.0f, 2.0f ) == 1.0f, "custom depth range mid" );
 }
 
 void TestDirectionalShadowSetupForSmallScene() {
@@ -289,6 +300,20 @@ void TestDirectionalShadowSetupForSmallScene() {
 
     const Gfx_LightingMath::Gfx_DirectionalShadowSetup setupAgain = Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( defaultSun, scene, shadowMapSize );
     Expect( setup.myLightViewProj == setupAgain.myLightViewProj, "scene-only shadow matrix must be stable across recomputation" );
+
+    // Reverse-Z ZO: receiver near the light-facing scene side -> clipZ ~1; far side along -sun -> clipZ closer to 0.
+    const glm::vec3 focusCenter = Gfx_BoundsCenter( scene );
+    const glm::vec3 nearLit     = focusCenter + defaultSun * 0.02f;
+    const glm::vec3 farLit      = focusCenter - defaultSun * 0.12f;
+    const auto      clipZOf     = [ & ]( const glm::vec3& p ) {
+        const glm::vec4 clip = setup.myLightViewProj * glm::vec4( p, 1.0f );
+        return clip.z / clip.w;
+    };
+    const float nearClipZ = clipZOf( nearLit );
+    const float farClipZ  = clipZOf( farLit );
+    Expect( nearClipZ > 0.5f && nearClipZ <= 1.0f + 1e-3f, "reverse-Z ZO: sun-side point maps toward clipZ 1" );
+    Expect( farClipZ >= -1e-3f && farClipZ < nearClipZ, "reverse-Z ZO: opposite-sun point has smaller clipZ than sun-side" );
+    Expect( Gfx_LightingMath::Gfx_MapClipZToShadowCompareDepth( nearClipZ ) == nearClipZ, "compare depth identity for ZO clip Z" );
 }
 
 void TestSunElevationShadowGate() {
@@ -577,7 +602,7 @@ int main() {
     TestSoAGeneration();
     TestTransparentSortStableUnderRotation();
     TestDirectionalLightViewOrientation();
-    TestShadowCompareDepthViewportMap();
+    TestVulkanViewportClipZContract();
     TestDirectionalShadowSetupForSmallScene();
     TestSunElevationShadowGate();
     TestEntityGpuRecordSync();

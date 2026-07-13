@@ -289,7 +289,7 @@ flowchart LR
 **Hard rules:**
 
 - Never patch a **shared** frame UBO between draws (e.g. do not reuse `GpuCameraData.model` per draw).
-- **S5 (2026-06-12):** lighting resources live on Set 0 (no new shader permutations). Runtime **shadow / IBL / intensity** toggles via **`GpuLightingGlobals`** UBO + config / ImGui — not `#ifdef` branches. Deferred resolve uses a **separate Set 0 layout** (G-buffer + cluster SSBOs + same lighting bindings 5–10). Directional shadow: single **2048²** depth map, stable ortho fit (`Gfx_LightingMath`), PCF in `PbrIbl.glsl`.
+- **S5 (2026-06-12):** lighting resources live on Set 0 (no new shader permutations). Runtime **shadow / IBL / intensity** toggles via **`GpuLightingGlobals`** UBO + config / ImGui — not `#ifdef` branches. Deferred resolve uses a **separate Set 0 layout** (G-buffer + cluster SSBOs + same lighting bindings 5–10). Directional shadow: single **2048²** reverse-Z depth map, **Vulkan ZO clip Z `[0,1]`** (`Gfx_MakeVulkanOrthoReverseZ`); compare depth = clip Z (no OpenGL `*0.5+0.5`); PCF in `PbrShadow.glsl` / `ClipDepth.glsl`. See `.cursor/rules/vulkan-clip-depth.mdc`.
 - Per-draw `mat4` → Set 2 dynamic slice or push constants (policy allows both; demo uses Set 2).
 - Material count / texture set changes → full scene GPU reload today (see `Vk_DescriptorPolicy.h`).
 

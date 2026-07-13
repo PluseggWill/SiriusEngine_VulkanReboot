@@ -2,19 +2,20 @@
 // CONTRACT: shadowParams.x = SSR enabled; shadowParams.y = specular occlusion enabled;
 // shadowParams.z = compare active (0/1); shadowParams.w = 1/shadowMapSize for PCF texel stride.
 // IBL diffuse is not modulated by sun shadow; specular IBL uses mix(kMin, 1.0, sunShadow) in deferred/forward.
+// lightViewProj must be Vulkan ZO clip Z [0,1] (Gfx_MakeVulkanOrthoReverseZ). See ClipDepth.glsl.
+#include "ClipDepth.glsl"
 
 void Pbr_ShadowProject(mat4 lightViewProj, vec3 worldPos, out vec2 shadowUv, out float compareDepth)
 {
     vec4 projectedCoord = lightViewProj * vec4(worldPos, 1.0);
     projectedCoord /= projectedCoord.w;
-    shadowUv = projectedCoord.xy * 0.5 + 0.5;
-    // GLM clip Z is [-1, 1]; hardware depth compare uses the same viewport mapping as the shadow pass write.
-    compareDepth = projectedCoord.z * 0.5 + 0.5;
+    shadowUv = Clip_NdcXYToUv(projectedCoord.xy);
+    compareDepth = Clip_ZToFramebufferDepth(projectedCoord.z);
 }
 
 float Pbr_ShadowCompareTap(sampler2DShadow shadowMap, vec2 shadowUv, float compareDepth)
 {
-    // GREATER_OR_EQUAL + border white: out-of-frustum samples resolve to lit (Khronos contract).
+    // reverse-Z GREATER_OR_EQUAL + border black (0): out-of-frustum taps pass compare → lit.
     return texture(shadowMap, vec3(shadowUv, compareDepth));
 }
 

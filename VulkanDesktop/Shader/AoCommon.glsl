@@ -1,6 +1,7 @@
 // Shared screen-space AO utilities (Ssao / HbaoPlus / Gtao / AoUpsample).
 
-// Reconstruct view-space position from NDC depth and inverse projection.
+// Reconstruct view-space position from framebuffer depth + inverse projection.
+// aDepth is clip Z as stored in the G-buffer (camera OpenGL Z today — see vulkan-clip-depth.mdc).
 vec3 Ao_ReconstructViewPos(vec2 aUV, float aDepth, mat4 aInvProj)
 {
     const vec4 clip = vec4(aUV * 2.0 - 1.0, aDepth, 1.0);
@@ -59,7 +60,7 @@ float Ao_SurfaceElevation(vec3 aDeltaView, vec3 aNormalView)
     return dot(aDeltaView, aNormalView);
 }
 
-// Project view-space position to NDC UV (xy) + depth (z).
+// Project view-space position to screen UV (NDC xy only; Z not remapped here).
 vec2 Ao_ProjectViewPosToUv(vec3 aViewPos, mat4 aProj)
 {
     const vec4 clip = aProj * vec4(aViewPos, 1.0);

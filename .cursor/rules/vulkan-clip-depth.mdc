@@ -1,0 +1,32 @@
+---
+description: Vulkan clip Z / framebuffer depth / shadow compare must stay one contract — no OpenGL Z remap.
+globs: VulkanDesktop/Gfx/**,VulkanDesktop/Shader/**,VulkanDesktop/RenderCore/**,VulkanDesktop/GfxTests/**
+alwaysApply: false
+---
+
+# VulkanDesktop — clip Z / depth / shadow compare
+
+## Locked contract (shadow + any ZO projection)
+
+| Stage | Rule |
+|-------|------|
+| **Projection** | Emit Vulkan clip Z **`[0,1]`** (`glm::orthoRH_ZO` / `perspectiveRH_ZO`, or `Gfx_MakeVulkanOrthoReverseZ`). Do **not** use default GLM OpenGL `[-1,1]` ortho/perspective for shadow. |
+| **Y only** | `Gfx_VulkanStyleProjection` flips **Y**. Never “fix” Z with `* 0.5 + 0.5`. |
+| **Viewport write** | Vulkan: `z_fb = z_ndc * (maxDepth - minDepth) + minDepth`. With `[0,1]` depth range and ZO clip: **`z_fb == clipZ`**. |
+| **Shadow compare** | `compareDepth = clipZ` via `Gfx_ClipZToFramebufferDepth` / `Clip_ZToFramebufferDepth` in `ClipDepth.glsl`. |
+| **UV** | NDC **xy** still uses `* 0.5 + 0.5` (`Clip_NdcXYToUv`). |
+
+## Do not
+
+- Copy OpenGL LearnOpenGL / old Khronos comments that remap **Z** with `clip.z * 0.5 + 0.5` into Vulkan shadow/AO/SSR depth compares.
+- Use `glm::ortho(...)` / `glm::perspective(...)` (NO/`[-1,1]`) for **new** shadow or depth-compare matrices — call `Gfx_MakeVulkanOrthoReverseZ` (or explicit `*RH_ZO` + Y flip).
+- Assume reverse-Z `GREATER_OR_EQUAL` + **white** border ⇒ OOB lit (that is forward-Z/`LESS`). Reverse-Z OOB lit ⇒ border **black (0)**.
+
+## Known dual convention (temporary)
+
+- **Main camera** (`Vk_Camera`) may still use default GLM `perspective` (OpenGL Z) + Y flip only — do **not** copy that into the shadow path.
+- Reconstruct-from-depth helpers that stuff raw depth into clip Z are camera-convention-sensitive; fix in a dedicated ZO camera migration, not by reintroducing OpenGL Z remap on shadows.
+
+## Tests
+
+- GfxTests must keep **viewport contract**: `Gfx_ClipZToFramebufferDepth(z) == z` for viewport `[0,1]`, and must **not** equal OpenGL `z*0.5+0.5` for interior z (e.g. 0.5 → 0.75).

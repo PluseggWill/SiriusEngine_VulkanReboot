@@ -109,7 +109,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     samplerInfo.addressModeU     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     samplerInfo.addressModeV     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     samplerInfo.addressModeW     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.borderColor      = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    samplerInfo.borderColor      = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     samplerInfo.compareEnable    = VK_TRUE;
     samplerInfo.compareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     samplerInfo.anisotropyEnable = VK_FALSE;
