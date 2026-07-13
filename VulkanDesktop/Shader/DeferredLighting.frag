@@ -48,7 +48,7 @@ layout(set = 0, binding = 4) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 5) uniform LightingGlobals {
     mat4 lightViewProj;
     vec4 shadowParams;  // x = SSR enabled, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
-    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = specular shadow min
+    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = unused
 } lightingGlobals;
 layout(set = 0, binding = 6) uniform sampler2DShadow shadowMap;
 layout(set = 0, binding = 7) uniform samplerCube irradianceMap;
@@ -231,23 +231,20 @@ void main()
     }
 
     const uint iblEnabled = uint(lightingGlobals.iblParams.y + 0.5);
+    const float iblIntensity = lightingGlobals.iblParams.x;
     const vec3 R = reflect(-V, N);
     const float NdotV = max(dot(N, V), 0.0);
-    vec3 diffuseIbl  = vec3(0.0);
+    vec3 diffuseAmbient = vec3(0.0);
     vec3 specularIbl = vec3(0.0);
     if (iblEnabled != 0u) {
         const float clampedRoughness = clamp(max(roughness, PBR_MIN_ROUGHNESS), 0.0, 1.0);
         const vec3  F0               = mix(vec3(PBR_DIELECTRIC_F0), albedo, metallic);
         const vec3  F                = Pbr_FresnelSchlick(NdotV, F0);
-        // Diffuse IBL — not attenuated by sun shadow; full hemispherical irradiance.
         const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
-        diffuseIbl = Pbr_SampleIrradiance(irradianceMap, N) * kD * albedo * lightingGlobals.iblParams.x;
-        // Specular IBL — attenuated in sun-shadow zones (removes dominant sun-specular baked into prefilter).
-        const float specularShadowScale = Pbr_IblSpecularShadowScale(sunShadow, lightingGlobals.iblParams.w);
-        const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
-        const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
-        vec3 specularEnv = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
-        // Reflection stack (Frostbite §4.9): distant prefilter → local box probe → SSR (before specular occlusion).
+        diffuseAmbient = Pbr_SampleIrradiance(irradianceMap, N) * kD * albedo * iblIntensity;
+        const vec3  prefilteredColor = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
+        const vec2  brdf             = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
+        vec3 specularEnv = prefilteredColor * (F * brdf.x + brdf.y) * sunShadow * iblIntensity;
         const uint featureFlags = pc.ddgiProbeCounts.w;
         const bool localProbe = (featureFlags & 2u) != 0u;
         if (localProbe) {
@@ -258,7 +255,7 @@ void main()
             const vec3 rel = abs(worldPos - boxCenter) / boxExtents;
             const float probeWeight = clamp(1.0 - max(rel.x, max(rel.y, rel.z)), 0.0, 1.0) * pc.contactSoftParams.z;
             const vec3 probeSpec = Pbr_SampleParallaxBoxProbe(prefilterMap, worldPos, R, probeMin, probeMax, clampedRoughness, lightingGlobals.iblParams.z);
-            specularEnv = mix(specularEnv, probeSpec * lightingGlobals.iblParams.x, probeWeight);
+            specularEnv = mix(specularEnv, probeSpec * iblIntensity, probeWeight);
         }
         specularIbl = specularEnv;
         const float ssrEnabled = lightingGlobals.shadowParams.x;
@@ -266,10 +263,8 @@ void main()
             const vec4 ssr = texture(ssrMap, vUV);
             specularIbl = mix(specularIbl, ssr.rgb, clamp(ssr.a, 0.0, 1.0));
         }
-    }
-    vec3 ambient = diffuseIbl + specularIbl;
-    if (iblEnabled == 0u) {
-        ambient = pc.ambientColor.rgb * albedo;
+    } else {
+        diffuseAmbient = pc.ambientColor.rgb * albedo;
     }
 
     const float aoEnabled = pc.legacyAndDebug.x;
@@ -297,8 +292,7 @@ void main()
             specularOcc = Pbr_SpecularOcclusion(NdotV, ao, roughness);
         }
     }
-    vec3 lit = (diffuseIbl + ddgi) * ao + specularIbl * specularOcc;
-    ambient = diffuseIbl + specularIbl;  // keep ambient for ddgi-debug overlay blend below
+    vec3 lit = (diffuseAmbient + ddgi) * ao + specularIbl * specularOcc;
     lit = mix(lit, ddgi, clamp(pc.contactSoftParams.w, 0.0, 1.0));
 
     const ClusterLightList cluster = lists[clusterId];

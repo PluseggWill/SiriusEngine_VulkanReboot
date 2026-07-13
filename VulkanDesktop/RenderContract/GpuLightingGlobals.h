@@ -11,7 +11,7 @@
 struct GpuLightingGlobals {
     alignas( 16 ) glm::mat4 myLightViewProj{};
     alignas( 16 ) glm::vec4 myShadowParams{ 0.0f, 0.0f, 1.0f, 0.0f };
-    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.15f };
+    alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.0f };
 };
 
 static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
@@ -20,7 +20,6 @@ struct GpuLightingSettings {
     bool      myShadowsEnabled              = true;
     bool      myIblEnabled                  = true;
     float     myIblIntensity                = 1.35f;
-    float     myIblSpecularShadowMin        = 0.15f;
     bool      mySpecularOcclusionEnabled    = true;
     bool      mySsrEnabled                  = false;
     float     mySsrMaxRoughness             = 0.35f;
@@ -61,6 +60,5 @@ inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& a
     globals.myIblParams.x    = aSettings.myIblIntensity;
     globals.myIblParams.y    = aSettings.myIblEnabled ? 1.0f : 0.0f;
     globals.myIblParams.z    = aPrefilterMaxMipLevel;
-    globals.myIblParams.w    = aSettings.myIblSpecularShadowMin;
     return globals;
 }

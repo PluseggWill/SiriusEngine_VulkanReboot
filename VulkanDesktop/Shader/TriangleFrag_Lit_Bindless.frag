@@ -75,7 +75,7 @@ void main()
     vec3 color = Pbr_EvalSceneAmbient(N, V, albedo, mr.x, mr.y, envData.ambientColor.rgb, inWorldPos, specularIbl);
     color += specularIbl;
 
-    const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(inWorldPos, envData.sunlightColor.rgb);
+    const vec3 sunRadiance = Pbr_EvalSceneSunRadiance(inWorldPos, envData.sunlightColor.rgb * envData.sunlightColor.a);
     color += Pbr_EvalDirect(N, V, normalize(envData.sunlightDirection.xyz), albedo, mr.x, mr.y, sunRadiance);
 
     outColor = vec4(color, clamp(mat.alpha, 0.0, 1.0));

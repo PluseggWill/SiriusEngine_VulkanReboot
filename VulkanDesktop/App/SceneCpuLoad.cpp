@@ -46,7 +46,7 @@ void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
 
     float     fovDeg    = 45.0f;
     float     nearPlane = 0.1f;
-    float     farPlane  = 32.0f;
+    float     farPlane  = 128.0f;
     glm::vec3 eye{ 10.0f, 0.1f, 16.0f };
     glm::vec3 center{ 9.0f, 0.1f, 16.0f };
     glm::vec3 up{ 0.0f, 0.0f, 1.0f };
@@ -57,7 +57,7 @@ void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
         up                       = spawn->myUp;
         fovDeg                   = spawn->myFovYDeg;
         const float lookDistance = glm::length( center - eye );
-        farPlane                 = std::max( 32.0f, lookDistance * 10.0f );
+        farPlane                 = std::max( 128.0f, lookDistance * 20.0f );
     }
 
     aCore.myCamera.SetLens( fovDeg, nearPlane, farPlane, aspect );
@@ -72,5 +72,5 @@ void App_ApplyDefaultEnvironment( Vk_Renderer& aCore ) {
     aCore.myEnvironmentData.myFogColor          = { 0.92f, 0.95f, 1.0f, 1.0f };
     aCore.myEnvironmentData.myFogDistance       = { 0.0f, 0.0f, 1.0f, aCore.myEnvironmentData.myFogDistance.w };
     aCore.myEnvironmentData.mySunlightDirection = { glm::vec4( Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight(), 0.0f ) };
-    aCore.myEnvironmentData.mySunlightColor     = { 1.15f, 1.12f, 1.02f, 1.0f };
+    aCore.myEnvironmentData.mySunlightColor     = { 1.15f, 1.12f, 1.02f, 2.5f };
 }

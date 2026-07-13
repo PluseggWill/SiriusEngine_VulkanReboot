@@ -11,20 +11,14 @@ vec2 Pbr_BrdfLut(float NdotV, float roughness, sampler2D brdfLut)
 
 vec3 Pbr_SampleIrradiance(samplerCube irradianceMap, vec3 N)
 {
-    // Offline irradiance PNGs store cosine-weighted average radiance (LDR); scale to ∫ L cos θ dω.
-    return texture(irradianceMap, normalize(N)).rgb * PBR_PI;
+    // Offline bake stores cosine-weighted average radiance (E/π). Lambert diffuse uses albedo * (E/π).
+    return texture(irradianceMap, normalize(N)).rgb;
 }
 
 vec3 Pbr_SamplePrefilter(samplerCube prefilterMap, vec3 R, float roughness, float maxMipLevel)
 {
     const float lod = clamp(roughness, 0.0, 1.0) * max(maxMipLevel, 0.0);
     return textureLod(prefilterMap, normalize(R), lod).rgb;
-}
-
-// Attenuate specular IBL in sun shadow; diffuse IBL stays full strength.
-float Pbr_IblSpecularShadowScale(float sunShadow, float specularShadowMin)
-{
-    return mix(clamp(specularShadowMin, 0.0, 1.0), 1.0, clamp(sunShadow, 0.0, 1.0));
 }
 
 // Frostbite Listing 26 / Filament SpecularAO_Lagarde — roughness-aware specular occlusion from SSAO visibility.
@@ -61,32 +55,6 @@ vec3 Pbr_SampleParallaxBoxProbe(samplerCube aProbeMap, vec3 aWorldPos, vec3 aRef
     const vec3 extents = max(0.5 * (aBoxMax - aBoxMin), vec3(1e-4));
     const vec3 dir = localPos / extents;
     return Pbr_SamplePrefilter(aProbeMap, dir, aRoughness, aMaxMipLevel);
-}
-
-// specularShadowScale: mix(specularShadowMin, 1.0, sunShadow) — direct sun shadow only; diffuse unchanged.
-vec3 Pbr_EvalIbl(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
-                 samplerCube irradianceMap, samplerCube prefilterMap, sampler2D brdfLut,
-                 float iblIntensity, uint iblEnabled, float prefilterMaxMip, float specularShadowScale)
-{
-    if ((iblEnabled & PBR_IBL_ENABLED_FLAG) == 0u) {
-        return vec3(0.0);
-    }
-
-    const float clampedRoughness = clamp(max(roughness, PBR_MIN_ROUGHNESS), 0.0, 1.0);
-    const vec3 F0 = mix(vec3(PBR_DIELECTRIC_F0), albedo, metallic);
-    const vec3 R = reflect(-V, N);
-    const float NdotV = max(dot(N, V), 0.0);
-
-    const vec3 irradiance = Pbr_SampleIrradiance(irradianceMap, N);
-    const vec3 prefilteredColor = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, prefilterMaxMip);
-    const vec2 brdf = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
-    const vec3 F = Pbr_FresnelSchlick(NdotV, F0);
-
-    const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
-    const vec3 diffuse = irradiance * kD * albedo;
-    const vec3 specular = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale;
-
-    return (diffuse + specular) * iblIntensity;
 }
 
 // Octahedral encode/decode for bent-normal export (GTAO → specular cones).

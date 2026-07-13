@@ -4,7 +4,7 @@
 layout(set = 0, binding = 2) uniform LightingGlobals {
     mat4 lightViewProj;
     vec4 shadowParams;  // x = SSR enabled, y = specular occlusion enabled, z = compare active (0/1), w = 1/shadowMapSize
-    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip level, w = specular shadow min
+    vec4 iblParams;     // x = intensity, y = enabled, z = prefilter max mip, w = unused
 } lightingGlobals;
 
 layout(set = 0, binding = 3) uniform sampler2DShadow shadowMap;
@@ -38,11 +38,10 @@ vec3 Pbr_EvalSceneAmbient(vec3 N, vec3 V, vec3 albedo, float metallic, float rou
         // Diffuse IBL
         const vec3 kD = (vec3(1.0) - F) * (1.0 - metallic);
         vec3 diffuseIbl = Pbr_SampleIrradiance(irradianceMap, N) * kD * albedo * lightingGlobals.iblParams.x;
-        // Specular IBL (shadow-attenuated)
-        const float specularShadowScale = Pbr_IblSpecularShadowScale(Pbr_SceneSunShadow(worldPos), lightingGlobals.iblParams.w);
-        const vec3  prefilteredColor    = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
-        const vec2  brdf                = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
-        outSpecularIbl = prefilteredColor * (F * brdf.x + brdf.y) * specularShadowScale * lightingGlobals.iblParams.x;
+        const float sunShadow = Pbr_SceneSunShadow(worldPos);
+        const vec3  prefilteredColor = Pbr_SamplePrefilter(prefilterMap, R, clampedRoughness, lightingGlobals.iblParams.z);
+        const vec2  brdf             = Pbr_BrdfLut(NdotV, clampedRoughness, brdfLut);
+        outSpecularIbl = prefilteredColor * (F * brdf.x + brdf.y) * sunShadow * lightingGlobals.iblParams.x;
         // Forward path does not have a stable screen-space AO UV mapping yet.
         return diffuseIbl;
     }

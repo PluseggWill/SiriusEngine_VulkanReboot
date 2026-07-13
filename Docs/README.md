@@ -9,7 +9,7 @@
 | **Gate** | **G4** ✓ (closed) |
 | **Next sprint** | **S8** DDGI · [`Wishlist.md`](Wishlist.md) § S8 |
 | **WIP task** | **specular-ibl-stack** closeout (visual sign-off, C2 JSON probe) · [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) / [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md) — Phases A–B + C v0 shipped (`087b38f`) |
-| **Last closed** | GTAO v0 + modular `Vk_AoPass` — [`Archived/plans/gtao_Plan.md`](Archived/plans/gtao_Plan.md) |
+| **Last closed** | IBL lighting fix (π energy, sun intensity, camera far) — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
 | **Epic** | Stage 2 sign-off [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*

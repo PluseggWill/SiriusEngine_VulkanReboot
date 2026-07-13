@@ -10,7 +10,7 @@ Vk_Camera::Vk_Camera() {
     myPitch    = 0.0f;
     myFov      = 45.0f;
     myNear     = 0.1f;
-    myFar      = 10.0f;
+    myFar      = 256.0f;
     myAspect   = 800.0f / 600.0f;
 
     LookAt( myPosition, myPosition + glm::vec3( -1.0f, 0.0f, 0.0f ), myWorldUp );

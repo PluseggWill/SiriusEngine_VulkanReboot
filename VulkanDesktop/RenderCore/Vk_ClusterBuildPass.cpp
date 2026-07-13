@@ -51,7 +51,7 @@ void DestroyClusterListBuffers( Vk_Renderer& aCore, bool aClearDescriptorSets ) 
 
 void WriteSunLightFromEnvironment( Gfx_ClusterLighting::GpuClusterLight& aOut, const GpuEnvironmentData& aEnv ) {
     const glm::vec3 sunDir = glm::normalize( glm::vec3( aEnv.mySunlightDirection ) );
-    const glm::vec3 sunCol = glm::vec3( aEnv.mySunlightColor );
+    const glm::vec3 sunCol = glm::vec3( aEnv.mySunlightColor ) * aEnv.mySunlightColor.w;
     std::memcpy( aOut.direction, glm::value_ptr( glm::vec4( sunDir, 0.0f ) ), sizeof( float ) * 4 );
     std::memcpy( aOut.color, glm::value_ptr( glm::vec4( sunCol, 1.0f ) ), sizeof( float ) * 4 );
 }

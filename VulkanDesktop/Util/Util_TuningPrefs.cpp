@@ -51,7 +51,6 @@ namespace {
             { "shadowsEnabled", aLighting.myShadowsEnabled },
             { "iblEnabled", aLighting.myIblEnabled },
             { "iblIntensity", aLighting.myIblIntensity },
-            { "iblSpecularShadowMin", aLighting.myIblSpecularShadowMin },
             { "specularOcclusionEnabled", aLighting.mySpecularOcclusionEnabled },
             { "ssrEnabled", aLighting.mySsrEnabled },
             { "ssrMaxRoughness", aLighting.mySsrMaxRoughness },
@@ -87,9 +86,6 @@ namespace {
         }
         if ( aJson.contains( "iblIntensity" ) ) {
             aOut.myIblIntensity = aJson[ "iblIntensity" ].get< float >();
-        }
-        if ( aJson.contains( "iblSpecularShadowMin" ) ) {
-            aOut.myIblSpecularShadowMin = aJson[ "iblSpecularShadowMin" ].get< float >();
         }
         if ( aJson.contains( "specularOcclusionEnabled" ) ) {
             aOut.mySpecularOcclusionEnabled = aJson[ "specularOcclusionEnabled" ].get< bool >();

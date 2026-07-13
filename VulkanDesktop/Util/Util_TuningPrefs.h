@@ -28,7 +28,7 @@ struct ViewportToggles {
 
 struct Snapshot {
     glm::vec4            myAmbientColor{ 0.24f, 0.26f, 0.30f, 1.0f };
-    glm::vec4            mySunlightColor{ 1.15f, 1.12f, 1.02f, 1.0f };
+    glm::vec4            mySunlightColor{ 1.15f, 1.12f, 1.02f, 2.5f };
     glm::vec4            mySunlightDirection{};
     Gfx_LightingSettings myLighting{};
     Gfx_AoSettings       myAo{};

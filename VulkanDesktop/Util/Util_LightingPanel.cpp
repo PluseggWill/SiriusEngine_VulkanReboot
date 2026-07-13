@@ -156,6 +156,10 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
 void UtilLightingPanel::BuildSunContents( GpuEnvironmentData& anEnvironment, bool& aShowSunGizmo ) {
     ImGui::ColorEdit3( "Ambient", &anEnvironment.myAmbientColor.x );
     ImGui::ColorEdit3( "Sun color", &anEnvironment.mySunlightColor.x );
+    ImGui::SliderFloat( "Sun intensity", &anEnvironment.mySunlightColor.w, 0.f, 8.f );
+    if ( ImGui::IsItemHovered() ) {
+        ImGui::SetTooltip( "Scales direct sun radiance (rgb * intensity). Does not scale IBL." );
+    }
     ImGui::DragFloat3( "Sun direction", &anEnvironment.mySunlightDirection.x, 0.02f, -1.f, 1.f );
 
     if ( ImGui::Button( "Normalize sun direction" ) ) {
@@ -182,10 +186,6 @@ void UtilLightingPanel::BuildShadowIblContents( Gfx_LightingSettings& aLightingS
     ImGui::SliderFloat( "IBL intensity", &aLightingSettings.myIblIntensity, 0.f, 3.f );
     if ( ImGui::IsItemHovered() ) {
         ImGui::SetTooltip( "When IBL is off, ambient color scales the ambient fallback." );
-    }
-    ImGui::SliderFloat( "IBL spec shadow min", &aLightingSettings.myIblSpecularShadowMin, 0.f, 1.f );
-    if ( ImGui::IsItemHovered() ) {
-        ImGui::SetTooltip( "Specular IBL in full sun shadow: mix(min, 1.0, sunShadow). Diffuse IBL unchanged." );
     }
     ImGui::Checkbox( "Specular occlusion (IBL)", &aLightingSettings.mySpecularOcclusionEnabled );
     if ( ImGui::IsItemHovered() ) {

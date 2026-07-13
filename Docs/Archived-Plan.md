@@ -549,4 +549,16 @@ Completed **`[S0]`** tasks: **Toolchain & stability** below and **`[S0]`** lines
 
 ---
 
+## IBL lighting fix *(closed 2026-07-13)*
+
+| | |
+|--|--|
+| **Outcome** | Diffuse IBL π energy fix; remove `iblSpecularShadowMin` patch; sun intensity (`sunlightColor.w`) + ImGui; camera far plane; deferred IBL-off ambient fallback |
+| **Validation** | `Verify-CI.ps1` (build + GfxTests); shader SPIR-V regen |
+| **Plan log** | [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md), [`ibl-lighting-fix_Progress.md`](Archived/plans/ibl-lighting-fix_Progress.md) |
+
+- [x] Fix diffuse IBL energy, sun tuning, camera far — 2026-07-13
+
+---
+
 *When closing a task: move here, tag sprint (`[S0]`…`[S8]`, `[parallel]`), note verification. Update `EngineArchitecture.md` when boundaries or render target change.*

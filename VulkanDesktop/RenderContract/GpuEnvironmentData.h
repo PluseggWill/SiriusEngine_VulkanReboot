@@ -8,6 +8,6 @@ struct GpuEnvironmentData {
     glm::vec4 myFogDistance;  // z = vertex/tex albedo blend (default 1); w = debug view mode
     glm::vec4 myAmbientColor;
     glm::vec4 mySunlightDirection;  // xyz toward sun
-    glm::vec4 mySunlightColor;
+    glm::vec4 mySunlightColor;      // rgb tint; w = direct sun intensity multiplier
     glm::vec4 myViewWorldPos;
 };
