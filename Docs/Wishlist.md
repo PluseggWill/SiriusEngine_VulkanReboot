@@ -1,262 +1,250 @@
-# Wishlist — staged backlog (S4+)
+# Wishlist — staged backlog (render-first)
 
-**Not the execution queue.** Open `[ ]` for **S8–S13**, **Parallel**, **Geometry track**, and **Backlog** only.
+**Not the execution queue.** Open `[ ]` only. Queue order: [`Active-Plan.md`](Active-Plan.md).  
+**Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc`
 
-**Active work:** [`Active-Plan.md`](Active-Plan.md) (queue + gates). **Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc`
+**Shipped:** S0–S8, G4, RHI-E4 → [`Archived-Plan.md`](Archived-Plan.md)
 
-**Promote:** copy `[ ]` lines into Active-Plan when a gate opens. **Ship:** move `[x]` to [`Archived-Plan.md`](Archived-Plan.md) — never duplicate done items here.
-
-**Pivot:** Lighting **S4–S7** implementation shipped (2026-06-15/16); **S8 DDGI shipped** (2026-06-16); **G4 Stage 2 accepted**. **Meshlet / mesh shader / GPU mesh** → [**§ Geometry track (S10–S12)**](#geometry-track--meshlet--mesh-shader-deferred) — gate **G3** applies to S10 only.
+**Principle:** **S10 content pipeline early** → complex test scenes; then VFX/env (particles → water → terrain → hair); then scale/geometry. Sim / slice stay **parallel**.
 
 ---
 
 ## Index
 
-| Sprint | Milestone | Theme | Tasks |
-|--------|-----------|--------|--------|
-| **S3** | M2 + FG v0 | GPU indirect + hybrid shell | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S4** | Lighting-1 | PBR + G-buffer contract | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S5** | Lighting-2 | IBL, skybox, shadows | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S6** | Lighting-3 | SSAO + Hi-Z + modular AO | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S7** | Lighting-4 | Post + frame graph v1 | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **G4** ✓ | Stage 2 gate | Hybrid acceptance on Sponza | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S8** ✓ | Lighting-5 | DDGI / GI (Stage 3) | → [`Archived-Plan.md`](Archived-Plan.md) |
-| **S9** | Simulation | Physics / anim / AI | [below](#s9--simulation-physics--animation--ai) · gate **G2** ✓ |
-| **S10–S12** | M3–M5 | Geometry (deferred) | [Geometry track](#geometry-track--meshlet--mesh-shader-deferred) |
-| **S13** | M6 infra | Render lab + RHI | [below](#s13--render-lab-infrastructure-deferred) |
-| **Parallel** | Full slice | Vertical slice extras | [below](#parallel--vertical-slice) |
-
-**Lighting epics:** Stage 2 [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) (S4–S7 shipped; **G4** accepted) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) (S8 shipped).
-
-**Bindless contract:** [`shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance · [`EngineArchitecture.md`](EngineArchitecture.md) §6.
-
----
-
-## S4 — PBR + G-buffer contract (Lighting-1) *(shipped — see Archived-Plan)*
-
-Closed 2026-06-12 · Plan: [`Archived/plans/s4-pbr-gbuffer_Plan.md`](Archived/plans/s4-pbr-gbuffer_Plan.md)
+| Sprint | Theme | Deps | Status |
+|--------|--------|------|--------|
+| **WIP** | Specular IBL closeout | — | Active |
+| **S9** | Temporal (MV + TAA) | WIP preferred | Next |
+| **S10** | **Content pipeline** | — | Open → **G3** *(early for rich scenes)* |
+| **S11** | **GPU particles** | Depth + FG ✓; S10 scenes preferred | Open |
+| **S12** | **Water** | Transparent + SSR ✓; S9 preferred | Open |
+| **S13** | Cascaded shadows | S5 ✓ | Open |
+| **S14** | **Terrain** | S13 CSM preferred | Open |
+| **S15** | **Hair / fur** | G-buffer ✓; S9 preferred | Open |
+| **S16** | Occlusion + compaction | S6 / S3 ✓ | Open |
+| **S17** | Meshlets | **G3** | After S10 |
+| **S18** | Mesh shader + GPU mesh | S17 | Deferred |
+| **S19** | Materials + decals | G-buffer ✓ | Open |
+| **S20** | Volumetrics + cinematic post | S7 ✓, **G5** | Open |
+| **S21** | Render lab + RHI | — | Parallel |
+| **P-Sim / P-Slice** | Simulation / slice | **G2** ✓ | Parallel |
+| **Backlog** | Unscheduled | — | Parking |
 
 ---
 
-## S5 — Environment + shadows (Lighting-2) *(shipped — see Archived-Plan)*
+## WIP — Specular IBL stack closeout
 
-Closed 2026-06-12 · Plan: [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md)
+**Plan:** [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md)
 
----
-
-## S6 — Screen-space + Hi-Z (Lighting-3) *(shipped — see Archived-Plan)*
-
-Closed 2026-06-15 · Core: [`Archived/plans/s6-ssao-hiz_Plan.md`](Archived/plans/s6-ssao-hiz_Plan.md)  
-Follow-ons 2026-06-16: HBAO+ [`hbao-plus_Plan.md`](Archived/plans/hbao-plus_Plan.md) · GTAO [`gtao_Plan.md`](Archived/plans/gtao_Plan.md) · contact soft [`contact-soft-ao_Plan.md`](Archived/plans/contact-soft-ao_Plan.md)
-
-### Backlog (deferred from S6)
-
-- [x] Normal-aware radius tuning (beyond v0 defaults) — 2026-06-16 (AO radius now blends by normal-facing factor in Classic/HBAO+/GTAO; UI slider `AO normal-aware radius`).
-- [ ] *(moved to S8)* Temporal AO stability now tracked under S8 DDGI kickoff tasks.
+- [ ] Sponza before/after visual sign-off (sky leak under arches).
+- [ ] Scene JSON box-probe component + optional dedicated probe cubemap.
+- [ ] Archive Plan/Progress when closed.
 
 ---
 
-## S7 — Post-processing + frame graph v1 (Lighting-4) *(shipped — see Archived-Plan)*
+## S9 — Temporal foundation
 
-Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/s7-post-fg_Plan.md)
+*AAA need: shared MV + TAA. **Gate G5**.*
 
-**Shipped:** HDR intermediate, tonemap + exposure, optional bloom, `Vk_FrameGraph` (registry + barrier compiler + topo execute) with shadow/AO/bloom toggles.
+**Deps:** HybridDeferred + Hi-Z + SSR history ✓; WIP close preferred.
 
-**Deferred to S13 (lab infra):** presets `Low/Base/High/Custom`, GPU timestamps, benchmark runbook, screenshot capture, RenderDoc preset notes — see [§S13](#s13--render-lab-infrastructure-deferred).
+- [ ] `temporal_Plan.md`: Halton jitter, history lifetime, disocclusion.
+- [ ] G-buffer / compute **motion vectors**; consumers: post, SSR, particles, hair.
+- [ ] TAA v0 + ImGui/preset toggle; debug viz (MV, history weight).
+- [ ] Unify temporal AO / SSR history onto shared MV where possible.
 
----
-
-## S8 — Global illumination / DDGI (Stage 3)
-
-*Deps: **G4** (Stage 2 accepted). **After S7** FG hooks stable.*
-
-**Epic:** [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md).
-
-### Open tasks
-
-- [x] Temporal AO stability baseline: motion vectors + AO history/reprojection (carried from S6 backlog, prerequisite for stable DDGI compare runs).
-- [x] Probe volume data model + update budget (full vs staggered).
-- [x] FG passes: probe update + sample hook in deferred lighting.
-- [x] Preset `DDGI On/Off` + performance guardrails.
-- [x] Debug viz: probe contribution overlay.
-- [x] Benchmark script: DDGI on/off deltas on interior scene (Sponza + optional San Miguel later).
-
-### Acceptance
-
-- [x] DDGI preset improves interior bounce vs S7 baseline; non-DDGI presets unchanged.
+**Acceptance (G5):** [ ] Camera motion: aliasing ↓; no new validation Errors; stress smoke green.
 
 ---
 
-## S9 — Simulation (Physics → Animation → AI)
+## S10 — Content pipeline *(moved early — rich test scenes)*
 
-*Gate **G2** ✓ (P4). **Does not block S4–S8**.*
+**Plan:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md) · unlocks **G3**.
 
-**Validation:** [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S9.
+*Why here:* later particles/water/terrain/hair need multi-mesh interiors/exteriors beyond Sponza/stress.
 
-### Open tasks — physics
+### A — MeshImport v0 (**G3**)
 
-- [ ] `physics_Plan.md`: library choice + collision layers.
-- [ ] `PhysicsWorld::SimStep(fixed_dt)`; entity ↔ body mapping; no Vulkan in sim code.
-- [ ] Write back SoA: `transform`, `bounds`.
-- [ ] Scene JSON physics components; debug draw AABB.
+- [ ] Offline/CLI: glTF (prefer) / OBJ → mesh blob (vb/ib/bounds/LOD).
+- [ ] Scene JSON blob id; manifest hash + bounds verify.
+- [ ] Reimport demo assets → identical draw counts vs legacy OBJ path.
 
-### Open tasks — animation
+### B — Material hot reload
 
-- [ ] Skeleton import + clip playback v0.
-- [ ] `AnimationSystem` before Extract: skin matrices → deform or CPU skinned path.
-- [ ] Plan GPU skinning alignment with geometry track (non-blocking for v0).
+- [ ] Material pool recreate without full `UnloadScene`; reload Set 1 only.
 
-### Open tasks — AI
+### C — Rich scene pack — **Bistro interior** (dogfood for S11+)
 
-- [ ] Agent SoA columns: state, target, perception radius.
-- [ ] v0 state machine or minimal BT (Idle / Chase / Flee); one enemy uses player position.
-- [ ] Debug: ImGui agent state; optional tie to Parallel objective.
+*Primary:* [Amazon Lumberyard Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro) (ORCA, CC-BY 4.0). **v0 = interior only**; exterior → Backlog. Depends on §A glTF MeshImport (not Sponza-style OBJ split).
 
-### S9 acceptance
+- [ ] `Scripts/Fetch-BistroOrca.ps1` → `Data/Models/bistro/source/` (large assets not in git).
+- [ ] Offline FBX → glTF (tool version pinned); MeshImport → blobs; textures downscaled (2k → 1k/512 default).
+- [ ] `Scripts/Generate-BistroScene.ps1` → `Data/Scenes/bistro_interior.json` + `Config/engine.bistro.json`.
+- [ ] Z-up remap + recenter + camera spawn preset(s); `Data/Models/bistro/CREDITS.md`.
+- [ ] glTF PBR → engine materials; glass → transparent pass; import reports alpha stats.
+- [ ] Document dogfood path in Active-Plan / README after close. **CI smoke stays `stress.json`.**
 
-- [ ] Dynamic props (physics); one skinned clip; one agent chases player in play scene.
-
----
-
-## Geometry track — Meshlet / mesh shader (deferred)
-
-*Former Wishlist **S4–S6**. Promote **S10** only when lighting track **G4** met or explicitly parallelized.*
-
-| Sprint | Was | Gate | Validation |
-|--------|-----|------|------------|
-| **S10** | S4 meshlets | **G3** MeshImport v0 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) §S10 |
-| **S11** | S5 mesh shader | S10 | §S11 |
-| **S12** | S6 GPU mesh tasks | S11 | §S12 |
-
-### S10 — Meshlet geometry (M3)
-
-- [ ] Choose meshlet builder (e.g. meshoptimizer) + documented cluster params.
-- [ ] Asset format: meshlet table + vertex/index views + per-meshlet bounds (import or offline step).
-- [ ] Optional **meshlet LOD** cluster rules — *deps: S1 LOD asset chains*.
-- [ ] Upload global vertex/index + meshlet metadata buffers.
-- [ ] Debug draw: meshlet bounds on test mesh.
-
-**M3 acceptance:** [ ] At least one production mesh displays correct meshlet segmentation.
-
-### S11 — Mesh shader pipeline (M4)
-
-*Vulkan 1.2 + `VK_EXT_mesh_shader`; no Task shader in v1.*
-
-- [ ] Device capability probe; log + graceful disable.
-- [ ] Extensions; mesh + fragment layout aligned with bindless / material tables.
-- [ ] Shaders: Mesh + adapt lit/G-buffer frags; `materialIndex` from tables.
-- [ ] `vkCreateGraphicsPipeline` mesh stages; payload reads meshlet + instance from SSBO.
-- [ ] Parity: mesh path matches VS path for **G-buffer + deferred** (not forward-only).
-
-**M4 acceptance:** [ ] Single-object mesh-shader path matches VS hybrid parity.
-
-### S12 — GPU-driven mesh tasks (M5)
-
-- [ ] Compute: meshlet frustum cull (+ optional backface cone later).
-- [ ] Compact visible meshlet list → indirect mesh-task buffer.
-- [ ] `vkCmdDrawMeshTasksIndirectEXT`; mesh shader consumes compact list.
-- [ ] Fallback preset matrix: `Traditional` / `GpuIndirect` / `MeshShader` / `FullGpuMesh`.
-- [ ] **Multi-threading v2:** parallel cull/LOD/transform — *deps: MT v1*.
-
-**M5 acceptance:** [ ] Multi-object scene; primary submission GPU-driven; CPU record stable across instance count.
+**Acceptance:** [ ] **G3** met; hot reload works; `bistro_interior.json` loads under HybridDeferred; metrics in closeout; glass readable; dev path documented (not Verify-Smoke).
 
 ---
 
-## S13 — Render lab infrastructure (deferred)
+## S11 — GPU particles
 
-*Absorbs S7 lab carryover + old S7 infra remainder. Does not block G4.*
+*AAA need: GPU emitters. Prefer dogfood on **S10** rich scene.*
 
-### Open tasks — S7 lab carryover
+**Deps:** Depth + FG ✓. S10 preferred (not hard block).
 
-- [ ] Presets `Low / Base / High / Custom` + permutation subset (S2 registry).
-- [ ] GPU timestamp queries + CPU p50/p95 logging.
-- [ ] Benchmark runbook: Sponza, fixed camera, warmup, CSV/JSON.
-- [ ] Screenshot capture keyed to preset + pose.
-- [ ] RenderDoc expectations per preset documented.
-- [ ] FG v2: transient RT pool, import/export rules (`framegraph_Plan.md`).
+- [ ] `particles_Plan.md`: SoA buffer, emit/simulate compute, billboard VS/FS.
+- [ ] Soft particles vs depth; lit/unlit; additive or sorted v0.
+- [ ] Scene JSON emitter; FG after opaque; ImGui debug.
+- [ ] Optional: depth collide kill/bounce v0.
 
-### Open tasks — Vulkan RHI WSI
+**Acceptance:** [ ] ≥1 emitter in rich scene (or Sponza fallback); soft edges; preset on/off; G0-validation clean.
+
+---
+
+## S12 — Water
+
+**Deps:** Transparent + SSR ✓. **S9 preferred**. S10 rich outdoor/courtyard preferred.
+
+- [ ] `water_Plan.md`: plane/mesh; Gerstner or normal scroll v0.
+- [ ] Refraction (scene color + depth); absorption; soft shoreline.
+- [ ] Reflection: SSR → prefilter; foam v0; sun specular; shadow receive.
+- [ ] Scene JSON water flags.
+
+**Acceptance:** [ ] Readable refraction + reflection in dogfood scene; no validation spam.
+
+---
+
+## S13 — Cascaded shadow maps
+
+**Deps:** S5 ✓. **Preferred before S14.**
+
+- [ ] `csm_Plan.md`: 3–4 cascades, splits, matrix upload.
+- [ ] Cascade select + PCF/PCSS v0; debug tint; bias controls.
+
+**Acceptance:** [ ] Near + distant coverage on exterior path; cost documented.
+
+---
+
+## S14 — Terrain
+
+**Deps:** **S13 CSM preferred**. Heightmap PNG/RAW OK without MeshImport; S10 helps props on terrain.
+
+- [ ] `terrain_Plan.md`: heightmap; chunk/clipmap LOD; skirts.
+- [ ] Splatmap 2–4 layers; receive CSM + IBL/AO.
+- [ ] Scene JSON terrain; debug LOD tint; frustum cull chunks (*Hi-Z later S16*).
+
+**Acceptance:** [ ] Outdoor patch + stable cascades; draw cost in notes.
+
+---
+
+## S15 — Hair / fur *(does not wait for S19)*
+
+**Deps:** G-buffer ✓. **S9 preferred**. S10 helps character mesh import.
+
+- [ ] `hair_Plan.md`: **hair cards** v0; denser strands → Backlog.
+- [ ] Kajiya-Kay / Marschner-approx; alpha clip / A2C; shadow receive.
+- [ ] Demo prop/character in scene JSON; document G-buffer aniso packing for S19.
+
+**Acceptance:** [ ] Readable aniso highlight; stable under TAA; no validation Errors.
+
+---
+
+## S16 — Visibility (Hi-Z occlusion + compaction)
+
+**Deps:** S6 Hi-Z ✓, S3 GPU cull ✓. Benefits from S10 dense scenes.
+
+- [ ] Hi-Z occlusion for instance AABBs; optional GPU compaction.
+- [ ] Stats + on/off preset; debug parity vs CPU.
+
+**Acceptance:** [ ] Cull win on rich/stress scene; no false pop-in on agreed paths.
+
+---
+
+## S17 — Meshlets (M3)
+
+**Deps:** **G3** (S10).
+
+- [ ] Meshlet builder + asset format + upload + bounds debug.
+- [ ] Optional meshlet LOD — *deps: S1 LOD chains*.
+
+**M3 acceptance:** [ ] ≥1 production mesh correct segmentation.
+
+---
+
+## S18 — Mesh shader + GPU mesh tasks (M4–M5)
+
+**Deps:** S17. Task shader → Backlog.
+
+- [ ] Mesh shader probe + G-buffer/deferred parity vs VS.
+- [ ] Meshlet frustum → `vkCmdDrawMeshTasksIndirectEXT`.
+- [ ] Preset matrix: `Traditional` / `GpuIndirect` / `MeshShader` / `FullGpuMesh`.
+
+**Acceptance:** [ ] Multi-object GPU-driven primary path; CPU record cost stable.
+
+---
+
+## S19 — Advanced materials + deferred decals
+
+**Deps:** G-buffer ✓. Share aniso with S15; do not duplicate.
+
+- [ ] Clearcoat; transmission / glass; emissive → bloom notes.
+- [ ] Finish general-material aniso if S15 was hair-only.
+- [ ] Deferred decal volumes; depth clip; debug bounds.
+
+**Acceptance:** [ ] Clearcoat + decal + shared aniso; base PBR unchanged when off.
+
+---
+
+## S20 — Volumetrics + cinematic post
+
+**Deps:** S7 ✓; **G5** for MB; S13 helps shafts.
+
+- [ ] Height/exp fog + sun inscatter; optional volumetric shafts.
+- [ ] DOF + motion blur (MV); color grading / auto-exposure v0.
+
+**Acceptance:** [ ] Preset toggles; mood pass without validation spam.
+
+---
+
+## S21 — Render lab + RHI WSI *(parallel)*
 
 **Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)
 
-- [ ] **RHI-D1** — `Vk_ProbeWsiCaps`; `VK_EXT_swapchain_maintenance1` when available
-- [ ] **RHI-D2** — Present history + deferred old-swapchain destroy
-- [ ] **RHI-D3** — Remove `vkDeviceWaitIdle` from hot swapchain recreate path
-
-### Open tasks — tooling & docs
-
-- [ ] Shader reflection-driven **layout codegen** — follow-up to closed 2b JSON path.
-- [ ] `VK_KHR_pipeline_binary` disk cache research.
-- [ ] **[Multi-view] Instance slab dynamic partition:** per-frame pre-count + prefix-sum offsets.
-- [ ] Engine overview diagram (modules + data flow).
-- [ ] “How to add a rendering experiment” checklist.
-- [ ] Troubleshooting matrix (seed: `Docs/Archived/notes-2026-05-22-shader-debug.md`).
-- [ ] Third-party / SDK license inventory.
-- [ ] Log rotation; domain-split logs; crash summary on failure.
-
-### Open tasks — experiments (backlog-friendly)
-
-- [ ] MSAA vs post AA vs none.
-- [ ] GPU occlusion cull using Hi-Z — *deps: S6 Hi-Z (shipped)*.
-- [ ] **Task shader** for mesh amplification — *post-S12*.
-- [ ] SSR follow-ups (temporal lit HDR shipped `087b38f`): scene JSON local probe, dedicated cubemap, same-frame HDR option — [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) Phase C closeout. **Core stack shipped:** GGX prefilter mips + Lagarde/cone specular occlusion + Hi-Z SSR compose.
-- [ ] Volumetrics, decals — backlog.
+- [ ] Presets; GPU timestamps; benchmark runbook; screenshots; FG transient RT pool.
+- [ ] Bindless layout codegen; troubleshooting; licenses.
+- [ ] **RHI-D1–D3** WSI path.
+- [ ] MSAA vs TAA matrix; SSR follow-ups; pipeline_binary research.
 
 ---
 
-## Parallel — Vertical slice
+## P-Sim — Simulation *(parallel)*
 
-*Full scope. Minimal subset → Archived P4.*
+**Deps:** **G2** ✓.
 
-### Open tasks — scene & content
+- [ ] Physics / animation / AI min slice (see prior Wishlist detail).
+- [ ] GPU skin align with S18 later.
 
-- [ ] Primary play/benchmark scene in `Data/`. *(P4 ✓ partial — Sponza default)*
-- [ ] All referenced assets present or substitute with logged warnings.
-- [ ] Optional second tiny scene for load smoke tests.
-
-### Open tasks — gameplay
-
-- [ ] One **objective** (reach marker / collect / survive / toggle lights). *(P4 ✓)*
-- [ ] Win/lose or completion feedback (HUD or log). *(P4 ✓)*
-- [ ] **Restart** without process exit. *(P4 ✓)*
-
-### Open tasks — presentation
-
-- [ ] HUD: FPS, frame time, **active render preset** name.
-- [ ] Pause + frame advance (dev).
-
-### Open tasks — engine hooks
-
-- [ ] Player controller contract (move, look, interact).
-- [ ] Simple game state / mode stack (Play, Pause, Dev overlay).
-- [ ] Event channel gameplay ↔ UI ↔ debug.
-
-### Open tasks — simulation hooks
-
-- [ ] Interact / damage via physics overlap or ray — *deps: S9 Physics*.
-- [ ] Enemy chase via **S9 AI** — *deps: S9 AI, Parallel objective*.
+**Acceptance:** [ ] Dynamic prop + skinned clip + chase agent.
 
 ---
 
-## Backlog (deferred / unscheduled)
+## P-Slice — Vertical slice extras *(parallel)*
 
-- [ ] Optional GPU compaction pass (deferred from S3 M2).
-- [ ] **Multi-threading v1:** thread model + frame SoA double-buffer.
-- [ ] Editor, networking, non-Windows.
-- [ ] San Miguel / Bistro benchmark scenes — *deps: MeshImport optional*.
+- [ ] HUD; pause / frame advance; controller / game-state / events.
+- [ ] Interact / chase — *deps: P-Sim*.
+- [ ] Load-smoke scene; missing-asset warn path.
 
-### Parking lot
+---
 
-- In-engine property editor (post slice).
-- Cross-platform windowing / CMake — [`config-platform-hardening`](Archived/plans/config-platform-hardening_Plan.md).
-- Navmesh / full behavior trees (post S9 AI v0).
-- Material hot reload — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §B.
-- MeshImport v0 — [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A (gate **G3** → S10).
+## Backlog
 
-### Vulkan RHI — long-term
+- [ ] Multi-threading v1 → MT v2 with S18.
+- [ ] Task shader amplification — *post-S18*.
+- [ ] RHI-E1 / E2 / E3 / E5; VSM / RT shadows research.
+- [ ] Denser strand hair; ocean FFT; virtual texturing terrain.
+- [ ] Bistro exterior full · San Miguel (S10 lands interior only).
+- [ ] Editor, networking, non-Windows, navmesh, full BT, audio.
 
-- [ ] **RHI-E1** — Instance/device `apiVersion` 1.2+
-- [ ] **RHI-E2** — Timeline semaphores — *deps: S7 frame graph*
-- [ ] **RHI-E3** — Dynamic rendering spike (`VK_KHR_dynamic_rendering`)
-- **RHI-E4 (shipped)** — Injectable render device / de-singleton `Vk_Core` for headless CI (now `Vk_RhiDevice` + `Vk_Renderer` + `App_PlatformHost`)
-- [ ] **RHI-E5** — Dynamic MSAA sample count or remove dead MSAA branches
+**Parking:** property editor; cross-platform windowing; material graph.

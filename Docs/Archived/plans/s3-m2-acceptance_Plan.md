@@ -3,7 +3,7 @@
 **Status:** Closed (2026-06-11)  
 **Parent:** [`Active-Plan.md`](../../Active-Plan.md) § S3 (first line)  
 **Depends on:** P2–P3 M2 geometry (archived), **G1** met *(2026-06-10)*  
-**Next after close:** [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md) step 1
+**Next after close:** [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) step 1
 
 ## Problem
 
@@ -18,7 +18,7 @@ P3 delivered GPU frustum cull → slot-indexed indirect record (`--gpu-cull`) an
 
 ## Non-goals
 
-- FG v0 / `HybridDeferred` preset ([`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md))
+- FG v0 / `HybridDeferred` preset ([`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md))
 - GPU compaction, multi-draw-indirect batching (Wishlist)
 - `engine.json` `features.gpuCull` unless dogfood needs config (CLI extension to smoke is enough for v0)
 - `EngineArchitecture.md` policy change (P3 already documents gpu path; sync rule)

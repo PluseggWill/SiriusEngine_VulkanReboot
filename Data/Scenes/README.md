@@ -9,7 +9,7 @@ Scene files for VulkanDesktop (JSON v1).
 | [`sponza.json`](sponza.json) | **McGuire Sponza** indoor benchmark (25 material splits); fetch [`Scripts/Fetch-SponzaMcGuire.ps1`](../../Scripts/Fetch-SponzaMcGuire.ps1) · [`Config/engine.sponza.json`](../../Config/engine.sponza.json) |
 | [`smoke.json`](smoke.json) | Minimal load test (single viking entity) |
 
-**Authoring:** [EN](../../Docs/SceneJSON.en.md) · [中文](../../Docs/SceneJSON.md)
+**Authoring:** [`Docs/SceneJSON.md`](../../Docs/SceneJSON.md)
 
 **Run:**
 

@@ -18,15 +18,15 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 
 | Document | Owns | Must NOT own |
 |----------|------|--------------|
-| **`Active-Plan.md`** | **All open `[ ]`** — active sprint (S3), P4, gates, queue, hardening index | Diagrams, policy prose, S4–S8 staged tasks, changelogs |
-| **`Wishlist.md`** | **S4–S8 + Parallel + Backlog** staged `[ ]` only | Active sprint tasks, gates table, queue |
-| **`Archived-Plan.md`** | Completed `[x]` lines; § S1 implementation notes | Open tasks |
+| **`Active-Plan.md`** | **All open `[ ]`** — queue, gates, hardening index | Diagrams, policy prose, changelogs |
+| **`Wishlist.md`** | **S9–S21 + P-Sim/P-Slice + Backlog** staged `[ ]` only | Active sprint tasks, gates table, shipped sections |
+| **`Archived-Plan.md`** | Completed stubs + § S1 implementation notes | Open tasks, full `[x]` checklists |
 | **`EngineArchitecture.md`** | Diagrams, **locked policies**, risks, non-goals | `[ ]` tasks, sprint logs |
 | **`README.md`** | Index + **Active now** (WIP pointer) | Task lists, gates, duplicate file maps |
 | **`{name}_Plan.md` (roadmap)** | Design / steps for one topic | Queue duplicates |
 | **`{name}_Plan.md` + `_Progress` (WIP)** | One in-flight task | Second WIP pair at `Docs/` root |
-| **Epic plans** (`hybrid-deferred`, `ddgi`) | Stage 2–3 breakdown | Executable `[ ]` queue |
-| **`SprintPlan.md`** | One-line redirect to README | Content duplicated elsewhere |
+
+Closed epics live under `Docs/Archived/plans/` only.
 
 ---
 
@@ -35,13 +35,13 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 | Event | Edit | Do **not** edit |
 |-------|------|-----------------|
 | Open / close task | `Active-Plan.md` | Wishlist, README (unless WIP) |
-| Task done | Move line → `Archived-Plan.md`; remove from Active-Plan | Wishlist, epic plans, Architecture |
-| Promote Wishlist → active | Add `[ ]` to Active-Plan; Wishlist → index pointer only | Gates in Wishlist, duplicate task lists |
+| Task done | Stub → `Archived-Plan.md`; remove from Active-Plan | Wishlist, Architecture |
+| Promote Wishlist → active | Add `[ ]` to Active-Plan; Wishlist → drop or index only | Gates in Wishlist |
 | Vibe kickoff | `README.md` **Active now** + `{Plan}_Progress.md` | Active-Plan queue unless scope changed |
 | Vibe close | Progress closeout → `Archived/plans/`; clear README **Active now** | EngineArchitecture unless policy |
 | **Locked policy** (tree below) | `EngineArchitecture.md` + code/shaders | Wishlist |
-| Deferred milestone | `Wishlist.md` only | Active-Plan |
-| Gate met | `Active-Plan.md` gates row (✓) | Wishlist gates table *(removed — use Active-Plan)* |
+| Deferred milestone | `Wishlist.md` only (S9–S21 / P-Sim) | Active-Plan |
+| Gate met | `Active-Plan.md` gates row (✓) | Wishlist |
 
 ---
 
@@ -72,7 +72,7 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 | Next task | `Active-Plan.md` |
 | Layer / policy | `EngineArchitecture.md` |
 | WIP steps | `{Task}_Plan.md` + `_Progress.md` |
-| Staged S4+ | `Wishlist.md` |
+| Staged S9+ | `Wishlist.md` |
 | History | `Archived-Plan.md` / `Archived/plans/` |
 
 ---
@@ -84,3 +84,4 @@ Index: [`Docs/README.md`](../../Docs/README.md). Workflow: [`vibe-coding-workflo
 - `[x]` in Active-Plan or Wishlist
 - Architecture edit on every task close
 - Second WIP Plan+Progress pair at Docs root
+- Shipped sprint checklists in Wishlist or Archived-Plan (use `Archived/plans/`)

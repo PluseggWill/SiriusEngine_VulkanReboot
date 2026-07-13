@@ -1,7 +1,7 @@
 # Plan: s3-fg-s2 — ClusterBuild compute stub (slice 2)
 
 **Status:** Closed (2026-06-11)  
-**Parent roadmap:** [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md) step 3  
+**Parent roadmap:** [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) step 3  
 **Depends on:** [`s3-fg-s1-preset-gbuffer_Plan.md`](s3-fg-s1-preset-gbuffer_Plan.md) (closed)  
 **Branch:** `S3`
 
@@ -30,5 +30,5 @@ Slice 1 composites raw G-buffer albedo. Deferred lighting needs a **per-cluster 
 
 ## References
 
-- Roadmap: [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md)
+- Roadmap: [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md)
 - Prior slice: [`s3-fg-s1-preset-gbuffer_Plan.md`](s3-fg-s1-preset-gbuffer_Plan.md)

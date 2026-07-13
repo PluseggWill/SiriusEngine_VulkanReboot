@@ -2,7 +2,7 @@
 
 **Sprint:** S2 — Stage 1 forward epic §C + Acceptance  
 **Status:** Closed (2026-06-02)  
-**Epic:** [`forward-rendering-epic_Plan.md`](../../forward-rendering-epic_Plan.md) — Stage 1 complete
+**Epic:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) — Stage 1 complete
 
 ## Goals
 

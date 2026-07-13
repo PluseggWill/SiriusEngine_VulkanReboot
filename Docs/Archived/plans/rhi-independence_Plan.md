@@ -1,6 +1,6 @@
 # Plan: rhi-independence — RHI 拆分 + 层间数据流 + FG v2 + 平台剥离
 
-**Status:** In progress  
+**Status:** Closed (2026-06-16) — core split shipped; optional `Vk_ResourceContext`→`Vk_RhiDevice&` polish deferred to Wishlist / RHI epic  
 **Progress:** [`rhi-independence_Progress.md`](rhi-independence_Progress.md)
 
 ## Problem

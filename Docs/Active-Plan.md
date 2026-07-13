@@ -1,47 +1,81 @@
 # Active Plan — SiriusEngine / VulkanDesktop
 
-**Only open `[ ]` tasks** — queue, gates, hardening index.  
-**Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc` · **History:** [`Archived-Plan.md`](Archived-Plan.md) · **Staged S4+:** [`Wishlist.md`](Wishlist.md) · **Policies:** [`EngineArchitecture.md`](EngineArchitecture.md)
+**Only open `[ ]` / queue / gates.** Detail tasks: [`Wishlist.md`](Wishlist.md).  
+**Doc map:** `.cursor/rules/docs-roadmap-arch-sync.mdc` · **History:** [`Archived-Plan.md`](Archived-Plan.md) · **Policies:** [`EngineArchitecture.md`](EngineArchitecture.md)
 
-Done → move line to Archived-Plan; no `[x]` here.
+Done → Archived-Plan stub; no `[x]` here.
 
-**Roadmap pivot (2026-06):** S3 FG v0 + GPU indirect are closed. **Defer meshlet / mesh shader / GPU mesh tasks** to Wishlist **§ Geometry track (S10–S12)**. **S4–S7 lighting implementation shipped** (2026-06-15/16); **S8 DDGI shipped** (2026-06-16); **G4 Stage 2 accepted**. Active queue is **S9 Simulation** → **S13 Render lab**.
-
----
-
-## Queue
-
-| # | Sprint / gate | Focus | Epic / plan | Blocked by |
-|---|---------------|--------|-------------|------------|
-| **1** | **S9** | Simulation | [`Wishlist.md`](Wishlist.md) §S9 | **G2** ✓ |
-| — | **S13** | Render lab infra (S7 lab carryover + WSI) | [`Wishlist.md`](Wishlist.md) §S13 | — (parallel) |
-| — | **S10–S12** | Meshlet → mesh shader → GPU mesh *(deferred)* | Wishlist § Geometry track | **G3** (S10 only) |
-
-**Default benchmark scene:** `Data/Scenes/sponza.json` (vendored). CI smoke remains `stress.json`.
+**Pivot (2026-07):** Render-first. **S10 content pipeline early** so later VFX/env sprints dogfood **complex imported scenes**. Then particles → water → CSM → terrain → hair → scale/geometry.
 
 ---
 
-## Dependency graph (active track)
+## Queue (execution order)
+
+| # | Sprint | Focus | Blocked by | Unlocks |
+|---|--------|--------|------------|---------|
+| **0** | **WIP** | Close [`specular-ibl-stack`](specular-ibl-stack_Plan.md) | — | Clean S9 |
+| **1** | **S9** | Temporal (MV + TAA) → **G5** | WIP preferred | Water/hair AA; cinematic post |
+| **2** | **S10** | **Content pipeline** (MeshImport + hot reload) | — | **G3**; rich test scenes for S11+ |
+| **3** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
+| **4** | **S12** | **Water** | Transparent ✓, SSR ✓; S9 preferred | Reflections / refraction |
+| **5** | **S13** | Cascaded shadows | S5 ✓ | Outdoor; **S14** terrain |
+| **6** | **S14** | **Terrain** | S13 CSM preferred | Large outdoor scenes |
+| **7** | **S15** | **Hair / fur** | G-buffer ✓; S9 preferred | Strand/card look; early aniso |
+| **8** | **S16** | Occlusion cull + compaction | S6 Hi-Z ✓, S3 cull ✓ | Dense scenes |
+| **9** | **S17** | Meshlets | **G3** | S18 |
+| **10** | **S18** | Mesh shader + GPU mesh | S17 | Full GPU-driven path |
+| **11** | **S19** | Advanced materials + decals | G-buffer ✓ | Clearcoat / transmission / decals |
+| **12** | **S20** | Volumetrics + cinematic post | S7 ✓, **G5** | Mood / DOF / MB |
+| — | **S21** | Render lab + RHI WSI *(parallel)* | — | Measurement / WSI |
+| — | **P-Sim** | Physics / anim / AI *(parallel)* | **G2** ✓ | Slice interactivity |
+
+**Default benchmark:** `Data/Scenes/sponza.json` until S10 close; then `Data/Scenes/bistro_interior.json` (+ `Config/engine.bistro.json`). **CI smoke:** `stress.json` (unchanged).
+
+---
+
+## Dependency graph
 
 ```mermaid
 flowchart TB
-  S3[S3 FG v0 + GPU indirect — done]
-  S4[S4 PBR + G-buffer — done]
-  S5[S5 IBL + skybox + shadows — done]
-  S6[S6 SSAO + Hi-Z + modular AO — done]
-  S7[S7 Post + frame graph v1 — done]
-  G4[G4 Stage 2 acceptance — done]
-  S8[S8 DDGI optional GI — done]
-
-  S3 --> S4 --> S5 --> S6 --> S7 --> G4
-  G4 -.-> S8
-
-  GEO[G10–12 Geometry track]
+  WIP[WIP specular closeout]
+  S9[S9 Temporal / TAA]
+  S10[S10 Content pipeline]
   G3{G3 MeshImport}
-  G3 -.-> GEO
+  S11[S11 GPU particles]
+  S12[S12 Water]
+  S13[S13 CSM]
+  S14[S14 Terrain]
+  S15[S15 Hair / fur]
+  S16[S16 Occlusion]
+  S17[S17 Meshlets]
+  S18[S18 Mesh shader + GPU mesh]
+  S19[S19 Materials + decals]
+  S20[S20 Volumetrics + cinematic]
+  S21[S21 Lab + RHI]
+
+  WIP --> S9
+  S9 --> S12
+  S9 --> S15
+  S9 --> S20
+  S10 --> G3
+  S10 -.->|rich scenes| S11
+  S10 -.->|rich scenes| S12
+  S10 -.->|rich scenes| S14
+  DepthFG[Depth + FG — done] --> S11
+  TransSSR[Transparent + SSR — done] --> S12
+  S5done[S5 shadow — done] --> S13 --> S14
+  GBdone[G-buffer — done] --> S15
+  GBdone --> S19
+  S6done[S6 Hi-Z — done] --> S16
+  S3done[S3 GPU cull — done] --> S16
+  G3 --> S17 --> S18
+  S7done[S7 Post — done] --> S20
+  S13 -.-> S20
 ```
 
-**Parallel (non-blocking):** S9 simulation · S13 render lab · content-pipeline §B material hot reload · RHI WSI.
+**Why S10 early:** MeshImport + material hot reload unlocks complex glTF scenes before particles/water/terrain/hair dogfood. Meshlets still wait on **G3** (S17).
+
+**Parallel OK:** S11 ∥ S13 after S10; S16 ∥ S15; S21 ∥ anything; P-Sim ∥ anything.
 
 ---
 
@@ -49,37 +83,32 @@ flowchart TB
 
 | Gate | Criteria | Unlocks |
 |------|----------|---------|
-| **G0** ✓ | `Verify-CI.ps1` green | M2 merges |
-| **G1** ✓ | CPU vs GPU cull parity *(2026-06-10)* | S3 FG v0 |
-| **G2** ✓ | P4 complete *(2026-06-11)* | S9 simulation |
-| **G3** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A (MeshImport v0) | **S10** meshlets only *(not active queue)* |
-| **G4** ✓ | Stage 2 acceptance — hybrid opaque **full PBR**, transparent forward, shadow + IBL + AO/post on benchmark scene; `ForwardLit`/`HybridDeferred` parity runbook *(2026-06-16)* | **S8** DDGI |
+| **G0** ✓ | `Verify-CI.ps1` green | Merges |
+| **G1** ✓ | CPU vs GPU cull parity | (historical) |
+| **G2** ✓ | P4 vertical slice v0 | P-Sim |
+| **G3** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A MeshImport v0 + ≥1 rich multi-mesh scene | **S17** meshlets; preferred dogfood for S11–S15 |
+| **G4** ✓ | Stage 2 hybrid acceptance | (historical) |
+| **G5** | S9: MV + TAA v0; no new validation Errors | Prefer before S12 polish / S20 |
 
-Pass topology (current): [`EngineArchitecture.md`](EngineArchitecture.md) §7.
+Pass topology: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 
 ---
 
-## Hardening index
+## Hardening index (open only)
 
 | # | Landing | Where | Plan |
 |---|---------|-------|------|
-| 1 | FG v0 slices 4–6 (transparent, bindless, specular) | S3 ✓ | [`Archived/plans/s3-fg-s6-forward-parity_Plan.md`](Archived/plans/s3-fg-s6-forward-parity_Plan.md) |
-| 5 | Vertical slice v0 | P4 ✓ | [`Archived/plans/p4-vertical-slice-v0_Plan.md`](Archived/plans/p4-vertical-slice-v0_Plan.md) |
-| 18 | Bindless layout codegen | S13 / Backlog | shader-bindless-policy |
-| 19 | MeshImport v0 | **S10** (G3) | content-pipeline §A |
-| 24 | Material hot reload | Parallel | content-pipeline §B |
-| 26–27 | P0 validation debt | P0 | SprintOutcomeValidation §P0 |
-| 29 | Slice = product priority | P4 ✓ | archived P4 plan |
-| 41 | WSI maintenance1 | S13 | vulkan-rhi-hardening §RHI-D |
+| 18 | Bindless layout codegen | S21 | shader-bindless-policy maint |
+| 19 | MeshImport v0 | **S10** → **G3** | content-pipeline §A |
+| 24 | Material hot reload | **S10** | content-pipeline §B |
+| 41 | WSI maintenance1 | **S21** | vulkan-rhi-hardening §RHI-D |
 
-**#2–17, 20–25, 30–40, 42–43 closed** — [`Archived-Plan.md`](Archived-Plan.md).
+**Bindless maint:** [`shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) before changing scene passes / bindless / lit shaders.
 
-**Bindless maint (still applies):** [`shader-bindless-policy_Plan.md`](Archived/plans/shader-bindless-policy_Plan.md) §Maintenance contract before changing scene passes / bindless / lit shaders.
-
-**Validation:** [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) (S4–S13 + G4).
+**Validation:** [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md).
 
 ---
 
-## Closed (pointer only)
+## Closed (pointer)
 
-P0–P4, P1–P2 RHI, S0–S7 → [`Archived-Plan.md`](Archived-Plan.md) · design logs → [`Archived/plans/`](Archived/plans/)
+S0–S8, G4, RHI-E4, P0–P4 → [`Archived-Plan.md`](Archived-Plan.md) · [`Archived/plans/`](Archived/plans/)

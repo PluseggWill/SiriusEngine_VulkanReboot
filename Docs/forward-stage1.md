@@ -1,7 +1,7 @@
 # Stage 1 forward baseline & Stage 2 handoff
 
-**Status:** Closed (2026-06-02) — epic [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md) §A–C + Acceptance.  
-**Next:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) after § Handoff checklist below.
+**Status:** Closed (2026-06-02) — epic [`Archived/plans/forward-rendering-epic_Plan.md`](Archived/plans/forward-rendering-epic_Plan.md) §A–C + Acceptance.  
+**Next (shipped):** [`Archived/plans/hybrid-deferred-epic_Plan.md`](Archived/plans/hybrid-deferred-epic_Plan.md) — Stage 2 + G4 accepted.
 
 | Item | Value |
 |------|--------|

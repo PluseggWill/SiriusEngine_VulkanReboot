@@ -1,7 +1,7 @@
 # Plan: s3-fg-s3 — DeferredLighting resolve (slice 3)
 
 **Status:** Closed (2026-06-11)  
-**Parent roadmap:** [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md) step 4  
+**Parent roadmap:** [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) step 4  
 **Depends on:** [`s3-fg-s2-cluster-build_Plan.md`](s3-fg-s2-cluster-build_Plan.md) (closed)  
 **Branch:** `S3`
 
@@ -29,5 +29,5 @@ Slices 1–2 dogfood hybrid topology but the swapchain still shows raw G-buffer 
 
 ## References
 
-- Roadmap: [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md)
+- Roadmap: [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md)
 - Forward shading reference: `TriangleFrag_Lit.frag` (diffuse + ambient)

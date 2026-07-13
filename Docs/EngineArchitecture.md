@@ -10,7 +10,7 @@
 | What's done (sprint history) | [`Archived-Plan.md`](Archived-Plan.md) |
 | Stage 1 baseline / golden / handoff | [`forward-stage1.md`](forward-stage1.md) |
 | Descriptor / UBO field layout (code) | `VulkanDesktop/RenderCore/Vk_DescriptorPolicy.h`, `Vk_Types.h` |
-| Lighting epics (Stage 2–3 detail) | [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) |
+| Lighting epics (closed Stage 1–3) | [`Archived/plans/`](Archived/plans/) — `forward-rendering-epic`, `hybrid-deferred-epic`, `ddgi-lighting-epic` |
 
 **Sync rule:** change **locked policy** here → add/adjust a task in Active-Plan. Change **tasks only** → Active-Plan alone is enough.
 
@@ -419,7 +419,7 @@ Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodol
 
 ### Non-goals (v1)
 
-**Supported platform (locked):** Windows 10+ x64, MSVC, MSBuild only — inventory: [`Platform.md`](Platform.md). No editor/networking/streaming · no navmesh/full BT · no Task shader until needed · DDGI until Stage 2 gate · audio deferred — full list: [`Wishlist.md`](Wishlist.md)
+**Supported platform (locked):** Windows 10+ x64, MSVC, MSBuild only — inventory: [`Platform.md`](Platform.md). No editor/networking/streaming · no navmesh/full BT · no Task shader until post-S14 · audio deferred — staged work: [`Wishlist.md`](Wishlist.md) / [`Active-Plan.md`](Active-Plan.md)
 
 ---
 

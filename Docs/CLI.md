@@ -128,49 +128,16 @@ main
 
 ---
 
-## Agent / CI 测试速查
+## Agent / CI 测试
 
-与 [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) Phase 2、`.cursor/rules/vulkan-smoke-test.mdc` 一致。
-
-**CI / 任务收尾（推荐，任意 cwd）：**
+**Canonical:** [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) — `Verify-CI.ps1` / `Verify-Smoke.ps1` / G0-validation。
 
 ```powershell
-$Repo = "<repo-root>"
-& "$Repo\x64\Debug\VulkanDesktop.exe" `
-  --asset-root $Repo `
-  --config "$Repo\Config\engine.benchmark.json" `
-  --scene Data/Scenes/smoke.json `
-  --no-validation --smoke-frames 120 --smoke-seconds 6
-pwsh -File "$Repo\Scripts\Assert-SmokeLog.ps1" -RepoRoot $Repo
+powershell -File Scripts/Verify-CI.ps1
+powershell -File Scripts/Verify-Smoke.ps1
 ```
 
-**RenderCore / pass / barrier / post-process 改动 — 额外跑 validation（G0-validation）：**
-
-`Verify-Smoke.ps1` 固定 `--no-validation`，**不能**替代 validation 冒烟。
-
-```powershell
-$Repo = "<repo-root>"
-& "$Repo\x64\Debug\VulkanDesktop.exe" `
-  --asset-root $Repo `
-  --config "$Repo\Config\engine.stress.json" `
-  --scene Data/Scenes/stress.json `
-  --validation --smoke-frames 120 --smoke-seconds 6
-# 成功：exit 0；Logs/engine_runtime_log.txt 无新增 [VULKAN-VALIDATION] Error 行
-```
-
-详见 [`validation-layers.md`](validation-layers.md)、`.cursor/rules/vulkan-render-pass-pitfalls.mdc`。
-
-**本地快速（仍建议 `--asset-root`）：**
-
-```powershell
-Set-Location x64\Debug
-.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-seconds 6
-.\VulkanDesktop.exe --asset-root <repo-root> --no-validation --smoke-frames 2 --scene Data/Scenes/smoke.json
-```
-
-任务收尾优先 **`--smoke-seconds 6`** + 完整卸载日志；仅 `Stop-Process` 不会走 `UnloadScene`。实现 P0 后本地可用 `pwsh -File Scripts/Verify-CI.ps1` 镜像 G0。
-
-**WSI 缩放冒烟（可选，RHI-B4）：** 在 G0 构建后运行 `powershell -File Scripts/Verify-ResizeSmoke.ps1`。脚本启动 `demo.json`，通过 Win32 `SetWindowPos` 触发 `[SWAPCHAIN] rebuild layer=wsi`；找不到窗口时降级为无程序化缩放（需手动拖拽验证）。CI 可 soft-fail。
+可选 WSI 缩放：`powershell -File Scripts/Verify-ResizeSmoke.ps1`。安装层：[`validation-layers.md`](validation-layers.md)。
 
 ---
 
@@ -178,14 +145,8 @@ Set-Location x64\Debug
 
 | 文档 | 内容 |
 |------|------|
-| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | Agent 冒烟测试 CLI 速查（G0 / G0-smoke / G0-validation） |
-| [`.cursor/rules/vulkan-render-pass-pitfalls.mdc`](../.cursor/rules/vulkan-render-pass-pitfalls.mdc) | RenderCore pass 常见坑（init、descriptor、barrier） |
-| [`bootstrap.md`](bootstrap.md) | 新机构建、运行、日志 |
-| [`SceneJSON.md`](SceneJSON.md) / [`SceneJSON.en.md`](SceneJSON.en.md) | 场景 JSON 编写 |
-| [`validation-layers.md`](validation-layers.md) | Validation 层安装与开关 |
-| [`Archived/plans/scene-load_Plan.md`](Archived/plans/scene-load_Plan.md) | 场景加载架构与 Phase D unload |
-| [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) | G0 CI、GfxTests、冒烟断言脚本 |
-
----
-
-*Last updated: 2026-06-15 (G0-validation gate for RenderCore pass work).*
+| [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) | G0 / G0-smoke / G0-validation |
+| [`bootstrap.md`](bootstrap.md) | 新机构建 |
+| [`SceneJSON.md`](SceneJSON.md) | 场景 JSON |
+| [`validation-layers.md`](validation-layers.md) | Validation 安装与开关 |
+| [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md) | CI 设计日志 |

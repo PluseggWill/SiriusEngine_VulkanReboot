@@ -2,7 +2,7 @@
 
 **Status:** Stage 1 complete (2026-06-02); Stage 2+ planned  
 **Scope:** Stage 1 of lighting evolution (closed); Stages 2–3 open  
-**Related:** [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md)
+**Related:** [`../../Active-Plan.md`](../../Active-Plan.md), [`../../EngineArchitecture.md`](../../EngineArchitecture.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md)
 
 ## Naming conventions
 

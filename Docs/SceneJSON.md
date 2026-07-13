@@ -1,6 +1,6 @@
 # 场景 JSON 编写说明（v1）
 
-> **English:** [`SceneJSON.en.md`](SceneJSON.en.md)  
+> **English stub:** [`SceneJSON.en.md`](SceneJSON.en.md)（完整 schema 以本文为准）  
 > **格式版本：** `"version": 1`（引擎当前仅接受此版本）  
 > **解析实现：** `Gfx_LoadSceneDesc`（`VulkanDesktop/Gfx/Gfx_SceneLoader.cpp`）  
 > **运行时灌入：** `Gfx_SceneApply`（manifest / SoA / LOD）  

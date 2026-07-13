@@ -1,33 +1,34 @@
 # Docs — SiriusEngine / VulkanDesktop
 
-**Doc map (canonical):** `.cursor/rules/docs-roadmap-arch-sync.mdc` — do not duplicate file-boundary tables elsewhere.
+**Doc map (canonical):** `.cursor/rules/docs-roadmap-arch-sync.mdc`
 
 ## Active now
 
 | Field | Value |
 |-------|--------|
-| **Gate** | **G4** ✓ (closed) |
-| **Next sprint** | **S8** DDGI · [`Wishlist.md`](Wishlist.md) § S8 |
-| **WIP task** | **specular-ibl-stack** closeout (visual sign-off, C2 JSON probe) · [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) / [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md) — Phases A–B + C v0 shipped (`087b38f`) |
-| **Last closed** | IBL lighting fix (π energy, sun intensity, camera far) — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
-| **Epic** | Stage 2 sign-off [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md) |
+| **Gate** | **G4** ✓ · next quality gate **G5** (S9 temporal) |
+| **Next sprint** | **S9** Temporal foundation · [`Wishlist.md`](Wishlist.md) § S9 |
+| **WIP task** | **specular-ibl-stack** closeout · [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) / [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md) |
+| **Last closed** | IBL lighting fix — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
+| **Track** | S9 → **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 
 ---
 
-## Files (one line each)
+## Files
 
 | File | Role |
 |------|------|
-| [`Active-Plan.md`](Active-Plan.md) | **Open `[ ]`**, queue, gates, hardening index |
-| [`Wishlist.md`](Wishlist.md) | **S4–S8** + Parallel + Backlog (staged) |
-| [`Archived-Plan.md`](Archived-Plan.md) | Completed `[x]` |
+| [`Active-Plan.md`](Active-Plan.md) | Queue, gates, dependency graph |
+| [`Wishlist.md`](Wishlist.md) | Staged S9–S21 + parallel + backlog `[ ]` |
+| [`Archived-Plan.md`](Archived-Plan.md) | Completed stubs + S1 notes |
 | [`EngineArchitecture.md`](EngineArchitecture.md) | Diagrams + locked policies |
 | [`SprintOutcomeValidation.md`](SprintOutcomeValidation.md) | Close-out runbook |
-| [`SprintPlan.md`](SprintPlan.md) | Redirect → this index |
-| [`bootstrap.md`](bootstrap.md) · [`CLI.md`](CLI.md) · [`Platform.md`](Platform.md) | Onboarding |
+| [`bootstrap.md`](bootstrap.md) · [`CLI.md`](CLI.md) · [`Platform.md`](Platform.md) · [`validation-layers.md`](validation-layers.md) | Onboarding |
+| [`SceneJSON.md`](SceneJSON.md) | Scene JSON authoring |
+| [`forward-stage1.md`](forward-stage1.md) | Stage 1 golden / handoff |
 
-**Epics / plans:** `hybrid-deferred-epic_Plan.md`, `vulkan-rhi-hardening-epic_Plan.md`, `content-pipeline_Plan.md`, [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md), … — design only; tasks live in Active-Plan or Wishlist.
+**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md), WIP `specular-ibl-stack_*`.
 
-**Closed implementation logs:** [`Archived/plans/`](Archived/plans/)
+**Closed epics / logs:** [`Archived/plans/`](Archived/plans/)

@@ -73,26 +73,7 @@ If validation is requested but the layer is missing, the app logs a warning and 
 
 ## Agent smoke with validation (G0-validation)
 
-**When:** new/changed `Vk_*Pass`, compute/post-process, image barriers, descriptor pools/sets, or anything that only fails under the validation layer.
-
-**Not covered by:** `Scripts/Verify-Smoke.ps1` (always passes `--no-validation` for speed/stability in CI).
-
-```powershell
-$Repo = "<repo-root>"
-& "$Repo\x64\Debug\VulkanDesktop.exe" `
-  --asset-root $Repo `
-  --config "$Repo\Config\engine.stress.json" `
-  --scene Data/Scenes/stress.json `
-  --validation --smoke-frames 120 --smoke-seconds 6
-```
-
-**Pass criteria:**
-
-- Process exit code **0**
-- `[APP] Engine exited run loop normally` in `Logs/engine_runtime_log.txt`
-- No new **`[VULKAN-VALIDATION]`** messages at **Error** severity (first barrier/descriptor bug often cascades — fix the earliest VUID)
-
-Use **HybridDeferred** (`engine.stress.json` default) to exercise deferred lighting, SSAO, and post-process. Pitfall checklist: `.cursor/rules/vulkan-render-pass-pitfalls.mdc`.
+Command, when-required, and pass criteria: [`.cursor/rules/vulkan-smoke-test.mdc`](../.cursor/rules/vulkan-smoke-test.mdc) (G0-validation section). Pitfalls: `vulkan-render-pass-pitfalls.mdc`.
 
 ## Troubleshooting
 

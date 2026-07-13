@@ -1,7 +1,7 @@
 # Plan: s3-fg-v0 — Frame graph v0 (Lighting Stage 2 entry)
 
 **Status:** Closed (2026-06-11) — opaque chain landed via slices 1–3  
-**Parent:** [`Active-Plan.md`](Active-Plan.md) § S3 · epic [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A  
+**Parent:** [`../../Active-Plan.md`](../../Active-Plan.md) · epic [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A  
 **Depends on:** P2–P3 M2 geometry (archived), S2 permutation/cache (archived), **G1** met
 
 ## Goal

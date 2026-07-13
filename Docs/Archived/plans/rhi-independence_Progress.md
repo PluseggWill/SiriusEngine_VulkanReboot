@@ -56,4 +56,10 @@
 
 ## Remaining (plan steps 2.2 optional polish)
 
-- `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish)
+- `Vk_ResourceContext` → hold `Vk_RhiDevice&` (optional polish) — deferred; not blocking close.
+
+## Closeout — 2026-06-16
+
+- **Outcome:** `Vk_RhiDevice` + `Vk_Renderer` + `App_PlatformHost`; `Vk_Core` deleted; FG v2 entrypoints; RHI-E4 shipped.
+- **Verification:** `Verify-CI.ps1` Debug exit 0 (per step logs above).
+- **Deviations:** Step 2.2 optional polish deferred.

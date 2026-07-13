@@ -2,7 +2,7 @@
 
 **Status:** Closed (S4–S7 shipped 2026-06-15/16; **G4 Stage 2 accepted** 2026-06-16)  
 **Scope:** Stage 2 of lighting evolution  
-**Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`Active-Plan.md`](Active-Plan.md), [`EngineArchitecture.md`](EngineArchitecture.md)
+**Related:** [`forward-rendering-epic_Plan.md`](forward-rendering-epic_Plan.md), [`ddgi-lighting-epic_Plan.md`](ddgi-lighting-epic_Plan.md), [`../../Active-Plan.md`](../../Active-Plan.md), [`../../EngineArchitecture.md`](../../EngineArchitecture.md)
 
 ## Naming conventions
 
@@ -53,7 +53,7 @@ flowchart LR
 
 ### A. Render graph and pass topology
 
-**Deps:** Stage 1 handoff ([`forward-stage1.md`](forward-stage1.md) §2), S2 permutation/cache (done), **G1** (met). **S3 executable tasks:** [`Active-Plan.md`](Active-Plan.md) § S3 · [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md).
+**Deps:** Stage 1 handoff ([`../../forward-stage1.md`](../../forward-stage1.md) §2), S2 permutation/cache (done), **G1** (met). **S3:** [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md).
 
 - [ ] Promote frame graph implementation to required infra for hybrid path.
 - [ ] Add explicit pass chain: `GBufferOpaque -> ClusterBuild -> DeferredLighting -> TransparentForward -> Post`.

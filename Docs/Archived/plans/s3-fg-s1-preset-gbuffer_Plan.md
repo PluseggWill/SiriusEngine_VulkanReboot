@@ -1,8 +1,8 @@
 # Plan: s3-fg-s1 — Preset hook + GBufferOpaque shell (slice 1)
 
 **Status:** Closed (2026-06-11)  
-**Parent roadmap:** [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md) steps 1–2 (partial)  
-**Epic:** [`hybrid-deferred-epic_Plan.md`](../../hybrid-deferred-epic_Plan.md) §A + §B (G-buffer only)  
+**Parent roadmap:** [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md) steps 1–2 (partial)  
+**Epic:** [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md) §A + §B (G-buffer only)  
 **Branch:** `S3`
 
 ## Problem
@@ -95,5 +95,5 @@ MSAA: **off** for G-buffer (1 sample); matches typical deferred; swapchain MSAA 
 
 ## References
 
-- Roadmap: [`s3-fg-v0_Plan.md`](../../s3-fg-v0_Plan.md)
+- Roadmap: [`s3-fg-v0_Plan.md`](s3-fg-v0_Plan.md)
 - Bindless maint: [`shader-bindless-policy_Plan.md`](shader-bindless-policy_Plan.md)
