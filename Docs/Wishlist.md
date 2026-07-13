@@ -199,7 +199,8 @@ Closed 2026-06-15 · Plan: [`Archived/plans/s7-post-fg_Plan.md`](Archived/plans/
 - [ ] MSAA vs post AA vs none.
 - [ ] GPU occlusion cull using Hi-Z — *deps: S6 Hi-Z (shipped)*.
 - [ ] **Task shader** for mesh amplification — *post-S12*.
-- [ ] SSR, volumetrics, decals — backlog. **Indirect specular stack (mip chain + specular occlusion + SSR compose):** [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) — Phase A first, Phase B = SSR item here.
+- [ ] SSR follow-ups (temporal lit HDR shipped `087b38f`): scene JSON local probe, dedicated cubemap, same-frame HDR option — [`specular-ibl-stack_Plan.md`](specular-ibl-stack_Plan.md) Phase C closeout. **Core stack shipped:** GGX prefilter mips + Lagarde/cone specular occlusion + Hi-Z SSR compose.
+- [ ] Volumetrics, decals — backlog.
 
 ---
 

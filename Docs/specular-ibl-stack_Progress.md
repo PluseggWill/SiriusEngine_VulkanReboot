@@ -28,16 +28,27 @@
 - **Plan ref:** B1 SSR scaffold, B2 Hi-Z trace v0, B3 deferred composite
 - **Commit:** `87be12f` — `[Lighting] Add Hi-Z SSR pass and deferred prefilter blend (Phase B).`
 - **Files:** `SsrCommon.glsl`, `SsrTrace.comp`, `Vk_SsrPass.*`, `Vk_FrameGraph.*`, `DeferredLighting.frag` binding 17, `GpuLightingGlobals.h` (`shadowParams.x`), `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`, `SsrTrace.spv`, `DeferredLightingFrag.spv`
-- **What changed:** Hi-Z SSR compute after DepthPyramid; `mix(prefilter, ssr, confidence) * specularOcc`; ImGui SSR toggles; default off.
-- **Note:** v0 hit radiance = G-buffer albedo at hit UV (lit HDR / temporal reprojection follow-up).
+- **What changed:** Hi-Z SSR compute after DepthPyramid; `mix(prefilter, ssr, confidence) * specularOcc`; ImGui SSR toggles; default off. v0 hit radiance = G-buffer albedo at hit UV.
 - **Verification:** Verify-CI exit 0; G0-validation exit 0; FG: `DepthPyramid -> SSR -> AO -> ...`.
 
 ## 2026-06-30 — B+ temporal lit HDR + Phase C1/C2
 
 - **Plan ref:** B+ SSR history, C1 bent-normal cones, C2 local box probe
-- **Files:** `SsrTrace.comp`, `SsrCommon.glsl`, `Vk_SsrPass.*`, `Vk_FrameGraph.cpp`, `Vk_PostProcessPass.cpp`, `Gtao.comp`, `AoCommon.glsl`, `PbrIbl.glsl`, `DeferredLighting.frag`, `Vk_AoPass.*`, `Vk_DeferredLightingPass.cpp`, `GpuLightingGlobals.h`, `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`
+- **Commit:** `087b38f` — `[Lighting] Add SSR temporal lit HDR and Phase C reflection quality.`
+- **Files:** `SsrTrace.comp`, `SsrCommon.glsl`, `Vk_SsrPass.*`, `Vk_FrameGraph.cpp`, `Vk_PostProcessPass.cpp`, `Gtao.comp`, `AoCommon.glsl`, `PbrIbl.glsl`, `DeferredLighting.frag`, `Vk_AoPass.*`, `Vk_DeferredLightingPass.cpp`, `GpuLightingGlobals.h`, `Util_LightingPanel.cpp`, `Util_TuningPrefs.cpp`, `SsrTrace.spv`, `Gtao.spv`, `DeferredLightingFrag.spv`
 - **What changed:**
   - SSR samples **previous-frame lit HDR** via ping-pong history + `prevViewProj` reprojection (albedo fallback when history invalid).
-  - GTAO exports half-res RG8 bent normals; deferred **cone specular occlusion** (feature flag bit0, requires GTAO).
-  - **Local parallax box probe** (feature flag bit2) reuses prefilter cubemap; volume from ImGui when DDGI off.
+  - GTAO exports half-res RG8 bent normals; deferred **cone specular occlusion** (`ddgiProbeCounts.w` bit0; requires GTAO).
+  - **Local parallax box probe** (bit2) reuses prefilter cubemap; ImGui volume when DDGI off.
+  - Init order fix: `PostProcessPass` before `SsrPass`.
 - **Verification:** Verify-CI (MSBuild + GfxTests) OK; stress smoke 120 frames exit 0.
+
+## Remaining (closeout)
+
+- [ ] Sponza / stress **visual** sign-off (arches, SSR floor, probe volume).
+- [ ] SSR perf note (ms @ 1080p).
+- [ ] Phase C2: scene JSON box probe + dedicated cubemap.
+- [ ] Phase C3: micro-occlusion / cavity.
+- [ ] Forward lit SSAO bind (D4 parity).
+- [ ] Optional: same-frame lit HDR (move SSR after deferred — large FG change).
+- [ ] Archive line → `Archived-Plan.md`; clear README **Active now** when closed.

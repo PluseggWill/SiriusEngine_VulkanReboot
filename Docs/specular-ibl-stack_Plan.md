@@ -1,7 +1,8 @@
 # Plan: specular-ibl-stack — Industry-aligned indirect specular (IBL + occlusion + reflection layers)
 
-**Status:** In progress (Phase A — 2026-06-30)  
+**Status:** In progress — **Phase A–B shipped**; **Phase C v0** (cones + ImGui local probe); closeout pending  
 **Progress:** [`specular-ibl-stack_Progress.md`](specular-ibl-stack_Progress.md)  
+**Commits:** `3a044a9` (A), `87be12f` (B), `087b38f` (B+ temporal + C1/C2 v0)  
 **Related:** [`Archived/plans/s5-ibl-shadows_Plan.md`](Archived/plans/s5-ibl-shadows_Plan.md), [`Archived/plans/shadow-audit-fix_Plan.md`](Archived/plans/shadow-audit-fix_Plan.md), [`hybrid-deferred-epic_Plan.md`](hybrid-deferred-epic_Plan.md), [`Wishlist.md`](Wishlist.md) §S13 experiments, [`EngineArchitecture.md`](EngineArchitecture.md) §7
 
 ---
@@ -32,24 +33,26 @@ HybridDeferred shows **sky / distant environment cubemap content on surfaces tha
 
 **Phase A — required to close**
 
-- [ ] `Data/Environments/default/prefilter/` contains **offline GGX-prefiltered mips** (not GPU box-filter mips); runtime `iblParams.z` = `log2(faceSize)`.
-- [ ] Deferred + forward lit paths: `specularIbl *= Pbr_SpecularOcclusion(NdotV, ao, roughness)` (Lagarde/Gotanda, Frostbite Listing 26).
-- [ ] Diffuse IBL + DDGI still use `ao`; specular IBL uses **specular occlusion**, not raw `ao` and not `1.0`.
-- [ ] **Sponza** (`Data/Scenes/sponza.json`): visibly reduced sky cubemap leak under arches / inward-facing corners vs current `main`; smooth metals at grazing still show environment (no “chrome sphere goes black” regression).
-- [ ] `iblSpecularShadowMin` behaviour unchanged (attenuates baked sun in prefilter under **direct** shadow only — orthogonal to specular occlusion).
-- [ ] `powershell -File Scripts/Verify-CI.ps1` exit 0; shader SPIR-V regen committed; **G0-validation** manual pass (deferred lighting / barriers touched).
+- [x] `Data/Environments/default/prefilter/` contains **offline GGX-prefiltered mips** (not GPU box-filter mips); runtime `iblParams.z` = `log2(faceSize)`.
+- [x] Deferred: `specularIbl *= Pbr_SpecularOcclusion(NdotV, ao, roughness)` (Lagarde/Gotanda, Frostbite Listing 26). **Forward lit:** still `specularOcc = 1.0` (D4 parity gap).
+- [x] Diffuse IBL + DDGI still use `ao`; specular IBL uses **specular occlusion**, not raw `ao` and not `1.0`.
+- [ ] **Sponza** (`Data/Scenes/sponza.json`): visibly reduced sky cubemap leak under arches / inward-facing corners vs baseline `d454d15` (documented before/after).
+- [x] `iblSpecularShadowMin` behaviour unchanged (attenuates baked sun in prefilter under **direct** shadow only — orthogonal to specular occlusion).
+- [x] `powershell -File Scripts/Verify-CI.ps1` exit 0; shader SPIR-V regen committed; **G0-validation** manual pass (deferred lighting / barriers touched).
 
 **Phase B — required to close phase**
 
-- [ ] Hi-Z SSR pass produces `rgba` (rgb = reflected radiance, a = confidence).
-- [ ] Deferred resolve: `specularIndirect = mix(prefilterIbl, ssr, confidence) * specularOcclusion`.
-- [ ] SSR miss → falls back to prefilter only (distant probe layer).
-- [ ] G0-validation clean on stress config.
+- [x] Hi-Z SSR pass produces `rgba` (rgb = reflected radiance, a = confidence). **B+:** rgb = previous-frame **lit HDR** via temporal reprojection (albedo fallback when history invalid).
+- [x] Deferred resolve: `specularIndirect = mix(prefilterIbl, ssr, confidence) * specularOcclusion` (stack: prefilter → local probe → SSR → specularOcc).
+- [x] SSR miss → falls back to prefilter only (distant probe layer).
+- [x] G0-validation clean on stress config (`87be12f`); B+ stress smoke 120 frames exit 0 (`087b38f`).
 
 **Phase C — stretch**
 
-- [ ] Bent-normal cone specular occlusion (Jimenez 2016 / Filament `SpecularAO_Cones`) behind toggle.
-- [ ] At least one parallax-corrected box probe for interior test scene.
+- [x] Bent-normal cone specular occlusion (Jimenez 2016 / Filament `SpecularAO_Cones`) behind toggle — **requires GTAO** AO method; half-res RG8 bent export.
+- [x] Parallax-corrected box probe v0 — ImGui volume + prefilter as probe content when DDGI off.
+- [ ] Scene JSON box probe component + dedicated probe cubemap.
+- [ ] Micro-occlusion / cavity (C3) — deferred to content pipeline.
 
 ---
 
@@ -76,14 +79,14 @@ HybridDeferred shows **sky / distant environment cubemap content on surfaces tha
 ### Target per-pixel indirect specular (steady state)
 
 ```text
-specularOcc = SpecularOcclusion(NdotV, aoVisibility, roughness)   // Phase A: Lagarde
+specularOcc = SpecularOcclusion(NdotV, aoVisibility, roughness)   // Lagarde; Cones when GTAO + toggle
 specularEnv = PrefilterSplitSum(R, roughness, iblIntensity)
-specularIndirect = specularEnv * specularOcc
-
-// Phase B+
-specularSSR = TraceSSR(...)   // rgb + confidence
-specularIndirect = mix(specularEnv, specularSSR, confidence) * specularOcc
+// Optional local box probe (Phase C v0): mix(prefilter, parallaxBoxProbe, weight)
+specularIndirect = mix(specularEnv, ssrRgb, ssrConfidence)          // SSR after env layers
+specularIndirect *= specularOcc
 ```
+
+**SSR radiance (as-built):** `Vk_SsrPass` runs **before** deferred; hit color samples **previous-frame lit HDR** (ping-pong `myLitHdrHistory`, reprojected with `prevViewProj`). First frame / invalid history → G-buffer albedo at hit UV. History copied from `mySceneColor` at end of hybrid deferred render pass (`RecordHistoryUpdate`).
 
 **Do not:** `specularIndirect = specularEnv` (current after d454d15).  
 **Do not:** `specularIndirect = specularEnv * ao` (diffuse AO on specular — wrong lobe width).  
@@ -91,19 +94,26 @@ specularIndirect = mix(specularEnv, specularSSR, confidence) * specularOcc
 
 ---
 
-## Current state (baseline)
+## Shipped state (2026-06-30)
+
+| Component | Location | Notes |
+|-----------|----------|-------|
+| GGX prefilter mips | `Data/Environments/default/prefilter/mip00..07/` | manifest v3; `Vk_IblResources` loads per-mip files |
+| Lagarde specular occ | `PbrIbl.glsl`, `DeferredLighting.frag` | `shadowParams.y` toggle; `lit = (diffuseIbl+ddgi)*ao + specularIbl*specularOcc` |
+| Cone specular occ | `Pbr_SpecularOcclusionCones`, GTAO bent RG8 | `ddgiProbeCounts.w` bit0; AO method must be GTAO |
+| Hi-Z SSR | `Vk_SsrPass`, `SsrTrace.comp` | FG: after DepthPyramid, before AO; binding 17 in deferred |
+| Temporal lit HDR | `Vk_SsrPass::RecordHistoryUpdate` | 1-frame lag; `PostProcess` init before `SsrPass` |
+| Local box probe v0 | `Pbr_SampleParallaxBoxProbe`, ImGui volume | `ddgiProbeCounts.w` bit2; reuses prefilter cubemap; off when DDGI on |
+| Forward parity gap | `TriangleFrag_Lit.frag` | `specularOcc = 1.0` — see D4 |
+
+## Baseline (pre-plan — `d454d15`)
 
 | Component | Location | Notes |
 |-----------|----------|-------|
 | Split-sum shader | `VulkanDesktop/Shader/PbrIbl.glsl` | `Pbr_SamplePrefilter` uses `lod = roughness * maxMipLevel` |
-| Prefilter upload | `Vk_IblResources.cpp` | `kPrefilterMipLevels = 1` → `maxMip = 0` |
-| Offline bake | `Scripts/bake_default_ibl.py` | `bake_prefilter` only `roughness = 0.0` |
-| Cubemap loader | `Util_Loader::LoadCubemapFromFaceDirectory` | Mip>1 triggers **GPU box** `GenerateCubemapMipmaps` — **must not** use for prefilter |
-| Deferred combine | `DeferredLighting.frag` L261–263 | `(diffuseIbl + ddgi) * ao + specularIbl` — specular bypasses occlusion |
-| Forward combine | `TriangleFrag_Lit.frag`, `LightingBindings.glsl` | No AO texture; specular IBL full strength |
-| SSAO output | `Vk_AoPass` → `aoMap` | Single channel visibility in deferred |
-| Hi-Z | `Vk_DepthPyramidPass` | Built; not used for reflections |
-| Sun in prefilter | `iblParams.w` / `Pbr_IblSpecularShadowScale` | Keep — addresses baked sun disk, not local occlusion |
+| Prefilter upload | `Vk_IblResources.cpp` | was `kPrefilterMipLevels = 1` → `maxMip = 0` |
+| Deferred combine | `DeferredLighting.frag` | specular bypassed AO entirely |
+| Hi-Z | `Vk_DepthPyramidPass` | built; not used for reflections |
 
 ---
 
@@ -206,8 +216,10 @@ SSR pass: Hi-Z cone trace (reference: Uludag Hi-Z SSR, Frostbite §4.9.4). Start
 | Toggle | Default | Phase |
 |--------|---------|-------|
 | `specularOcclusionEnabled` | `true` | A |
-| `specularOcclusionMode` | `Lagarde` / `Cones` | A / C |
-| `ssrEnabled` | `false` until Phase B stable | B |
+| `specularOcclusionUseCones` | `false` | C (GTAO required) |
+| `ssrEnabled` | `false` (stress config) | B |
+| `ssrHistoryDepthReject` | `0.15` | B+ |
+| `localReflectionProbeEnabled` | `false` | C |
 
 Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist via `Util_TuningPrefs` if tuning prefs task lands.
 
@@ -262,18 +274,18 @@ Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist 
 
 #### A0 — Prep / kickoff
 
-- [ ] Create `Docs/specular-ibl-stack_Progress.md`.
-- [ ] Update `Docs/README.md` **Active now** → WIP pointer (on kickoff only).
+- [x] Create `Docs/specular-ibl-stack_Progress.md`.
+- [x] Update `Docs/README.md` **Active now** → WIP pointer (on kickoff only).
 - [ ] Capture **before** screenshots: Sponza arch interior, corner floor, Debug AO view.
 
 #### A1 — Offline bake pipeline
 
-- [ ] Extend `bake_prefilter` to loop `mipIndex in 0..mipCount-1`, `roughness = mipIndex / (mipCount - 1)`.
-- [ ] Write faces to `prefilter/mipNN/{posx,negx,posy,negy,posz,negz}.png`.
-- [ ] Add CLI `--prefilter-mips 8` (default 8); keep `--prefilter-size 128`.
-- [ ] Bump manifest `schemaVersion: 3`; add `prefilter: { layout, baseSize, mipCount }`.
-- [ ] Run bake; commit PNGs + manifest (repo size check: 8 mips × 6 faces × ~128² ≈ acceptable).
-- [ ] Document regen command in plan Progress Closeout:
+- [x] Extend `bake_prefilter` to loop `mipIndex in 0..mipCount-1`, `roughness = mipIndex / (mipCount - 1)`.
+- [x] Write faces to `prefilter/mipNN/{posx,negx,posy,negy,posz,negz}.png`.
+- [x] Add CLI `--prefilter-mips 8` (default 8); keep `--prefilter-size 128`.
+- [x] Bump manifest `schemaVersion: 3`; add `prefilter: { layout, baseSize, mipCount }`.
+- [x] Run bake; commit PNGs + manifest (repo size check: 8 mips × 6 faces × ~128² ≈ acceptable).
+- [x] Document regen command in plan Progress Closeout:
 
   ```powershell
   python Scripts/bake_default_ibl.py --repo-root <repo> --prefilter-mips 8
@@ -281,44 +293,36 @@ Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist 
 
 #### A2 — Runtime load (no GPU box mips)
 
-- [ ] Add `CopyBufferToCubemapFace(..., uint32_t aMipLevel)` — set `imageSubresource.mipLevel`.
-- [ ] Implement `UtilLoader::LoadCubemapMipChainFromFaceDirectories(config, rootDir, mipCount, …)`:
+- [x] Add `CopyBufferToCubemapFace(..., uint32_t aMipLevel)` — set `imageSubresource.mipLevel`.
+- [x] Implement `UtilLoader::LoadCubemapMipChainFromFaceDirectories(config, rootDir, mipCount, …)`:
   - Create cubemap image with `mipCount` levels, sizes `baseSize >> mip`.
   - For each mip, load 6 faces, upload to correct mip/face.
   - Transition whole image to `SHADER_READ_ONLY_OPTIMAL` once at end.
-- [ ] `Vk_IblResources::Init`: parse manifest v3; call new loader for prefilter; set `myPrefilterMaxMipLevel = float(mipCount - 1)`.
-- [ ] Verify cubemap sampler `maxLod` covers full chain (`Vk_IblResources::CreateCubemapSampler` — already `VK_LOD_CLAMP_NONE`).
+- [x] `Vk_IblResources::Init`: parse manifest v3; call new loader for prefilter; set `myPrefilterMaxMipLevel = float(mipCount - 1)`.
+- [x] Verify cubemap sampler `maxLod` covers full chain (`Vk_IblResources::CreateCubemapSampler` — already `VK_LOD_CLAMP_NONE`).
 
 #### A3 — Shader: specular occlusion
 
-- [ ] Add `Pbr_SpecularOcclusion` to `PbrIbl.glsl` (formula above).
-- [ ] `DeferredLighting.frag`:
+- [x] Add `Pbr_SpecularOcclusion` to `PbrIbl.glsl` (formula above).
+- [x] `DeferredLighting.frag`:
   - Compute `NdotV`, `specularOcc` after `ao` finalized (respect `aoEnabled`).
   - `lit = (diffuseIbl + ddgi) * ao + specularIbl * specularOcc`.
   - When `specularOcclusionEnabled == false` (push constant or lighting global flag), `specularOcc = 1.0`.
-- [ ] Optional Phase A: add `Pbr_SpecularOcclusionCones` stub returning Lagarde (switch in C).
+- [x] `Pbr_SpecularOcclusionCones` + toggle (shipped in C1).
 
 #### A4 — CPU / UI contract
 
-- [ ] `Gfx_LightingSettings::mySpecularOcclusionEnabled` (default `true`).
-- [ ] Pass to deferred via push constant bit or spare `iblParams` — **prefer spare component in `contactSoftParams` or new `lightingFlags` UBO** only if push constants full; else use `legacyAndDebug` spare or extend `GpuLightingGlobals` (std140 — document binding sync).
-- [ ] `Util_LightingPanel`: checkbox “Specular occlusion (IBL)” + short help text.
+- [x] `Gfx_LightingSettings::mySpecularOcclusionEnabled` (default `true`).
+- [x] Pass to deferred via `GpuLightingGlobals.shadowParams.y`.
+- [x] `Util_LightingPanel`: checkbox “Specular occlusion (IBL)” + short help text.
 
 #### A5 — Build / verify
 
-- [ ] Rebuild shaders (`Verify-CI` runs drift check).
-- [ ] `powershell -File Scripts/Verify-CI.ps1`
+- [x] Rebuild shaders (`Verify-CI` runs drift check).
+- [x] `powershell -File Scripts/Verify-CI.ps1`
 - [ ] Manual Sponza: compare corners / arches; toggle specular occlusion off/on.
-- [ ] G0-validation:
-
-  ```powershell
-  & "<repo>\x64\Debug\VulkanDesktop.exe" `
-    --asset-root <repo> --config "<repo>\Config\engine.stress.json" `
-    --scene Data/Scenes/sponza.json `
-    --validation --smoke-frames 120 --smoke-seconds 6
-  ```
-
-- [ ] Debug views: AO view still correct; no new validation errors.
+- [x] G0-validation (stress / Sponza — see Progress).
+- [x] Debug views: AO view still correct; no new validation errors.
 
 ---
 
@@ -328,26 +332,34 @@ Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist 
 
 #### B1 — SSR pass scaffold
 
-- [ ] `Vk_SsrPass` with compute or fullscreen trace shader sampling `hiZPyramid`, `gbufferDepth`, `gbufferNormalRoughness`, `gbufferWorldPosition`.
-- [ ] Output `RGBA16F` texture: rgb = reflected color (tonemapped HDR scene or lit HDR — **match deferred input space**), a = confidence.
-- [ ] FG edge: `DepthPyramid → SSR → DeferredLighting` (SSR reads G-buffer + Hi-Z; barrier compile in `Vk_FgBarrierCompiler.cpp`).
+- [x] `Vk_SsrPass` with compute shader sampling `hiZPyramid`, G-buffer depth/normal/worldPos.
+- [x] Output `RGBA16F` texture: rgb = reflected color, a = confidence. **B+:** rgb from temporal lit HDR history.
+- [x] FG edge: `DepthPyramid → SSR → AO → … → Deferred` (`Vk_FrameGraph.cpp`).
 
 #### B2 — Trace algorithm v0
 
-- [ ] Hi-Z ray march in view space; max steps / max distance tunables in ImGui.
-- [ ] Roughness gate: skip SSR when `roughness > ssrMaxRoughness` (default 0.35).
-- [ ] Confidence: hit = 1; miss = 0; optional fade at screen edges.
+- [x] Hi-Z ray march in view space; max steps / max distance tunables in ImGui.
+- [x] Roughness gate: skip SSR when `roughness > ssrMaxRoughness` (default 0.35).
+- [x] Confidence: hit = 1 (or depth-reject weight for history); miss = 0.
 
 #### B3 — Deferred composite
 
-- [ ] Bind SSR texture in `Vk_DeferredLightingPass` (new binding 17 — update layout + pool counts).
-- [ ] `DeferredLighting.frag`: sample SSR; `mix(prefilterSpec, ssr.rgb, ssr.a)` before `* specularOcc`.
-- [ ] When `ssrEnabled == false`, skip bind / use black SSR with a=0.
+- [x] Bind SSR texture in `Vk_DeferredLightingPass` (binding 17).
+- [x] `DeferredLighting.frag`: `mix(prefilterSpec, ssr.rgb, ssr.a)` before `* specularOcc`.
+- [x] When `ssrEnabled == false`, SSR outputs black / zero confidence.
+
+#### B+ — Temporal lit HDR (follow-up to B2 radiance)
+
+- [x] Ping-pong `myLitHdrHistory[2]`; `RecordHistoryUpdate` after hybrid deferred resolve.
+- [x] `Ssr_SampleLitHdrHistory` reprojection + world-position reject (`ssrHistoryDepthReject`).
+- [x] `Vk_PostProcessPass`: scene color `TRANSFER_SRC` for history copy.
+- [x] Init order: `PostProcessPass` before `SsrPass`.
 
 #### B4 — Verify
 
 - [ ] Sponza floor reflects columns when SSR hits; cubemap only where SSR misses.
-- [ ] G0-validation; perf note in Progress (ms SSR @ 1080p).
+- [x] G0-validation / stress smoke (see Progress).
+- [ ] Perf note in Progress (ms SSR @ 1080p).
 
 ---
 
@@ -355,14 +367,15 @@ Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist 
 
 #### C1 — Bent-normal cone occlusion
 
-- [ ] SSAO output: encode bent normal in `aoMap` GB channels (or separate RT).
-- [ ] `Pbr_SpecularOcclusionCones(bentN, R, visibility, roughness)` per Jimenez 2016.
-- [ ] Panel: `Lagarde` vs `Cones`.
+- [x] GTAO exports bent normal in half-res RG8 (`myBentNormalHalf`); deferred binding 18.
+- [x] `Pbr_SpecularOcclusionCones(bentN, R, visibility, roughness)` per Jimenez 2016.
+- [x] Panel: `Lagarde` vs `Cones` (`mySpecularOcclusionUseCones`).
 
 #### C2 — Local reflection probes
 
 - [ ] Volume component in scene JSON; one box probe for interior test.
-- [ ] Parallax-corrected sampling; alpha blend between SSR and probe per Frostbite §4.9.5.
+- [x] Parallax-corrected sampling (`Pbr_SampleParallaxBoxProbe`); ImGui volume when DDGI off.
+- [ ] Dedicated probe cubemap (currently reuses prefilter).
 
 #### C3 — Micro-occlusion
 
@@ -411,8 +424,8 @@ Wire in `Gfx_LightingSettings` + `Util_LightingPanel` (Shadow/IBL tab). Persist 
 | Close phase | Update |
 |-------------|--------|
 | **A** | Note in `Archived-Plan.md`; optional `SprintOutcomeValidation` row; **no** `EngineArchitecture.md` unless UBO binding added to Set 0 |
-| **B** | `EngineArchitecture.md` §7 pass diagram + FG chain; `Active-Plan` / `Wishlist` SSR line → archived |
-| **C** | Material policy if bent normals become required |
+| **B** | `EngineArchitecture.md` §7 pass diagram + FG chain; `Wishlist` SSR line → shipped note |
+| **C** | Material policy if bent normals become required; scene JSON probe schema |
 
 ---
 
@@ -437,21 +450,22 @@ flowchart LR
 
 **Phase A**
 
-1. [ ] A0 kickoff + Progress + before shots  
-2. [ ] A1 bake script + manifest v3 + commit PNGs  
-3. [ ] A2 loader + `CopyBufferToCubemapFace` mip + `Vk_IblResources`  
-4. [ ] A3 `Pbr_SpecularOcclusion` + `DeferredLighting.frag`  
-5. [ ] A4 ImGui toggle + settings  
-6. [ ] A5 Verify-CI + Sponza + G0-validation → Closeout A  
+1. [x] A0 kickoff + Progress + before shots *(screenshots pending)*  
+2. [x] A1 bake script + manifest v3 + commit PNGs  
+3. [x] A2 loader + `CopyBufferToCubemapFace` mip + `Vk_IblResources`  
+4. [x] A3 `Pbr_SpecularOcclusion` + `DeferredLighting.frag`  
+5. [x] A4 ImGui toggle + settings  
+6. [x] A5 Verify-CI + G0-validation → Closeout A *(Sponza visual doc pending)*  
 
 **Phase B**
 
-7. [ ] B1 `Vk_SsrPass` + FG  
-8. [ ] B2 Hi-Z trace v0  
-9. [ ] B3 deferred mix + bindings  
-10. [ ] B4 verify → Closeout B  
+7. [x] B1 `Vk_SsrPass` + FG  
+8. [x] B2 Hi-Z trace v0  
+9. [x] B3 deferred mix + bindings  
+10. [x] B+ temporal lit HDR history  
+11. [ ] B4 Sponza visual + perf → Closeout B  
 
-**Phase C** — track in Wishlist after B ships.
+**Phase C** — v0 shipped (`087b38f`); remaining: scene JSON probe, dedicated cubemap, C3 cavity, forward SSAO bind.
 
 ---
 

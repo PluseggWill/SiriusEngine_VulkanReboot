@@ -319,13 +319,19 @@ flowchart TB
     FO1 --> FT1
   end
 
-  subgraph STG2 [Stage 2 — target]
+  subgraph STG2 [Stage 2 — HybridDeferred as-built]
+    SH[ShadowMap]
     GB[GBufferOpaque]
     CL[ClusterBuild]
-    DL[DeferredLighting]
+    HIZ[DepthPyramid]
+    SSR[Vk_SsrPass]
+    AO[Vk_AoPass]
+    DDGI[DDGIProbeUpdate]
+    SAS[ShadowAoSoft]
+    DL[DeferredLighting HDR]
     FT2[ForwardTransparent]
     PO[Post]
-    GB --> CL --> DL --> FT2 --> PO
+    SH --> GB --> CL --> HIZ --> SSR --> AO --> DDGI --> SAS --> DL --> FT2 --> PO
   end
 
   subgraph STG3 [Stage 3 — optional]
@@ -340,7 +346,7 @@ flowchart TB
 | Stage | Opaque | Transparent | Shading note |
 |-------|--------|-------------|--------------|
 | **1** | Forward lit | Forward sorted | Blinn-Phong baseline; PBR fields uploaded not yet consumed — [`forward-stage1.md`](forward-stage1.md) |
-| **2** | G-buffer + clustered deferred | Forward over imported depth | Full PBR |
+| **2** | G-buffer + clustered deferred | Forward over imported depth | Full PBR; indirect specular stack = prefilter mips + Lagarde/cone specular occlusion + optional local box probe + Hi-Z SSR (temporal lit HDR history). FG: `Shadow → GBuffer → ClusterBuild → DepthPyramid → SSR → AO → DDGI → ShadowAoSoft → Deferred → Transparent → Post`. SSR history updated after hybrid deferred resolve (`Vk_SsrPass::RecordHistoryUpdate`). |
 | **3** | Hybrid + optional DDGI | Unchanged policy | Preset-gated GI |
 
 **Compatibility:** geometry milestones (indirect, meshlets, mesh shader) change **submission**; lighting changes **pass topology** — do not couple sim code to renderer internals.
