@@ -25,10 +25,13 @@ layout(location = 1) in vec2 inTexCoord;
 layout(location = 2) in vec3 inWorldNormal;
 layout(location = 3) in vec3 inWorldPos;
 layout(location = 4) flat in uint inMaterialIndex;
+layout(location = 5) in vec4 inCurrClip;
+layout(location = 6) in vec4 inPrevClip;
 
 layout(location = 0) out vec4 outAlbedo;
 layout(location = 1) out vec4 outNormalRoughness;
 layout(location = 2) out vec4 outWorldPosition;
+layout(location = 3) out vec2 outMotionVector;
 
 void main()
 {
@@ -41,4 +44,8 @@ void main()
     outAlbedo = vec4(albedo, mr.x);
     outNormalRoughness = vec4(N, mr.y);
     outWorldPosition = vec4(inWorldPos, 1.0);
+
+    vec2 currUv = inCurrClip.xy / max(inCurrClip.w, 1e-6) * 0.5 + 0.5;
+    vec2 prevUv = inPrevClip.xy / max(inPrevClip.w, 1e-6) * 0.5 + 0.5;
+    outMotionVector = currUv - prevUv;
 }

@@ -178,6 +178,7 @@
     <ClCompile Include="Util\Util_LightingPanel.cpp" />
     <ClCompile Include="Util\Util_PostProcessPanel.cpp" />
     <ClCompile Include="Util\Util_RenderDebugPanel.cpp" />
+    <ClCompile Include="Util\Util_TemporalPanel.cpp" />
     <ClCompile Include="Util\Util_ScenePanel.cpp" />
     <ClCompile Include="Util\Util_TuningPrefs.cpp" />
     <ClCompile Include="Util\Util_TuningPanel.cpp" />
@@ -244,6 +245,7 @@
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_Temporal.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
@@ -285,6 +287,7 @@
     <ClInclude Include="Util\Util_LightingPanel.h" />
     <ClInclude Include="Util\Util_PostProcessPanel.h" />
     <ClInclude Include="Util\Util_RenderDebugPanel.h" />
+    <ClInclude Include="Util\Util_TemporalPanel.h" />
     <ClInclude Include="Util\Util_ScenePanel.h" />
     <ClInclude Include="Util\Util_TuningPrefs.h" />
     <ClInclude Include="Util\Util_TuningPanel.h" />
@@ -350,12 +353,15 @@
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
     <ClInclude Include="Gfx\Gfx_AoSettings.h" />
     <ClInclude Include="Gfx\Gfx_PostSettings.h" />
+    <ClInclude Include="Gfx\Gfx_TemporalJitter.h" />
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h" />
     <ClInclude Include="RenderCore\Vk_ClusterBuildPass.h" />
     <ClInclude Include="RenderCore\Vk_DepthPyramidPass.h" />
     <ClInclude Include="RenderCore\Vk_PostProcessPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowAoSoftPass.h" />
     <ClInclude Include="RenderCore\Vk_SsrPass.h" />
+    <ClInclude Include="RenderCore\Vk_Temporal.h" />
+    <ClInclude Include="RenderCore\Vk_TemporalState.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_AoMethod.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />
@@ -392,7 +398,7 @@
       <Message>Compiling GLSL shaders to SPIR-V (glslc)</Message>
       <Command>call "$(ProjectDir)Shader\CompileShader.bat"</Command>
       <Outputs>$(ProjectDir)Shader_Generated\TriangleVert.spv;$(ProjectDir)Shader_Generated\TrianglePix.spv;$(ProjectDir)Shader_Generated\TrianglePix_AlphaClip.spv;$(ProjectDir)Shader_Generated\TrianglePix_Bindless.spv;$(ProjectDir)Shader_Generated\reflection_lit.json;$(ProjectDir)Shader_Generated\reflection_lit_bindless.json</Outputs>
-      <AdditionalInputs>$(ProjectDir)Shader\CompileShader.bat;$(ProjectDir)Shader\CompileShader_Glslc.bat;$(ProjectDir)Shader\ReflectShaders_Lit.bat;$(ProjectDir)Shader\ReflectShaders_LitBindless.bat;$(ProjectDir)Shader\ShaderBuild_Common.bat;$(ProjectDir)Shader\DescriptorContract_LitBatch.json;$(ProjectDir)Shader\DescriptorContract_LitBindless.json;$(ProjectDir)Shader\TriangleFrag_Lit.frag;$(ProjectDir)Shader\TriangleFrag_Lit_Bindless.frag;$(ProjectDir)Shader\GBuffer.frag;$(ProjectDir)Shader\GBufferFrag_Bindless.frag;$(ProjectDir)Shader\DeferredLighting.frag;$(ProjectDir)Shader\PbrDirect.glsl;$(ProjectDir)Shader\AoTemporal.comp;$(ProjectDir)Shader\DdgiProbeUpdate.comp;$(ProjectDir)Tools\ShaderReflect\main.cpp;$(ProjectDir)Tools\ShaderReflect\BuildShaderReflect.bat;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs>$(ProjectDir)Shader\CompileShader.bat;$(ProjectDir)Shader\CompileShader_Glslc.bat;$(ProjectDir)Shader\ReflectShaders_Lit.bat;$(ProjectDir)Shader\ReflectShaders_LitBindless.bat;$(ProjectDir)Shader\ShaderBuild_Common.bat;$(ProjectDir)Shader\DescriptorContract_LitBatch.json;$(ProjectDir)Shader\DescriptorContract_LitBindless.json;$(ProjectDir)Shader\TriangleFrag_Lit.frag;$(ProjectDir)Shader\TriangleFrag_Lit_Bindless.frag;$(ProjectDir)Shader\GBuffer.frag;$(ProjectDir)Shader\GBufferFrag_Bindless.frag;$(ProjectDir)Shader\DeferredLighting.frag;$(ProjectDir)Shader\PbrDirect.glsl;$(ProjectDir)Shader\AoTemporal.comp;$(ProjectDir)Shader\DdgiProbeUpdate.comp;$(ProjectDir)Shader\TaaResolve.comp;$(ProjectDir)Tools\ShaderReflect\main.cpp;$(ProjectDir)Tools\ShaderReflect\BuildShaderReflect.bat;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
     <None Include="Shader_Generated\TriangleVert.spv" />
     <None Include="Shader_Generated\TrianglePix.spv" />

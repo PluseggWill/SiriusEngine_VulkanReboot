@@ -1,9 +1,13 @@
 #version 450
 
-// Set 0 frame UBO; Set 2 per-instance model via UNIFORM_BUFFER_DYNAMIC + dynamicOffset (VkDescriptorPolicy).
+// Set 0 frame UBO (GpuCameraData); Set 2 per-instance model via UNIFORM_BUFFER_DYNAMIC + dynamicOffset.
+// Extra temporal fields after proj match GBuffer.vert / GpuCameraData; unused here.
 layout(set = 0, binding = 0) uniform CameraData {
     mat4 view;
     mat4 proj;
+    mat4 prevViewProj;
+    mat4 currViewProj;
+    vec4 temporalJitterAndFlags;
 } cameraData;
 
 layout(set = 2, binding = 0) uniform ObjectData {

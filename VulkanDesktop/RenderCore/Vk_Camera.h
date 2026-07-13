@@ -3,10 +3,13 @@
 #include "Vk_Types.h"
 #include <glm/glm.hpp>
 
-// std140 UBO, set 0 / eVk_CameraBinding — view/proj only; per-draw model is Set 2 dynamic UBO (TriangleVertex.vert).
+// std140 UBO, set 0 / eVk_CameraBinding — current + previous view/proj for temporal reprojection.
 struct GpuCameraData {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
+    alignas( 16 ) glm::mat4 prevViewProj;
+    alignas( 16 ) glm::mat4 currViewProj;
+    alignas( 16 ) glm::vec4 temporalJitterAndFlags;  // xy=jitter(px), z=historyValid(0/1), w=reserved
 };
 
 // std140 UBO slice in per-frame instance slab (Set 2 / UNIFORM_BUFFER_DYNAMIC — S1 verify task).

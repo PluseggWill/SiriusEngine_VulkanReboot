@@ -1,0 +1,161 @@
+#version 450
+
+// TAA v0.5: Catmull-Rom history, YCoCg variance clip (tonemapped), velocity-adaptive blend, light sharpen.
+// Motion vectors: UV offsets mv = currUv - prevUv.
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D sceneHdr;
+layout(set = 0, binding = 1) uniform sampler2D historyHdr;
+layout(set = 0, binding = 2) uniform sampler2D motionVectors;
+layout(set = 0, binding = 3, rgba16f) uniform writeonly image2D outResolved;
+
+layout(push_constant) uniform Push {
+    float historyBlend;    // base history weight (e.g. 0.875)
+    float historyValid;    // 0/1
+    float varianceGamma;   // AABB = mu +/- gamma * sigma
+    float sharpen;         // unsharp amount on resolve
+} pc;
+
+vec3 Tonemap(vec3 c) {
+    return c / (vec3(1.0) + max(c, vec3(0.0)));
+}
+
+vec3 TonemapInvert(vec3 c) {
+    return c / max(vec3(1.0) - c, vec3(1e-4));
+}
+
+vec3 RgbToYCoCg(vec3 c) {
+    float y  = dot(c, vec3(0.25, 0.5, 0.25));
+    float co = dot(c, vec3(0.5, 0.0, -0.5));
+    float cg = dot(c, vec3(-0.25, 0.5, -0.25));
+    return vec3(y, co, cg);
+}
+
+vec3 YCoCgToRgb(vec3 c) {
+    float t = c.x - c.z;
+    return vec3(t + c.y, c.x + c.z, t - c.y);
+}
+
+// Clip history toward AABB center (Karis).
+vec3 ClipAabb(vec3 hist, vec3 center, vec3 extent) {
+    vec3 v = hist - center;
+    vec3 e = max(extent, vec3(1e-5));
+    vec3 a = abs(v / e);
+    float m = max(a.x, max(a.y, a.z));
+    if (m > 1.0) {
+        return center + v / m;
+    }
+    return hist;
+}
+
+// 4x4 Catmull-Rom (optimized 5 bilinear taps) — Jimenez / Unreal-style.
+vec3 SampleHistoryCatmullRom(vec2 uv, vec2 texSize) {
+    vec2 samplePos = uv * texSize;
+    vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+    vec2 f = samplePos - texPos1;
+
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset12 = w2 / max(w12, vec2(1e-5));
+
+    vec2 texPos0 = texPos1 - vec2(1.0);
+    vec2 texPos3 = texPos1 + vec2(2.0);
+    vec2 texPos12 = texPos1 + offset12;
+
+    texPos0 /= texSize;
+    texPos3 /= texSize;
+    texPos12 /= texSize;
+
+    vec3 result = vec3(0.0);
+    result += textureLod(historyHdr, vec2(texPos0.x, texPos0.y), 0.0).rgb * (w0.x * w0.y);
+    result += textureLod(historyHdr, vec2(texPos12.x, texPos0.y), 0.0).rgb * (w12.x * w0.y);
+    result += textureLod(historyHdr, vec2(texPos3.x, texPos0.y), 0.0).rgb * (w3.x * w0.y);
+
+    result += textureLod(historyHdr, vec2(texPos0.x, texPos12.y), 0.0).rgb * (w0.x * w12.y);
+    result += textureLod(historyHdr, vec2(texPos12.x, texPos12.y), 0.0).rgb * (w12.x * w12.y);
+    result += textureLod(historyHdr, vec2(texPos3.x, texPos12.y), 0.0).rgb * (w3.x * w12.y);
+
+    result += textureLod(historyHdr, vec2(texPos0.x, texPos3.y), 0.0).rgb * (w0.x * w3.y);
+    result += textureLod(historyHdr, vec2(texPos12.x, texPos3.y), 0.0).rgb * (w12.x * w3.y);
+    result += textureLod(historyHdr, vec2(texPos3.x, texPos3.y), 0.0).rgb * (w3.x * w3.y);
+
+    return max(result, vec3(0.0));
+}
+
+void main() {
+    const ivec2 size = textureSize(sceneHdr, 0);
+    const ivec2 pix  = ivec2(gl_GlobalInvocationID.xy);
+    if (pix.x >= size.x || pix.y >= size.y) {
+        return;
+    }
+
+    const vec2 texSize = vec2(size);
+    const vec2 uv = (vec2(pix) + 0.5) / texSize;
+    const vec3 currHdr = texelFetch(sceneHdr, pix, 0).rgb;
+
+    // Ignore Halton-scale motion (~1px) so stationary pixels accumulate history.
+    const float kJitterDeadzonePx = 1.5;
+
+    vec3 outHdr = currHdr;
+    float motionPx = 0.0;
+    if (pc.historyValid > 0.5) {
+        const vec2 mv = textureLod(motionVectors, uv, 0.0).xy;
+        motionPx = length(mv) * max(texSize.x, texSize.y);
+        const vec2 prevUv = uv - mv;
+
+        if (prevUv.x >= 0.0 && prevUv.x <= 1.0 && prevUv.y >= 0.0 && prevUv.y <= 1.0) {
+            // Neighborhood stats in tonemapped YCoCg (tighter AABB, fewer hue shifts).
+            vec3 m1 = vec3(0.0);
+            vec3 m2 = vec3(0.0);
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    ivec2 p = clamp(pix + ivec2(dx, dy), ivec2(0), size - ivec2(1));
+                    vec3 c = RgbToYCoCg(Tonemap(texelFetch(sceneHdr, p, 0).rgb));
+                    m1 += c;
+                    m2 += c * c;
+                }
+            }
+            const float n = 9.0;
+            vec3 mu = m1 / n;
+            vec3 sigma = sqrt(max(m2 / n - mu * mu, vec3(0.0)));
+            float gamma = clamp(pc.varianceGamma, 0.5, 2.5);
+            vec3 aabbMin = mu - gamma * sigma;
+            vec3 aabbMax = mu + gamma * sigma;
+            vec3 center = 0.5 * (aabbMin + aabbMax);
+            vec3 extent = 0.5 * (aabbMax - aabbMin);
+
+            vec3 histHdr = SampleHistoryCatmullRom(prevUv, texSize);
+            vec3 histTm = RgbToYCoCg(Tonemap(histHdr));
+            histTm = ClipAabb(histTm, center, extent);
+            histHdr = TonemapInvert(YCoCgToRgb(histTm));
+
+            float historyW = clamp(pc.historyBlend, 0.0, 0.98);
+            float currW = 1.0 - historyW;
+            float motionBoost = max(0.0, motionPx - kJitterDeadzonePx) * 0.2;
+            currW = clamp(currW + motionBoost, currW, 0.45);
+            outHdr = mix(histHdr, currHdr, currW);
+        }
+    }
+
+    // Light unsharp; scale down when static so distant Halton jitter isn't re-amplified.
+    float sharpen = clamp(pc.sharpen, 0.0, 1.5);
+    if (pc.historyValid > 0.5) {
+        sharpen *= mix(0.2, 1.0, smoothstep(kJitterDeadzonePx, 6.0, motionPx));
+    }
+    if (sharpen > 1e-4) {
+        vec3 c = currHdr;
+        vec3 n = texelFetch(sceneHdr, clamp(pix + ivec2(0, -1), ivec2(0), size - ivec2(1)), 0).rgb;
+        vec3 s = texelFetch(sceneHdr, clamp(pix + ivec2(0, 1), ivec2(0), size - ivec2(1)), 0).rgb;
+        vec3 e = texelFetch(sceneHdr, clamp(pix + ivec2(1, 0), ivec2(0), size - ivec2(1)), 0).rgb;
+        vec3 w = texelFetch(sceneHdr, clamp(pix + ivec2(-1, 0), ivec2(0), size - ivec2(1)), 0).rgb;
+        vec3 detail = c - 0.25 * (n + s + e + w);
+        outHdr = max(outHdr + detail * sharpen, vec3(0.0));
+    }
+
+    imageStore(outResolved, pix, vec4(outHdr, 1.0));
+}

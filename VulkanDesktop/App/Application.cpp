@@ -16,6 +16,8 @@
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_TuningPanel.h"
 #include "ActiveViewsBuild.h"
+
+#include "../RenderCore/Vk_Temporal.h"
 #include "App_PlatformHost.h"
 #include "DebugOverlay.h"
 #include "SceneCpuLoad.h"
@@ -190,8 +192,9 @@ void Application::RunMainLoop() {
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
         Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, renderer.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
-        uint32_t                    viewCount = 0;
-        const auto                  views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera(), renderer.GetSwapChainExtent() );
+        uint32_t viewCount = 0;
+        auto     views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera(), renderer.GetSwapChainExtent() );
+        Vk_Temporal::PrepareViews( renderer, views, viewCount );
         Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
         const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,
                                                                                       myDebugUI.myRenderDebug.myLodEnabled );

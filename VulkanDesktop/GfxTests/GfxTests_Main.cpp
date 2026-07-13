@@ -14,6 +14,7 @@
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
+#include "../Gfx/Gfx_TemporalJitter.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
 #include "../RenderCore/Vk_RhiDevice.h"
 #include "../Util/Util_EngineConfig.h"
@@ -565,6 +566,22 @@ void TestRenderPresetHybridDeferred() {
     Expect( threw, "unknown render preset throws" );
 }
 
+void TestTemporalHaltonJitter() {
+    Expect( Gfx_TemporalJitter::Halton( 1u, 2u ) == 0.5f, "Halton(1,2) == 0.5" );
+    Expect( std::abs( Gfx_TemporalJitter::Halton( 1u, 3u ) - ( 1.0f / 3.0f ) ) < 1e-6f, "Halton(1,3) == 1/3" );
+
+    const glm::vec2 jitter0 = Gfx_TemporalJitter::SampleNdc( 0u, 1920u, 1080u );
+    Expect( std::abs( jitter0.x ) < 1e-6f, "Halton index 0 x jitter centered at 0 NDC" );
+
+    const glm::vec2 jitter1 = Gfx_TemporalJitter::SampleNdc( 1u, 1920u, 1080u );
+    Expect( std::abs( jitter1.x ) > 1e-6f, "Halton index 1 x jitter non-zero" );
+
+    glm::mat4       proj     = glm::perspective( glm::radians( 45.0f ), 16.0f / 9.0f, 0.1f, 100.0f );
+    const glm::mat4 jittered = Gfx_TemporalJitter::ApplyToProjection( proj, jitter1 );
+    Expect( jittered[ 2 ][ 0 ] != proj[ 2 ][ 0 ], "projection jitter modifies clip X" );
+    Expect( jittered[ 2 ][ 1 ] != proj[ 2 ][ 1 ], "projection jitter modifies clip Y" );
+}
+
 void TestRhiDeviceHeadlessConstruct() {
     Vk_RhiDevice rhi;
     rhi.SetEnableValidationLayers( false, {} );
@@ -613,6 +630,7 @@ int main() {
     TestClusterIndexFromTile();
     TestClusterGridCount();
     TestRenderPresetHybridDeferred();
+    TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();

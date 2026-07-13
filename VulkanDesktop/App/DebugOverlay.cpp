@@ -15,6 +15,7 @@
 #include "../Util/Util_RenderDebugPanel.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_StatsOverlay.h"
+#include "../Util/Util_TemporalPanel.h"
 #include "../Util/Util_TuningPanel.h"
 #include "DebugUIState.h"
 #include "WorldState.h"
@@ -123,7 +124,11 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Post" ) ) {
-                UtilPostProcessPanel::BuildContents( aConfig, aPostSettings );
+                UtilPostProcessPanel::BuildContents( aConfig, aPostSettings, aCore );
+                ImGui::EndTabItem();
+            }
+            if ( ImGui::BeginTabItem( "Temporal" ) ) {
+                UtilTemporalPanel::BuildContents( aCore );
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {

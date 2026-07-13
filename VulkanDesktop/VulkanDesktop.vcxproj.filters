@@ -88,6 +88,9 @@
     <ClCompile Include="Util\Util_RenderDebugPanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_TemporalPanel.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_ScenePanel.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -265,6 +268,9 @@
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_Temporal.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_AoPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -382,6 +388,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_RenderDebugPanel.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_TemporalPanel.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_ScenePanel.h">
@@ -558,6 +567,9 @@
     <ClInclude Include="Gfx\Gfx_PostSettings.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_TemporalJitter.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_ClusterLighting.h">
       <Filter>Gfx</Filter>
     </ClInclude>
@@ -577,6 +589,12 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_SsrPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_Temporal.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_TemporalState.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_AoPass.h">

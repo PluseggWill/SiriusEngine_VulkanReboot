@@ -22,11 +22,14 @@ constexpr char     kTonemapVertSpv[]    = "VulkanDesktop/Shader_Generated/Tonema
 constexpr char     kTonemapFragSpv[]    = "VulkanDesktop/Shader_Generated/TonemapFrag.spv";
 constexpr char     kBloomThresholdSpv[] = "VulkanDesktop/Shader_Generated/BloomThreshold.spv";
 constexpr char     kBloomBlurSpv[]      = "VulkanDesktop/Shader_Generated/BloomBlur.spv";
+constexpr char     kTaaResolveSpv[]     = "VulkanDesktop/Shader_Generated/TaaResolve.spv";
 constexpr VkFormat kBloomFormat         = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-VkImageLayout sSceneColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sBloomPingLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sBloomPongLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sSceneColorLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sTaaResolvedLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sTaaHistoryLayouts[ 2 ] = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
+VkImageLayout sBloomPingLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout sBloomPongLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
 
 struct TonemapPushConstants {
     float    exposure;
@@ -53,6 +56,14 @@ struct BloomBlurPushConstants {
 };
 
 static_assert( sizeof( BloomBlurPushConstants ) == 8, "BloomBlurPushConstants must match BloomBlur.comp push block" );
+
+struct TaaResolvePushConstants {
+    float historyBlend;
+    float historyValid;
+    float varianceGamma;
+    float sharpen;
+};
+static_assert( sizeof( TaaResolvePushConstants ) == 16, "TaaResolvePushConstants must match TaaResolve.comp push block" );
 
 void DestroyTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
@@ -81,6 +92,29 @@ void CreateSceneColorImage( Vk_Renderer& aCore ) {
                        VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.mySceneColor.AllocImage() );
     aCore.myPostProcessState.mySceneColor.ImageView() =
         aCore.CreateImageView( aCore.myPostProcessState.mySceneColor.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+}
+
+void CreateTaaImages( Vk_Renderer& aCore ) {
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+    // Resolved: compute write + tonemap sample + history copy src.
+    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
+                       VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
+                       aCore.myPostProcessState.myTaaResolved.AllocImage() );
+    aCore.myPostProcessState.myTaaResolved.ImageView() =
+        aCore.CreateImageView( aCore.myPostProcessState.myTaaResolved.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+
+    for ( uint32_t i = 0; i < 2; ++i ) {
+        // History: sample + copy dst (and src if ping-pong ever blits history).
+        aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
+                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                           VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.myTaaHistory[ i ].AllocImage() );
+        aCore.myPostProcessState.myTaaHistory[ i ].ImageView() =
+            aCore.CreateImageView( aCore.myPostProcessState.myTaaHistory[ i ].Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    }
+    aCore.myPostProcessState.myTaaHistoryWriteIndex = 0u;
 }
 
 void CreateBloomImage( Vk_Renderer& aCore, Gfx_Texture& aTexture, VkExtent2D aExtent ) {
@@ -216,11 +250,12 @@ VkPipeline BuildComputePipeline( Vk_Renderer& aCore, VkPipelineLayout aLayout, c
 }
 
 void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_PostProcessState& state = aCore.myPostProcessState;
+    Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const Gfx_PostSettings& post  = aCore.myPostSettings;
 
     VkDescriptorImageInfo sceneInfo{};
     sceneInfo.sampler     = state.mySceneSampler;
-    sceneInfo.imageView   = state.mySceneColor.ImageView();
+    sceneInfo.imageView   = ( post.myTaaEnabled && state.myTaaResolved.ImageView() != VK_NULL_HANDLE ) ? state.myTaaResolved.ImageView() : state.mySceneColor.ImageView();
     sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo bloomInfo{};
@@ -231,6 +266,38 @@ void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     std::array< VkWriteDescriptorSet, 2 > writes = {
         VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bloomInfo, 1, 1 ),
+    };
+    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
+void UpdateTaaResolveDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    VkDescriptorImageInfo sceneInfo{};
+    sceneInfo.sampler     = state.mySceneSampler;
+    sceneInfo.imageView   = state.mySceneColor.ImageView();
+    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const uint32_t        readIndex = 1u - state.myTaaHistoryWriteIndex;
+    VkDescriptorImageInfo historyInfo{};
+    historyInfo.sampler     = state.mySceneSampler;
+    historyInfo.imageView   = state.myTaaHistory[ readIndex ].ImageView();
+    historyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo mvInfo{};
+    mvInfo.sampler     = state.mySceneSampler;
+    mvInfo.imageView   = aCore.myGBufferState.myMotionVector.ImageView();
+    mvInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkDescriptorImageInfo outInfo{};
+    outInfo.imageView   = state.myTaaResolved.ImageView();
+    outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    std::array< VkWriteDescriptorSet, 4 > writes = {
+        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 1, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &mvInfo, 2, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outInfo, 3, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
 }
@@ -374,16 +441,43 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
     }
 
-    // Per frame: threshold(1) + blurH(2) + blurV(2) storage images — match Vk_AoPass pool sizing.
+    const std::array< VkDescriptorSetLayoutBinding, 4 > taaBindings = {
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
+        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
+    };
+    VkDescriptorSetLayoutCreateInfo taaLayoutInfo{};
+    taaLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    taaLayoutInfo.bindingCount = static_cast< uint32_t >( taaBindings.size() );
+    taaLayoutInfo.pBindings    = taaBindings.data();
+    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &taaLayoutInfo, nullptr, &state.myTaaResolveSetLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: TAA resolve descriptor layout failed" );
+    }
+
+    VkPushConstantRange taaPush{};
+    taaPush.stageFlags                               = VK_SHADER_STAGE_COMPUTE_BIT;
+    taaPush.offset                                   = 0;
+    taaPush.size                                     = sizeof( TaaResolvePushConstants );
+    VkPipelineLayoutCreateInfo taaPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
+    taaPipelineLayoutInfo.setLayoutCount             = 1;
+    taaPipelineLayoutInfo.pSetLayouts                = &state.myTaaResolveSetLayout;
+    taaPipelineLayoutInfo.pushConstantRangeCount     = 1;
+    taaPipelineLayoutInfo.pPushConstantRanges        = &taaPush;
+    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &taaPipelineLayoutInfo, nullptr, &state.myTaaResolvePipelineLayout ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_PostProcessPass: TAA resolve pipeline layout failed" );
+    }
+
+    // Per frame: tonemap(1) + taa(1) + threshold(1) + blurH(1) + blurV(1) storage images — match Vk_AoPass pool sizing.
     VkDescriptorPoolSize poolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 3 ) },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 5 ) },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 6 ) },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 6 ) },
     };
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast< uint32_t >( std::size( poolSizes ) );
     poolInfo.pPoolSizes    = poolSizes;
-    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 4 );
+    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 5 );
     if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_PostProcessPass: descriptor pool failed" );
     }
@@ -397,6 +491,10 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         allocInfo.pSetLayouts = &state.myTonemapSetLayout;
         UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] ),
                                           "Vk_PostProcessPass: tonemap descriptor set alloc" );
+
+        allocInfo.pSetLayouts = &state.myTaaResolveSetLayout;
+        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTaaResolveDescriptorSets[ i ] ),
+                                          "Vk_PostProcessPass: TAA resolve descriptor set alloc" );
 
         allocInfo.pSetLayouts = &state.myBloomThresholdSetLayout;
         UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] ),
@@ -417,6 +515,9 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const std::string blurPath      = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
     state.myBloomThresholdPipeline  = BuildComputePipeline( aCore, state.myBloomThresholdPipelineLayout, thresholdPath );
     state.myBloomBlurPipeline       = BuildComputePipeline( aCore, state.myBloomBlurPipelineLayout, blurPath );
+
+    const std::string taaPath  = UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv );
+    state.myTaaResolvePipeline = BuildComputePipeline( aCore, state.myTaaResolvePipelineLayout, taaPath );
 }
 
 void RebuildResources( Vk_Renderer& aCore ) {
@@ -426,18 +527,27 @@ void RebuildResources( Vk_Renderer& aCore ) {
 
     // Extent-scoped only (RP/FB). Sampler + descriptor pool live for pass lifetime — never flush them here.
     aCore.myPostProcessState.myDeletionQueue.flush();
-    sSceneColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPingLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPongLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    sSceneColorLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaResolvedLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaHistoryLayouts[ 0 ] = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaHistoryLayouts[ 1 ] = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPingLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+    sBloomPongLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
 
     Vk_PostProcessState& state = aCore.myPostProcessState;
     DestroyTexture( aCore, state.mySceneColor );
+    DestroyTexture( aCore, state.myTaaResolved );
+    DestroyTexture( aCore, state.myTaaHistory[ 0 ] );
+    DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
     DestroyTexture( aCore, state.myBloomPing );
     DestroyTexture( aCore, state.myBloomPong );
-    state.myHybridRenderPass  = VK_NULL_HANDLE;
-    state.myHybridFramebuffer = VK_NULL_HANDLE;
+    state.myHybridRenderPass     = VK_NULL_HANDLE;
+    state.myHybridFramebuffer    = VK_NULL_HANDLE;
+    state.myTaaHistoryReady      = false;
+    state.myTaaHistoryWriteIndex = 0u;
 
     CreateSceneColorImage( aCore );
+    CreateTaaImages( aCore );
     const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
     CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPing, bloomExtent );
     CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPong, bloomExtent );
@@ -465,6 +575,7 @@ void RebuildResources( Vk_Renderer& aCore ) {
     // Descriptor sets are allocated in CreatePipelineResources; skip until pool exists (Init order).
     if ( aCore.myPostProcessState.myDescriptorPool != VK_NULL_HANDLE ) {
         for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+            UpdateTaaResolveDescriptorSet( aCore, i );
             UpdateTonemapDescriptorSet( aCore, i );
             UpdateBloomThresholdDescriptorSet( aCore, i );
             UpdateBloomBlurDescriptorSet( aCore, i, true );
@@ -485,6 +596,10 @@ void RebuildResources( Vk_Renderer& aCore ) {
     if ( aCore.myPostProcessState.myBloomBlurPipelineLayout != VK_NULL_HANDLE ) {
         const std::string blurPath                   = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
         aCore.myPostProcessState.myBloomBlurPipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myBloomBlurPipelineLayout, blurPath );
+    }
+    if ( aCore.myPostProcessState.myTaaResolvePipelineLayout != VK_NULL_HANDLE ) {
+        const std::string taaPath                     = UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv );
+        aCore.myPostProcessState.myTaaResolvePipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myTaaResolvePipelineLayout, taaPath );
     }
 }
 
@@ -509,9 +624,12 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
     }
 
     if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                  &barrier );
+        }
         sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
@@ -583,12 +701,145 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
     sBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
+void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+    Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const Gfx_PostSettings& post  = aCore.myPostSettings;
+    if ( !post.myTaaEnabled ) {
+        state.myTaaHistoryReady = false;
+        return;
+    }
+
+    if ( !aCore.myTemporalState.myHistoryValid ) {
+        state.myTaaHistoryReady = false;
+    }
+
+    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                  &barrier );
+        }
+        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    const uint32_t writeIndex = state.myTaaHistoryWriteIndex;
+    const uint32_t readIndex  = 1u - writeIndex;
+
+    if ( sTaaHistoryLayouts[ readIndex ] != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        const VkImageLayout  oldLayout = sTaaHistoryLayouts[ readIndex ];
+        VkAccessFlags        srcAccess = 0;
+        VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if ( oldLayout == VK_IMAGE_LAYOUT_GENERAL ) {
+            srcAccess = VK_ACCESS_SHADER_WRITE_BIT;
+            srcStage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        VkImageMemoryBarrier barrier =
+            SceneColorBarrier( state.myTaaHistory[ readIndex ].Image(), oldLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcAccess, VK_ACCESS_SHADER_READ_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sTaaHistoryLayouts[ readIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    if ( sTaaResolvedLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = sTaaResolvedLayout;
+        VkAccessFlags        srcAccess = 0;
+        VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+            srcAccess = VK_ACCESS_SHADER_READ_BIT;
+            srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        else if ( oldLayout == VK_IMAGE_LAYOUT_GENERAL ) {
+            srcAccess = VK_ACCESS_SHADER_WRITE_BIT;
+            srcStage  = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        VkImageMemoryBarrier barrier = SceneColorBarrier( state.myTaaResolved.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sTaaResolvedLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+
+    TaaResolvePushConstants push{};
+    push.historyBlend  = post.myTaaBlend;
+    push.historyValid  = ( aCore.myTemporalState.myHistoryValid && state.myTaaHistoryReady ) ? 1.0f : 0.0f;
+    push.varianceGamma = post.myTaaVarianceGamma;
+    push.sharpen       = post.myTaaSharpen;
+
+    UpdateTaaResolveDescriptorSet( aCore, aFrameIndex );
+
+    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myTaaResolvePipeline );
+    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myTaaResolvePipelineLayout, 0, 1, &state.myTaaResolveDescriptorSets[ aFrameIndex ], 0,
+                             nullptr );
+    vkCmdPushConstants( aCommandBuffer, state.myTaaResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
+
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    vkCmdDispatch( aCommandBuffer, ( extent.width + 7 ) / 8, ( extent.height + 7 ) / 8, 1 );
+
+    VkMemoryBarrier dep{};
+    dep.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    dep.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    dep.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 1, &dep, 0,
+                          nullptr, 0, nullptr );
+
+    VkImageMemoryBarrier resolvedToRead0 = SceneColorBarrier( state.myTaaResolved.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &resolvedToRead0 );
+    sTaaResolvedLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    // Copy resolved -> history (writeIndex) for next frame.
+    if ( sTaaHistoryLayouts[ writeIndex ] != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = sTaaHistoryLayouts[ writeIndex ];
+        VkAccessFlags        srcAccess = 0;
+        VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+            srcAccess = VK_ACCESS_SHADER_READ_BIT;
+            srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        VkImageMemoryBarrier barrier =
+            SceneColorBarrier( state.myTaaHistory[ writeIndex ].Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
+        vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        sTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_GENERAL;
+    }
+
+    VkImageCopy copy{};
+    copy.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.srcSubresource.layerCount     = 1;
+    copy.dstSubresource                = copy.srcSubresource;
+    copy.extent                        = { extent.width, extent.height, 1 };
+    VkImageMemoryBarrier resolvedToSrc = SceneColorBarrier( state.myTaaResolved.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT );
+    VkImageMemoryBarrier historyToDst  = SceneColorBarrier( state.myTaaHistory[ writeIndex ].Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT );
+    std::array< VkImageMemoryBarrier, 2 > toCopy = { resolvedToSrc, historyToDst };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                          nullptr, static_cast< uint32_t >( toCopy.size() ), toCopy.data() );
+
+    vkCmdCopyImage( aCommandBuffer, state.myTaaResolved.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, state.myTaaHistory[ writeIndex ].Image(),
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy );
+
+    VkImageMemoryBarrier resolvedToRead = SceneColorBarrier( state.myTaaResolved.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                             VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
+    VkImageMemoryBarrier historyToRead  = SceneColorBarrier( state.myTaaHistory[ writeIndex ].Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    std::array< VkImageMemoryBarrier, 2 > toReadBarriers = { resolvedToRead, historyToRead };
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
+                          nullptr, static_cast< uint32_t >( toReadBarriers.size() ), toReadBarriers.data() );
+
+    sTaaResolvedLayout               = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    sTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    state.myTaaHistoryWriteIndex     = 1u - state.myTaaHistoryWriteIndex;
+    state.myTaaHistoryReady          = true;
+}
+
 }  // namespace
 
 namespace Vk_PostProcessPass {
 
 bool HasHybridResolve( const Vk_Renderer& aCore ) {
     return aCore.myPostProcessState.myInitialized && aCore.myPostProcessState.myHybridRenderPass != VK_NULL_HANDLE;
+}
+
+void MarkSceneColorShaderRead() {
+    sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void Destroy( Vk_Renderer& aCore ) {
@@ -605,6 +856,10 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
         state.myTonemapPipeline = VK_NULL_HANDLE;
     }
+    if ( state.myTaaResolvePipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( device, state.myTaaResolvePipeline, nullptr );
+        state.myTaaResolvePipeline = VK_NULL_HANDLE;
+    }
     if ( state.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, state.myBloomThresholdPipeline, nullptr );
         state.myBloomThresholdPipeline = VK_NULL_HANDLE;
@@ -617,6 +872,10 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDestroyPipelineLayout( device, state.myTonemapPipelineLayout, nullptr );
         state.myTonemapPipelineLayout = VK_NULL_HANDLE;
     }
+    if ( state.myTaaResolvePipelineLayout != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( device, state.myTaaResolvePipelineLayout, nullptr );
+        state.myTaaResolvePipelineLayout = VK_NULL_HANDLE;
+    }
     if ( state.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
         vkDestroyPipelineLayout( device, state.myBloomThresholdPipelineLayout, nullptr );
         state.myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
@@ -628,6 +887,10 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( state.myTonemapSetLayout != VK_NULL_HANDLE ) {
         vkDestroyDescriptorSetLayout( device, state.myTonemapSetLayout, nullptr );
         state.myTonemapSetLayout = VK_NULL_HANDLE;
+    }
+    if ( state.myTaaResolveSetLayout != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorSetLayout( device, state.myTaaResolveSetLayout, nullptr );
+        state.myTaaResolveSetLayout = VK_NULL_HANDLE;
     }
     if ( state.myBloomThresholdSetLayout != VK_NULL_HANDLE ) {
         vkDestroyDescriptorSetLayout( device, state.myBloomThresholdSetLayout, nullptr );
@@ -644,12 +907,18 @@ void Destroy( Vk_Renderer& aCore ) {
 
     state.myDeletionQueue.flush();
     DestroyTexture( aCore, state.mySceneColor );
+    DestroyTexture( aCore, state.myTaaResolved );
+    DestroyTexture( aCore, state.myTaaHistory[ 0 ] );
+    DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
     DestroyTexture( aCore, state.myBloomPing );
     DestroyTexture( aCore, state.myBloomPong );
     state.myHybridRenderPass  = VK_NULL_HANDLE;
     state.myHybridFramebuffer = VK_NULL_HANDLE;
     state.myInitialized       = false;
     sSceneColorLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaResolvedLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaHistoryLayouts[ 0 ]   = VK_IMAGE_LAYOUT_UNDEFINED;
+    sTaaHistoryLayouts[ 1 ]   = VK_IMAGE_LAYOUT_UNDEFINED;
     sBloomPingLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
     sBloomPongLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
 }
@@ -681,6 +950,7 @@ void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aI
         return;
     }
 
+    RecordTaaResolve( aCore, aCommandBuffer, aFrameIndex );
     RecordBloom( aCore, aCommandBuffer, aFrameIndex );
 
     const Gfx_PostSettings& post = aCore.myPostSettings;
@@ -693,11 +963,19 @@ void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aI
     }
 
     if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+        // Hybrid RP finalLayout is already SHADER_READ_ONLY; Prefer MarkSceneColorShaderRead after resolve.
+        // Avoid UNDEFINED→READ (discards contents). Only barrier when we know a real prior layout.
+        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                  &barrier );
+        }
         sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
+
+    // Refresh every frame so ImGui TAA toggle cannot leave tonemap bound to an unwritten taaResolved.
+    UpdateTonemapDescriptorSet( aCore, aFrameIndex );
 
     VkRenderPassBeginInfo tonemapBegin{};
     tonemapBegin.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

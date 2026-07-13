@@ -15,6 +15,11 @@ constexpr VkFormat kPostSceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 // HDR scene color + hybrid resolve RP/FB + tonemap/bloom (extent-sized; recreated on resize).
 struct Vk_PostProcessState {
     Gfx_Texture mySceneColor{};
+    Gfx_Texture myTaaResolved{};
+    Gfx_Texture myTaaHistory[ 2 ]{};
+    uint32_t    myTaaHistoryWriteIndex = 0u;
+    // False until at least one resolve has been copied into history (avoids sampling UNDEFINED on TAA toggle-on).
+    bool myTaaHistoryReady = false;
     Gfx_Texture myBloomPing{};
     Gfx_Texture myBloomPong{};
 
@@ -26,6 +31,10 @@ struct Vk_PostProcessState {
     VkPipelineLayout      myTonemapPipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout myTonemapSetLayout      = VK_NULL_HANDLE;
 
+    VkPipeline            myTaaResolvePipeline       = VK_NULL_HANDLE;
+    VkPipelineLayout      myTaaResolvePipelineLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout myTaaResolveSetLayout      = VK_NULL_HANDLE;
+
     VkPipeline            myBloomThresholdPipeline       = VK_NULL_HANDLE;
     VkPipeline            myBloomBlurPipeline            = VK_NULL_HANDLE;
     VkPipelineLayout      myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
@@ -35,6 +44,7 @@ struct Vk_PostProcessState {
     VkDescriptorPool      myDescriptorPool               = VK_NULL_HANDLE;
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTonemapDescriptorSets{};
+    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTaaResolveDescriptorSets{};
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomThresholdDescriptorSets{};
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurHorizDescriptorSets{};
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurVertDescriptorSets{};
@@ -50,6 +60,9 @@ bool HasHybridResolve( const Vk_Renderer& aCore );
 void Init( Vk_Renderer& aCore );
 void Destroy( Vk_Renderer& aCore );
 void RecreateForExtent( Vk_Renderer& aCore );
+
+// Hybrid resolve RP ends with sceneColor in SHADER_READ_ONLY_OPTIMAL — keep CPU layout tracker in sync.
+void MarkSceneColorShaderRead();
 
 void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex );
 

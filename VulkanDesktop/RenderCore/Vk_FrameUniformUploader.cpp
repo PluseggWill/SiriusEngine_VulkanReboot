@@ -19,7 +19,17 @@ void Vk_FrameUniformUploader::UpdateForView( const Vk_Renderer& aCore, uint32_t 
 
     cam.view = aCamera.myView;
 
-    cam.proj = aCamera.myProj;
+    cam.proj         = aCamera.myProj;
+    cam.currViewProj = aCamera.myProj * aCamera.myView;
+    if ( aViewIndex == 0 ) {
+        cam.prevViewProj = aCore.myTemporalState.myPrevViewProj;
+        cam.temporalJitterAndFlags =
+            glm::vec4( aCore.myTemporalState.myJitterPixel.x, aCore.myTemporalState.myJitterPixel.y, aCore.myTemporalState.myHistoryValid ? 1.0f : 0.0f, 0.0f );
+    }
+    else {
+        cam.prevViewProj           = cam.currViewProj;
+        cam.temporalJitterAndFlags = glm::vec4( 0.0f );
+    }
 
     void* data = nullptr;
 

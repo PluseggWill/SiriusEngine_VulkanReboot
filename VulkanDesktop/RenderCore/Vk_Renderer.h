@@ -48,6 +48,7 @@
 #include "Vk_ShadowAoSoftPass.h"
 #include "Vk_ShadowMapPass.h"
 #include "Vk_SsrPass.h"
+#include "Vk_TemporalState.h"
 
 #include "Vk_PlatformContext.h"
 
@@ -294,6 +295,7 @@ public:
 
     Vk_AoState           myAoState;
     Vk_SsrState          mySsrState;
+    Vk_TemporalState     myTemporalState;
     Vk_ShadowAoSoftState myShadowAoSoftState;
 
     Vk_PostProcessState myPostProcessState;

@@ -9,10 +9,10 @@
 namespace UtilRenderDebugPanel {
 
 void BuildContents( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws ) {
-    const char* debugViewLabels[] = { "Lit", "Depth", "World normal", "Shadow map", "AO", "Hi-Z", "DDGI only" };
+    const char* debugViewLabels[] = { "Lit", "Depth", "World normal", "Shadow map", "AO", "Hi-Z", "DDGI only", "Motion vectors" };
     int         debugViewIndex    = static_cast< int >( aState.myDebugViewMode );
     if ( ImGui::Combo( "Debug view", &debugViewIndex, debugViewLabels, IM_ARRAYSIZE( debugViewLabels ) ) ) {
-        debugViewIndex         = std::clamp( debugViewIndex, 0, 6 );
+        debugViewIndex         = std::clamp( debugViewIndex, 0, 7 );
         aState.myDebugViewMode = static_cast< Gfx_DebugViewMode >( debugViewIndex );
     }
 

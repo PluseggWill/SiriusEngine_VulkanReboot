@@ -13,6 +13,7 @@ const uint kDebugViewShadowMap = 3u;
 const uint kDebugViewAo = 4u;
 const uint kDebugViewHiZ = 5u;
 const uint kDebugViewDdgi = 6u;
+const uint kDebugViewMotionVectors = 7u;
 
 struct ClusterLight {
     vec4 direction;
@@ -64,6 +65,7 @@ layout(set = 0, binding = 15) uniform sampler2D ddgiProbeAtlas;
 layout(set = 0, binding = 16) uniform sampler2D ddgiVisibilityAtlas;
 layout(set = 0, binding = 17) uniform sampler2D ssrMap;
 layout(set = 0, binding = 18) uniform sampler2D bentNormalMap;
+layout(set = 0, binding = 19) uniform sampler2D motionVectorsMap;
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
@@ -102,6 +104,11 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorld
     }
     if (viewMode == kDebugViewDdgi) {
         return aLitColor;
+    }
+    if (viewMode == kDebugViewMotionVectors) {
+        // Signed bipolar: 0.5 = no motion. Scale ~32 so ~1px @1080p is visible.
+        const vec2 mv = texture(motionVectorsMap, aUV).xy;
+        return vec4(mv * 32.0 + 0.5, 0.5, 1.0);
     }
     return aLitColor;
 }

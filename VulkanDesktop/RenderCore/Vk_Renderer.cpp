@@ -30,6 +30,7 @@
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
 #include "Vk_SwapchainHost.h"
+#include "Vk_Temporal.h"
 
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
@@ -234,6 +235,7 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
     Gfx_SetMaterialTableGenerationForExtract( mySceneGpuCtx.myResourceTables.GetMaterialTableGeneration() );
     InitImGui();
     mySceneGpuLoaded = true;
+    Vk_Temporal::NotifySceneSwap( *this );
     UtilLogger::Info( "SCENE", "LoadSceneGpuResources completed." );
 }
 
@@ -244,6 +246,7 @@ void Vk_Renderer::UnloadSceneGpuResources() {
     }
 
     UtilLogger::Info( "SCENE", "UnloadSceneGpuResources: releasing GPU scene resources." );
+    Vk_Temporal::NotifySceneSwap( *this );
     if ( myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( myRhi.myDeviceCtx.myDevice );
     }
@@ -829,6 +832,11 @@ Vk_FrameResult Vk_Renderer::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles,
     if ( !myM1PerfLoggedOnce && myFrameCtx.myFrameNumber >= 59 ) {
         LogM1PerfSnapshot();
         myM1PerfLoggedOnce = true;
+    }
+
+    if ( myTemporalState.myPrevViewProjValid ) {
+        myTemporalState.myPrevViewProj = myTemporalState.myCurrViewProj;
+        myTemporalState.myHistoryValid = true;
     }
 
     myFrameCtx.myFrameNumber++;

@@ -41,6 +41,7 @@ constexpr const char* kGBufferFragBindlessSpv = "VulkanDesktop/Shader_Generated/
 constexpr VkFormat kAlbedoFormat          = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat kNormalRoughnessFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat kWorldPositionFormat   = VK_FORMAT_R16G16B16A16_SFLOAT;
+constexpr VkFormat kMotionVectorFormat    = VK_FORMAT_R16G16_SFLOAT;
 
 void DestroyPipelines( Vk_Renderer& aCore ) {
     const VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
@@ -84,6 +85,7 @@ VkPipeline BuildGBufferPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, V
     pipelineBuilder.SetDefaultDynamicStates();
 
     std::vector< VkPipelineColorBlendAttachmentState > blendAttachments = {
+        VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
         VkInit::Pipeline_ColorBlendAttachment( VK_FALSE ),
@@ -139,6 +141,8 @@ void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
 
     VkAttachmentDescription worldPosition = albedo;
     worldPosition.format                  = kWorldPositionFormat;
+    VkAttachmentDescription motionVector  = albedo;
+    motionVector.format                   = kMotionVectorFormat;
 
     VkAttachmentDescription depth{};
     depth.format         = aCore.FindDepthFormat();
@@ -150,16 +154,18 @@ void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
     depth.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
     depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    std::array< VkAttachmentReference, 3 > colorRefs{};
+    std::array< VkAttachmentReference, 4 > colorRefs{};
     colorRefs[ 0 ].attachment = 0;
     colorRefs[ 0 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorRefs[ 1 ].attachment = 1;
     colorRefs[ 1 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorRefs[ 2 ].attachment = 2;
     colorRefs[ 2 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorRefs[ 3 ].attachment = 3;
+    colorRefs[ 3 ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthRef{};
-    depthRef.attachment = 3;
+    depthRef.attachment = 4;
     depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass{};
@@ -176,7 +182,7 @@ void CreateGBufferRenderPass( Vk_Renderer& aCore ) {
     dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    std::array< VkAttachmentDescription, 4 > attachments = { albedo, normalRoughness, worldPosition, depth };
+    std::array< VkAttachmentDescription, 5 > attachments = { albedo, normalRoughness, worldPosition, motionVector, depth };
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -218,6 +224,7 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
     createColorTarget( aCore.myGBufferState.myAlbedo, kAlbedoFormat );
     createColorTarget( aCore.myGBufferState.myNormalRoughness, kNormalRoughnessFormat );
     createColorTarget( aCore.myGBufferState.myWorldPosition, kWorldPositionFormat );
+    createColorTarget( aCore.myGBufferState.myMotionVector, kMotionVectorFormat );
 
     aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
@@ -238,8 +245,9 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
 }
 
 void CreateGBufferFramebuffer( Vk_Renderer& aCore ) {
-    std::array< VkImageView, 4 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
-                                                 aCore.myGBufferState.myWorldPosition.ImageView(), aCore.myGBufferState.myDepth.ImageView() };
+    std::array< VkImageView, 5 > attachments = { aCore.myGBufferState.myAlbedo.ImageView(), aCore.myGBufferState.myNormalRoughness.ImageView(),
+                                                 aCore.myGBufferState.myWorldPosition.ImageView(), aCore.myGBufferState.myMotionVector.ImageView(),
+                                                 aCore.myGBufferState.myDepth.ImageView() };
 
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -296,10 +304,11 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 void CmdBarrierGBufferColorsForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
     constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::array< VkImageMemoryBarrier, 3 > barriers = {
+    std::array< VkImageMemoryBarrier, 4 > barriers = {
         ColorImageBarrier( aCore.myGBufferState.myAlbedo.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
         ColorImageBarrier( aCore.myGBufferState.myNormalRoughness.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
         ColorImageBarrier( aCore.myGBufferState.myWorldPosition.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
+        ColorImageBarrier( aCore.myGBufferState.myMotionVector.Image(), kReadLayout, kReadLayout, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
     };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
                           static_cast< uint32_t >( barriers.size() ), barriers.data() );

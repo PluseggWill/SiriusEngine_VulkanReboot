@@ -152,11 +152,12 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                             gbufferBegin.framebuffer       = aCore.myGBufferState.myFramebuffer;
                             gbufferBegin.renderArea.offset = { 0, 0 };
                             gbufferBegin.renderArea.extent = aCore.mySwapchainCtx.mySwapChainExtent;
-                            std::array< VkClearValue, 4 > gbufferClears{};
+                            std::array< VkClearValue, 5 > gbufferClears{};
                             gbufferClears[ 0 ].color        = { { 0.0f, 0.0f, 0.0f, 1.0f } };
                             gbufferClears[ 1 ].color        = { { 0.0f, 0.0f, 1.0f, 0.5f } };
                             gbufferClears[ 2 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-                            gbufferClears[ 3 ].depthStencil = { 1.0f, 0 };
+                            gbufferClears[ 3 ].color        = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+                            gbufferClears[ 4 ].depthStencil = { 1.0f, 0 };
                             gbufferBegin.clearValueCount    = static_cast< uint32_t >( gbufferClears.size() );
                             gbufferBegin.pClearValues       = gbufferClears.data();
                             vkCmdBeginRenderPass( aCtx.myCommandBuffer, &gbufferBegin, VK_SUBPASS_CONTENTS_INLINE );
@@ -254,6 +255,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                                                                       *aCtx.myFrameDescriptors, aCtx.myViewCount, *aCtx.myViewPackets );
                             }
                             vkCmdEndRenderPass( aCtx.myCommandBuffer );
+                            Vk_PostProcessPass::MarkSceneColorShaderRead();
                             // Copy lit scene color into SSR history (1-frame lag for temporal hit radiance).
                             Vk_SsrPass::RecordHistoryUpdate( aCore, aCtx.myCommandBuffer );
                         } } );

@@ -8,7 +8,7 @@
 |-------|--------|
 | **Gate** | **G4** ✓ · next quality gate **G5** (S9 temporal) |
 | **Next sprint** | **S9** Temporal foundation · [`Wishlist.md`](Wishlist.md) § S9 |
-| **WIP task** | — |
+| **WIP task** | Temporal foundation kickoff — [`temporal_Plan.md`](temporal_Plan.md) · [`temporal_Progress.md`](temporal_Progress.md) |
 | **Last closed** | IBL lighting fix — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
 | **Track** | S9 → **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 
@@ -29,6 +29,6 @@
 | [`SceneJSON.md`](SceneJSON.md) | Scene JSON authoring |
 | [`forward-stage1.md`](forward-stage1.md) | Stage 1 golden / handoff |
 
-**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md), WIP `specular-ibl-stack_*`.
+**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md), [`temporal_Plan.md`](temporal_Plan.md).
 
 **Closed epics / logs:** [`Archived/plans/`](Archived/plans/)

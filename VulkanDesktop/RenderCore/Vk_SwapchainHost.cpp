@@ -6,6 +6,7 @@
 #include "Vk_GBufferPass.h"
 #include "Vk_GfxPipelineCache.h"
 #include "Vk_Renderer.h"
+#include "Vk_Temporal.h"
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
@@ -238,6 +239,9 @@ void Vk_SwapchainHost::Recreate( Vk_Renderer& aCore ) {
     }
 
     aCore.myCamera.SetAspect( static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );
+    if ( extentChanged || includeRenderPass ) {
+        Vk_Temporal::NotifyResize( aCore );
+    }
     aCore.mySwapchainCtx.myHasRecreateOnce = true;
     UtilLogger::Info( "SWAPCHAIN", "Swapchain recreation completed." );
 }

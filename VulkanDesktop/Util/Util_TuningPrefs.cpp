@@ -238,6 +238,10 @@ namespace {
 
     nlohmann::json PostToJson( const Gfx_PostSettings& aPost ) {
         return nlohmann::json{ { "exposure", aPost.myExposure },
+                               { "taaEnabled", aPost.myTaaEnabled },
+                               { "taaBlend", aPost.myTaaBlend },
+                               { "taaVarianceGamma", aPost.myTaaVarianceGamma },
+                               { "taaSharpen", aPost.myTaaSharpen },
                                { "tonemapEnabled", aPost.myTonemapEnabled },
                                { "bloomEnabled", aPost.myBloomEnabled },
                                { "bloomThreshold", aPost.myBloomThreshold },
@@ -248,6 +252,18 @@ namespace {
     void PostFromJson( const nlohmann::json& aJson, Gfx_PostSettings& aOut ) {
         if ( aJson.contains( "exposure" ) ) {
             aOut.myExposure = aJson[ "exposure" ].get< float >();
+        }
+        if ( aJson.contains( "taaEnabled" ) ) {
+            aOut.myTaaEnabled = aJson[ "taaEnabled" ].get< bool >();
+        }
+        if ( aJson.contains( "taaBlend" ) ) {
+            aOut.myTaaBlend = aJson[ "taaBlend" ].get< float >();
+        }
+        if ( aJson.contains( "taaVarianceGamma" ) ) {
+            aOut.myTaaVarianceGamma = aJson[ "taaVarianceGamma" ].get< float >();
+        }
+        if ( aJson.contains( "taaSharpen" ) ) {
+            aOut.myTaaSharpen = aJson[ "taaSharpen" ].get< float >();
         }
         if ( aJson.contains( "tonemapEnabled" ) ) {
             aOut.myTonemapEnabled = aJson[ "tonemapEnabled" ].get< bool >();

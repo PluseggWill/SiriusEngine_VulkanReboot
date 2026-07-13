@@ -19,6 +19,7 @@ struct Vk_GBufferState {
     Gfx_Texture      myAlbedo;
     Gfx_Texture      myNormalRoughness;
     Gfx_Texture      myWorldPosition;
+    Gfx_Texture      myMotionVector;
     Gfx_Texture      myDepth;
     VkRenderPass     myRenderPass              = VK_NULL_HANDLE;
     VkFramebuffer    myFramebuffer             = VK_NULL_HANDLE;

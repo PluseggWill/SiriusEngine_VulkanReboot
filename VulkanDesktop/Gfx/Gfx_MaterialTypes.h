@@ -21,6 +21,7 @@ enum Gfx_DebugViewMode : uint32_t {
     Gfx_DebugViewMode_Ao          = 4,
     Gfx_DebugViewMode_HiZ         = 5,
     Gfx_DebugViewMode_Ddgi        = 6,
+    Gfx_DebugViewMode_MotionVec   = 7,
 };
 
 inline float Gfx_DebugViewModeToShaderPacked( Gfx_DebugViewMode aMode ) {
