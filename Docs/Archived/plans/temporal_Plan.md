@@ -1,8 +1,8 @@
 # Plan: temporal
 
-**Status:** Active (Wishlist **S9**; gate **G5**)  
-**Parent:** [`Wishlist.md`](Wishlist.md) §S9 · [`Active-Plan.md`](Active-Plan.md)  
-**Covers:** Halton jitter + motion vectors + TAA v0 + temporal history convergence
+**Status:** Closed (2026-07-14)  
+**Parent:** [`Wishlist.md`](../Wishlist.md) §S9 · [`Active-Plan.md`](../Active-Plan.md)  
+**Covers:** Halton jitter + motion vectors + TAA v0.5 + temporal history convergence
 
 ## Problem
 
@@ -26,25 +26,21 @@ Current frame-to-frame stability is not strong enough for high-frequency geometr
 
 ## Ordered tasks
 
-1. **S9.1 — Temporal skeleton and jitter**
-   - Add Halton jitter sequence and per-frame camera projection offset.
-   - Define temporal history lifetime/reset contract (resize, scene swap, camera cut).
-   - Add debug readout for current jitter index and reset reasons.
-2. **S9.2 — Motion vectors (MV)**
-   - Implement MV output in primary path (G-buffer or compute fallback).
-   - Include camera + object motion support; define static-object behavior explicitly.
-   - Add MV visualization mode and validation-friendly resource barriers.
-3. **S9.3 — TAA v0 / v0.5**
-   - Add TAA resolve with history blend + neighborhood clamp/rejection baseline.
-   - v0.5: Catmull-Rom history, YCoCg variance clip, velocity-adaptive blend, light sharpen (ImGui: blend / γ / sharpen).
-   - Wire ImGui/preset toggle: `Off` / `TAA`; ensure no regressions in resize/reload/recreate flows.
-4. **S9.4 — Shared temporal consumers**
-   - Route temporal AO / SSR history logic to shared MV and lifetime rules where practical.
-   - Keep fallback paths documented when a pass cannot fully migrate in this sprint.
-   - Re-check pass ordering and hazard transitions after migration.
-5. **S9.5 — Gate close and docs**
-   - Run verification suite, capture stress observations, and finalize closeout notes.
-   - If accepted, mark plan closed and archive Plan+Progress per workflow.
+1. **S9.1 — Temporal skeleton and jitter** ✓
+2. **S9.2 — Motion vectors (MV)** ✓
+3. **S9.3 — TAA v0 / v0.5** ✓
+4. **S9.4 — Shared temporal consumers** ✓
+5. **S9.5 — Gate close and docs** ✓
+
+### S9.4 consumer contract
+
+| Consumer | Motion | Lifetime |
+|----------|--------|----------|
+| **TAA** | G-buffer MV | `Vk_TemporalState::myHistoryValid` ∧ `myTaaHistoryReady` |
+| **AO temporal** | G-buffer MV (`prevUv = uv - mv`) | shared valid ∧ `myTemporalHistoryReady` |
+| **SSR** | Hit-world × shared `prevViewProj` (surface MV wrong for radiance history) | shared valid ∧ `myHistoryReady` |
+
+Shared reset (resize / scene swap / camera cut / manual) clears all three “buffer ready” flags. Pass-owned history textures remain local.
 
 ## Verification
 

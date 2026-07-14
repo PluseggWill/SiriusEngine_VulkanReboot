@@ -13,18 +13,17 @@ Done → Archived-Plan stub; no `[x]` here.
 
 | # | Sprint | Focus | Blocked by | Unlocks |
 |---|--------|--------|------------|---------|
-| **1** | **S9** | Temporal (MV + TAA) → **G5** | WIP preferred | Water/hair AA; cinematic post |
-| **2** | **S10** | **Content pipeline** (MeshImport + hot reload) | — | **G3**; rich test scenes for S11+ |
-| **3** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
-| **4** | **S12** | **Water** | Transparent ✓, SSR ✓; S9 preferred | Reflections / refraction |
-| **5** | **S13** | Cascaded shadows | S5 ✓ | Outdoor; **S14** terrain |
-| **6** | **S14** | **Terrain** | S13 CSM preferred | Large outdoor scenes |
-| **7** | **S15** | **Hair / fur** | G-buffer ✓; S9 preferred | Strand/card look; early aniso |
-| **8** | **S16** | Occlusion cull + compaction | S6 Hi-Z ✓, S3 cull ✓ | Dense scenes |
-| **9** | **S17** | Meshlets | **G3** | S18 |
-| **10** | **S18** | Mesh shader + GPU mesh | S17 | Full GPU-driven path |
-| **11** | **S19** | Advanced materials + decals | G-buffer ✓ | Clearcoat / transmission / decals |
-| **12** | **S20** | Volumetrics + cinematic post | S7 ✓, **G5** | Mood / DOF / MB |
+| **1** | **S10** | **Content pipeline** (MeshImport + hot reload) | — | **G3**; rich test scenes for S11+ |
+| **2** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
+| **3** | **S12** | **Water** | Transparent ✓, SSR ✓; S9 ✓ | Reflections / refraction |
+| **4** | **S13** | Cascaded shadows | S5 ✓ | Outdoor; **S14** terrain |
+| **5** | **S14** | **Terrain** | S13 CSM preferred | Large outdoor scenes |
+| **6** | **S15** | **Hair / fur** | G-buffer ✓; S9 ✓ | Strand/card look; early aniso |
+| **7** | **S16** | Occlusion cull + compaction | S6 Hi-Z ✓, S3 cull ✓ | Dense scenes |
+| **8** | **S17** | Meshlets | **G3** | S18 |
+| **9** | **S18** | Mesh shader + GPU mesh | S17 | Full GPU-driven path |
+| **10** | **S19** | Advanced materials + decals | G-buffer ✓ | Clearcoat / transmission / decals |
+| **11** | **S20** | Volumetrics + cinematic post | S7 ✓, **G5** ✓ | Mood / DOF / MB |
 | — | **S21** | Render lab + RHI WSI *(parallel)* | — | Measurement / WSI |
 | — | **P-Sim** | Physics / anim / AI *(parallel)* | **G2** ✓ | Slice interactivity |
 
@@ -36,8 +35,7 @@ Done → Archived-Plan stub; no `[x]` here.
 
 ```mermaid
 flowchart TB
-  WIP[WIP specular closeout]
-  S9[S9 Temporal / TAA]
+  S9done[S9 Temporal / G5 — done]
   S10[S10 Content pipeline]
   G3{G3 MeshImport}
   S11[S11 GPU particles]
@@ -52,9 +50,9 @@ flowchart TB
   S20[S20 Volumetrics + cinematic]
   S21[S21 Lab + RHI]
 
-  S9 --> S12
-  S9 --> S15
-  S9 --> S20
+  S9done --> S12
+  S9done --> S15
+  S9done --> S20
   S10 --> G3
   S10 -.->|rich scenes| S11
   S10 -.->|rich scenes| S12
@@ -86,7 +84,7 @@ flowchart TB
 | **G2** ✓ | P4 vertical slice v0 | P-Sim |
 | **G3** | [`content-pipeline_Plan.md`](content-pipeline_Plan.md) §A MeshImport v0 + ≥1 rich multi-mesh scene | **S17** meshlets; preferred dogfood for S11–S15 |
 | **G4** ✓ | Stage 2 hybrid acceptance | (historical) |
-| **G5** | S9: MV + TAA v0; no new validation Errors | Prefer before S12 polish / S20 |
+| **G5** ✓ | S9: MV + TAA v0.5; shared temporal consumers; stress smoke green | Prefer before S12 polish / S20 |
 
 Pass topology: [`EngineArchitecture.md`](EngineArchitecture.md) §7.
 

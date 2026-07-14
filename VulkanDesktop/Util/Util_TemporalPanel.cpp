@@ -26,6 +26,7 @@ void BuildContents( Vk_Renderer& aCore ) {
     ImGui::Text( "Jitter px:  (%.3f, %.3f)", state.myJitterPixel.x, state.myJitterPixel.y );
     ImGui::Text( "History valid: %s", state.myHistoryValid ? "yes" : "no" );
     ImGui::Text( "Last reset: %s", Vk_Temporal::ResetReasonLabel( state.myLastAppliedResetReasons ) );
+    ImGui::TextDisabled( "Reset also clears TAA / AO temporal / SSR history-ready flags." );
 
     if ( ImGui::Button( "Invalidate temporal history" ) ) {
         Vk_Temporal::RequestReset( aCore, Vk_TemporalResetFlag::Manual );

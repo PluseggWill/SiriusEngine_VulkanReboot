@@ -287,7 +287,7 @@ void Destroy( Vk_Renderer& aCore ) {
     DestroySsrImage( aCore );
     DestroySsrImages( aCore );
     aCore.mySsrState.myDescriptorSets    = {};
-    aCore.mySsrState.myHistoryValid      = false;
+    aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
     aCore.mySsrState.myInitialized       = false;
 }
@@ -303,7 +303,7 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     DestroySsrImages( aCore );
     CreateSsrImage( aCore );
     CreateHistoryImages( aCore );
-    aCore.mySsrState.myHistoryValid = false;
+    aCore.mySsrState.myHistoryReady = false;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdateDescriptorSet( aCore, i );
     }
@@ -320,9 +320,7 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipeline( aCore );
     CreateSsrImage( aCore );
     CreateHistoryImages( aCore );
-    aCore.mySsrState.myPrevViewProj      = aCore.myCamera.myProj * aCore.myCamera.myView;
-    aCore.mySsrState.myPrevCameraEye     = aCore.myCamera.myEye;
-    aCore.mySsrState.myHistoryValid      = false;
+    aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
     AllocateDescriptorSets( aCore );
     aCore.mySsrState.myInitialized = true;
@@ -339,10 +337,6 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         return;
     }
 
-    if ( glm::length( aCore.myCamera.myEye - state.myPrevCameraEye ) > 2.5f ) {
-        state.myHistoryValid = false;
-    }
-
     UpdateDescriptorSet( aCore, aFrameIndex );
 
     const VkImageLayout        oldLayout = sSsrLayout;
@@ -353,15 +347,16 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     sSsrLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     SsrPushConstants push{};
-    push.view         = aCore.myCamera.myView;
-    push.proj         = aCore.myCamera.myProj;
-    push.prevViewProj = state.myPrevViewProj;
+    push.view = aCore.myCamera.myView;
+    push.proj = aCore.myCamera.myProj;
+    // Hit-world reprojection uses shared temporal prev VP (surface MV is the wrong UV for radiance history).
+    push.prevViewProj = aCore.myTemporalState.myPrevViewProj;
     push.params       = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness, aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f,
                                    aCore.myLightingSettings.mySsrThickness );
     const uint32_t hiZMaxMip = Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u;
     push.trace               = glm::uvec4( aCore.myLightingSettings.mySsrMaxSteps, hiZMaxMip, 0u, 0u );
     push.screenSize          = glm::vec2( static_cast< float >( extent.width ), static_cast< float >( extent.height ) );
-    push.historyValid        = state.myHistoryValid ? 1.0f : 0.0f;
+    push.historyValid        = ( aCore.myTemporalState.myHistoryValid && state.myHistoryReady ) ? 1.0f : 0.0f;
     push.depthRejectSigma    = aCore.myLightingSettings.mySsrHistoryDepthReject;
 
     if ( aCore.AreCommandDebugLabelsEnabled() ) {
@@ -434,9 +429,7 @@ void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
 
     historyLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     state.myHistoryWriteIndex = writeIndex;
-    state.myHistoryValid      = true;
-    state.myPrevViewProj      = aCore.myCamera.myProj * aCore.myCamera.myView;
-    state.myPrevCameraEye     = aCore.myCamera.myEye;
+    state.myHistoryReady      = true;
 }
 
 }  // namespace Vk_SsrPass

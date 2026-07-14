@@ -2,8 +2,6 @@
 
 #include <array>
 
-#include <glm/mat4x4.hpp>
-
 #include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
 
@@ -24,10 +22,9 @@ struct Vk_SsrState {
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
 
-    glm::mat4 myPrevViewProj{ 1.0f };    // viewProj at last RecordHistoryUpdate (reprojection matrix)
-    glm::vec3 myPrevCameraEye{ 0.0f };   // camera jump invalidates history
-    uint32_t  myHistoryWriteIndex = 0u;  // index of buffer last written; SSR reads this buffer next frame
-    bool      myHistoryValid      = false;
+    uint32_t myHistoryWriteIndex = 0u;  // index of buffer last written; SSR reads this buffer next frame
+    // Pass-local: lit HDR history buffer has been written (AND with Vk_TemporalState::myHistoryValid).
+    bool myHistoryReady = false;
 
     bool myInitialized = false;
 };

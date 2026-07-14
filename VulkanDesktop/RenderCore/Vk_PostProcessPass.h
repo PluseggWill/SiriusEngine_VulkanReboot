@@ -19,7 +19,7 @@ struct Vk_PostProcessState {
     Gfx_Texture myTaaHistory[ 2 ]{};
     uint32_t    myTaaHistoryWriteIndex = 0u;
     // False until at least one resolve has been copied into history (avoids sampling UNDEFINED on TAA toggle-on).
-    bool myTaaHistoryReady = false;
+    bool        myTaaHistoryReady = false;
     Gfx_Texture myBloomPing{};
     Gfx_Texture myBloomPong{};
 

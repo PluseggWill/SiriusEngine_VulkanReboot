@@ -1,17 +1,16 @@
 #version 450
 
-// Temporal AO baseline: world-pos reprojection + history blend.
+// Temporal AO: G-buffer MV reprojection (same convention as TAA) + history blend.
+// mv = currUv - prevUv → prevUv = uv - mv.
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PushConstants {
-    mat4 currViewProj;
-    mat4 prevViewProj;
     float historyBlend;
     float historyValid;
     vec2 pad;
 } pc;
 
-layout(set = 0, binding = 0) uniform sampler2D worldPosTex;
+layout(set = 0, binding = 0) uniform sampler2D motionVectors;
 layout(set = 0, binding = 1) uniform sampler2D currentAoTex;
 layout(set = 0, binding = 2) uniform sampler2D historyAoTex;
 layout(set = 0, binding = 3, r8) uniform writeonly image2D outAo;
@@ -28,16 +27,9 @@ void main() {
 
     float result = currentAo;
     if (pc.historyValid > 0.5) {
-        const vec3 worldPos = texture(worldPosTex, uv).rgb;
-        const vec4 currClip = pc.currViewProj * vec4(worldPos, 1.0);
-        const vec4 prevClip = pc.prevViewProj * vec4(worldPos, 1.0);
-
-        vec2 prevUv = uv;
-        if (abs(prevClip.w) > 1e-5) {
-            prevUv = (prevClip.xy / prevClip.w) * 0.5 + 0.5;
-        }
-        const vec2 motion = uv - prevUv;
-        const float motionLen = length(motion);
+        const vec2 mv = texture(motionVectors, uv).xy;
+        const vec2 prevUv = uv - mv;
+        const float motionLen = length(mv);
         const float motionWeight = clamp(1.0 - motionLen * 32.0, 0.0, 1.0);
         const float blend = clamp(pc.historyBlend, 0.0, 0.98) * motionWeight;
 

@@ -80,10 +80,9 @@ struct Vk_AoState {
 
     VkDescriptorSetLayout myTemporalSetLayout = VK_NULL_HANDLE;
 
-    uint32_t myTemporalReadIndex    = 0u;
-    bool     myTemporalHistoryValid = false;
-
-    glm::mat4 myPrevViewProj{ 1.0f };
+    uint32_t myTemporalReadIndex = 0u;
+    // Pass-local: at least one temporal write into history ping-pong (AND with Vk_TemporalState::myHistoryValid).
+    bool myTemporalHistoryReady = false;
 
     bool myInitialized = false;
 };

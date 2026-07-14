@@ -73,14 +73,12 @@ struct AoBlurPushConstants {
 static_assert( sizeof( AoBlurPushConstants ) == 8, "AoBlurPushConstants must match SsaoBlur.comp push block" );
 
 struct AoTemporalPushConstants {
-    alignas( 16 ) glm::mat4 currViewProj;
-    alignas( 16 ) glm::mat4 prevViewProj;
     alignas( 4 ) float historyBlend;
     alignas( 4 ) float historyValid;
     alignas( 8 ) glm::vec2 pad;
 };
 
-static_assert( sizeof( AoTemporalPushConstants ) == 144, "AoTemporalPushConstants must match AoTemporal.comp push block" );
+static_assert( sizeof( AoTemporalPushConstants ) == 16, "AoTemporalPushConstants must match AoTemporal.comp push block" );
 
 VkExtent2D HalfExtent( uint32_t aWidth, uint32_t aHeight ) {
     return { std::max( 1u, ( aWidth + 1u ) / 2u ), std::max( 1u, ( aHeight + 1u ) / 2u ) };
@@ -264,10 +262,10 @@ void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     const uint32_t readIndex  = state.myTemporalReadIndex % 2u;
     const uint32_t writeIndex = ( readIndex + 1u ) % 2u;
 
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo mvInfo{};
+    mvInfo.sampler     = state.myGBufferSampler;
+    mvInfo.imageView   = aCore.myGBufferState.myMotionVector.ImageView();
+    mvInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo currentAoInfo{};
     currentAoInfo.sampler     = state.myGBufferSampler;
@@ -284,7 +282,7 @@ void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     std::array< VkWriteDescriptorSet, 4 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 0, 1 ),
+        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &mvInfo, 0, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &currentAoInfo, 1, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 2, 1 ),
         VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outInfo, 3, 1 ),
@@ -752,7 +750,7 @@ void RecordClassicBlur( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint
 void RecordTemporalFilter( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, const Gfx_AoSettings& ao ) {
     Vk_AoState& state = aCore.myAoState;
     if ( !ao.myTemporalEnabled ) {
-        state.myTemporalHistoryValid = false;
+        state.myTemporalHistoryReady = false;
         return;
     }
 
@@ -766,14 +764,14 @@ void RecordTemporalFilter( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, u
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &currentAoReadable );
     sAoRawLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    const VkImageLayout        historyReadOld      = state.myTemporalHistoryValid ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    const VkPipelineStageFlags historyReadSrcStage = state.myTemporalHistoryValid ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    const VkImageLayout        historyReadOld      = state.myTemporalHistoryReady ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    const VkPipelineStageFlags historyReadSrcStage = state.myTemporalHistoryReady ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkImageMemoryBarrier       historyReadBarrier  = ColorImageBarrier( state.myAoHistory[ readIndex ].Image(), historyReadOld, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                                 state.myTemporalHistoryValid ? VK_ACCESS_SHADER_WRITE_BIT : 0, VK_ACCESS_SHADER_READ_BIT );
+                                                                 state.myTemporalHistoryReady ? VK_ACCESS_SHADER_WRITE_BIT : 0, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, historyReadSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyReadBarrier );
 
-    const VkImageLayout        historyWriteOld      = state.myTemporalHistoryValid ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-    const VkPipelineStageFlags historyWriteSrcStage = state.myTemporalHistoryValid ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    const VkImageLayout        historyWriteOld      = state.myTemporalHistoryReady ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    const VkPipelineStageFlags historyWriteSrcStage = state.myTemporalHistoryReady ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkImageMemoryBarrier       historyWriteGeneral =
         ColorImageBarrier( state.myAoHistory[ writeIndex ].Image(), historyWriteOld, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, historyWriteSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyWriteGeneral );
@@ -783,10 +781,9 @@ void RecordTemporalFilter( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, u
                              nullptr );
 
     AoTemporalPushConstants push{};
-    push.currViewProj = aCore.myCamera.myProj * aCore.myCamera.myView;
-    push.prevViewProj = state.myPrevViewProj;
     push.historyBlend = std::clamp( ao.myTemporalBlend, 0.0f, 0.98f );
-    push.historyValid = state.myTemporalHistoryValid ? 1.0f : 0.0f;
+    // Shared camera contract AND pass-local history buffer ready (same pattern as TAA).
+    push.historyValid = ( aCore.myTemporalState.myHistoryValid && state.myTemporalHistoryReady ) ? 1.0f : 0.0f;
     vkCmdPushConstants( aCommandBuffer, state.myTemporalPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
 
     if ( aCore.AreCommandDebugLabelsEnabled() ) {
@@ -825,8 +822,7 @@ void RecordTemporalFilter( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, u
                           nullptr, static_cast< uint32_t >( toRead.size() ), toRead.data() );
 
     state.myTemporalReadIndex    = writeIndex;
-    state.myTemporalHistoryValid = true;
-    state.myPrevViewProj         = push.currViewProj;
+    state.myTemporalHistoryReady = true;
     sAoRawLayout                 = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
@@ -858,8 +854,7 @@ void Destroy( Vk_Renderer& aCore ) {
         aCore.myAoState.myTemporalDescriptorSets[ i ]  = VK_NULL_HANDLE;
     }
     aCore.myAoState.myTemporalReadIndex    = 0u;
-    aCore.myAoState.myTemporalHistoryValid = false;
-    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.myAoState.myTemporalHistoryReady = false;
     aCore.myAoState.myInitialized          = false;
 }
 
@@ -873,8 +868,7 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     DestroyAoImages( aCore );
     CreateAoImages( aCore );
     aCore.myAoState.myTemporalReadIndex    = 0u;
-    aCore.myAoState.myTemporalHistoryValid = false;
-    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.myAoState.myTemporalHistoryReady = false;
     UpdateAllDescriptorSets( aCore );
 }
 
@@ -887,8 +881,7 @@ void Init( Vk_Renderer& aCore ) {
     CreateAoImages( aCore );
     AllocateDescriptorSets( aCore );
     aCore.myAoState.myTemporalReadIndex    = 0u;
-    aCore.myAoState.myTemporalHistoryValid = false;
-    aCore.myAoState.myPrevViewProj         = aCore.myCamera.myProj * aCore.myCamera.myView;
+    aCore.myAoState.myTemporalHistoryReady = false;
     aCore.myAoState.myInitialized          = true;
 }
 
@@ -931,7 +924,6 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     }
 
     if ( !ao.myTemporalEnabled ) {
-        state.myPrevViewProj = aCore.myCamera.myProj * aCore.myCamera.myView;
         TransitionRawForDeferred( aCommandBuffer, state.myAoRaw.Image() );
     }
 }

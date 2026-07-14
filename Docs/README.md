@@ -6,11 +6,11 @@
 
 | Field | Value |
 |-------|--------|
-| **Gate** | **G4** ✓ · next quality gate **G5** (S9 temporal) |
-| **Next sprint** | **S9** Temporal foundation · [`Wishlist.md`](Wishlist.md) § S9 |
-| **WIP task** | Temporal foundation kickoff — [`temporal_Plan.md`](temporal_Plan.md) · [`temporal_Progress.md`](temporal_Progress.md) |
-| **Last closed** | IBL lighting fix — [`Archived/plans/ibl-lighting-fix_Plan.md`](Archived/plans/ibl-lighting-fix_Plan.md) |
-| **Track** | S9 → **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
+| **Gate** | **G5** ✓ · next quality gate **G3** (S10 MeshImport) |
+| **Next sprint** | **S10** Content pipeline · [`Wishlist.md`](Wishlist.md) § S10 · [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
+| **WIP task** | — |
+| **Last closed** | Temporal foundation (S9 / G5) — [`Archived/plans/temporal_Plan.md`](Archived/plans/temporal_Plan.md) |
+| **Track** | **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
 
@@ -29,6 +29,6 @@
 | [`SceneJSON.md`](SceneJSON.md) | Scene JSON authoring |
 | [`forward-stage1.md`](forward-stage1.md) | Stage 1 golden / handoff |
 
-**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md), [`temporal_Plan.md`](temporal_Plan.md).
+**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md).
 
 **Closed epics / logs:** [`Archived/plans/`](Archived/plans/)

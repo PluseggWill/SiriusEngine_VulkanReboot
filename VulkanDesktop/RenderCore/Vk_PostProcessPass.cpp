@@ -100,9 +100,8 @@ void CreateTaaImages( Vk_Renderer& aCore ) {
         return;
     }
     // Resolved: compute write + tonemap sample + history copy src.
-    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
-                       VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT,
-                       aCore.myPostProcessState.myTaaResolved.AllocImage() );
+    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.myTaaResolved.AllocImage() );
     aCore.myPostProcessState.myTaaResolved.ImageView() =
         aCore.CreateImageView( aCore.myPostProcessState.myTaaResolved.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 

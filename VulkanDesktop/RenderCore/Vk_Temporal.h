@@ -10,7 +10,7 @@ class Vk_Renderer;
 
 namespace Vk_Temporal {
 
-constexpr float kCameraCutEyeDistance = 2.5f;  // matches SSR history invalidation threshold
+constexpr float kCameraCutEyeDistance = 2.5f;  // eye jump treated as cut → shared history reset
 
 void RequestReset( Vk_Renderer& aCore, uint32_t aReasonFlags );
 void NotifyResize( Vk_Renderer& aCore );

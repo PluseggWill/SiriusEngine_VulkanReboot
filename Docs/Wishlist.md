@@ -12,7 +12,7 @@
 ## Index
 | Sprint              | Theme                        | Deps                               | Status                                  |
 | ------------------- | ---------------------------- | ---------------------------------- | --------------------------------------- |
-| **S9**              | Temporal (MV + TAA)          | WIP preferred                      | Next                                    |
+| **S9**              | Temporal (MV + TAA)          | —                                  | **Done → G5** ✓                         |
 | **S10**             | **Content pipeline**         | —                                  | Open → **G3** *(early for rich scenes)* |
 | **S11**             | **GPU particles**            | Depth + FG ✓; S10 scenes preferred | Open                                    |
 | **S12**             | **Water**                    | Transparent + SSR ✓; S9 preferred  | Open                                    |
@@ -30,16 +30,14 @@
 ---
 ## S9 — Temporal foundation
 
-*AAA need: shared MV + TAA. **Gate G5**.*
+*AAA need: shared MV + TAA. **Gate G5** — closed 2026-07-14.* Plan: [`Archived/plans/temporal_Plan.md`](Archived/plans/temporal_Plan.md).
 
-**Deps:** HybridDeferred + Hi-Z + SSR history ✓; WIP close preferred.
+- [x] `temporal_Plan.md`: Halton jitter, history lifetime, disocclusion.
+- [x] G-buffer **motion vectors**; consumers: TAA, AO temporal; SSR keeps hit-world × shared prev VP.
+- [x] TAA v0.5 + ImGui/preset toggle; MV debug viz (history-weight view optional/deferred).
+- [x] Unify temporal AO / SSR history onto shared lifetime (+ AO on shared MV).
 
-- [ ] `temporal_Plan.md`: Halton jitter, history lifetime, disocclusion.
-- [ ] G-buffer / compute **motion vectors**; consumers: post, SSR, particles, hair.
-- [ ] TAA v0 + ImGui/preset toggle; debug viz (MV, history weight).
-- [ ] Unify temporal AO / SSR history onto shared MV where possible.
-
-**Acceptance (G5):** [ ] Camera motion: aliasing ↓; no new validation Errors; stress smoke green.
+**Acceptance (G5):** [x] Camera motion: aliasing ↓ (TAA); stress smoke green; validation layer N/A on close machine.
 
 ---
 

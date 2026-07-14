@@ -8,6 +8,17 @@
 
 namespace Vk_Temporal {
 
+namespace {
+
+    void InvalidatePassHistoryReady( Vk_Renderer& aCore ) {
+        // Pass-owned history textures stay allocated; clear "buffer ready" so consumers skip blend this frame.
+        aCore.myAoState.myTemporalHistoryReady     = false;
+        aCore.mySsrState.myHistoryReady            = false;
+        aCore.myPostProcessState.myTaaHistoryReady = false;
+    }
+
+}  // namespace
+
 void RequestReset( Vk_Renderer& aCore, const uint32_t aReasonFlags ) {
     aCore.myTemporalState.myPendingResetReasons |= aReasonFlags;
 }
@@ -45,6 +56,7 @@ void PrepareViews( Vk_Renderer& aCore, std::array< Vk_ActiveRenderView, kGfxMaxR
         if ( ( resetReasons & Vk_TemporalResetFlag::Resize ) != 0u ) {
             state.myHaltonIndex = 0u;
         }
+        InvalidatePassHistoryReady( aCore );
     }
     else {
         state.myLastAppliedResetReasons = Vk_TemporalResetFlag::None;

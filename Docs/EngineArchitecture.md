@@ -346,7 +346,7 @@ flowchart TB
 | Stage | Opaque | Transparent | Shading note |
 |-------|--------|-------------|--------------|
 | **1** | Forward lit | Forward sorted | Blinn-Phong baseline; PBR fields uploaded not yet consumed — [`forward-stage1.md`](forward-stage1.md) |
-| **2** | G-buffer + clustered deferred | Forward over imported depth | Full PBR; indirect specular stack = prefilter mips + Lagarde/cone specular occlusion + optional local box probe + Hi-Z SSR (temporal lit HDR history). FG: `Shadow → GBuffer → ClusterBuild → DepthPyramid → SSR → AO → DDGI → ShadowAoSoft → Deferred → Transparent → Post`. SSR history updated after hybrid deferred resolve (`Vk_SsrPass::RecordHistoryUpdate`). |
+| **2** | G-buffer + clustered deferred | Forward over imported depth | Full PBR; indirect specular stack = prefilter mips + Lagarde/cone specular occlusion + optional local box probe + Hi-Z SSR (temporal lit HDR history). FG: `Shadow → GBuffer → ClusterBuild → DepthPyramid → SSR → AO → DDGI → ShadowAoSoft → Deferred → Transparent → Post`. SSR history updated after hybrid deferred resolve (`Vk_SsrPass::RecordHistoryUpdate`). **Temporal:** shared `Vk_TemporalState` (jitter + history reset); G-buffer MV (`RG16F`, `currUv−prevUv`) feeds TAA + AO temporal; SSR hit radiance uses shared `prevViewProj` (not surface MV). |
 | **3** | Hybrid + optional DDGI | Unchanged policy | Preset-gated GI |
 
 **Compatibility:** geometry milestones (indirect, meshlets, mesh shader) change **submission**; lighting changes **pass topology** — do not couple sim code to renderer internals.
