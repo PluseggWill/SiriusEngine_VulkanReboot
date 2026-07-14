@@ -44,7 +44,7 @@ Completed work from [`Active-Plan.md`](Active-Plan.md). Per-task logs: [`Archive
 | **RHI-E4** | 2026-06-16 | `Vk_RhiDevice` + `Vk_Renderer` + `App_PlatformHost` | [`rhi-independence_Plan.md`](Archived/plans/rhi-independence_Plan.md) |
 | **IBL fix** | 2026-07-13 | Diffuse IBL π energy, sun intensity, camera far | `ibl-lighting-fix` |
 | **Specular IBL stack** | 2026-07-13 | Prefilter GGX mips + specular occlusion + SSR layering (+ C v0 cones/probe) | `specular-ibl-stack` |
-| **S9 / G5** | 2026-07-14 | Halton + G-buffer MV + TAA v0.5; AO/SSR on shared temporal lifetime | [`temporal_Plan.md`](Archived/plans/temporal_Plan.md) |
+| **S9 / G5** | 2026-07-14 | Halton + G-buffer MV + TAA v0.5; AO/SSR on shared temporal lifetime | [`temporal_Plan.md`](Archived/plans/temporal_Plan.md) · branch retro [`S8-S9-回顾总结.md`](Archived/S8-S9-回顾总结.md) |
 
 Lighting stage epics (closed): Stage 1 [`forward-rendering-epic_Plan.md`](Archived/plans/forward-rendering-epic_Plan.md) · Stage 2 [`hybrid-deferred-epic_Plan.md`](Archived/plans/hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](Archived/plans/ddgi-lighting-epic_Plan.md).
 
