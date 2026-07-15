@@ -4,7 +4,9 @@
 
 #include "../Gfx/Gfx_MaterialTypes.h"
 #include "../Gfx/Gfx_Vertex.h"
+#include "../RenderContract/GpuCameraData.h"
 #include "../RenderContract/GpuEnvironmentData.h"
+#include "../RenderContract/GpuObjectData.h"
 #include "Vk_AllocatedResource.h"
 #include "Vk_SceneResourceTypes.h"
 

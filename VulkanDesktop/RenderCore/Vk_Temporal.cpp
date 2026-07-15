@@ -42,7 +42,7 @@ void PrepareViews( Vk_Renderer& aCore, std::array< Vk_ActiveRenderView, kGfxMaxR
 
     const uint32_t activeViewCount = std::min( aViewCount, kGfxMaxRenderViews );
     if ( activeViewCount > 0 ) {
-        const glm::vec3 eye = aViews[ 0 ].myCamera.myEye;
+        const glm::vec3 eye = aViews[ 0 ].myCameraEye;
         if ( state.myPrevCameraEyeValid && glm::length( eye - state.myPrevCameraEye ) > kCameraCutEyeDistance ) {
             resetReasons |= Vk_TemporalResetFlag::CameraCut;
         }
@@ -68,7 +68,7 @@ void PrepareViews( Vk_Renderer& aCore, std::array< Vk_ActiveRenderView, kGfxMaxR
         state.myJitterNdc = Gfx_TemporalJitter::SampleNdc( state.myHaltonIndex, extent.width, extent.height );
         state.myJitterPixel =
             glm::vec2( state.myJitterNdc.x * static_cast< float >( extent.width ) * 0.5f, state.myJitterNdc.y * static_cast< float >( extent.height ) * 0.5f );
-        aViews[ 0 ].myCamera.myProj = Gfx_TemporalJitter::ApplyToProjection( aViews[ 0 ].myCamera.myProj, state.myJitterNdc );
+        aViews[ 0 ].myCameraProj = Gfx_TemporalJitter::ApplyToProjection( aViews[ 0 ].myCameraProj, state.myJitterNdc );
         state.myHaltonIndex         = ( state.myHaltonIndex + 1u ) % Gfx_TemporalJitter::kSequenceLength;
     }
     else {
@@ -77,7 +77,7 @@ void PrepareViews( Vk_Renderer& aCore, std::array< Vk_ActiveRenderView, kGfxMaxR
     }
 
     if ( activeViewCount > 0 ) {
-        state.myCurrViewProj = aViews[ 0 ].myCamera.myProj * aViews[ 0 ].myCamera.myView;
+        state.myCurrViewProj = aViews[ 0 ].myCameraProj * aViews[ 0 ].myCameraView;
         if ( !state.myPrevViewProjValid ) {
             state.myPrevViewProj      = state.myCurrViewProj;
             state.myPrevViewProjValid = true;

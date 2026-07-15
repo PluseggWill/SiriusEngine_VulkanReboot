@@ -1,12 +1,12 @@
 #include "Vk_RenderDevice.h"
 
-#include "../Platform/PlatformHost.h"
+#include "../Platform/Pf_PlatformHost.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_Bindless.h"
 #include "Vk_DevicePipelineCache.h"
 #include "Vk_Renderer.h"
 
-void Vk_RenderDevice::Init( Vk_Renderer& aCore, PlatformHost& aPlatformHost ) {
+void Vk_RenderDevice::Init( Vk_Renderer& aCore, Pf_PlatformHost& aPlatformHost ) {
     UtilLogger::Info( "VULKAN", "Vk_RenderDevice::Init: instance/device/allocator." );
 
     aCore.CreateInstance();

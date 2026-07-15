@@ -1,11 +1,12 @@
 #include "Util_CameraPanel.h"
 
-#include "../RenderCore/Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "Util_InputSnapshot.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include <algorithm>
 #include <cmath>
 
 #include <imgui.h>
@@ -78,7 +79,7 @@ void DrawCameraPoseDiagram( const glm::vec3& aForward ) {
 
 }  // namespace
 
-void UtilCameraPanel::BuildContents( Util_CameraSettings& aSettings, const Vk_Camera& aFlyCamera ) {
+void UtilCameraPanel::BuildContents( Util_CameraSettings& aSettings, const Gfx_RenderCamera& aFlyCamera ) {
     ImGui::SliderFloat( "Move speed", &aSettings.myMoveSpeed, 0.5f, 20.0f );
     ImGui::SliderFloat( "Mouse sensitivity", &aSettings.myMouseSensitivity, 0.0005f, 0.01f, "%.4f" );
 

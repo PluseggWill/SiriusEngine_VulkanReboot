@@ -67,8 +67,8 @@ Introduce a thin platform surface/time interface and move concrete GLFW host out
 
 ### Touch
 
-- New: `VulkanDesktop/Platform/PlatformHost.h` (interface or neutral host contract)
-- New: `VulkanDesktop/Platform/GlfwPlatformHost.*` (concrete implementation, migrated from `App_PlatformHost`)
+- New: `VulkanDesktop/Platform/Pf_PlatformHost.h` (interface or neutral host contract)
+- New: `VulkanDesktop/Platform/Pf_GlfwPlatformHost.*` (concrete implementation, migrated from `App_PlatformHost`)
 - Modify: `RenderCore/Vk_Renderer.cpp`, `RenderCore/Vk_RenderDevice.cpp` (depend on interface only)
 - Modify: `App/Application.cpp` (wire concrete platform host instance)
 

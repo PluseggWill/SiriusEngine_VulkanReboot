@@ -190,8 +190,8 @@
     <ClCompile Include="Gfx\Gfx_MeshCpu.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_Camera.cpp">
-      <Filter>RenderCore</Filter>
+    <ClCompile Include="Gfx\Gfx_RenderCamera.cpp">
+      <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Bindless.cpp">
       <Filter>RenderCore</Filter>
@@ -304,7 +304,7 @@
     <ClCompile Include="RenderCore\Vk_Window.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="Platform\GlfwPlatformHost.cpp">
+    <ClCompile Include="Platform\Pf_GlfwPlatformHost.cpp">
       <Filter>Platform</Filter>
     </ClCompile>
   </ItemGroup>
@@ -480,8 +480,8 @@
     <ClInclude Include="Gfx\Gfx_MeshCpu.h">
       <Filter>Gfx</Filter>
     </ClInclude>
-    <ClInclude Include="RenderCore\Vk_Camera.h">
-      <Filter>RenderCore</Filter>
+    <ClInclude Include="Gfx\Gfx_RenderCamera.h">
+      <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_DataStruct.h">
       <Filter>RenderCore</Filter>
@@ -654,11 +654,23 @@
     <ClInclude Include="RenderContract\GpuPostSettings.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="Platform\PlatformHost.h">
+    <ClInclude Include="Platform\Pf_PlatformHost.h">
       <Filter>Platform</Filter>
     </ClInclude>
-    <ClInclude Include="Platform\GlfwPlatformHost.h">
+    <ClInclude Include="Platform\Pf_GlfwPlatformHost.h">
       <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ActiveRenderView.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ShaderPermutationTypes.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuCameraData.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuObjectData.h">
+      <Filter>RenderContract</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

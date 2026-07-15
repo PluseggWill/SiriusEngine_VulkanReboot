@@ -1,7 +1,5 @@
 #include "Gfx_DemoSceneSim.h"
 
-#include "../Util/Util_EngineConfig.h"
-
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <chrono>
@@ -23,12 +21,12 @@ void Gfx_ResetDemoSceneSimTime() {
     gDemoSimStartTime = Clock::now();
 }
 
-void Gfx_TickDemoSceneTransforms( const Util_EngineConfig& aConfig, Gfx_SceneTransformState& aTransforms ) {
+void Gfx_TickDemoSceneTransforms( bool aDemoRotateEnabled, Gfx_SceneTransformState& aTransforms ) {
     if ( aTransforms.myResolvedWorldTransforms.size() < aTransforms.mySourceWorldTransforms.size() ) {
         aTransforms.myResolvedWorldTransforms.resize( aTransforms.mySourceWorldTransforms.size(), glm::mat4( 1.0f ) );
     }
 
-    if ( !aConfig.GetFeatures().myDemoRotate ) {
+    if ( !aDemoRotateEnabled ) {
         for ( size_t slot = 0; slot < aTransforms.mySourceWorldTransforms.size(); ++slot ) {
             aTransforms.myResolvedWorldTransforms[ slot ] = aTransforms.mySourceWorldTransforms[ slot ];
         }

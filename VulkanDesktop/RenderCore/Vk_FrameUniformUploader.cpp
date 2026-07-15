@@ -1,5 +1,6 @@
 #include "Vk_FrameUniformUploader.h"
 
+#include "Vk_ActiveRenderView.h"
 #include "Vk_Renderer.h"
 
 #include "Vk_IblResources.h"
@@ -13,14 +14,14 @@
 
 #include <glm/glm.hpp>
 
-void Vk_FrameUniformUploader::UpdateForView( const Vk_Renderer& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera ) {
+void Vk_FrameUniformUploader::UpdateForView( const Vk_Renderer& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_ActiveRenderView& aView ) {
 
     GpuCameraData cam{};
 
-    cam.view = aCamera.myView;
+    cam.view = aView.myCameraView;
 
-    cam.proj         = aCamera.myProj;
-    cam.currViewProj = aCamera.myProj * aCamera.myView;
+    cam.proj         = aView.myCameraProj;
+    cam.currViewProj = aView.myCameraProj * aView.myCameraView;
     if ( aViewIndex == 0 ) {
         cam.prevViewProj = aCore.myTemporalState.myPrevViewProj;
         cam.temporalJitterAndFlags =

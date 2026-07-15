@@ -8,7 +8,7 @@
 #include <vector>
 
 class Vk_Renderer;
-class PlatformHost;
+class Pf_PlatformHost;
 
 // Application lifecycle: config → scene verify → device init → CPU/GPU scene load → loop → unload.
 class Application {
@@ -32,7 +32,7 @@ private:
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
-    PlatformHost*              myPlatformHost            = nullptr;
+    Pf_PlatformHost*              myPlatformHost            = nullptr;
     Vk_Renderer*               myRenderer                = nullptr;  // owned for app lifetime; set in Run()
     bool                       myRenderDocCaptureKeyDown = false;
     bool                       myRestartKeyDown          = false;

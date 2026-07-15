@@ -1,13 +1,13 @@
 #pragma once
 
-#include "PlatformHost.h"
+#include "Pf_PlatformHost.h"
 
 #include <chrono>
 
 // GLFW-backed platform host implementation used by VulkanDesktop runtime.
-class GlfwPlatformHost final : public PlatformHost {
+class Pf_GlfwPlatformHost final : public Pf_PlatformHost {
 public:
-    ~GlfwPlatformHost() override;
+    ~Pf_GlfwPlatformHost() override;
 
     void InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) override;
     void ShutdownWindow() override;

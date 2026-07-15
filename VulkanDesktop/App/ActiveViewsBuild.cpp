@@ -1,7 +1,7 @@
 #include "ActiveViewsBuild.h"
 
 #include "../Gfx/Gfx_SceneDesc.h"
-#include "../RenderCore/Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "DebugUIState.h"
 #include "WorldState.h"
 #include <algorithm>
@@ -40,43 +40,25 @@ uint32_t ResolvePiPCameraIndex( const WorldState& aWorld, uint32_t aRequestedInd
     return clamped;
 }
 
-VkViewport ToViewport( const VkExtent2D& aExtent, const glm::vec4& aViewportNorm ) {
-    const float x      = aViewportNorm.x * static_cast< float >( aExtent.width );
-    const float y      = aViewportNorm.y * static_cast< float >( aExtent.height );
-    const float width  = std::max( 1.0f, aViewportNorm.z * static_cast< float >( aExtent.width ) );
-    const float height = std::max( 1.0f, aViewportNorm.w * static_cast< float >( aExtent.height ) );
-    return VkViewport{ x, y, width, height, 0.0f, 1.0f };
-}
-
-VkRect2D ToScissor( const VkExtent2D& aExtent, const VkViewport& aViewport ) {
-    VkRect2D scissor{};
-    scissor.offset.x = std::max( 0, static_cast< int32_t >( aViewport.x ) );
-    scissor.offset.y = std::max( 0, static_cast< int32_t >( aViewport.y ) );
-
-    const uint32_t offsetX             = static_cast< uint32_t >( scissor.offset.x );
-    const uint32_t offsetY             = static_cast< uint32_t >( scissor.offset.y );
-    const uint32_t maxWidthFromOffset  = offsetX < aExtent.width ? ( aExtent.width - offsetX ) : 1u;
-    const uint32_t maxHeightFromOffset = offsetY < aExtent.height ? ( aExtent.height - offsetY ) : 1u;
-    scissor.extent.width               = std::max( 1u, std::min( maxWidthFromOffset, static_cast< uint32_t >( aViewport.width ) ) );
-    scissor.extent.height              = std::max( 1u, std::min( maxHeightFromOffset, static_cast< uint32_t >( aViewport.height ) ) );
-    return scissor;
+void CopyCameraState( Gfx_ActiveRenderView& aView, const Gfx_RenderCamera& aCamera ) {
+    aView.myCameraView = aCamera.myView;
+    aView.myCameraProj = aCamera.myProj;
+    aView.myCameraEye  = aCamera.myEye;
 }
 
 }  // namespace
 
-std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI,
-                                                                              const Vk_Camera& aFlyCamera, VkExtent2D aSwapChainExtent ) {
-    std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > views{};
+std::array< Gfx_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( uint32_t& aOutViewCount, const WorldState& aWorld, const DebugUIState& aDebugUI,
+                                                                               const Gfx_RenderCamera& aFlyCamera ) {
+    std::array< Gfx_ActiveRenderView, kGfxMaxRenderViews > views{};
     aOutViewCount = 1;
 
     views[ 0 ].myView.myCameraSource = Gfx_RenderViewCameraSource::Fly;
     views[ 0 ].myView.myViewport     = glm::vec4( 0.0f, 0.0f, 1.0f, 1.0f );
     views[ 0 ].myView.myLayerMask    = 0xFFFFFFFFu;
-    views[ 0 ].myCamera              = aFlyCamera;
-    views[ 0 ].myViewport            = ToViewport( aSwapChainExtent, views[ 0 ].myView.myViewport );
-    views[ 0 ].myScissor             = ToScissor( aSwapChainExtent, views[ 0 ].myViewport );
+    CopyCameraState( views[ 0 ], aFlyCamera );
 
-    // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so Vk_Renderer prep stays JSON-free.
+    // PiP: secondary view from scene JSON camera (viewport/layer); stays in App so RenderCore prep stays JSON-free.
     if ( aDebugUI.myMultiView.myEnablePiP && !aWorld.myLoadedScene.myCameras.empty() ) {
         aOutViewCount                            = 2;
         const uint32_t              cameraIndex  = ResolvePiPCameraIndex( aWorld, aDebugUI.myMultiView.mySecondaryCameraIndex );
@@ -87,12 +69,12 @@ std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( ui
         views[ 1 ].myView.mySceneCameraIndex = cameraIndex;
         views[ 1 ].myView.myViewport         = viewportNorm;
         views[ 1 ].myView.myLayerMask        = sceneCamera.myLayerMask;
-        views[ 1 ].myViewport                = ToViewport( aSwapChainExtent, viewportNorm );
-        views[ 1 ].myScissor                 = ToScissor( aSwapChainExtent, views[ 1 ].myViewport );
 
-        const float aspect = static_cast< float >( views[ 1 ].myScissor.extent.width ) / static_cast< float >( views[ 1 ].myScissor.extent.height );
-        views[ 1 ].myCamera.SetLens( sceneCamera.myFovYDeg, aFlyCamera.myNear, aFlyCamera.myFar, aspect );
-        views[ 1 ].myCamera.LookAt( sceneCamera.myEye, sceneCamera.myCenter, sceneCamera.myUp );
+        const float viewportAspect = viewportNorm.w > 0.0f ? ( viewportNorm.z / viewportNorm.w ) * aFlyCamera.myAspect : aFlyCamera.myAspect;
+        Gfx_RenderCamera secondaryCamera;
+        secondaryCamera.SetLens( sceneCamera.myFovYDeg, aFlyCamera.myNear, aFlyCamera.myFar, viewportAspect );
+        secondaryCamera.LookAt( sceneCamera.myEye, sceneCamera.myCenter, sceneCamera.myUp );
+        CopyCameraState( views[ 1 ], secondaryCamera );
     }
 
     return views;

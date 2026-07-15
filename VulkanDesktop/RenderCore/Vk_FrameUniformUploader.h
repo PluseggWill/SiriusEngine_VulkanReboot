@@ -5,15 +5,14 @@
 #include <glm/glm.hpp>
 
 class Vk_Renderer;
-
-class Vk_Camera;
+struct Vk_ActiveRenderView;
 
 // Per-frame UBO upload (phase-2 #7): camera in PrepareFrameCpu, env in DrawFrameGpu.
 
 class Vk_FrameUniformUploader {
 
 public:
-    static void UpdateForView( const Vk_Renderer& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_Camera& aCamera );
+    static void UpdateForView( const Vk_Renderer& aCore, uint32_t aCurrentFrame, uint32_t aViewIndex, const Vk_ActiveRenderView& aView );
 
     static void UpdateEnvironment( const Vk_Renderer& aCore, uint32_t aCurrentFrame );
 

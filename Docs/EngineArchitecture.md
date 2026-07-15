@@ -38,7 +38,7 @@ flowchart TB
   end
 
   subgraph PLATFORM [Platform/]
-    PHOST[PlatformHost — window / surface / frame timing]
+    PHOST[Pf_PlatformHost — window / surface / frame timing]
   end
 
   subgraph RC [RenderCore/ — Vulkan only]
@@ -70,7 +70,7 @@ flowchart TB
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
-**Platform boundary (locked):** `PlatformHost` is the only bridge for window/surface/frame timing callbacks. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete platform implementation.
+**Platform boundary (locked):** `Pf_PlatformHost` is the only bridge for window/surface/frame timing callbacks. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete `Pf_GlfwPlatformHost` implementation.
 
 ### Frame / naming glossary (RenderCore)
 
@@ -89,7 +89,7 @@ flowchart TB
 |-------|--------|
 | **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
 | **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles + aliases `Gfx_Mesh` etc.) |
-| **Gpu*** UBO structs | `Vk_Types.h` / `Vk_Camera.h` (shader contract) |
+| **Gpu*** UBO structs | `RenderContract/Gpu*.h` (shader contract; included by RenderCore via `Vk_Types.h`) |
 
 
 ---

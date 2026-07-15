@@ -88,7 +88,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
     Gfx_LightingSettings& aLightingSettings = aCore.GetLightingSettings();
     Gfx_AoSettings&       aAoSettings       = aCore.GetAoSettings();
     Gfx_PostSettings&     aPostSettings     = aCore.GetPostSettings();
-    const Vk_Camera&      aFlyCamera        = aCore.GetFlyCamera();
+    const Gfx_RenderCamera&      aFlyCamera        = aCore.GetFlyCamera();
 
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos( ImVec2( 10.f, display.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );

@@ -8,9 +8,9 @@ class Vk_RhiDevice;
 
 // Platform abstraction between App orchestration and RenderCore window/surface lifecycle.
 // GLFWwindow remains exposed for the current input/UI path; RenderCore depends only on this seam.
-class PlatformHost {
+class Pf_PlatformHost {
 public:
-    virtual ~PlatformHost() = default;
+    virtual ~Pf_PlatformHost() = default;
 
     virtual void InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) = 0;
     virtual void ShutdownWindow()                                                         = 0;

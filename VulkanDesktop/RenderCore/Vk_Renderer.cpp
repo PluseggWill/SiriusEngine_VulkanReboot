@@ -1,7 +1,7 @@
 // Module: Vk_Renderer - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Renderer.h"
-#include "../Platform/PlatformHost.h"
+#include "../Platform/Pf_PlatformHost.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
@@ -159,7 +159,7 @@ void Vk_Renderer::InitRenderDevice() {
     // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
     myPlatformCtx.myRenderDoc.InitRuntime();
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::InitRenderDevice requires bound PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::InitRenderDevice requires bound Pf_PlatformHost" );
     }
     Vk_RenderDevice::Init( *this, *myPlatformHost );
     myPlatformCtx.myRenderDoc.BindVulkanHandles( myRhi.myDeviceCtx.myDevice );
@@ -466,14 +466,14 @@ void Vk_Renderer::CreateLogicalDevice() {
 
 void Vk_Renderer::CreateSurface() {
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::CreateSurface requires bound PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::CreateSurface requires bound Pf_PlatformHost" );
     }
     myPlatformHost->CreateSurface( myRhi );
 }
 
 void Vk_Renderer::RecreateSurface() {
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::RecreateSurface requires bound PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::RecreateSurface requires bound Pf_PlatformHost" );
     }
     myPlatformHost->RecreateSurface( myRhi );
 }
@@ -686,7 +686,7 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
     aOut.mySceneSlotCount = static_cast< uint32_t >( aInput.myScene->GetSlotCount() );
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         Gfx_GpuCullPushConstants& cullParams = aOut.myGpuCullViews[ viewIndex ];
-        cullParams.viewProj                  = aViews[ viewIndex ].myCamera.myProj * aViews[ viewIndex ].myCamera.myView;
+        cullParams.viewProj                  = aViews[ viewIndex ].myCameraProj * aViews[ viewIndex ].myCameraView;
         cullParams.viewLayerMask             = aViews[ viewIndex ].myView.myLayerMask;
         cullParams.slotCount                 = aOut.mySceneSlotCount;
         cullParams.outputBaseSlot            = viewIndex * perViewEntitySlots;
@@ -698,7 +698,7 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
     Gfx_EntityRecordLodParams entityLodParams{};
     entityLodParams.myLodEnabled = lodEnabled;
     if ( lodEnabled && activeViewCount > 0 ) {
-        entityLodParams.myCameraEye = aViews[ 0 ].myCamera.myEye;
+        entityLodParams.myCameraEye = aViews[ 0 ].myCameraEye;
         entityLodParams.myLodTable  = aInput.myLodTable;
         entityLodParams.myLodState  = aInput.myLodState;
     }
@@ -718,7 +718,6 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
 
         Vk_FrameDrawPrepBuildParams prepParams{};
         prepParams.myScene                  = aInput.myScene;
-        prepParams.myCamera                 = &aViews[ viewIndex ].myCamera;
         prepParams.myLodTable               = aInput.myLodTable;
         prepParams.myLodState               = lodStateForView;
         prepParams.myLodEnabled             = lodEnabled;
@@ -751,7 +750,7 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
         totalTransDraws += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myTransparentPass.myDraws.size() );
         totalOpaqueRuns += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myOpaquePass.myBatchRuns.size() );
         totalTransRuns += static_cast< uint32_t >( mySceneGpuCtx.myDrawPrep.myFramePacket.myTransparentPass.myBatchRuns.size() );
-        Vk_FrameUniformUploader::UpdateForView( *this, myFrameCtx.myCurrentFrame, viewIndex, aViews[ viewIndex ].myCamera );
+        Vk_FrameUniformUploader::UpdateForView( *this, myFrameCtx.myCurrentFrame, viewIndex, aViews[ viewIndex ] );
     }
 
     aOut.myTotalOpaqueDraws      = totalOpaqueDraws;
@@ -1243,7 +1242,7 @@ void Vk_Renderer::NotifyFramebufferResized() {
     mySwapchainCtx.myFramebufferResized = true;
 }
 
-void Vk_Renderer::BindPlatformHost( PlatformHost* aPlatformHost ) {
+void Vk_Renderer::BindPlatformHost( Pf_PlatformHost* aPlatformHost ) {
     myPlatformHost = aPlatformHost;
 }
 

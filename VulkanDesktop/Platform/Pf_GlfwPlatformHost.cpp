@@ -1,4 +1,4 @@
-#include "GlfwPlatformHost.h"
+#include "Pf_GlfwPlatformHost.h"
 
 #include "../RenderCore/Vk_Renderer.h"
 #include "../Util/Util_Logger.h"
@@ -7,11 +7,11 @@
 #include <stdexcept>
 #include <string>
 
-GlfwPlatformHost::~GlfwPlatformHost() {
+Pf_GlfwPlatformHost::~Pf_GlfwPlatformHost() {
     ShutdownWindow();
 }
 
-void GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) {
+void Pf_GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) {
     UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
     glfwInit();
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
@@ -19,14 +19,14 @@ void GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Rendere
 
     myWindow = glfwCreateWindow( static_cast< int >( aWidth ), static_cast< int >( aHeight ), "Vulkan Window", nullptr, nullptr );
     if ( myWindow == nullptr ) {
-        throw std::runtime_error( "GlfwPlatformHost: glfwCreateWindow failed" );
+        throw std::runtime_error( "Pf_GlfwPlatformHost: glfwCreateWindow failed" );
     }
     glfwSetWindowUserPointer( myWindow, &aRenderer );
-    glfwSetFramebufferSizeCallback( myWindow, &GlfwPlatformHost::FramebufferResizeCallback );
+    glfwSetFramebufferSizeCallback( myWindow, &Pf_GlfwPlatformHost::FramebufferResizeCallback );
     UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( aWidth ) + "x" + std::to_string( aHeight ) );
 }
 
-void GlfwPlatformHost::ShutdownWindow() {
+void Pf_GlfwPlatformHost::ShutdownWindow() {
     if ( myWindow != nullptr ) {
         glfwDestroyWindow( myWindow );
         myWindow = nullptr;
@@ -35,17 +35,17 @@ void GlfwPlatformHost::ShutdownWindow() {
     myHasLastFrameTime = false;
 }
 
-bool GlfwPlatformHost::ShouldClose() const {
+bool Pf_GlfwPlatformHost::ShouldClose() const {
     return myWindow != nullptr && glfwWindowShouldClose( myWindow );
 }
 
-void GlfwPlatformHost::RequestClose() {
+void Pf_GlfwPlatformHost::RequestClose() {
     if ( myWindow != nullptr ) {
         glfwSetWindowShouldClose( myWindow, GLFW_TRUE );
     }
 }
 
-void GlfwPlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSeconds ) {
+void Pf_GlfwPlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSeconds ) {
     glfwPollEvents();
     const auto frameStart = std::chrono::high_resolution_clock::now();
     aOutDeltaSeconds      = 0.0f;
@@ -57,13 +57,13 @@ void GlfwPlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSecon
     aRenderer.OnPlatformFrameStart( frameStart, aOutDeltaSeconds );
 }
 
-void GlfwPlatformHost::BeginImGuiFrame( Vk_Renderer& aRenderer ) {
+void Pf_GlfwPlatformHost::BeginImGuiFrame( Vk_Renderer& aRenderer ) {
     aRenderer.BeginImGuiFrame();
 }
 
-void GlfwPlatformHost::CreateSurface( Vk_RhiDevice& aRhiDevice ) {
+void Pf_GlfwPlatformHost::CreateSurface( Vk_RhiDevice& aRhiDevice ) {
     if ( myWindow == nullptr ) {
-        throw std::runtime_error( "GlfwPlatformHost: window not initialized for CreateSurface" );
+        throw std::runtime_error( "Pf_GlfwPlatformHost: window not initialized for CreateSurface" );
     }
     if ( glfwCreateWindowSurface( aRhiDevice.myDeviceCtx.myInstance, myWindow, nullptr, &aRhiDevice.myDeviceCtx.mySurface ) != VK_SUCCESS ) {
         UtilLogger::Error( "VULKAN", "glfwCreateWindowSurface failed." );
@@ -72,7 +72,7 @@ void GlfwPlatformHost::CreateSurface( Vk_RhiDevice& aRhiDevice ) {
     UtilLogger::Info( "VULKAN", "Window surface created." );
 }
 
-void GlfwPlatformHost::RecreateSurface( Vk_RhiDevice& aRhiDevice ) {
+void Pf_GlfwPlatformHost::RecreateSurface( Vk_RhiDevice& aRhiDevice ) {
     if ( aRhiDevice.myDeviceCtx.mySurface != VK_NULL_HANDLE ) {
         vkDestroySurfaceKHR( aRhiDevice.myDeviceCtx.myInstance, aRhiDevice.myDeviceCtx.mySurface, nullptr );
         aRhiDevice.myDeviceCtx.mySurface = VK_NULL_HANDLE;
@@ -80,7 +80,7 @@ void GlfwPlatformHost::RecreateSurface( Vk_RhiDevice& aRhiDevice ) {
     CreateSurface( aRhiDevice );
 }
 
-void GlfwPlatformHost::FramebufferResizeCallback( GLFWwindow* aWindow, int, int ) {
+void Pf_GlfwPlatformHost::FramebufferResizeCallback( GLFWwindow* aWindow, int, int ) {
     auto* renderer = reinterpret_cast< Vk_Renderer* >( glfwGetWindowUserPointer( aWindow ) );
     if ( renderer != nullptr ) {
         renderer->NotifyFramebufferResized();

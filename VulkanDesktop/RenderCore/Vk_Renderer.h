@@ -23,7 +23,7 @@
 
 #include "Vk_ActiveRenderView.h"
 
-#include "Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 
 #include "Vk_DataStruct.h"
 
@@ -73,7 +73,7 @@ struct Vk_AllocatedBuffer;
 struct GLFWwindow;
 
 struct Util_EngineConfig;
-class PlatformHost;
+class Pf_PlatformHost;
 
 class Vk_Renderer;
 
@@ -121,14 +121,14 @@ public:
 
     void Shutdown();
 
-    void BeginImGuiFrame();  // after PlatformHost::BeginFrame and InputSystem::Sample.
+    void BeginImGuiFrame();  // after Pf_PlatformHost::BeginFrame and InputSystem::Sample.
     void OnPlatformFrameStart( std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds );
 
     void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings );
 
     void SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
 
-    // aViews built by Application (BuildActiveRenderViews); core does not read scene JSON for PiP here.
+    // aViews are RenderCore-resolved from App-built Gfx_ActiveRenderView data; core does not read scene JSON for PiP here.
 
     bool PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_FrameDebugToggles& aToggles, const std::array< Vk_ActiveRenderView, kGfxMaxRenderViews >& aViews,
                           uint32_t aViewCount, const std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews >& aViewPackets, Vk_FrameCpuPrepResult& aOut );
@@ -180,9 +180,9 @@ public:
 
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
-    void BindPlatformHost( PlatformHost* aPlatformHost );
+    void BindPlatformHost( Pf_PlatformHost* aPlatformHost );
 
-    const Vk_Camera& GetFlyCamera() const {
+    const Gfx_RenderCamera& GetFlyCamera() const {
 
         return myCamera;
     }
@@ -309,7 +309,7 @@ public:
     Vk_PlatformContext myPlatformCtx;
 
     // Session presentation (fly camera + env UBO); not moved into contexts yet.
-    Vk_Camera myCamera;
+    Gfx_RenderCamera myCamera;
 
     GpuEnvironmentData myEnvironmentData;
 
@@ -341,7 +341,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
-    PlatformHost*            myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
+    Pf_PlatformHost*            myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
 
 private:
     void Clear();

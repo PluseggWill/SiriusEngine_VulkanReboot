@@ -9,7 +9,6 @@
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_SceneSoA.h"
-#include "Vk_Camera.h"
 #include "Vk_FrameData.h"
 
 class Vk_ResourceTables;
@@ -18,7 +17,6 @@ class Vk_ResourceTables;
 
 struct Vk_FrameDrawPrepBuildParams {
     Gfx_SceneSoA*                myScene                  = nullptr;
-    const Vk_Camera*             myCamera                 = nullptr;
     const Gfx_LodTable*          myLodTable               = nullptr;
     Gfx_LodState*                myLodState               = nullptr;
     bool                         myLodEnabled             = false;

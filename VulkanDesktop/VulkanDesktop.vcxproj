@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -217,7 +217,7 @@
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
     <ClCompile Include="App\SceneCpuLoad.cpp" />
     <ClCompile Include="Gfx\Gfx_MeshCpu.cpp" />
-    <ClCompile Include="RenderCore\Vk_Camera.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderCamera.cpp" />
     <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Renderer.cpp" />
     <ClCompile Include="RenderCore\Vk_RhiDevice.cpp" />
@@ -265,7 +265,7 @@
     <ClCompile Include="Util\Util_ResolvePath.cpp" />
     <ClCompile Include="Util\Util_VulkanResult.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
-    <ClCompile Include="Platform\GlfwPlatformHost.cpp" />
+    <ClCompile Include="Platform\Pf_GlfwPlatformHost.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App\ActiveViewsBuild.h" />
@@ -316,7 +316,7 @@
     <ClInclude Include="Gfx\Gfx_FramePrepInput.h" />
     <ClInclude Include="Gfx\Gfx_MaterialTypes.h" />
     <ClInclude Include="Gfx\Gfx_MeshCpu.h" />
-    <ClInclude Include="RenderCore\Vk_Camera.h" />
+    <ClInclude Include="Gfx\Gfx_RenderCamera.h" />
     <ClInclude Include="RenderCore\Vk_DataStruct.h" />
     <ClInclude Include="RenderCore\Vk_DescriptorPolicy.h" />
     <ClInclude Include="RenderCore\Vk_DescriptorSystem.h" />
@@ -385,8 +385,12 @@
     <ClInclude Include="Util\Util_Loader.h" />
     <ClInclude Include="Util\Util_Logger.h" />
     <ClInclude Include="Util\Util_VulkanResult.h" />
-    <ClInclude Include="Platform\PlatformHost.h" />
-    <ClInclude Include="Platform\GlfwPlatformHost.h" />
+    <ClInclude Include="Platform\Pf_PlatformHost.h" />
+    <ClInclude Include="Platform\Pf_GlfwPlatformHost.h" />
+    <ClInclude Include="Gfx\Gfx_ActiveRenderView.h" />
+    <ClInclude Include="Gfx\Gfx_ShaderPermutationTypes.h" />
+    <ClInclude Include="RenderContract\GpuCameraData.h" />
+    <ClInclude Include="RenderContract\GpuObjectData.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\LaunchVulkanDesktop.cmd" />

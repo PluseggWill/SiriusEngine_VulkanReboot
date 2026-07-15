@@ -3,7 +3,7 @@
 #include "../Gfx/Gfx_AoMethod.h"
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
-#include "../RenderCore/Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "../RenderCore/Vk_Types.h"
 #include "Util_Logger.h"
 
@@ -52,7 +52,7 @@ void DrawScreenArrow( ImDrawList* aDrawList, ImVec2 aFrom, ImVec2 aTo, ImU32 aCo
     aDrawList->AddTriangleFilled( tip, wingA, wingB, aColor );
 }
 
-void DrawDdgiVolumeBounds( ImDrawList* aDrawList, const ImVec2& aViewportPos, const ImVec2& aViewportSize, const Vk_Camera& aCamera,
+void DrawDdgiVolumeBounds( ImDrawList* aDrawList, const ImVec2& aViewportPos, const ImVec2& aViewportSize, const Gfx_RenderCamera& aCamera,
                            const Gfx_LightingSettings& aLightingSettings ) {
     const glm::vec3 minP = aLightingSettings.myDdgiVolumeCenter - aLightingSettings.myDdgiVolumeExtents;
     const glm::vec3 maxP = aLightingSettings.myDdgiVolumeCenter + aLightingSettings.myDdgiVolumeExtents;
@@ -313,7 +313,7 @@ void UtilLightingPanel::BuildContactSoftContents( Gfx_AoSettings& aAoSettings ) 
     }
 }
 
-void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Vk_Camera& aCamera,
+void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Gfx_RenderCamera& aCamera,
                                               bool aShowSunGizmo, bool aShowDdgiVolumeBounds ) {
     if ( !aShowSunGizmo ) {
         return;

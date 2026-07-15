@@ -9,7 +9,7 @@
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
-#include "Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"

@@ -1,6 +1,6 @@
 #include "Vk_ShaderEffectMeta.h"
 
-#include "Vk_Camera.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "Vk_DataStruct.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_DeviceContext.h"

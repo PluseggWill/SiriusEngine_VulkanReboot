@@ -9,7 +9,7 @@
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_ViewPacketBuild.h"
-#include "../Platform/GlfwPlatformHost.h"
+#include "../Platform/Pf_GlfwPlatformHost.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../RenderCore/Vk_Renderer.h"
 #include "../Util/Util_AssetManifest.h"
@@ -98,7 +98,7 @@ int Application::Run( int argc, char** argv ) {
         LoadAndVerifyScene();
 
         Vk_Renderer&     rendererRef = *myRenderer;
-        GlfwPlatformHost platformHost;
+        Pf_GlfwPlatformHost platformHost;
         myPlatformHost = &platformHost;
         rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
@@ -169,7 +169,7 @@ void Application::LoadAndVerifyScene() {
 
 void Application::RunMainLoop() {
     Vk_Renderer&  renderer        = *myRenderer;
-    PlatformHost& platformHost    = *myPlatformHost;
+    Pf_PlatformHost& platformHost    = *myPlatformHost;
     const int     smokeFrameLimit = myConfig.GetSmokeFrameLimit();
     const double  smokeSeconds    = myConfig.GetSmokeSeconds();
     int           renderedFrames  = 0;
@@ -188,12 +188,13 @@ void Application::RunMainLoop() {
             renderer.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
 
-        Gfx_TickDemoSceneTransforms( myConfig, myWorld.mySceneTransformState );
+        Gfx_TickDemoSceneTransforms( myConfig.GetFeatures().myDemoRotate, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
         Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, renderer.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
         uint32_t viewCount = 0;
-        auto     views     = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera(), renderer.GetSwapChainExtent() );
+        auto gfxViews = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera() );
+        auto views    = Vk_ResolveActiveRenderViews( gfxViews, viewCount, renderer.GetSwapChainExtent() );
         Vk_Temporal::PrepareViews( renderer, views, viewCount );
         Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
         const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,
@@ -210,9 +211,9 @@ void Application::RunMainLoop() {
             }
             Gfx_ViewPacketBuildParams packetParams{};
             packetParams.myScene                 = prepInput.myScene;
-            packetParams.myView                  = views[ viewIndex ].myCamera.myView;
-            packetParams.myProj                  = views[ viewIndex ].myCamera.myProj;
-            packetParams.myCameraEye             = views[ viewIndex ].myCamera.myEye;
+            packetParams.myView                  = views[ viewIndex ].myCameraView;
+            packetParams.myProj                  = views[ viewIndex ].myCameraProj;
+            packetParams.myCameraEye             = views[ viewIndex ].myCameraEye;
             packetParams.myViewLayerMask         = views[ viewIndex ].myView.myLayerMask;
             packetParams.myLodTable              = prepInput.myLodTable;
             packetParams.myLodState              = lodStateForView;
