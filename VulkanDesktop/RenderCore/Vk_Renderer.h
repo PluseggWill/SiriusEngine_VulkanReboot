@@ -73,7 +73,7 @@ struct Vk_AllocatedBuffer;
 struct GLFWwindow;
 
 struct Util_EngineConfig;
-class App_PlatformHost;
+class PlatformHost;
 
 class Vk_Renderer;
 
@@ -121,7 +121,7 @@ public:
 
     void Shutdown();
 
-    void BeginImGuiFrame();  // after InputSystem::Sample; see Vk_PlatformFrame.h
+    void BeginImGuiFrame();  // after PlatformHost::BeginFrame and InputSystem::Sample.
     void OnPlatformFrameStart( std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds );
 
     void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings );
@@ -180,7 +180,7 @@ public:
 
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
-    void BindPlatformHost( App_PlatformHost* aPlatformHost );
+    void BindPlatformHost( PlatformHost* aPlatformHost );
 
     const Vk_Camera& GetFlyCamera() const {
 
@@ -341,7 +341,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
-    App_PlatformHost*        myPlatformHost = nullptr;
+    PlatformHost*            myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
 
 private:
     void Clear();

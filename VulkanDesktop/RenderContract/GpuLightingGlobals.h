@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../Gfx/Gfx_LightingMath.h"
-
 #include <glm/glm.hpp>
 
 #include <cstdint>
@@ -49,13 +47,14 @@ struct GpuLightingSettings {
     float     myDdgiVolumePad1 = 0.0f;
 };
 
+// Contract helper: caller provides shadow-compare decision to keep RenderContract independent from higher-level lighting math.
 inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,
-                                                    const glm::vec3& aSunDirectionTowardLight, uint32_t aShadowMapSize ) {
+                                                     bool aEnableShadowCompare, uint32_t aShadowMapSize ) {
     GpuLightingGlobals globals{};
     globals.myLightViewProj  = aLightViewProj;
     globals.myShadowParams.x = aSettings.mySsrEnabled ? 1.0f : 0.0f;
     globals.myShadowParams.y = aSettings.mySpecularOcclusionEnabled ? 1.0f : 0.0f;
-    globals.myShadowParams.z = Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aSettings.myShadowsEnabled, aSunDirectionTowardLight ) ? 1.0f : 0.0f;
+    globals.myShadowParams.z = aEnableShadowCompare ? 1.0f : 0.0f;
     globals.myShadowParams.w = aShadowMapSize > 0u ? 1.0f / static_cast< float >( aShadowMapSize ) : 0.0f;
     globals.myIblParams.x    = aSettings.myIblIntensity;
     globals.myIblParams.y    = aSettings.myIblEnabled ? 1.0f : 0.0f;

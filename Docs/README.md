@@ -9,7 +9,7 @@
 | **Gate** | **G5** ✓ · next quality gate **G3** (S10 MeshImport) |
 | **Next sprint** | **S10** Content pipeline · [`Wishlist.md`](Wishlist.md) § S10 · [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
 | **WIP task** | — |
-| **Last closed** | Temporal foundation (S9 / G5) — [`Archived/plans/temporal_Plan.md`](Archived/plans/temporal_Plan.md) |
+| **Last closed** | Temporal foundation (S9 / G5) |
 | **Track** | **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 
 *On vibe kickoff/close: update this table only (+ Plan/Progress). Queue/gates stay in Active-Plan.*
@@ -29,6 +29,6 @@
 | [`SceneJSON.md`](SceneJSON.md) | Scene JSON authoring |
 | [`forward-stage1.md`](forward-stage1.md) | Stage 1 golden / handoff |
 
-**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md).
+**Open roadmap plans:** [`content-pipeline_Plan.md`](content-pipeline_Plan.md), [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md), [`architecture-boundary-hardening_Plan.md`](architecture-boundary-hardening_Plan.md).
 
 **Closed epics / logs:** [`Archived/plans/`](Archived/plans/) · branch retros: [`Archived/S3-回顾总结.md`](Archived/S3-回顾总结.md), [`Archived/S8-S9-回顾总结.md`](Archived/S8-S9-回顾总结.md).

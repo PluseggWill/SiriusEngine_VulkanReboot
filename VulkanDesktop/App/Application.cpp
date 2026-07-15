@@ -9,6 +9,7 @@
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_ViewPacketBuild.h"
+#include "../Platform/GlfwPlatformHost.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../RenderCore/Vk_Renderer.h"
 #include "../Util/Util_AssetManifest.h"
@@ -18,7 +19,6 @@
 #include "ActiveViewsBuild.h"
 
 #include "../RenderCore/Vk_Temporal.h"
-#include "App_PlatformHost.h"
 #include "DebugOverlay.h"
 #include "SceneCpuLoad.h"
 #include <GLFW/glfw3.h>
@@ -98,7 +98,7 @@ int Application::Run( int argc, char** argv ) {
         LoadAndVerifyScene();
 
         Vk_Renderer&     rendererRef = *myRenderer;
-        App_PlatformHost platformHost;
+        GlfwPlatformHost platformHost;
         myPlatformHost = &platformHost;
         rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
@@ -168,12 +168,12 @@ void Application::LoadAndVerifyScene() {
 }
 
 void Application::RunMainLoop() {
-    Vk_Renderer&      renderer        = *myRenderer;
-    App_PlatformHost& platformHost    = *myPlatformHost;
-    const int         smokeFrameLimit = myConfig.GetSmokeFrameLimit();
-    const double      smokeSeconds    = myConfig.GetSmokeSeconds();
-    int               renderedFrames  = 0;
-    const auto        smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    Vk_Renderer&  renderer        = *myRenderer;
+    PlatformHost& platformHost    = *myPlatformHost;
+    const int     smokeFrameLimit = myConfig.GetSmokeFrameLimit();
+    const double  smokeSeconds    = myConfig.GetSmokeSeconds();
+    int           renderedFrames  = 0;
+    const auto    smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if ( smokeSeconds > 0.0 ) {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }

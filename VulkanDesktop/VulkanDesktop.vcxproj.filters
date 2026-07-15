@@ -28,13 +28,16 @@
     <Filter Include="Gfx\Shader Generated">
       <UniqueIdentifier>{7a8b9c0d-1e2f-4a5b-8c9d-0e1f2a3b4c5d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="RenderContract">
+      <UniqueIdentifier>{e2c0f0b1-26f6-4b27-9f4b-4a3350cf48cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Platform">
+      <UniqueIdentifier>{8c78a8c3-3ae2-4ae1-bcc8-3d4c32ed0fcf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp" />
     <ClCompile Include="App\Application.cpp">
-      <Filter>App</Filter>
-    </ClCompile>
-    <ClCompile Include="App\App_PlatformHost.cpp">
       <Filter>App</Filter>
     </ClCompile>
     <ClCompile Include="App\InputSystem.cpp">
@@ -301,6 +304,9 @@
     <ClCompile Include="RenderCore\Vk_Window.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="Platform\GlfwPlatformHost.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Util\Util_EngineConfig.h">
@@ -328,9 +334,6 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="App\Application.h">
-      <Filter>App</Filter>
-    </ClInclude>
-    <ClInclude Include="App\App_PlatformHost.h">
       <Filter>App</Filter>
     </ClInclude>
     <ClInclude Include="App\WorldState.h">
@@ -635,6 +638,27 @@
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_Window.h">
       <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuAoMethod.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuAoSettings.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuEnvironmentData.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuLightingGlobals.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\GpuPostSettings.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\PlatformHost.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\GlfwPlatformHost.h">
+      <Filter>Platform</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -192,7 +192,6 @@
     <ClCompile Include="..\lib\imgui\imgui_widgets.cpp" />
     <ClCompile Include="App\ActiveViewsBuild.cpp" />
     <ClCompile Include="App\Application.cpp" />
-    <ClCompile Include="App\App_PlatformHost.cpp" />
     <ClCompile Include="App\DebugOverlay.cpp" />
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="App\WorldState.cpp" />
@@ -266,11 +265,11 @@
     <ClCompile Include="Util\Util_ResolvePath.cpp" />
     <ClCompile Include="Util\Util_VulkanResult.cpp" />
     <ClCompile Include="VulkanDesktop.cpp" />
+    <ClCompile Include="Platform\GlfwPlatformHost.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App\ActiveViewsBuild.h" />
     <ClInclude Include="App\Application.h" />
-    <ClInclude Include="App\App_PlatformHost.h" />
     <ClInclude Include="RenderCore\Vk_ActiveRenderView.h" />
     <ClInclude Include="RenderCore\Vk_DeviceContext.h" />
     <ClInclude Include="RenderCore\Vk_FrameContext.h" />
@@ -364,6 +363,11 @@
     <ClInclude Include="RenderCore\Vk_TemporalState.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_AoMethod.h" />
+    <ClInclude Include="RenderContract\GpuAoMethod.h" />
+    <ClInclude Include="RenderContract\GpuAoSettings.h" />
+    <ClInclude Include="RenderContract\GpuEnvironmentData.h" />
+    <ClInclude Include="RenderContract\GpuLightingGlobals.h" />
+    <ClInclude Include="RenderContract\GpuPostSettings.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowMapPass.h" />
     <ClInclude Include="RenderCore\Vk_IblResources.h" />
@@ -381,6 +385,8 @@
     <ClInclude Include="Util\Util_Loader.h" />
     <ClInclude Include="Util\Util_Logger.h" />
     <ClInclude Include="Util\Util_VulkanResult.h" />
+    <ClInclude Include="Platform\PlatformHost.h" />
+    <ClInclude Include="Platform\GlfwPlatformHost.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\LaunchVulkanDesktop.cmd" />

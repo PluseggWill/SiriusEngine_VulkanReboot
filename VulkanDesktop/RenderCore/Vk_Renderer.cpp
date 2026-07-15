@@ -1,7 +1,7 @@
 // Module: Vk_Renderer - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Renderer.h"
-#include "../App/App_PlatformHost.h"
+#include "../Platform/PlatformHost.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
@@ -159,7 +159,7 @@ void Vk_Renderer::InitRenderDevice() {
     // RenderDoc in-app API should be discovered before Vulkan instance/device initialization.
     myPlatformCtx.myRenderDoc.InitRuntime();
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::InitRenderDevice requires bound App_PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::InitRenderDevice requires bound PlatformHost" );
     }
     Vk_RenderDevice::Init( *this, *myPlatformHost );
     myPlatformCtx.myRenderDoc.BindVulkanHandles( myRhi.myDeviceCtx.myDevice );
@@ -466,14 +466,14 @@ void Vk_Renderer::CreateLogicalDevice() {
 
 void Vk_Renderer::CreateSurface() {
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::CreateSurface requires bound App_PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::CreateSurface requires bound PlatformHost" );
     }
     myPlatformHost->CreateSurface( myRhi );
 }
 
 void Vk_Renderer::RecreateSurface() {
     if ( myPlatformHost == nullptr ) {
-        throw std::runtime_error( "Vk_Renderer::RecreateSurface requires bound App_PlatformHost" );
+        throw std::runtime_error( "Vk_Renderer::RecreateSurface requires bound PlatformHost" );
     }
     myPlatformHost->RecreateSurface( myRhi );
 }
@@ -1243,7 +1243,7 @@ void Vk_Renderer::NotifyFramebufferResized() {
     mySwapchainCtx.myFramebufferResized = true;
 }
 
-void Vk_Renderer::BindPlatformHost( App_PlatformHost* aPlatformHost ) {
+void Vk_Renderer::BindPlatformHost( PlatformHost* aPlatformHost ) {
     myPlatformHost = aPlatformHost;
 }
 

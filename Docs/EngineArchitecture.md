@@ -37,6 +37,10 @@ flowchart TB
     LOAD[Loader / manifest / ImGui panels]
   end
 
+  subgraph PLATFORM [Platform/]
+    PHOST[PlatformHost — window / surface / frame timing]
+  end
+
   subgraph RC [RenderCore/ — Vulkan only]
     CORE[Vk_Renderer orchestrator]
     PEEL[Vk_RhiDevice · Vk_FrameGraph · ScenePasses · …]
@@ -51,6 +55,8 @@ flowchart TB
   PACKETS --> PEEL
   CONFIG --> APPLICATION
   LOAD --> TABLES
+  APPLICATION --> PHOST
+  PEEL --> PHOST
   CORE --> PEEL
 ```
 
@@ -59,9 +65,12 @@ flowchart TB
 | **Gfx/** | `#include` Vulkan headers; call `vk*` |
 | **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path |
 | **App/** | Create pipelines or descriptor layouts |
+| **Platform/** | Own renderer passes, scene state, or draw-prep policy |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+
+**Platform boundary (locked):** `PlatformHost` is the only bridge for window/surface/frame timing callbacks. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete platform implementation.
 
 ### Frame / naming glossary (RenderCore)
 

@@ -457,12 +457,6 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         if ( ddgiProbeDescriptorPool != VK_NULL_HANDLE ) {
             vkDestroyDescriptorPool( device, ddgiProbeDescriptorPool, nullptr );
         }
-        if ( ddgiProbeView != VK_NULL_HANDLE ) {
-            vkDestroyImageView( device, ddgiProbeView, nullptr );
-        }
-        if ( ddgiProbeImage != VK_NULL_HANDLE ) {
-            vmaDestroyImage( allocator, ddgiProbeImage, ddgiProbeAlloc );
-        }
         if ( ddgiVisibilityView != VK_NULL_HANDLE ) {
             vkDestroyImageView( device, ddgiVisibilityView, nullptr );
         }
