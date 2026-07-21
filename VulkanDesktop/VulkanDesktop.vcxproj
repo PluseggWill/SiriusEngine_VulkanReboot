@@ -243,10 +243,13 @@
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPassLayouts.cpp" />
+    <ClCompile Include="RenderCore\Vk_PostProcessPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp" />
     <ClCompile Include="RenderCore\Vk_Temporal.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_AoPassLayouts.cpp" />
+    <ClCompile Include="RenderCore\Vk_AoPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
@@ -373,6 +376,7 @@
     <ClInclude Include="RenderCore\Vk_Temporal.h" />
     <ClInclude Include="RenderCore\Vk_TemporalState.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />
+    <ClInclude Include="RenderCore\Vk_AoPassInternal.h" />
     <ClInclude Include="Gfx\Gfx_AoMethod.h" />
     <ClInclude Include="RenderContract\Gpu_AoMethod.h" />
     <ClInclude Include="RenderContract\Gpu_AoSettings.h" />
