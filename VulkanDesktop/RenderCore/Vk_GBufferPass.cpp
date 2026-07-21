@@ -4,13 +4,13 @@
 #include "Vk_GBufferPass.h"
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "../Gfx/Gfx_LightingMath.h"
+#include "../Gfx/Gfx_RenderPipeline.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
-
-#include "../Gfx/Gfx_FramePacketValidation.h"
 #include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
 #include "Vk_DeferredLightingPass.h"
@@ -30,6 +30,7 @@
 #include "Vk_VertexLayout.h"
 
 #include <array>
+#include <glm/glm.hpp>
 
 namespace {
 
@@ -481,6 +482,19 @@ void RecordFrame( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkC
     fgCtx.myFrameDescriptors = &aFrameDescriptors;
     fgCtx.myViewCount        = aViewCount;
     fgCtx.myViewPackets      = &aViewPackets;
+
+    Gfx_PipelineBuildInput buildInput{};
+    buildInput.myLighting                  = aCore.myLightingSettings;
+    buildInput.myAo                        = aCore.myAoSettings;
+    buildInput.mySunDirectionTowardLight   = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    buildInput.myReady.myShadowMap         = aCore.myShadowMapState.myInitialized;
+    buildInput.myReady.myDepthPyramid      = aCore.myDepthPyramidState.myInitialized;
+    buildInput.myReady.mySsr               = aCore.mySsrState.myInitialized;
+    buildInput.myReady.myAo                = aCore.myAoState.myInitialized;
+    buildInput.myReady.myShadowAoSoft      = aCore.myShadowAoSoftState.myInitialized;
+    buildInput.myReady.myDeferredLighting  = aCore.myDeferredLightingState.myInitialized;
+    buildInput.myReady.myPostHybridResolve = Vk_PostProcessPass::HasHybridResolve( aCore );
+    fgCtx.myEnable                         = Gfx_RenderPipeline::ResolveEnableFlags( buildInput );
 
     Vk_FrameGraph::Execute( fgCtx );
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_FramePlan.h"
 #include "../Gfx/Gfx_PassId.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_RenderView.h"
@@ -18,8 +19,9 @@ class Vk_Renderer;
 using Vk_FrameGraphPassId = Gfx_PassId;
 
 struct Vk_FrameGraphContext {
-    Vk_Renderer*                                                   myCore             = nullptr;
-    const Gfx_FrameDebugToggles*                                   myToggles          = nullptr;
+    Vk_Renderer*                                                   myCore    = nullptr;
+    const Gfx_FrameDebugToggles*                                   myToggles = nullptr;
+    Gfx_PipelineEnableFlags                                        myEnable{};
     VkCommandBuffer                                                myCommandBuffer    = VK_NULL_HANDLE;
     uint32_t                                                       myImageIndex       = 0;
     uint32_t                                                       myFrameIndex       = 0;

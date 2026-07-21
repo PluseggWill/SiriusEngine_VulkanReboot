@@ -32,3 +32,9 @@
 - **Files:** `Gfx/Gfx_PassId.h`, `Gfx/Gfx_FramePlan.h`, `Gfx/Gfx_RenderPipeline.{h,cpp}`, `Vk_FrameGraph` consumes Plan, GfxTests `TestHybridDeferredFramePlan`
 - **Behavior:** Hybrid topology + enable bits built in Gfx; RC still owns Record switch / enable sampling from Vk state
 - **Verification:** `Verify-CI.ps1` exit 0 (`GfxTests: all passed`); `Verify-Smoke.ps1 -SkipGpuCull` exit 0 (sponza)
+
+## 2026-07-21 — E3.4 enable policy → Gfx DTO
+
+- **Files:** `Gfx_PipelineBuildInput` / `Gfx_PassResourceReady`, `ResolveEnableFlags`, `Vk_GBufferPass` fills readiness+settings, `Vk_FrameGraph` consumes `myEnable` only
+- **Behavior:** Sun/AO/DDGI/contact-soft policy in Gfx; FG no longer reads `Vk_*State` for enable
+- **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1 -SkipGpuCull` exit 0

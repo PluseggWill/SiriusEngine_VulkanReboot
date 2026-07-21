@@ -1,7 +1,6 @@
 #include "Vk_FrameGraph.h"
 
 #include "../Gfx/Gfx_FramePacketValidation.h"
-#include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_RenderPipeline.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
@@ -21,7 +20,6 @@
 
 #include <algorithm>
 #include <array>
-#include <glm/glm.hpp>
 
 namespace {
 
@@ -32,42 +30,6 @@ void BindHybridSceneDescriptors( Vk_Renderer& aCore, VkCommandBuffer aCommandBuf
                                  &aCore.mySceneGpuCtx.myBindlessDescriptorSet, 0, nullptr );
         aCore.myFrameStats.myMaterialSetBinds++;
     }
-}
-
-bool IsShadowPassEnabled( const Vk_FrameGraphContext& aCtx ) {
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCtx.myCore->myEnvironmentData.mySunlightDirection ) );
-    return aCtx.myCore->myShadowMapState.myInitialized && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCtx.myCore->myLightingSettings.myShadowsEnabled, sunDir );
-}
-
-bool IsDepthPyramidEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myDepthPyramidState.myInitialized;
-}
-bool IsSsrPassEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->mySsrState.myInitialized && aCtx.myCore->myDepthPyramidState.myInitialized;
-}
-bool IsAoPassEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myAoSettings.myEnabled && aCtx.myCore->myAoState.myInitialized && IsDepthPyramidEnabled( aCtx );
-}
-bool IsShadowAoSoftEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myShadowAoSoftState.myInitialized && aCtx.myCore->myAoSettings.myContactSoftEnabled;
-}
-bool IsDdgiProbeUpdateEnabled( const Vk_FrameGraphContext& aCtx ) {
-    return aCtx.myCore->myDeferredLightingState.myInitialized && aCtx.myCore->myLightingSettings.myDdgiEnabled;
-}
-
-Gfx_PipelineEnableFlags BuildEnableFlags( const Vk_FrameGraphContext& aCtx ) {
-    Gfx_PipelineEnableFlags flags{};
-    flags.myShadow              = IsShadowPassEnabled( aCtx );
-    flags.myGBuffer             = true;
-    flags.myClusterBuild        = true;
-    flags.myDepthPyramid        = IsDepthPyramidEnabled( aCtx );
-    flags.mySsr                 = IsSsrPassEnabled( aCtx );
-    flags.myAo                  = IsAoPassEnabled( aCtx );
-    flags.myDdgiProbeUpdate     = IsDdgiProbeUpdateEnabled( aCtx );
-    flags.myShadowAoSoft        = IsShadowAoSoftEnabled( aCtx );
-    flags.myDeferredTransparent = true;
-    flags.myPost                = Vk_PostProcessPass::HasHybridResolve( *aCtx.myCore );
-    return flags;
 }
 
 void RecordShadow( Vk_FrameGraphContext& aCtx ) {
@@ -95,7 +57,7 @@ void RecordGBuffer( Vk_FrameGraphContext& aCtx ) {
     const VkBuffer               indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
     constexpr uint32_t           viewIndex        = 0;
     const Gfx_FrameRenderPacket* packet           = viewIndex < aCtx.myViewCount ? &( *aCtx.myViewPackets )[ viewIndex ] : nullptr;
-    if ( !IsShadowPassEnabled( aCtx ) ) {
+    if ( !aCtx.myEnable.myShadow ) {
         Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
     }
     VkRenderPassBeginInfo gbufferBegin{};
@@ -206,7 +168,7 @@ void RecordPass( Gfx_PassId aPassId, Vk_FrameGraphContext& aCtx ) {
         Vk_DeferredLightingPass::RecordDdgiProbeUpdate( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex );
         break;
     case Gfx_PassId::ShadowAoSoft:
-        Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, IsAoPassEnabled( aCtx ) );
+        Vk_ShadowAoSoftPass::RecordCompute( *aCtx.myCore, aCtx.myCommandBuffer, aCtx.myFrameIndex, aCtx.myEnable.myAo );
         break;
     case Gfx_PassId::DeferredTransparent:
         RecordDeferredTransparent( aCtx );
@@ -230,7 +192,7 @@ void Execute( Vk_FrameGraphContext& aCtx ) {
         sChainLoggedOnce = true;
     }
 
-    const Gfx_FramePlan plan = Gfx_RenderPipeline::BuildHybridDeferred( BuildEnableFlags( aCtx ) );
+    const Gfx_FramePlan plan = Gfx_RenderPipeline::BuildHybridDeferred( aCtx.myEnable );
     for ( Gfx_PassId passId : plan.myOrdered ) {
         const auto nodeIt = std::find_if( plan.myNodes.begin(), plan.myNodes.end(), [ passId ]( const Gfx_FramePlanNode& aNode ) { return aNode.myId == passId; } );
         if ( nodeIt == plan.myNodes.end() || !nodeIt->myEnabled ) {

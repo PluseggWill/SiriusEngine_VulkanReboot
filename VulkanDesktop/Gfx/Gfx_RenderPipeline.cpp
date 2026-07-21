@@ -1,5 +1,7 @@
 #include "Gfx_RenderPipeline.h"
 
+#include "Gfx_LightingMath.h"
+
 #include <stdexcept>
 #include <vector>
 
@@ -64,6 +66,22 @@ std::vector< Gfx_PassId > TopologicalSort( const std::vector< Gfx_FramePlanNode 
 
 namespace Gfx_RenderPipeline {
 
+Gfx_PipelineEnableFlags ResolveEnableFlags( const Gfx_PipelineBuildInput& aInput ) {
+    Gfx_PipelineEnableFlags flags{};
+    flags.myShadow =
+        aInput.myReady.myShadowMap && Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aInput.myLighting.myShadowsEnabled, aInput.mySunDirectionTowardLight );
+    flags.myGBuffer             = true;
+    flags.myClusterBuild        = true;
+    flags.myDepthPyramid        = aInput.myReady.myDepthPyramid;
+    flags.mySsr                 = aInput.myReady.mySsr && aInput.myReady.myDepthPyramid;
+    flags.myAo                  = aInput.myAo.myEnabled && aInput.myReady.myAo && aInput.myReady.myDepthPyramid;
+    flags.myDdgiProbeUpdate     = aInput.myReady.myDeferredLighting && aInput.myLighting.myDdgiEnabled;
+    flags.myShadowAoSoft        = aInput.myReady.myShadowAoSoft && aInput.myAo.myContactSoftEnabled;
+    flags.myDeferredTransparent = true;
+    flags.myPost                = aInput.myReady.myPostHybridResolve;
+    return flags;
+}
+
 Gfx_FramePlan BuildHybridDeferred( const Gfx_PipelineEnableFlags& aEnable ) {
     Gfx_FramePlan plan{};
     plan.myNodes.reserve( static_cast< size_t >( Gfx_PassId::Count ) );
@@ -83,6 +101,10 @@ Gfx_FramePlan BuildHybridDeferred( const Gfx_PipelineEnableFlags& aEnable ) {
 
     plan.myOrdered = TopologicalSort( plan.myNodes );
     return plan;
+}
+
+Gfx_FramePlan BuildHybridDeferred( const Gfx_PipelineBuildInput& aInput ) {
+    return BuildHybridDeferred( ResolveEnableFlags( aInput ) );
 }
 
 std::string HybridDeferredChainLabel() {

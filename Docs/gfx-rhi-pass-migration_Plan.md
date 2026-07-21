@@ -16,7 +16,7 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E0 policy | Done |
 | E1 Rhi surface (+ E1b) | Done |
 | E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
-| E3 `Gfx_RenderPipeline` + FramePlan | **In progress** — topology/enable in Gfx; Record registry still RenderCore |
+| E3 `Gfx_RenderPipeline` + FramePlan | **In progress** — topology + enable policy in Gfx; RC fills readiness + Record |
 | E4 migrate remaining passes | Pending |
 | E5 cleanup / docs archive | Pending |
 
@@ -26,7 +26,8 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 |------|--------|--------|
 | E3.1 | `Gfx_PassId` / `Gfx_FramePlan` / `Gfx_PipelineEnableFlags` | Compile |
 | E3.2 | `Gfx_RenderPipeline::BuildHybridDeferred` owns topology + topo-sort | GfxTests |
-| E3.3 | `Vk_FrameGraph::Execute` consumes Plan; Record switch stays in RC | Smoke + G0-validation |
+| E3.3 | `Vk_FrameGraph::Execute` consumes Plan; Record switch stays in RC | Smoke |
+| E3.4 | Enable policy in Gfx via `Gfx_PipelineBuildInput` + `ResolveEnableFlags`; RC only fills readiness bools | GfxTests + smoke |
 
 ## Non-goals (this epic)
 

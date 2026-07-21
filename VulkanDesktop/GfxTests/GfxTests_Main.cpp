@@ -615,6 +615,45 @@ void TestHybridDeferredFramePlan() {
     Expect( !ddgiEnabled, "DDGI disabled flag propagated" );
 }
 
+void TestResolveEnableFlagsFromBuildInput() {
+    Gfx_PipelineBuildInput input{};
+    input.myLighting.myShadowsEnabled = true;
+    input.myLighting.myDdgiEnabled    = true;
+    input.myAo.myEnabled              = true;
+    input.myAo.myContactSoftEnabled   = true;
+    input.mySunDirectionTowardLight   = Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight();
+    input.myReady.myShadowMap         = true;
+    input.myReady.myDepthPyramid      = true;
+    input.myReady.mySsr               = true;
+    input.myReady.myAo                = true;
+    input.myReady.myShadowAoSoft      = true;
+    input.myReady.myDeferredLighting  = true;
+    input.myReady.myPostHybridResolve = true;
+
+    Gfx_PipelineEnableFlags flags = Gfx_RenderPipeline::ResolveEnableFlags( input );
+    Expect( flags.myShadow, "shadow enabled when ready + sun valid" );
+    Expect( flags.myAo, "AO enabled when settings+ready+HiZ" );
+    Expect( flags.mySsr, "SSR enabled when ready+HiZ" );
+    Expect( flags.myDdgiProbeUpdate, "DDGI when ready+settings" );
+    Expect( flags.myShadowAoSoft, "soft when ready+contactSoft" );
+    Expect( flags.myPost, "post when hybrid resolve ready" );
+
+    input.myAo.myEnabled = false;
+    flags                = Gfx_RenderPipeline::ResolveEnableFlags( input );
+    Expect( !flags.myAo, "AO off when settings disabled" );
+
+    input.myAo.myEnabled         = true;
+    input.myReady.myDepthPyramid = false;
+    flags                        = Gfx_RenderPipeline::ResolveEnableFlags( input );
+    Expect( !flags.myAo, "AO off without HiZ readiness" );
+    Expect( !flags.mySsr, "SSR off without HiZ readiness" );
+
+    input.myReady.myDepthPyramid    = true;
+    input.mySunDirectionTowardLight = glm::normalize( glm::vec3( 0.0f, 0.0f, -1.0f ) );
+    flags                           = Gfx_RenderPipeline::ResolveEnableFlags( input );
+    Expect( !flags.myShadow, "shadow off below-horizon sun" );
+}
+
 void TestTemporalHaltonJitter() {
     Expect( Gfx_TemporalJitter::Halton( 1u, 2u ) == 0.5f, "Halton(1,2) == 0.5" );
     Expect( std::abs( Gfx_TemporalJitter::Halton( 1u, 3u ) - ( 1.0f / 3.0f ) ) < 1e-6f, "Halton(1,3) == 1/3" );
@@ -712,6 +751,7 @@ int main() {
     TestClusterGridCount();
     TestRenderPresetHybridDeferred();
     TestHybridDeferredFramePlan();
+    TestResolveEnableFlagsFromBuildInput();
     TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
     TestRhiOpaqueDeviceAndCommandList();
