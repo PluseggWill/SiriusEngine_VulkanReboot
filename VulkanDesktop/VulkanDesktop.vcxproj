@@ -215,6 +215,7 @@
     <ClCompile Include="Gfx\Gfx_SceneTransform.cpp" />
     <ClCompile Include="Gfx\Gfx_ViewPacketBuild.cpp" />
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderPipeline.cpp" />
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
     <ClCompile Include="App\SceneCpuLoad.cpp" />
     <ClCompile Include="Gfx\Gfx_MeshCpu.cpp" />
@@ -371,6 +372,9 @@
     <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h" />
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
     <ClInclude Include="Gfx\Gfx_AoPass.h" />
+    <ClInclude Include="Gfx\Gfx_PassId.h" />
+    <ClInclude Include="Gfx\Gfx_FramePlan.h" />
+    <ClInclude Include="Gfx\Gfx_RenderPipeline.h" />
     <ClInclude Include="Gfx\Gfx_AoSettings.h" />
     <ClInclude Include="Gfx\Gfx_PostSettings.h" />
     <ClInclude Include="Gfx\Gfx_TemporalJitter.h" />

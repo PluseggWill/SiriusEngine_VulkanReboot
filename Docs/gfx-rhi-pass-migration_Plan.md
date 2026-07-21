@@ -1,30 +1,39 @@
-# Plan: gfx-rhi-pass-migration (E0–E1 kickoff)
+# Plan: gfx-rhi-pass-migration (E0–E5)
 
 **Status:** In progress (2026-07-21)  
 **Branch:** `feat/gfx-rhi-pass-migration`  
 **Progress:** [`gfx-rhi-pass-migration_Progress.md`](gfx-rhi-pass-migration_Progress.md)  
-**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · Wishlist S21 · closed [`rhi-independence_Plan.md`](Archived/plans/rhi-independence_Plan.md)
+**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · Wishlist S21 · Cursor plan `gfx_renderpipeline_peel_c2a49d85` · closed [`rhi-independence_Plan.md`](Archived/plans/rhi-independence_Plan.md)
 
 ## Goal
 
 Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular rendering passes without including Vulkan or `RenderCore`. RenderCore becomes the Vulkan backend that implements `Rhi_*`.
 
-This kickoff covered **E0–E1b**. **E2 (AO Record via Gfx+Rhi)** landed on the same branch; Init still in RenderCore.
+## Status by phase
 
-## Steps (E2)
+| Phase | Status |
+|-------|--------|
+| E0 policy | Done |
+| E1 Rhi surface (+ E1b) | Done |
+| E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
+| E3 `Gfx_RenderPipeline` + FramePlan | **In progress** — topology/enable in Gfx; Record registry still RenderCore |
+| E4 migrate remaining passes | Pending |
+| E5 cleanup / docs archive | Pending |
+
+## Steps (E3)
 
 | Step | Detail | Verify |
 |------|--------|--------|
-| E2.1 | `Gfx_AoPass::Record` owns AO compute orchestration via Rhi | Compile |
-| E2.2 | `Vk_AoPass_Record` thin facade + `DeviceWrap` on `Vk_Renderer` | Smoke + validation |
-| E2.3 | `CommandListCopyImage` for temporal history blit | G0-validation |
+| E3.1 | `Gfx_PassId` / `Gfx_FramePlan` / `Gfx_PipelineEnableFlags` | Compile |
+| E3.2 | `Gfx_RenderPipeline::BuildHybridDeferred` owns topology + topo-sort | GfxTests |
+| E3.3 | `Vk_FrameGraph::Execute` consumes Plan; Record switch stays in RC | Smoke + G0-validation |
 
-## Non-goals (this kickoff)
+## Non-goals (this epic)
 
-- Moving any `Vk_*Pass` into Gfx
-- Full descriptor / graphics-pipeline / render-pass API surface
 - Second backend (D3D12/Metal)
+- Full descriptor / graphics-pipeline / render-pass API in one PR
 - Blocking S10 content pipeline
+- Deleting all `Vk_*Pass` facades before E4/E5
 
 ## Target dependency (locked after E0)
 
@@ -48,33 +57,7 @@ flowchart BT
 - **Rhi** public headers must not `#include` `vulkan.h`.
 - **`Vk_RhiDevice`** remains the low-level Vulkan device factory inside RenderCore (implements Rhi backend).
 
-## Steps
-
-| Step | Detail | Verify |
-|------|--------|--------|
-| E0.1 | Update `EngineArchitecture.md` §1 module map + must-not + §9 lab hook | Doc review |
-| E0.2 | Index epic in Active-Plan / README / Wishlist S21 | Doc review |
-| E1.1 | Add `VulkanDesktop/Rhi/` opaque handles + Device + CommandList API | Compile |
-| E1.2 | Add `RenderCore/Vk_RhiBackend.*` implementing Rhi via `Vk_RhiDevice` | Compile |
-| E1.3 | Wire `.vcxproj` / `.filters` / GfxTests; headless Rhi create + CommandList smoke | `Verify-CI.ps1` |
-
-## Touch list
-
-- `Docs/EngineArchitecture.md`, `Docs/Active-Plan.md`, `Docs/README.md`, `Docs/Wishlist.md`
-- `VulkanDesktop/Rhi/*.h`
-- `VulkanDesktop/RenderCore/Vk_RhiBackend.{h,cpp}`
-- `VulkanDesktop/VulkanDesktop.vcxproj(.filters)`, `VulkanDesktop/GfxTests.vcxproj`
-- `VulkanDesktop/GfxTests/GfxTests_Main.cpp`
-- `.cursor/rules/vulkan-desktop-layout.mdc` (folder map)
-
-## Risks
-
-| Risk | Guard |
-|------|-------|
-| Rhi headers leak Vulkan | Grep gate in Progress; GfxTests include only `Rhi/` for new test |
-| Scope creep into full Pass API | E1 = device + command-list lifecycle only; resource create stubs deferred to E2 needs |
-
 ## Verification
 
 - `powershell -File Scripts/Verify-CI.ps1` (G0)
-- Smoke / G0-validation: **N/A** for E0/E1 (no GPU pass/runtime change)
+- GPU: `Verify-Smoke.ps1`; pass/barrier work: G0-validation on sponza

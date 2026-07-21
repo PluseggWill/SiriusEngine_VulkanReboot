@@ -11,6 +11,7 @@
 #include "../Gfx/Gfx_LightingMath.h"
 #include "../Gfx/Gfx_Lod.h"
 #include "../Gfx/Gfx_RenderPacket.h"
+#include "../Gfx/Gfx_RenderPipeline.h"
 #include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneSoA.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
@@ -570,6 +571,50 @@ void TestRenderPresetHybridDeferred() {
     Expect( threw, "unknown render preset throws" );
 }
 
+void TestHybridDeferredFramePlan() {
+    Gfx_PipelineEnableFlags flags{};
+    flags.myShadow              = true;
+    flags.myGBuffer             = true;
+    flags.myClusterBuild        = true;
+    flags.myDepthPyramid        = true;
+    flags.mySsr                 = true;
+    flags.myAo                  = true;
+    flags.myDdgiProbeUpdate     = false;
+    flags.myShadowAoSoft        = false;
+    flags.myDeferredTransparent = true;
+    flags.myPost                = true;
+
+    const Gfx_FramePlan plan = Gfx_RenderPipeline::BuildHybridDeferred( flags );
+    Expect( plan.myNodes.size() == static_cast< size_t >( Gfx_PassId::Count ), "hybrid plan has all pass nodes" );
+    Expect( plan.myOrdered.size() == plan.myNodes.size(), "ordered size matches nodes" );
+
+    auto indexOf = [ & ]( Gfx_PassId aId ) -> size_t {
+        for ( size_t i = 0; i < plan.myOrdered.size(); ++i ) {
+            if ( plan.myOrdered[ i ] == aId ) {
+                return i;
+            }
+        }
+        return plan.myOrdered.size();
+    };
+    Expect( indexOf( Gfx_PassId::Shadow ) < indexOf( Gfx_PassId::GBuffer ), "Shadow before GBuffer" );
+    Expect( indexOf( Gfx_PassId::GBuffer ) < indexOf( Gfx_PassId::ClusterBuild ), "GBuffer before ClusterBuild" );
+    Expect( indexOf( Gfx_PassId::DepthPyramid ) < indexOf( Gfx_PassId::SSAO ), "DepthPyramid before AO" );
+    Expect( indexOf( Gfx_PassId::DeferredTransparent ) < indexOf( Gfx_PassId::Post ), "Deferred before Post" );
+
+    bool aoEnabled   = false;
+    bool ddgiEnabled = false;
+    for ( const Gfx_FramePlanNode& node : plan.myNodes ) {
+        if ( node.myId == Gfx_PassId::SSAO ) {
+            aoEnabled = node.myEnabled;
+        }
+        if ( node.myId == Gfx_PassId::DdgiProbeUpdate ) {
+            ddgiEnabled = node.myEnabled;
+        }
+    }
+    Expect( aoEnabled, "AO enable flag propagated" );
+    Expect( !ddgiEnabled, "DDGI disabled flag propagated" );
+}
+
 void TestTemporalHaltonJitter() {
     Expect( Gfx_TemporalJitter::Halton( 1u, 2u ) == 0.5f, "Halton(1,2) == 0.5" );
     Expect( std::abs( Gfx_TemporalJitter::Halton( 1u, 3u ) - ( 1.0f / 3.0f ) ) < 1e-6f, "Halton(1,3) == 1/3" );
@@ -666,6 +711,7 @@ int main() {
     TestClusterIndexFromTile();
     TestClusterGridCount();
     TestRenderPresetHybridDeferred();
+    TestHybridDeferredFramePlan();
     TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
     TestRhiOpaqueDeviceAndCommandList();

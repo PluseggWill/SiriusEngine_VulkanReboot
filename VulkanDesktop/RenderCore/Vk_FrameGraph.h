@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
+#include "../Gfx/Gfx_PassId.h"
 #include "../Gfx/Gfx_RenderPacket.h"
 #include "../Gfx/Gfx_RenderView.h"
 #include "Vk_DataStruct.h"
@@ -13,7 +14,8 @@ struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
-enum class Vk_FrameGraphPassId : uint8_t { Shadow = 0, GBuffer, ClusterBuild, DepthPyramid, SSR, SSAO, DdgiProbeUpdate, ShadowAoSoft, DeferredTransparent, Post, Count };
+// Historical name retained for call sites; ordinals match Gfx_PassId.
+using Vk_FrameGraphPassId = Gfx_PassId;
 
 struct Vk_FrameGraphContext {
     Vk_Renderer*                                                   myCore             = nullptr;

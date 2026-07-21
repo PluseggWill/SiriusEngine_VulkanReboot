@@ -130,9 +130,7 @@ void CreateAoImages( Vk_Renderer& aCore ) {
 
     UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
                                 + " half=" + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
-                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM"
-                                + " bent=" + std::to_string( reinterpret_cast< uintptr_t >( aCore.myAoState.myBentNormalHalf.Image() ) )
-                                + " raw=" + std::to_string( reinterpret_cast< uintptr_t >( aCore.myAoState.myAoRaw.Image() ) ) );
+                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM" );
 }
 
 void UpdateClassicDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {

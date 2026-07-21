@@ -22,13 +22,13 @@ struct Vk_GBufferState {
     Vk_TextureResource myMotionVector;
     Vk_TextureResource myDepth;
     // Tracked for FG depth barriers (DepthPyramid / SSR / copy); finalLayout after GBuffer RP is attachment.
-    VkImageLayout      myDepthLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-    VkRenderPass       myRenderPass              = VK_NULL_HANDLE;
-    VkFramebuffer      myFramebuffer             = VK_NULL_HANDLE;
-    VkPipeline         myGBufferPipeline         = VK_NULL_HANDLE;
-    VkPipeline         myGBufferPipelineBindless = VK_NULL_HANDLE;
-    Vk_DeletionQueue   myDeletionQueue;
-    bool               myInitialized = false;
+    VkImageLayout    myDepthLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkRenderPass     myRenderPass              = VK_NULL_HANDLE;
+    VkFramebuffer    myFramebuffer             = VK_NULL_HANDLE;
+    VkPipeline       myGBufferPipeline         = VK_NULL_HANDLE;
+    VkPipeline       myGBufferPipelineBindless = VK_NULL_HANDLE;
+    Vk_DeletionQueue myDeletionQueue;
+    bool             myInitialized = false;
 };
 
 // HybridDeferred opaque path: offscreen G-buffer raster (resolve → Vk_DeferredLightingPass).

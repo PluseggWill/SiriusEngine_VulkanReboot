@@ -117,17 +117,17 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     }
 
     VkImageMemoryBarrier toGeneralIrr{};
-    toGeneralIrr.sType                                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    toGeneralIrr.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     // CreateDdgiAtlas transitions atlases to SHADER_READ_ONLY; probe update always starts from that layout.
-    toGeneralIrr.oldLayout                             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    toGeneralIrr.newLayout                             = VK_IMAGE_LAYOUT_GENERAL;
-    toGeneralIrr.srcAccessMask                         = VK_ACCESS_SHADER_READ_BIT;
-    toGeneralIrr.dstAccessMask                         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-    toGeneralIrr.image                                 = state.myDdgiProbeIrradianceAtlas.Image();
-    toGeneralIrr.subresourceRange                      = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    VkImageMemoryBarrier toGeneralVis                  = toGeneralIrr;
-    toGeneralVis.image                                 = state.myDdgiProbeVisibilityAtlas.Image();
-    std::array< VkImageMemoryBarrier, 2 > toGeneral    = { toGeneralIrr, toGeneralVis };
+    toGeneralIrr.oldLayout                          = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    toGeneralIrr.newLayout                          = VK_IMAGE_LAYOUT_GENERAL;
+    toGeneralIrr.srcAccessMask                      = VK_ACCESS_SHADER_READ_BIT;
+    toGeneralIrr.dstAccessMask                      = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    toGeneralIrr.image                              = state.myDdgiProbeIrradianceAtlas.Image();
+    toGeneralIrr.subresourceRange                   = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VkImageMemoryBarrier toGeneralVis               = toGeneralIrr;
+    toGeneralVis.image                              = state.myDdgiProbeVisibilityAtlas.Image();
+    std::array< VkImageMemoryBarrier, 2 > toGeneral = { toGeneralIrr, toGeneralVis };
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
                           static_cast< uint32_t >( toGeneral.size() ), toGeneral.data() );
 

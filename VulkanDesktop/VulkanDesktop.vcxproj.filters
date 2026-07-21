@@ -199,6 +199,9 @@
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_RenderPipeline.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -637,6 +640,15 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_AoPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_PassId.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_FramePlan.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_RenderPipeline.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_AoSettings.h">

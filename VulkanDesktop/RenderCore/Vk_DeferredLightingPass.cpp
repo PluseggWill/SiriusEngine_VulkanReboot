@@ -104,9 +104,9 @@ void CreateDdgiAtlas( Vk_Renderer& aCore ) {
     aCore.TransitionImageLayout( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
     state.myDdgiAtlasReadable     = false;
     state.myDdgiHistoryForceReset = true;
-    state.myDdgiPrevVolumeCenter                 = aCore.myLightingSettings.myDdgiVolumeCenter;
-    state.myDdgiPrevVolumeExtents                = aCore.myLightingSettings.myDdgiVolumeExtents;
-    state.myDdgiPrevCameraEye                    = aCore.myPrimaryCamera.myEye;
+    state.myDdgiPrevVolumeCenter  = aCore.myLightingSettings.myDdgiVolumeCenter;
+    state.myDdgiPrevVolumeExtents = aCore.myLightingSettings.myDdgiVolumeExtents;
+    state.myDdgiPrevCameraEye     = aCore.myPrimaryCamera.myEye;
 }
 
 // Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.

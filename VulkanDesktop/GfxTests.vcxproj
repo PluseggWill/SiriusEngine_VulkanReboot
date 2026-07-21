@@ -109,6 +109,7 @@
     <ClCompile Include="Gfx\Gfx_Lod.cpp" />
     <ClCompile Include="Gfx\Gfx_SceneSoA.cpp" />
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp" />
+    <ClCompile Include="Gfx\Gfx_RenderPipeline.cpp" />
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
     <ClCompile Include="Util\Util_EngineConfig.cpp" />
     <ClCompile Include="Util\Util_EngineConfigCli.cpp" />

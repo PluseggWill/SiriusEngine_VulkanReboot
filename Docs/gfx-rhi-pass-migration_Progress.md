@@ -20,3 +20,15 @@
 - **Files:** `Gfx/Gfx_AoPass.{h,cpp}`, `RenderCore/Vk_AoPass_Record.cpp` (thin facade), `Vk_Renderer` DeviceWrap, `Rhi_CommandList` CopyImage
 - **Behavior:** AO compute record orchestration lives in Gfx (no vulkan.h); Init/descriptors/temporal descriptor writes stay in RenderCore
 - **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1` exit 0; G0-validation attempted (`--validation`) exit 0 but host lacks `VK_LAYER_KHRONOS_validation` (logged ERROR once at init — no runtime pass spam)
+
+## 2026-07-21 — E2 closeout (sponza G0-validation)
+
+- **Fixes (same branch):** DDGI atlas order/push-range, depth layout tracking, UNDEFINED→SHADER_READ_ONLY for Soft/SSR/bent/DDGI, PostProcess TAA leak on RebuildResources, smoke default→sponza, CULL once-per-scene
+- **Verification:** sponza `--validation --smoke-frames 120 --smoke-seconds 6` exit 0; only remaining ERROR is benign `vkCreateDevice enabledLayerCount != 0`
+- **E2 outcome:** Record pilot accepted; Init peel deferred to E4
+
+## 2026-07-21 — E3 FramePlan + Gfx_RenderPipeline (start)
+
+- **Files:** `Gfx/Gfx_PassId.h`, `Gfx/Gfx_FramePlan.h`, `Gfx/Gfx_RenderPipeline.{h,cpp}`, `Vk_FrameGraph` consumes Plan, GfxTests `TestHybridDeferredFramePlan`
+- **Behavior:** Hybrid topology + enable bits built in Gfx; RC still owns Record switch / enable sampling from Vk state
+- **Verification:** `Verify-CI.ps1` exit 0 (`GfxTests: all passed`); `Verify-Smoke.ps1 -SkipGpuCull` exit 0 (sponza)

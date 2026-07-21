@@ -8,7 +8,7 @@
 |-------|--------|
 | **Gate** | **G5** ✓ · next quality gate **G3** (S10 MeshImport) |
 | **Next sprint** | **S10** Content pipeline · [`Wishlist.md`](Wishlist.md) § S10 · [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
-| **WIP task** | [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md) (E2 AO Record via Rhi) · branch `feat/gfx-rhi-pass-migration` |
+| **WIP task** | [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md) (E3 FramePlan / Gfx_RenderPipeline) · branch `feat/gfx-rhi-pass-migration` |
 | **Last closed** | architecture-modularity-peel (MOD-A*…C*) |
 | **Track** | **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ **Rhi/Gfx pass migration** ∥ |
 
