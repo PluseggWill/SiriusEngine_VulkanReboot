@@ -3,7 +3,6 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_FramePacketValidation.h"
 #include "../Gfx/Gfx_LightingMath.h"
-#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
 #include "Vk_ClusterBuildPass.h"
@@ -136,8 +135,8 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                             const bool                   bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
                             const VkPipelineLayout       frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
                             const VkPipeline             gbufferPipeline  = bindless ? aCore.myGBufferState.myGBufferPipelineBindless : aCore.myGBufferState.myGBufferPipeline;
-                            const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-                            const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+                            const bool                   legacyDirectDraw = aCtx.myToggles->myLegacyDirectDraw;
+                            const bool                   gpuCullRecord    = aCtx.myToggles->myGpuCullEnabled && !legacyDirectDraw;
                             const bool                   emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
                             Vk_FrameData&                frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
                             const VkBuffer               indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;
@@ -229,8 +228,8 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                             const Vk_RenderMaterialPath  materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
                             const bool                   bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
                             const VkPipelineLayout       frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-                            const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-                            const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+                            const bool                   legacyDirectDraw = aCtx.myToggles->myLegacyDirectDraw;
+                            const bool                   gpuCullRecord    = aCtx.myToggles->myGpuCullEnabled && !legacyDirectDraw;
                             const bool                   emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
                             Vk_FrameData&                frame            = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];
                             const VkBuffer               indirectBuffer   = gpuCullRecord ? frame.myGpuCullIndirectBuffer.myBuffer : frame.myDrawIndirectBuffer.myBuffer;

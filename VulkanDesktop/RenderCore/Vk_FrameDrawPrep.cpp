@@ -129,17 +129,17 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
         return false;
     }
 
-    auto* const    indirectBase = static_cast< Gfx_DrawIndirectCommand* >( frame.myDrawIndirectMapped );
-    auto* const    templateBase = static_cast< Gfx_DrawTemplate* >( frame.myDrawTemplateMapped );
+    auto* const    indirectBase = static_cast< Gpu_DrawIndirectCommand* >( frame.myDrawIndirectMapped );
+    auto* const    templateBase = static_cast< Gpu_DrawTemplate* >( frame.myDrawTemplateMapped );
     const uint32_t baseIndex    = aParams.myDrawBufferBaseIndex;
 
     auto writeDrawList = [ & ]( const std::vector< Gfx_DrawInstance >& someDraws, uint32_t aPassOffset ) {
         for ( size_t drawIndex = 0; drawIndex < someDraws.size(); ++drawIndex ) {
             const Gfx_DrawInstance& draw = someDraws[ drawIndex ];
-            const Gfx_Mesh&         mesh = aParams.myResourceTables->GetMesh( draw.myMeshId );
+            const Vk_MeshResource&  mesh = aParams.myResourceTables->GetMesh( draw.myMeshId );
             const uint32_t          slot = Gfx_ComputeDrawBufferSlot( baseIndex, aPassOffset, static_cast< uint32_t >( drawIndex ) );
 
-            Gfx_DrawTemplate drawTemplate{};
+            Gpu_DrawTemplate drawTemplate{};
             Gfx_FillDrawTemplate( drawTemplate, draw, mesh.myIndexCount, draw.myInstanceDataOffset );
             templateBase[ slot ] = drawTemplate;
             indirectBase[ slot ] = drawTemplate.myIndirect;
@@ -158,7 +158,7 @@ bool Vk_FrameDrawPrep::FillDrawTemplates( const Vk_FrameDrawPrepBuildParams& aPa
     return true;
 }
 
-// CONTRACT (P3): Gfx_EntityGpuRecord[slot] mirrors SoA columns; inactive slots keep layerMask == 0.
+// CONTRACT (P3): Gpu_EntityRecord[slot] mirrors SoA columns; inactive slots keep layerMask == 0.
 bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_ResourceTables& aTables, const Gfx_EntityRecordLodParams& aLod, uint32_t aCurrentFrame,
                                           std::vector< Vk_FrameData >& aFrameDatas ) {
     Vk_FrameData& frame = aFrameDatas[ aCurrentFrame ];
@@ -183,7 +183,7 @@ bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_R
         lodParams.myLodState = &lodSnapshot;
     }
 
-    auto* const recordBase = static_cast< Gfx_EntityGpuRecord* >( frame.myEntityRecordMapped );
+    auto* const recordBase = static_cast< Gpu_EntityRecord* >( frame.myEntityRecordMapped );
     for ( uint32_t slot = 0; slot < slotCount; ++slot ) {
         const uint32_t meshId     = Gfx_ResolveEntityRecordMeshId( aScene, slot, lodParams );
         const uint32_t indexCount = aScene.IsSlotActive( slot ) ? aTables.GetMesh( meshId ).myIndexCount : 0u;
@@ -191,7 +191,7 @@ bool Vk_FrameDrawPrep::FillEntityRecords( const Gfx_SceneSoA& aScene, const Vk_R
     }
 
     if ( slotCount < VkDescriptorPolicy::kMaxEntitySlots ) {
-        std::memset( recordBase + slotCount, 0, static_cast< size_t >( VkDescriptorPolicy::kMaxEntitySlots - slotCount ) * sizeof( Gfx_EntityGpuRecord ) );
+        std::memset( recordBase + slotCount, 0, static_cast< size_t >( VkDescriptorPolicy::kMaxEntitySlots - slotCount ) * sizeof( Gpu_EntityRecord ) );
     }
 
     if ( !myEntityRecordFillLoggedOnce ) {

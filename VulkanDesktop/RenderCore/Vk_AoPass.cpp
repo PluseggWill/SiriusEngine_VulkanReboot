@@ -96,7 +96,7 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-void DestroyAoTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
+void DestroyAoTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
@@ -122,7 +122,7 @@ void DestroyAoImages( Vk_Renderer& aCore ) {
     sAoBlurLayout   = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void CreateAoImage( Vk_Renderer& aCore, VkExtent2D aExtent, Gfx_Texture& aTexture ) {
+void CreateAoImage( Vk_Renderer& aCore, VkExtent2D aExtent, Vk_TextureResource& aTexture ) {
     if ( aExtent.width == 0 || aExtent.height == 0 ) {
         return;
     }
@@ -620,9 +620,9 @@ void RecordClassicSsao( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myClassicPipelineLayout, 0, 1, &state.myClassicDescriptorSets[ aFrameIndex ], 0, nullptr );
 
     ClassicAoPushConstants push{};
-    push.view       = aCore.myCamera.myView;
-    push.proj       = aCore.myCamera.myProj;
-    push.viewProj   = aCore.myCamera.myProj * aCore.myCamera.myView;
+    push.view       = aCore.myPrimaryCamera.myView;
+    push.proj       = aCore.myPrimaryCamera.myProj;
+    push.viewProj   = aCore.myPrimaryCamera.myProj * aCore.myPrimaryCamera.myView;
     push.params     = glm::vec4( ao.myRadius, ao.myBias, ao.myNormalAwareRadius, ao.myEnabled ? 1.0f : 0.0f );
     push.screenSize = glm::vec2( static_cast< float >( aWidth ), static_cast< float >( aHeight ) );
     vkCmdPushConstants( aCommandBuffer, state.myClassicPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
@@ -701,8 +701,8 @@ void RecordHbaoPlus( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
     const VkExtent2D half  = HalfExtent( aWidth, aHeight );
 
     HalfResAoPushConstants push{};
-    push.view           = aCore.myCamera.myView;
-    push.proj           = aCore.myCamera.myProj;
+    push.view           = aCore.myPrimaryCamera.myView;
+    push.proj           = aCore.myPrimaryCamera.myProj;
     push.params         = glm::vec4( ao.myRadius, ao.myBias, ao.myEnabled ? 1.0f : 0.0f, ao.myNormalAwareRadius );
     push.sliceCount     = glm::uvec2( std::clamp( ao.myHbaoDirections, 1u, 8u ), 0u );
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myHbaoSteps, 1u, 8u ), 0u );
@@ -718,8 +718,8 @@ void RecordGtao( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
     const VkExtent2D half  = HalfExtent( aWidth, aHeight );
 
     HalfResAoPushConstants push{};
-    push.view           = aCore.myCamera.myView;
-    push.proj           = aCore.myCamera.myProj;
+    push.view           = aCore.myPrimaryCamera.myView;
+    push.proj           = aCore.myPrimaryCamera.myProj;
     push.params         = glm::vec4( ao.myRadius, ao.myNormalAwareRadius, ao.myEnabled ? 1.0f : 0.0f, ao.myGtaoFalloff );
     push.sliceCount     = glm::uvec2( std::clamp( ao.myGtaoSlices, 1u, 16u ), 0u );
     push.stepsPerSlice  = glm::uvec2( std::clamp( ao.myGtaoStepsPerSlice, 1u, 16u ), 0u );

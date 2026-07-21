@@ -22,6 +22,6 @@ struct Vk_FrameCpuPrepResult {
     std::array< VkRect2D, kGfxMaxRenderViews >              myScissors{};
     std::array< VkDescriptorSet, kGfxMaxRenderViews >       myFrameDescriptors{};
 
-    uint32_t                                                   mySceneSlotCount = 0;
-    std::array< Gfx_GpuCullPushConstants, kGfxMaxRenderViews > myGpuCullViews{};
+    uint32_t                                                mySceneSlotCount = 0;
+    std::array< Gpu_CullPushConstants, kGfxMaxRenderViews > myGpuCullViews{};
 };

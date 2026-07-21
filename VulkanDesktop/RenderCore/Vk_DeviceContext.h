@@ -40,7 +40,7 @@ struct Vk_DeviceContext {
     Vk_RenderMaterialPath   myMaterialPath = Vk_RenderMaterialPath::Batch;
 
     // 1x1 RGBA uploaded at device init; bindless texture-array slots [sceneTextureCount, kMax) only (not scene texture 0).
-    Gfx_Texture myBindlessDefaultTexture{};
+    Vk_TextureResource myBindlessDefaultTexture{};
 
     VkPipelineCache myPipelineCache = VK_NULL_HANDLE;
 };

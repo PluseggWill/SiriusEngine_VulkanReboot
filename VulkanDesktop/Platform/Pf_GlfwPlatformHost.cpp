@@ -1,6 +1,6 @@
 #include "Pf_GlfwPlatformHost.h"
 
-#include "../RenderCore/Vk_Renderer.h"
+#include "../RenderCore/Vk_RhiDevice.h"
 #include "../Util/Util_Logger.h"
 
 #include <GLFW/glfw3.h>
@@ -11,7 +11,7 @@ Pf_GlfwPlatformHost::~Pf_GlfwPlatformHost() {
     ShutdownWindow();
 }
 
-void Pf_GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) {
+void Pf_GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, const Pf_FrameHooks& aFrameHooks ) {
     UtilLogger::Info( "WINDOW", "Initializing GLFW window." );
     glfwInit();
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
@@ -21,7 +21,8 @@ void Pf_GlfwPlatformHost::InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Rend
     if ( myWindow == nullptr ) {
         throw std::runtime_error( "Pf_GlfwPlatformHost: glfwCreateWindow failed" );
     }
-    glfwSetWindowUserPointer( myWindow, &aRenderer );
+    myFrameHooks = aFrameHooks;
+    glfwSetWindowUserPointer( myWindow, this );
     glfwSetFramebufferSizeCallback( myWindow, &Pf_GlfwPlatformHost::FramebufferResizeCallback );
     UtilLogger::Info( "WINDOW", "Window created: " + std::to_string( aWidth ) + "x" + std::to_string( aHeight ) );
 }
@@ -33,6 +34,7 @@ void Pf_GlfwPlatformHost::ShutdownWindow() {
     }
     glfwTerminate();
     myHasLastFrameTime = false;
+    myFrameHooks       = {};
 }
 
 bool Pf_GlfwPlatformHost::ShouldClose() const {
@@ -45,7 +47,7 @@ void Pf_GlfwPlatformHost::RequestClose() {
     }
 }
 
-void Pf_GlfwPlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSeconds ) {
+void Pf_GlfwPlatformHost::BeginFrame( float& aOutDeltaSeconds ) {
     glfwPollEvents();
     const auto frameStart = std::chrono::high_resolution_clock::now();
     aOutDeltaSeconds      = 0.0f;
@@ -54,11 +56,15 @@ void Pf_GlfwPlatformHost::BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSe
     }
     myLastFrameTime    = frameStart;
     myHasLastFrameTime = true;
-    aRenderer.OnPlatformFrameStart( frameStart, aOutDeltaSeconds );
+    if ( myFrameHooks.myOnFrameStart != nullptr ) {
+        myFrameHooks.myOnFrameStart( myFrameHooks.myUser, frameStart, aOutDeltaSeconds );
+    }
 }
 
-void Pf_GlfwPlatformHost::BeginImGuiFrame( Vk_Renderer& aRenderer ) {
-    aRenderer.BeginImGuiFrame();
+void Pf_GlfwPlatformHost::BeginImGuiFrame() {
+    if ( myFrameHooks.myOnImGuiNewFrame != nullptr ) {
+        myFrameHooks.myOnImGuiNewFrame( myFrameHooks.myUser );
+    }
 }
 
 void Pf_GlfwPlatformHost::CreateSurface( Vk_RhiDevice& aRhiDevice ) {
@@ -81,8 +87,8 @@ void Pf_GlfwPlatformHost::RecreateSurface( Vk_RhiDevice& aRhiDevice ) {
 }
 
 void Pf_GlfwPlatformHost::FramebufferResizeCallback( GLFWwindow* aWindow, int, int ) {
-    auto* renderer = reinterpret_cast< Vk_Renderer* >( glfwGetWindowUserPointer( aWindow ) );
-    if ( renderer != nullptr ) {
-        renderer->NotifyFramebufferResized();
+    auto* host = reinterpret_cast< Pf_GlfwPlatformHost* >( glfwGetWindowUserPointer( aWindow ) );
+    if ( host != nullptr && host->myFrameHooks.myOnFramebufferResized != nullptr ) {
+        host->myFrameHooks.myOnFramebufferResized( host->myFrameHooks.myUser );
     }
 }

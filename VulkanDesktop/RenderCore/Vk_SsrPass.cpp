@@ -49,9 +49,9 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
 }
 
 void DestroySsrImage( Vk_Renderer& aCore ) {
-    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    Gfx_Texture&       texture   = aCore.mySsrState.mySsrOutput;
+    const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
+    const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
+    Vk_TextureResource& texture   = aCore.mySsrState.mySsrOutput;
 
     if ( texture.ImageView() != VK_NULL_HANDLE ) {
         vkDestroyImageView( device, texture.ImageView(), nullptr );
@@ -67,7 +67,7 @@ void DestroySsrImage( Vk_Renderer& aCore ) {
 void DestroySsrImages( Vk_Renderer& aCore ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    for ( Gfx_Texture& history : aCore.mySsrState.myLitHdrHistory ) {
+    for ( Vk_TextureResource& history : aCore.mySsrState.myLitHdrHistory ) {
         if ( history.ImageView() != VK_NULL_HANDLE ) {
             vkDestroyImageView( device, history.ImageView(), nullptr );
             history.ImageView() = VK_NULL_HANDLE;
@@ -86,7 +86,7 @@ void CreateHistoryImages( Vk_Renderer& aCore ) {
         return;
     }
 
-    for ( Gfx_Texture& history : aCore.mySsrState.myLitHdrHistory ) {
+    for ( Vk_TextureResource& history : aCore.mySsrState.myLitHdrHistory ) {
         aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                            VK_SAMPLE_COUNT_1_BIT, history.AllocImage() );
         history.ImageView() = aCore.CreateImageView( history.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -101,7 +101,7 @@ void CreateSsrImage( Vk_Renderer& aCore ) {
         return;
     }
 
-    Gfx_Texture& texture = aCore.mySsrState.mySsrOutput;
+    Vk_TextureResource& texture = aCore.mySsrState.mySsrOutput;
     aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                        VK_SAMPLE_COUNT_1_BIT, texture.AllocImage() );
     texture.ImageView() = aCore.CreateImageView( texture.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -347,8 +347,8 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     sSsrLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     SsrPushConstants push{};
-    push.view = aCore.myCamera.myView;
-    push.proj = aCore.myCamera.myProj;
+    push.view = aCore.myPrimaryCamera.myView;
+    push.proj = aCore.myPrimaryCamera.myProj;
     // Hit-world reprojection uses shared temporal prev VP (surface MV is the wrong UV for radiance history).
     push.prevViewProj = aCore.myTemporalState.myPrevViewProj;
     push.params       = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness, aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f,
@@ -392,13 +392,13 @@ void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
         return;
     }
 
-    Gfx_Texture& sceneColor = aCore.myPostProcessState.mySceneColor;
+    Vk_TextureResource& sceneColor = aCore.myPostProcessState.mySceneColor;
     if ( sceneColor.Image() == VK_NULL_HANDLE ) {
         return;
     }
 
-    const uint32_t writeIndex = 1u - state.myHistoryWriteIndex;
-    Gfx_Texture&   history    = state.myLitHdrHistory[ writeIndex ];
+    const uint32_t      writeIndex = 1u - state.myHistoryWriteIndex;
+    Vk_TextureResource& history    = state.myLitHdrHistory[ writeIndex ];
 
     VkImageMemoryBarrier sceneToSrc = ColorImageBarrier( sceneColor.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                                          VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT );

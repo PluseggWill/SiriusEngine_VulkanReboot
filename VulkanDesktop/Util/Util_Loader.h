@@ -1,23 +1,12 @@
 #pragma once
-#include "../RenderCore/Vk_Types.h"
-struct Vk_ResourceContext;
+
+#include <string>
+#include <vector>
+
 struct Util_EngineConfig;
 
-// File I/O and image upload. Relative paths resolve under Util_EngineConfig::GetAssetRoot().
+// File I/O only. Relative paths resolve under Util_EngineConfig::GetAssetRoot(). GPU upload lives in Vk_TextureLoader.
 namespace UtilLoader {
 std::string         ResolvePath( const Util_EngineConfig& aConfig, const std::string& aFilename );
 std::vector< char > ReadFile( const Util_EngineConfig& aConfig, const std::string& aFilename );
-
-bool LoadTexture( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, Gfx_Texture& aTextureOut, uint32_t& aTextureMipLevel );
-
-// Cubemap faces: posx, negx, posy, negy, posz, negz PNGs in aDirectory (logical path).
-bool LoadCubemapFromFaceDirectory( const Util_EngineConfig& aConfig, const std::string& aDirectory, const Vk_ResourceContext& aContext, VkFormat aFormat,
-                                   Gfx_Texture& aTextureOut, uint32_t aMipLevels );
-
-// Offline GGX prefilter mips: aRootDir/mip00..mipNN/{face}.png (no GPU box-filter mips).
-bool LoadCubemapMipChainFromFaceDirectories( const Util_EngineConfig& aConfig, const std::string& aRootDir, const Vk_ResourceContext& aContext, VkFormat aFormat,
-                                             Gfx_Texture& aTextureOut, uint32_t aMipCount );
-
-// 2D image without sRGB (BRDF LUT).
-bool LoadImage2D( const Util_EngineConfig& aConfig, const std::string& aFilename, const Vk_ResourceContext& aContext, VkFormat aFormat, Gfx_Texture& aTextureOut );
 }  // namespace UtilLoader

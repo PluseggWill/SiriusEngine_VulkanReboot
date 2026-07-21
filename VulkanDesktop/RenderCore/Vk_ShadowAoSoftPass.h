@@ -21,10 +21,10 @@ struct Vk_ShadowAoSoftState {
     VkDescriptorPool      myDescriptorPool     = VK_NULL_HANDLE;
     VkSampler             myGBufferSampler     = VK_NULL_HANDLE;
 
-    Gfx_Texture mySoftPing{};
-    Gfx_Texture mySoftPong{};
-    Gfx_Texture myFallbackAo{};       // 1x1 R8 white — pack slot when AO pass skipped/disabled
-    Gfx_Texture myFallbackContact{};  // 1x1 RG8 (1,1) — deferred when no valid contact map
+    Vk_TextureResource mySoftPing{};
+    Vk_TextureResource mySoftPong{};
+    Vk_TextureResource myFallbackAo{};       // 1x1 R8 white — pack slot when AO pass skipped/disabled
+    Vk_TextureResource myFallbackContact{};  // 1x1 RG8 (1,1) — deferred when no valid contact map
 
     // Pre-built descriptor sets (no vkUpdateDescriptorSets during record).
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myPackDescriptorSets{};

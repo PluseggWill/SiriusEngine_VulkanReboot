@@ -8,6 +8,7 @@
 #include "../Util/Util_Logger.h"
 #include "Vk_DataStruct.h"
 #include "Vk_ResourceContext.h"
+#include "Vk_TextureLoader.h"
 
 void Vk_ResourceTables::Clear() {
     myMeshes.clear();
@@ -53,8 +54,8 @@ void Vk_ResourceTables::LoadFromManifest( const Util_EngineConfig& aConfig, cons
                                             + " textures=" + std::to_string( myTextures.size() ) + " materialTableGeneration=" + std::to_string( myMaterialTableGeneration ) );
 }
 
-Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
-                                       Vk_DeletionQueue& aSceneDeletionQueue ) {
+Vk_MeshResource* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
+                                              Vk_DeletionQueue& aSceneDeletionQueue ) {
     const std::string resolvedPath = UtilLoader::ResolvePath( aConfig, aPath );
     UtilLogger::Info( "RESOURCE", "Loading mesh id=" + std::to_string( aMeshId ) + " path=" + resolvedPath );
 
@@ -62,7 +63,7 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const s
         myMeshes.resize( aMeshId + 1 );
     }
 
-    Gfx_Mesh& mesh = myMeshes[ aMeshId ];
+    Vk_MeshResource& mesh = myMeshes[ aMeshId ];
     mesh.myCpu.LoadFromPath( resolvedPath );
     mesh.BuildGpuBuffers( aContext );
 
@@ -81,8 +82,8 @@ Gfx_Mesh* Vk_ResourceTables::LoadMesh( const Util_EngineConfig& aConfig, const s
     return &mesh;
 }
 
-Gfx_Texture* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
-                                             Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels ) {
+Vk_TextureResource* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
+                                                    Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels ) {
     const std::string resolvedPath = UtilLoader::ResolvePath( aConfig, aPath );
     UtilLogger::Info( "RESOURCE", "Loading texture id=" + std::to_string( aTextureId ) + " path=" + resolvedPath );
 
@@ -90,8 +91,8 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, c
         myTextures.resize( aTextureId + 1 );
     }
 
-    Gfx_Texture& texture = myTextures[ aTextureId ];
-    if ( UtilLoader::LoadTexture( aConfig, aPath, aContext, texture, aMipLevels ) != true ) {
+    Vk_TextureResource& texture = myTextures[ aTextureId ];
+    if ( Vk_TextureLoader::LoadTexture( aConfig, aPath, aContext, texture, aMipLevels ) != true ) {
         throw std::runtime_error( "failed to load texture!" );
     }
 
@@ -113,7 +114,7 @@ Gfx_Texture* Vk_ResourceTables::LoadTexture( const Util_EngineConfig& aConfig, c
 }
 
 void Vk_ResourceTables::RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout ) {
-    for ( Gfx_Material& material : myMaterials ) {
+    for ( Vk_MaterialResource& material : myMaterials ) {
         if ( material.myPipeline == VK_NULL_HANDLE ) {
             continue;
         }
@@ -122,21 +123,21 @@ void Vk_ResourceTables::RefreshMaterialPipelines( VkPipeline aOpaquePipeline, Vk
     }
 }
 
-Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout,
-                                                      const Gfx_MaterialManifestEntry& aSurface ) {
+Vk_MaterialResource* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout,
+                                                             const Gfx_MaterialManifestEntry& aSurface ) {
     if ( aMaterialId >= myMaterials.size() ) {
         myMaterials.resize( aMaterialId + 1 );
     }
 
-    Gfx_Material& material     = myMaterials[ aMaterialId ];
-    material.myPipeline        = aPipeline;
-    material.myPipelineLayout  = aLayout;
-    material.myBaseColorFactor = aSurface.myBaseColorFactor;
-    material.myRoughness       = aSurface.myRoughness;
-    material.myMetallic        = aSurface.myMetallic;
-    material.myAlpha           = aSurface.myAlpha;
-    material.myAlphaMode       = aSurface.myAlphaMode;
-    material.myIsTransparent   = aSurface.myIsTransparent;
+    Vk_MaterialResource& material = myMaterials[ aMaterialId ];
+    material.myPipeline           = aPipeline;
+    material.myPipelineLayout     = aLayout;
+    material.myBaseColorFactor    = aSurface.myBaseColorFactor;
+    material.myRoughness          = aSurface.myRoughness;
+    material.myMetallic           = aSurface.myMetallic;
+    material.myAlpha              = aSurface.myAlpha;
+    material.myAlphaMode          = aSurface.myAlphaMode;
+    material.myIsTransparent      = aSurface.myIsTransparent;
 
     if ( aMaterialId >= myMaterialTextureIds.size() ) {
         myMaterialTextureIds.resize( aMaterialId + 1, UINT32_MAX );
@@ -146,7 +147,7 @@ Gfx_Material* Vk_ResourceTables::CreateMaterialEntry( uint32_t aMaterialId, uint
     return &material;
 }
 
-const Gfx_Mesh& Vk_ResourceTables::GetMesh( uint32_t aMeshId ) const {
+const Vk_MeshResource& Vk_ResourceTables::GetMesh( uint32_t aMeshId ) const {
     if ( aMeshId >= myMeshes.size() || myMeshes[ aMeshId ].myCpu.myIndices.empty() ) {
         throw std::runtime_error( "Vk_ResourceTables: invalid mesh id " + std::to_string( aMeshId ) );
     }
@@ -156,20 +157,20 @@ const Gfx_Mesh& Vk_ResourceTables::GetMesh( uint32_t aMeshId ) const {
 std::vector< Gfx_Bounds > Vk_ResourceTables::CollectMeshLocalBounds() const {
     std::vector< Gfx_Bounds > bounds;
     bounds.reserve( myMeshes.size() );
-    for ( const Gfx_Mesh& mesh : myMeshes ) {
+    for ( const Vk_MeshResource& mesh : myMeshes ) {
         bounds.push_back( mesh.myLocalBounds() );
     }
     return bounds;
 }
 
-const Gfx_Material& Vk_ResourceTables::GetMaterial( uint32_t aMaterialId ) const {
+const Vk_MaterialResource& Vk_ResourceTables::GetMaterial( uint32_t aMaterialId ) const {
     if ( aMaterialId >= myMaterials.size() || myMaterials[ aMaterialId ].myPipeline == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_ResourceTables: invalid material id " + std::to_string( aMaterialId ) );
     }
     return myMaterials[ aMaterialId ];
 }
 
-const Gfx_Texture& Vk_ResourceTables::GetTexture( uint32_t aTextureId ) const {
+const Vk_TextureResource& Vk_ResourceTables::GetTexture( uint32_t aTextureId ) const {
     if ( aTextureId >= myTextures.size() || myTextures[ aTextureId ].ImageView() == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_ResourceTables: invalid texture id " + std::to_string( aTextureId ) );
     }

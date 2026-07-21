@@ -2,7 +2,6 @@
 #include "Vk_GpuCull.h"
 
 #include "../Gfx/Gfx_GpuCull.h"
-#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_Initializer.h"
@@ -57,7 +56,7 @@ void Vk_GpuCull::Init( Vk_Renderer& aCore ) {
     VkPushConstantRange pushRange{};
     pushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushRange.offset     = 0;
-    pushRange.size       = sizeof( Gfx_GpuCullPushConstants );
+    pushRange.size       = sizeof( Gpu_CullPushConstants );
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     pipelineLayoutInfo.setLayoutCount             = 1;
@@ -179,8 +178,8 @@ void Vk_GpuCull::CreateFrameBuffers( Vk_Renderer& aCore ) {
                       "GPU cull buffers: slots=" + std::to_string( VkDescriptorPolicy::kMaxEntitySlots ) + " bytes/indirect/frame=" + std::to_string( indirectBytes ) );
 }
 
-void Vk_GpuCull::RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep ) {
-    if ( !aCore.EngineConfig().GetGpuCullEnabled() || aPrep.myFrameData == nullptr ) {
+void Vk_GpuCull::RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep, bool aGpuCullEnabled ) {
+    if ( !aGpuCullEnabled || aPrep.myFrameData == nullptr ) {
         return;
     }
 
@@ -202,8 +201,8 @@ void Vk_GpuCull::RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandB
             BufferBarrier( frame.myGpuCullVisibleCountBuffer.myBuffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT );
         CmdPipelineBarrierBuffer( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, counterBarrier );
 
-        const Gfx_GpuCullPushConstants& params = aPrep.myGpuCullViews[ viewIndex ];
-        vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( Gfx_GpuCullPushConstants ), &params );
+        const Gpu_CullPushConstants& params = aPrep.myGpuCullViews[ viewIndex ];
+        vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( Gpu_CullPushConstants ), &params );
 
         const uint32_t groupCount = ( params.slotCount + kCullWorkgroupSize - 1 ) / kCullWorkgroupSize;
         if ( groupCount > 0 ) {

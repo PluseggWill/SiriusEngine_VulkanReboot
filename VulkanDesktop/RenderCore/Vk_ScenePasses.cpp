@@ -2,9 +2,7 @@
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_LightingMath.h"
-#include "../Gfx/Gfx_RenderPreset.h"
 
-#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
 
 #include "Vk_Bindless.h"
@@ -57,7 +55,7 @@ void BeginDrawDebugLabel( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, co
 // Per draw: bind VB/IB + Set 2 dynamic offset; issue vkCmdDrawIndexedIndirect (or legacy direct draw).
 void RecordSingleIndexedDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkPipelineLayout aLayout, VkDescriptorSet aObjectDescriptor,
 
-                              const Gfx_DrawInstance& aDraw, const Gfx_Mesh& aMesh, const char* aPassName, uint32_t aDrawLabelIndex,
+                              const Gfx_DrawInstance& aDraw, const Vk_MeshResource& aMesh, const char* aPassName, uint32_t aDrawLabelIndex,
 
                               VkBuffer aIndirectBuffer, VkDeviceSize aIndirectOffset, bool aUseLegacyDirectDraw, bool aEmitDebugLabels ) {
 
@@ -108,7 +106,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Renderer& aCore, VkCommandBuffer aComman
 
         const Gfx_DrawInstance& firstDraw = aPass.myDraws[ batch.myFirstDrawIndex ];
 
-        const Gfx_Material& material = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( firstDraw.myMaterialId );
+        const Vk_MaterialResource& material = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( firstDraw.myMaterialId );
 
         aCore.myFrameStats.myPipelineBinds++;
 
@@ -133,7 +131,7 @@ void RecordPassDrawsBatchFromPacket( Vk_Renderer& aCore, VkCommandBuffer aComman
 
             const Gfx_DrawInstance& draw = aPass.myDraws[ absoluteDrawIndex ];
 
-            const Gfx_Mesh& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
+            const Vk_MeshResource& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
 
             const uint32_t drawSlot =
                 ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, absoluteDrawIndex, draw.myEntityIndex );
@@ -166,7 +164,7 @@ void RecordPassDrawsBindlessFromPacket( Vk_Renderer& aCore, VkCommandBuffer aCom
 
         const Gfx_DrawInstance& draw = aPass.myDraws[ drawIndex ];
 
-        const Gfx_Mesh& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
+        const Vk_MeshResource& mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
 
         const uint32_t     drawSlot       = ComputeIndirectDrawSlot( aUseGpuCullIndirect, aDrawBufferBaseIndex, aPass.myDrawBufferPassOffset, drawIndex, draw.myEntityIndex );
         const VkDeviceSize indirectOffset = IndirectByteOffset( drawSlot );
@@ -268,8 +266,8 @@ void Vk_ScenePasses::RecordForwardLit( Vk_Renderer& aCore, const Gfx_FrameDebugT
 
     renderPassInfo.pClearValues = clearValues.data();
 
-    const bool legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool legacyDirectDraw = aToggles.myLegacyDirectDraw;
+    const bool gpuCullRecord    = aToggles.myGpuCullEnabled && !legacyDirectDraw;
     const bool emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     constexpr uint32_t           shadowViewIndex = 0;
@@ -416,7 +414,7 @@ void Vk_ScenePasses::RecordTransparentPacketDraws( Vk_Renderer& aCore, VkCommand
 
     const Vk_RenderMaterialPath path = aCore.myRhi.myDeviceCtx.myMaterialPath;
     // HybridDeferred transparent pass runs inside PostProcess hybrid RP (depth LOAD from G-buffer copy).
-    const bool       hybridResolve    = Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) && Vk_PostProcessPass::HasHybridResolve( aCore );
+    const bool       hybridResolve    = aCore.RenderFeatures().myHybridDeferred && Vk_PostProcessPass::HasHybridResolve( aCore );
     const VkPipeline bindlessPipeline = path == Vk_RenderMaterialPath::Bindless ? ( hybridResolve ? aCore.mySceneGpuCtx.myTransparentPipelineBindlessHybridResolve
                                                                                                   : aCore.mySceneGpuCtx.myTransparentPipelineBindless )
                                                                                 : VK_NULL_HANDLE;
@@ -440,8 +438,8 @@ void Vk_ScenePasses::RecordHybridPiPViews( Vk_Renderer& aCore, const Gfx_FrameDe
     const Vk_RenderMaterialPath materialPath     = aCore.myRhi.myDeviceCtx.myMaterialPath;
     const bool                  bindless         = materialPath == Vk_RenderMaterialPath::Bindless;
     const VkPipelineLayout      frameBindLayout  = bindless ? aCore.mySceneGpuCtx.myBindlessPipelineLayout : aCore.mySceneGpuCtx.myPipelineLayout;
-    const bool                  legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool                  gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool                  legacyDirectDraw = aToggles.myLegacyDirectDraw;
+    const bool                  gpuCullRecord    = aToggles.myGpuCullEnabled && !legacyDirectDraw;
     const bool                  emitDebugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
     Vk_FrameData&  frame          = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ];

@@ -6,7 +6,6 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
-#include "../Gfx/Gfx_RenderCamera.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
@@ -102,7 +101,7 @@ void CreateDdgiAtlas( Vk_Renderer& aCore ) {
     state.myDdgiHistoryForceReset                = true;
     state.myDdgiPrevVolumeCenter                 = aCore.myLightingSettings.myDdgiVolumeCenter;
     state.myDdgiPrevVolumeExtents                = aCore.myLightingSettings.myDdgiVolumeExtents;
-    state.myDdgiPrevCameraEye                    = aCore.myCamera.myEye;
+    state.myDdgiPrevCameraEye                    = aCore.myPrimaryCamera.myEye;
 }
 
 // Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.
@@ -274,7 +273,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     VkPushConstantRange pushRange{};
     pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     pushRange.offset     = 0;
-    pushRange.size       = sizeof( Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants );
+    pushRange.size       = sizeof( Gpu_DeferredLightingPushConstants );
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     pipelineLayoutInfo.setLayoutCount             = 1;
@@ -456,13 +455,13 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "DeferredLighting graphics pipeline created." );
 }
 
-Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const Vk_Renderer& aCore ) {
-    Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants push{};
-    const uint32_t                                         width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
-    const uint32_t                                         height = aCore.mySwapchainCtx.mySwapChainExtent.height;
-    push.tilesX                                                   = Gfx_ClusterLighting::TilesForExtent( width );
-    push.tilesY                                                   = Gfx_ClusterLighting::TilesForExtent( height );
-    push.tileSize                                                 = Gfx_ClusterLighting::kTileSize;
+Gpu_DeferredLightingPushConstants BuildPushConstants( const Vk_Renderer& aCore ) {
+    Gpu_DeferredLightingPushConstants push{};
+    const uint32_t                    width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t                    height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    push.tilesX                              = Gfx_ClusterLighting::TilesForExtent( width );
+    push.tilesY                              = Gfx_ClusterLighting::TilesForExtent( height );
+    push.tileSize                            = Gfx_ClusterLighting::kTileSize;
     std::memcpy( push.ambientColor, glm::value_ptr( aCore.myEnvironmentData.myAmbientColor ), sizeof( float ) * 4 );
     std::memcpy( push.viewWorldPos, glm::value_ptr( aCore.myEnvironmentData.myViewWorldPos ), sizeof( float ) * 4 );
     push.debugView              = aCore.myEnvironmentData.myFogDistance.w;
@@ -510,7 +509,7 @@ Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants BuildPushConstants( const
     push.depthSlice =
         std::min( aCore.myAoSettings.myHiZDebugMip, Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u );
 
-    const glm::mat4 invViewProj = glm::inverse( aCore.myCamera.myProj * aCore.myCamera.myView );
+    const glm::mat4 invViewProj = glm::inverse( aCore.myPrimaryCamera.myProj * aCore.myPrimaryCamera.myView );
     std::memcpy( push.invViewProj, glm::value_ptr( invViewProj ), sizeof( push.invViewProj ) );
     return push;
 }
@@ -661,7 +660,7 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     push.ambient             = glm::vec4( glm::vec3( aCore.myEnvironmentData.myAmbientColor ), aCore.myLightingSettings.myDdgiIntensity );
     const bool volumeChanged = glm::length( aCore.myLightingSettings.myDdgiVolumeCenter - state.myDdgiPrevVolumeCenter ) > 0.01f
                                || glm::length( aCore.myLightingSettings.myDdgiVolumeExtents - state.myDdgiPrevVolumeExtents ) > 0.01f;
-    const bool cameraJumped = glm::length( aCore.myCamera.myEye - state.myDdgiPrevCameraEye ) > 2.5f;
+    const bool cameraJumped = glm::length( aCore.myPrimaryCamera.myEye - state.myDdgiPrevCameraEye ) > 2.5f;
     if ( volumeChanged || cameraJumped ) {
         state.myDdgiHistoryForceReset = true;
     }
@@ -705,7 +704,7 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     state.myDdgiHistoryForceReset = false;
     state.myDdgiPrevVolumeCenter  = aCore.myLightingSettings.myDdgiVolumeCenter;
     state.myDdgiPrevVolumeExtents = aCore.myLightingSettings.myDdgiVolumeExtents;
-    state.myDdgiPrevCameraEye     = aCore.myCamera.myEye;
+    state.myDdgiPrevCameraEye     = aCore.myPrimaryCamera.myEye;
 
     if ( aCore.myLightingSettings.myDdgiStaggeredUpdate ) {
         state.myDdgiUpdateCursor = ( state.myDdgiUpdateCursor + budget ) % state.myDdgiTotalProbeCount;
@@ -722,7 +721,7 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
 
     UpdateAoDescriptorBinding( aCore, aFrameIndex );
 
-    const Gfx_ClusterLighting::Gfx_DeferredLightingPushConstants push = BuildPushConstants( aCore );
+    const Gpu_DeferredLightingPushConstants push = BuildPushConstants( aCore );
 
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipeline );
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );

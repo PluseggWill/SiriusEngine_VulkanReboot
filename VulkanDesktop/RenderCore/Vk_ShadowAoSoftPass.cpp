@@ -58,7 +58,7 @@ VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout
     return barrier;
 }
 
-void DestroySoftTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
+void DestroySoftTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
@@ -88,7 +88,7 @@ void CreateFallbackImages( Vk_Renderer& aCore ) {
     const Vk_ResourceContext& resource = aCore.GetResourceContext();
     const VkExtent2D          one{ 1, 1 };
 
-    auto uploadIdentity1x1 = [ & ]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Gfx_Texture& aOut ) {
+    auto uploadIdentity1x1 = [ & ]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Vk_TextureResource& aOut ) {
         aCore.CreateImage( one, aFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
                            VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aOut.AllocImage() );
         aOut.ImageView() = aCore.CreateImageView( aOut.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -114,7 +114,7 @@ void CreateFallbackImages( Vk_Renderer& aCore ) {
     uploadIdentity1x1( kSoftFormat, contactWhite, sizeof( contactWhite ), state.myFallbackContact );
 }
 
-void CreateSoftImage( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
+void CreateSoftImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
     if ( extent.width == 0 || extent.height == 0 ) {
         return;

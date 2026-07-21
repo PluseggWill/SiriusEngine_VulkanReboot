@@ -14,14 +14,14 @@ constexpr VkFormat kPostSceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 // HDR scene color + hybrid resolve RP/FB + tonemap/bloom (extent-sized; recreated on resize).
 struct Vk_PostProcessState {
-    Gfx_Texture mySceneColor{};
-    Gfx_Texture myTaaResolved{};
-    Gfx_Texture myTaaHistory[ 2 ]{};
-    uint32_t    myTaaHistoryWriteIndex = 0u;
+    Vk_TextureResource mySceneColor{};
+    Vk_TextureResource myTaaResolved{};
+    Vk_TextureResource myTaaHistory[ 2 ]{};
+    uint32_t           myTaaHistoryWriteIndex = 0u;
     // False until at least one resolve has been copied into history (avoids sampling UNDEFINED on TAA toggle-on).
-    bool        myTaaHistoryReady = false;
-    Gfx_Texture myBloomPing{};
-    Gfx_Texture myBloomPong{};
+    bool               myTaaHistoryReady = false;
+    Vk_TextureResource myBloomPing{};
+    Vk_TextureResource myBloomPong{};
 
     VkRenderPass  myHybridRenderPass  = VK_NULL_HANDLE;
     VkFramebuffer myHybridFramebuffer = VK_NULL_HANDLE;

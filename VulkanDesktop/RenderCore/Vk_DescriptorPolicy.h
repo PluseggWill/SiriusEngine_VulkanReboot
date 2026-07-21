@@ -43,8 +43,8 @@ inline constexpr uint32_t kMaxSceneTextures  = 512;
 // --- Material / descriptor rebuild (S2 layout verify) ---
 // Device boot: Vk_DescriptorSystem::InitDeviceLayouts -> CreateDescriptorSetLayout (+ bindless set layout if enabled).
 // LoadScene: InitSceneDescriptors -> pool, per-frame Set 0/2 descriptors, then CreateMaterialDescriptorSets (batch)
-//   or CreateBindlessDescriptorResources (bindless). Gfx_Material stores pipeline + layout handles from manifest load.
-// Swapchain recreate: RefreshMaterialPipelinesAfterSwapchainRecreate updates Gfx_Material pipeline handles only.
+//   or CreateBindlessDescriptorResources (bindless). Vk_MaterialResource stores pipeline + layout handles from manifest load.
+// Swapchain recreate: RefreshMaterialPipelinesAfterSwapchainRecreate updates Vk_MaterialResource pipeline handles only.
 // Material count, texture views, or bindless table content change: UnloadSceneGpuResources then LoadSceneGpuResources (full GPU teardown).
 
 }  // namespace VkDescriptorPolicy

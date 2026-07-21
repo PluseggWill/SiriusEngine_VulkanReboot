@@ -16,17 +16,17 @@ struct Gfx_FrameDebugToggles;
 
 // Offscreen G-buffer pass state (extent-sized; recreated on swapchain resize when hybrid active).
 struct Vk_GBufferState {
-    Gfx_Texture      myAlbedo;
-    Gfx_Texture      myNormalRoughness;
-    Gfx_Texture      myWorldPosition;
-    Gfx_Texture      myMotionVector;
-    Gfx_Texture      myDepth;
-    VkRenderPass     myRenderPass              = VK_NULL_HANDLE;
-    VkFramebuffer    myFramebuffer             = VK_NULL_HANDLE;
-    VkPipeline       myGBufferPipeline         = VK_NULL_HANDLE;
-    VkPipeline       myGBufferPipelineBindless = VK_NULL_HANDLE;
-    Vk_DeletionQueue myDeletionQueue;
-    bool             myInitialized = false;
+    Vk_TextureResource myAlbedo;
+    Vk_TextureResource myNormalRoughness;
+    Vk_TextureResource myWorldPosition;
+    Vk_TextureResource myMotionVector;
+    Vk_TextureResource myDepth;
+    VkRenderPass       myRenderPass              = VK_NULL_HANDLE;
+    VkFramebuffer      myFramebuffer             = VK_NULL_HANDLE;
+    VkPipeline         myGBufferPipeline         = VK_NULL_HANDLE;
+    VkPipeline         myGBufferPipelineBindless = VK_NULL_HANDLE;
+    Vk_DeletionQueue   myDeletionQueue;
+    bool               myInitialized = false;
 };
 
 // HybridDeferred opaque path: offscreen G-buffer raster (resolve → Vk_DeferredLightingPass).

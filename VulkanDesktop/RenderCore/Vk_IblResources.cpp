@@ -5,6 +5,7 @@
 #include "../Util/Util_Logger.h"
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
+#include "Vk_TextureLoader.h"
 
 #include <nlohmann/json.hpp>
 
@@ -71,7 +72,7 @@ EnvironmentManifest LoadManifest( const Util_EngineConfig& aConfig, const std::s
     return manifest;
 }
 
-void RegisterTextureDeletion( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
+void RegisterTextureDeletion( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkDevice      device     = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator  allocator  = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkImage       image      = aTexture.Image();
@@ -132,15 +133,15 @@ VkSampler CreateBrdfLutSampler( VkDevice aDevice ) {
     return sampler;
 }
 
-void LoadPrefilterCubemap( const Util_EngineConfig& aConfig, const PrefilterManifest& aPrefilter, const Vk_ResourceContext& aContext, Gfx_Texture& aOutTexture,
+void LoadPrefilterCubemap( const Util_EngineConfig& aConfig, const PrefilterManifest& aPrefilter, const Vk_ResourceContext& aContext, Vk_TextureResource& aOutTexture,
                            float& aOutMaxMipLevel ) {
     if ( aPrefilter.myPerMipFaces ) {
-        UtilLoader::LoadCubemapMipChainFromFaceDirectories( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, aPrefilter.myMipCount );
+        Vk_TextureLoader::LoadCubemapMipChainFromFaceDirectories( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, aPrefilter.myMipCount );
         aOutMaxMipLevel = static_cast< float >( aPrefilter.myMipCount - 1u );
         return;
     }
 
-    UtilLoader::LoadCubemapFromFaceDirectory( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, 1 );
+    Vk_TextureLoader::LoadCubemapFromFaceDirectory( aConfig, aPrefilter.myDir, aContext, kLinearCubemapFormat, aOutTexture, 1 );
     aOutMaxMipLevel = 0.0f;
 }
 
@@ -164,12 +165,13 @@ void Init( Vk_Renderer& aCore, const std::string& aEnvironmentLogicalPath ) {
 
     const EnvironmentManifest manifest = LoadManifest( aCore.EngineConfig(), aEnvironmentLogicalPath );
 
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.GetResourceContext(), kLinearCubemapFormat,
-                                              aCore.myIblResourcesState.myIrradiance, 1 );
+    Vk_TextureLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.myIrradianceDir, aCore.GetResourceContext(), kLinearCubemapFormat,
+                                                    aCore.myIblResourcesState.myIrradiance, 1 );
     LoadPrefilterCubemap( aCore.EngineConfig(), manifest.myPrefilter, aCore.GetResourceContext(), aCore.myIblResourcesState.myPrefilter,
                           aCore.myIblResourcesState.myPrefilterMaxMipLevel );
-    UtilLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.GetResourceContext(), kSkyCubemapFormat, aCore.myIblResourcesState.mySky, 1 );
-    UtilLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.GetResourceContext(), kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
+    Vk_TextureLoader::LoadCubemapFromFaceDirectory( aCore.EngineConfig(), manifest.mySkyDir, aCore.GetResourceContext(), kSkyCubemapFormat, aCore.myIblResourcesState.mySky,
+                                                    1 );
+    Vk_TextureLoader::LoadImage2D( aCore.EngineConfig(), manifest.myBrdfLutPath, aCore.GetResourceContext(), kBrdfLutFormat, aCore.myIblResourcesState.myBrdfLut );
 
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myIrradiance );
     RegisterTextureDeletion( aCore, aCore.myIblResourcesState.myPrefilter );

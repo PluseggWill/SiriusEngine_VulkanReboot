@@ -2,7 +2,6 @@
 #include "Vk_PostProcessPass.h"
 
 #include "../Gfx/Gfx_PostSettings.h"
-#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
@@ -65,7 +64,7 @@ struct TaaResolvePushConstants {
 };
 static_assert( sizeof( TaaResolvePushConstants ) == 16, "TaaResolvePushConstants must match TaaResolve.comp push block" );
 
-void DestroyTexture( Vk_Renderer& aCore, Gfx_Texture& aTexture ) {
+void DestroyTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
     if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
@@ -116,7 +115,7 @@ void CreateTaaImages( Vk_Renderer& aCore ) {
     aCore.myPostProcessState.myTaaHistoryWriteIndex = 0u;
 }
 
-void CreateBloomImage( Vk_Renderer& aCore, Gfx_Texture& aTexture, VkExtent2D aExtent ) {
+void CreateBloomImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture, VkExtent2D aExtent ) {
     aCore.CreateImage( aExtent, kBloomFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                        VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
     aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kBloomFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -934,7 +933,7 @@ void Init( Vk_Renderer& aCore ) {
         RebuildResources( aCore );
         return;
     }
-    if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) ) {
+    if ( !aCore.RenderFeatures().myHybridDeferred ) {
         return;
     }
     UtilLogger::Info( "FG", "Vk_PostProcessPass::Init." );

@@ -4,11 +4,14 @@
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_FramePrepInput.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
+#include "../Gfx/Gfx_RenderCamera.h"
+#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Gfx/Gfx_SceneGpuLoadParams.h"
 #include "../Gfx/Gfx_SceneLoader.h"
 #include "../Gfx/Gfx_SceneTransform.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_ViewPacketBuild.h"
+#include "../Platform/Pf_FrameHooks.h"
 #include "../Platform/Pf_GlfwPlatformHost.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../RenderCore/Vk_Renderer.h"
@@ -69,7 +72,8 @@ void CommitSceneToWorld( WorldState& aWorld, Gfx_SceneDesc aScene, std::string a
     App_LoadSceneCpuState( aWorld );
 }
 
-void ActivateSceneGpu( Vk_Renderer& aRenderer, WorldState& aWorld, DebugUIState& aDebugUI, const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
+void ActivateSceneGpu( Vk_Renderer& aRenderer, Gfx_RenderCamera& aFlyCamera, WorldState& aWorld, DebugUIState& aDebugUI, const Util_EngineConfig& aConfig,
+                       const std::string& aLogicalPath ) {
     aDebugUI.myScenePanel.myCurrentScenePath = aLogicalPath;
     UtilScenePanel::RefreshSceneList( aConfig, aDebugUI.myScenePanel );
     Gfx_SceneGpuLoadParams loadParams{};
@@ -78,7 +82,7 @@ void ActivateSceneGpu( Vk_Renderer& aRenderer, WorldState& aWorld, DebugUIState&
     loadParams.mySceneSoA      = &aWorld.mySceneSoA;
     loadParams.myLogicalPath   = aWorld.myLogicalPath;
     aRenderer.LoadSceneGpuResources( loadParams );
-    App_InitScenePresentation( aRenderer, aWorld );
+    App_InitScenePresentation( aRenderer, aFlyCamera, aWorld );
     // user-tuning.json overrides scene env + renderer session knobs (lighting/AO/post/camera).
     UtilTuningPanel::LoadAndApplyIfPresent( aConfig.GetAssetRoot(), aRenderer, aDebugUI );
 }
@@ -102,14 +106,21 @@ int Application::Run( int argc, char** argv ) {
         myPlatformHost = &platformHost;
         rendererRef.BindPlatformHost( myPlatformHost );
         UtilLogger::Info( "APP", "InitWindow." );
-        platformHost.InitWindow( myConfig.GetWindowWidth(), myConfig.GetWindowHeight(), rendererRef );
+        Pf_FrameHooks frameHooks{};
+        frameHooks.myUser         = &rendererRef;
+        frameHooks.myOnFrameStart = []( void* aUser, std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds ) {
+            static_cast< Vk_Renderer* >( aUser )->OnPlatformFrameStart( aFrameStart, aDeltaSeconds );
+        };
+        frameHooks.myOnImGuiNewFrame      = []( void* aUser ) { static_cast< Vk_Renderer* >( aUser )->BeginImGuiFrame(); };
+        frameHooks.myOnFramebufferResized = []( void* aUser ) { static_cast< Vk_Renderer* >( aUser )->NotifyFramebufferResized(); };
+        platformHost.InitWindow( myConfig.GetWindowWidth(), myConfig.GetWindowHeight(), frameHooks );
         rendererRef.SetPlatformWindow( platformHost.GetWindow() );
         UtilLogger::Info( "APP", "InitRenderDevice." );
         rendererRef.InitRenderDevice();
         UtilLogger::Info( "APP", "LoadScene." );
         myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
         CommitSceneToWorld( myWorld, std::move( mySceneDesc ), myLastLoadedScenePath );
-        ActivateSceneGpu( rendererRef, myWorld, myDebugUI, myConfig, myLastLoadedScenePath );
+        ActivateSceneGpu( rendererRef, myFlyCamera, myWorld, myDebugUI, myConfig, myLastLoadedScenePath );
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
 
         RunMainLoop();
@@ -180,25 +191,37 @@ void Application::RunMainLoop() {
     UtilLogger::Info( "APP", "Entering main loop (platform / input / render)." );
     while ( !platformHost.ShouldClose() ) {
         float frameSeconds = 0.0f;
-        platformHost.BeginFrame( renderer, frameSeconds );
+        platformHost.BeginFrame( frameSeconds );
         myInput.Sample( platformHost.GetWindow() );
-        platformHost.BeginImGuiFrame( renderer );
-        renderer.ApplyCameraInput( frameSeconds, myInput.GetSnapshot(), myDebugUI.myCameraSettings );
+        platformHost.BeginImGuiFrame();
+        const VkExtent2D extent = renderer.GetSwapChainExtent();
+        if ( extent.width > 0 && extent.height > 0 ) {
+            myFlyCamera.SetAspect( static_cast< float >( extent.width ) / static_cast< float >( extent.height ) );
+        }
+        myFlyCamera.ApplyInput( frameSeconds, myInput.GetSnapshot(), myDebugUI.myCameraSettings );
+        {
+            Vk_PrimaryCameraState primary{};
+            primary.myView = myFlyCamera.myView;
+            primary.myProj = myFlyCamera.myProj;
+            primary.myEye  = myFlyCamera.GetEye();
+            renderer.SetPrimaryCameraState( primary );
+        }
         if ( myInput.HasLastSampleTime() ) {
             renderer.SetFrameInputSampleTime( myInput.GetLastSampleTime() );
         }
 
         Gfx_TickDemoSceneTransforms( myConfig.GetFeatures().myDemoRotate, myWorld.mySceneTransformState );
         Gfx_ResolveFlatWorldTransforms( myWorld.mySceneTransformState, myWorld.mySceneSoA );
-        Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, renderer.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
+        Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, myFlyCamera.GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
         uint32_t viewCount = 0;
-        auto     gfxViews  = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera() );
+        auto     gfxViews  = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, myFlyCamera );
         auto     views     = Vk_ResolveActiveRenderViews( gfxViews, viewCount, renderer.GetSwapChainExtent() );
         Vk_Temporal::PrepareViews( renderer, views, viewCount );
         Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
-        const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,
-                                                                                      myDebugUI.myRenderDebug.myLodEnabled );
+        const Gfx_FrameDebugToggles toggles =
+            Gfx_FrameDebugTogglesFromApp( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass, myDebugUI.myRenderDebug.myLodEnabled,
+                                          myConfig.GetGpuCullEnabled(), myConfig.GetLegacyDirectDraw(), Gfx_RenderPreset::IsHybridDeferred( myConfig.GetRenderPresetName() ) );
         std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews > viewPackets{};
         Gfx_FrameDrawStreamLogState                             streamLogs{};
         const uint32_t                                          activeViewCount = std::min( viewCount, kGfxMaxRenderViews );
@@ -219,13 +242,13 @@ void Application::RunMainLoop() {
             packetParams.myLodState              = lodStateForView;
             packetParams.myLodEnabled            = toggles.myLodEnabled;
             packetParams.myLodDebugLogicalMeshId = prepInput.myLodDebugLogicalMeshId;
-            packetParams.myGpuCullEnabled        = myConfig.GetGpuCullEnabled();
+            packetParams.myGpuCullEnabled        = toggles.myGpuCullEnabled;
             size_t drawCountBeforeCull           = 0;
             Gfx_BuildViewFramePacket( packetParams, streamLogs, viewPackets[ viewIndex ], drawCountBeforeCull );
         }
         Vk_FrameCpuPrepResult prep{};
         if ( renderer.PrepareFrameCpu( prepInput, toggles, views, viewCount, viewPackets, prep ) ) {
-            BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, renderer, prep );
+            BuildDebugOverlayPanels( myConfig, myDebugUI, myWorld, renderer, myFlyCamera, prep );
             ProcessAppKeyboardShortcuts( platformHost.GetWindow(), myDebugUI, myLastLoadedScenePath, myRenderDocCaptureKeyDown, myRestartKeyDown, renderer );
 
             if ( renderer.DrawFrameGpu( toggles, prep ) == Vk_FrameResult::RequestShutdown ) {
@@ -275,7 +298,7 @@ void Application::TryProcessSceneReload() {
         Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig, aPath );
         Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
         CommitSceneToWorld( myWorld, std::move( desc ), aPath );
-        ActivateSceneGpu( renderer, myWorld, myDebugUI, myConfig, aPath );
+        ActivateSceneGpu( renderer, myFlyCamera, myWorld, myDebugUI, myConfig, aPath );
         myLastLoadedScenePath = aPath;
     };
 

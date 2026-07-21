@@ -21,18 +21,18 @@ struct Vk_DeferredLightingState {
     VkDescriptorSetLayout myDdgiProbeSetLayout            = VK_NULL_HANDLE;
     VkDescriptorPool      myDdgiProbeDescriptorPool       = VK_NULL_HANDLE;
 
-    Gfx_Texture myDdgiProbeIrradianceAtlas{};
-    Gfx_Texture myDdgiProbeVisibilityAtlas{};
-    uint32_t    myDdgiProbeCountX     = 12u;
-    uint32_t    myDdgiProbeCountY     = 8u;
-    uint32_t    myDdgiProbeCountZ     = 12u;
-    uint32_t    myDdgiTotalProbeCount = 0u;
-    uint32_t    myDdgiUpdateCursor    = 0u;
-    bool        myDdgiAtlasReadable   = false;
-    glm::vec3   myDdgiPrevVolumeCenter{ 0.0f };
-    glm::vec3   myDdgiPrevVolumeExtents{ 0.0f };
-    glm::vec3   myDdgiPrevCameraEye{ 0.0f };
-    bool        myDdgiHistoryForceReset = true;
+    Vk_TextureResource myDdgiProbeIrradianceAtlas{};
+    Vk_TextureResource myDdgiProbeVisibilityAtlas{};
+    uint32_t           myDdgiProbeCountX     = 12u;
+    uint32_t           myDdgiProbeCountY     = 8u;
+    uint32_t           myDdgiProbeCountZ     = 12u;
+    uint32_t           myDdgiTotalProbeCount = 0u;
+    uint32_t           myDdgiUpdateCursor    = 0u;
+    bool               myDdgiAtlasReadable   = false;
+    glm::vec3          myDdgiPrevVolumeCenter{ 0.0f };
+    glm::vec3          myDdgiPrevVolumeExtents{ 0.0f };
+    glm::vec3          myDdgiPrevCameraEye{ 0.0f };
+    bool               myDdgiHistoryForceReset = true;
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDdgiProbeDescriptorSets{};

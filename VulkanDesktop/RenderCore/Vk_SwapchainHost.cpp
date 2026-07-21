@@ -238,7 +238,6 @@ void Vk_SwapchainHost::Recreate( Vk_Renderer& aCore ) {
         }
     }
 
-    aCore.myCamera.SetAspect( static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height ) );
     if ( extentChanged || includeRenderPass ) {
         Vk_Temporal::NotifyResize( aCore );
     }

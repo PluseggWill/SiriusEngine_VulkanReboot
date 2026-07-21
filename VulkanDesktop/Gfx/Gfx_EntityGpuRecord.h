@@ -1,28 +1,10 @@
 #pragma once
 
-#include <cstdint>
-
-#include <glm/glm.hpp>
-
-#include "Gfx_DrawTemplate.h"
+#include "../RenderContract/Gpu_EntityRecord.h"
 #include "Gfx_Lod.h"
 #include "Gfx_SceneSoA.h"
 
-// Per SoA slot: world AABB + draw-template fields for GPU cull input (std430-friendly).
-// Indexed by entity slot; inactive slots use layerMask == 0.
-struct Gfx_EntityGpuRecord {
-    glm::vec4               myBoundsMin{ 0.0f };
-    glm::vec4               myBoundsMax{ 0.0f };
-    uint32_t                myLayerMask     = 0;
-    uint32_t                myRenderFlags   = 0;
-    uint32_t                myLogicalMeshId = 0;
-    uint32_t                myMaterialId    = 0;
-    Gfx_DrawIndirectCommand myIndirect{};
-    uint32_t                myPad[ 3 ]{};  // std430 array stride alignment
-};
-
-static_assert( sizeof( Gfx_EntityGpuRecord ) == 80, "Gfx_EntityGpuRecord std430 stride" );
-static_assert( sizeof( Gfx_EntityGpuRecord ) % 16 == 0, "Gfx_EntityGpuRecord must be 16-byte aligned for std430 arrays" );
+#include <glm/glm.hpp>
 
 // Optional LOD: when myLodEnabled, resolve physical mesh id from myLodTable (primary-view eye). myLodState is snapshotted by caller.
 struct Gfx_EntityRecordLodParams {
@@ -32,6 +14,6 @@ struct Gfx_EntityRecordLodParams {
     Gfx_LodState*       myLodState = nullptr;
 };
 
-void Gfx_FillEntityGpuRecord( Gfx_EntityGpuRecord& aOut, const Gfx_SceneSoA& aScene, uint32_t aSlot, uint32_t aIndexCount );
+void Gfx_FillEntityGpuRecord( Gpu_EntityRecord& aOut, const Gfx_SceneSoA& aScene, uint32_t aSlot, uint32_t aIndexCount );
 
 uint32_t Gfx_ResolveEntityRecordMeshId( const Gfx_SceneSoA& aScene, uint32_t aSlot, const Gfx_EntityRecordLodParams& aLod );

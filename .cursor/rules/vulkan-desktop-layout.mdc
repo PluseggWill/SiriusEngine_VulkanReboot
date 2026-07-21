@@ -11,7 +11,7 @@ alwaysApply: false
 | 模块 | 磁盘目录 | 职责 |
 |------|----------|------|
 | **App** | `VulkanDesktop/App/` | Application lifecycle, input, **WorldState (target)**, debug overlay |
-| **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板 |
+| **Util** | `VulkanDesktop/Util/` | 日志、文件 IO、帧统计、ImGui **widgets/panels**（Vulkan ImGui 后端在 RenderCore `Vk_ImGuiLayer`） |
 | **Platform** | `VulkanDesktop/Platform/` | `Pf_PlatformHost` + GLFW concrete host (window/surface/frame timing) |
 | **RenderContract** | `VulkanDesktop/RenderContract/` | `Gpu_*.h` UBO/shared structs only — no `App`/`Gfx`/`RenderCore`/`Util` includes |
 | **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制 |
@@ -47,8 +47,8 @@ Gfx/
 
 ### 类型归属
 
-- **Util**：Logger、Loader、ImGui/面板、统计
-- **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载（例：Lighting / Post / Render Debug 分列）。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。
+- **Util**：Logger、Loader（文件 IO）、ImGui 面板 widgets、统计
+- **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载（例：Lighting / Post / Render Debug 分列）。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。Vulkan ImGui render-pass/FB → `Vk_ImGuiLayer`。
 - **Pf_**：platform host seam（window/surface/timing）
 - **Vk_**：设备、交换链、管线、录制、RAII 缓冲
 - **Gfx_**：mesh/material/场景 SoA / `Gfx_RenderCamera`；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`

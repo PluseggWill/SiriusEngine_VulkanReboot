@@ -2,6 +2,7 @@
 #include "SceneCpuLoad.h"
 
 #include "../Gfx/Gfx_LightingMath.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../RenderCore/Vk_Renderer.h"
 #include "WorldState.h"
@@ -41,7 +42,7 @@ void App_LoadSceneCpuState( WorldState& aWorld ) {
     aWorld.myLodDebugLogicalMeshId = treeIt != aWorld.mySceneIdTables.myLogicalMeshIdByName.end() ? treeIt->second : UINT32_MAX;
 }
 
-void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
+void App_InitScenePresentation( Vk_Renderer& aCore, Gfx_RenderCamera& aFlyCamera, const WorldState& aWorld ) {
     const float aspect = static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.width ) / static_cast< float >( aCore.mySwapchainCtx.mySwapChainExtent.height );
 
     float     fovDeg    = 45.0f;
@@ -60,11 +61,17 @@ void App_InitScenePresentation( Vk_Renderer& aCore, const WorldState& aWorld ) {
         farPlane                 = std::max( 128.0f, lookDistance * 20.0f );
     }
 
-    aCore.myCamera.SetLens( fovDeg, nearPlane, farPlane, aspect );
-    aCore.myCamera.LookAt( eye, center, up );
+    aFlyCamera.SetLens( fovDeg, nearPlane, farPlane, aspect );
+    aFlyCamera.LookAt( eye, center, up );
 
     App_ApplyDefaultEnvironment( aCore );
-    aCore.myEnvironmentData.myViewWorldPos = { aCore.myCamera.myEye, 1.0f };
+    aCore.myEnvironmentData.myViewWorldPos = { aFlyCamera.myEye, 1.0f };
+
+    Vk_PrimaryCameraState primary{};
+    primary.myView = aFlyCamera.myView;
+    primary.myProj = aFlyCamera.myProj;
+    primary.myEye  = aFlyCamera.GetEye();
+    aCore.SetPrimaryCameraState( primary );
 }
 
 void App_ApplyDefaultEnvironment( Vk_Renderer& aCore ) {

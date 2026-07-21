@@ -126,7 +126,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     VkPushConstantRange pushRange{};
     pushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     pushRange.offset     = 0;
-    pushRange.size       = sizeof( Gfx_ClusterLighting::Gfx_ClusterBuildPushConstants );
+    pushRange.size       = sizeof( Gpu_ClusterBuildPushConstants );
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     pipelineLayoutInfo.setLayoutCount             = 1;
@@ -258,7 +258,7 @@ void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
     vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myComputePipeline );
     vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );
 
-    Gfx_ClusterLighting::Gfx_ClusterBuildPushConstants push{};
+    Gpu_ClusterBuildPushConstants push{};
     push.clusterCount = state.myClusterCount;
     push.lightCount   = Gfx_ClusterLighting::kMaxLights;
     vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );

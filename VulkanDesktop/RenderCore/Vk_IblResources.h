@@ -9,10 +9,10 @@ class Vk_Renderer;
 struct Vk_IblResourcesState {
     bool myInitialized = false;
 
-    Gfx_Texture myIrradiance{};
-    Gfx_Texture myPrefilter{};
-    Gfx_Texture mySky{};
-    Gfx_Texture myBrdfLut{};
+    Vk_TextureResource myIrradiance{};
+    Vk_TextureResource myPrefilter{};
+    Vk_TextureResource mySky{};
+    Vk_TextureResource myBrdfLut{};
 
     float myPrefilterMaxMipLevel = 0.0f;
 

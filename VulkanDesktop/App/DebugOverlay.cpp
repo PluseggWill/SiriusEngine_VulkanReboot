@@ -4,6 +4,7 @@
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_ObjectiveRuntime.h"
 #include "../Gfx/Gfx_PostSettings.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../RenderCore/Vk_Renderer.h"
@@ -79,16 +80,16 @@ void BuildMultiViewContents( DebugUIState& aDebugUI, const WorldState& aWorld, c
     ImGui::Text( "Active views: %u", aPrep.myActiveViewCount );
 }
 
-void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
+void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Gfx_RenderCamera& aFlyCamera,
+                             const Vk_FrameCpuPrepResult& aPrep ) {
     if ( !aDebugUI.myPanelVisibility.myShowEngineDebug ) {
         return;
     }
 
-    Gpu_EnvironmentData&    anEnvironment     = aCore.GetEnvironmentData();
-    Gfx_LightingSettings&   aLightingSettings = aCore.GetLightingSettings();
-    Gfx_AoSettings&         aAoSettings       = aCore.GetAoSettings();
-    Gfx_PostSettings&       aPostSettings     = aCore.GetPostSettings();
-    const Gfx_RenderCamera& aFlyCamera        = aCore.GetFlyCamera();
+    Gpu_EnvironmentData&  anEnvironment     = aCore.GetEnvironmentData();
+    Gfx_LightingSettings& aLightingSettings = aCore.GetLightingSettings();
+    Gfx_AoSettings&       aAoSettings       = aCore.GetAoSettings();
+    Gfx_PostSettings&     aPostSettings     = aCore.GetPostSettings();
 
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos( ImVec2( 10.f, display.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );
@@ -147,11 +148,12 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
 
 }  // namespace
 
-void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Vk_FrameCpuPrepResult& aPrep ) {
+void BuildDebugOverlayPanels( const Util_EngineConfig& aConfig, DebugUIState& aDebugUI, const WorldState& aWorld, Vk_Renderer& aCore, const Gfx_RenderCamera& aFlyCamera,
+                              const Vk_FrameCpuPrepResult& aPrep ) {
     BuildDebugMenuBar( aDebugUI );
     BuildPerformanceWindow( aDebugUI, aCore.myFrameStats );
     Gfx_BuildObjectiveHud( aWorld.myLoadedScene.myObjective, aDebugUI.myObjectiveRuntime, aDebugUI.myPanelVisibility.myShowObjectiveHud );
-    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore, aPrep );
-    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aCore.GetFlyCamera(), aDebugUI.myViewportOverlays.mySunGizmo,
+    BuildEngineDebugWindow( aConfig, aDebugUI, aWorld, aCore, aFlyCamera, aPrep );
+    UtilLightingPanel::DrawViewportSunGizmo( aCore.GetEnvironmentData(), aCore.GetLightingSettings(), aFlyCamera, aDebugUI.myViewportOverlays.mySunGizmo,
                                              aDebugUI.myViewportOverlays.myDdgiVolumeBounds );
 }

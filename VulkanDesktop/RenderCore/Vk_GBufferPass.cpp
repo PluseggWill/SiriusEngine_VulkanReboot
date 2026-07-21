@@ -5,7 +5,6 @@
 
 #include "../Gfx/Gfx_FrameDebugToggles.h"
 #include "../Gfx/Gfx_LightingMath.h"
-#include "../Gfx/Gfx_RenderPreset.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
@@ -205,7 +204,7 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
     const VkExtent2D extent      = aCore.mySwapchainCtx.mySwapChainExtent;
     const VkFormat   depthFormat = aCore.FindDepthFormat();
 
-    auto createColorTarget = [ & ]( Gfx_Texture& aTexture, VkFormat aFormat ) {
+    auto createColorTarget = [ & ]( Vk_TextureResource& aTexture, VkFormat aFormat ) {
         aCore.CreateImage( extent, aFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                            VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
         aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -406,7 +405,7 @@ void RebuildResources( Vk_Renderer& aCore ) {
 namespace Vk_GBufferPass {
 
 bool IsActive( const Vk_Renderer& aCore ) {
-    return Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() );
+    return aCore.RenderFeatures().myHybridDeferred;
 }
 
 void Destroy( Vk_Renderer& aCore ) {
@@ -478,8 +477,8 @@ void RecordFrame( Vk_Renderer& aCore, const Gfx_FrameDebugToggles& aToggles, VkC
 
     constexpr uint32_t           viewIndex        = 0;
     const Gfx_FrameRenderPacket* packet           = viewIndex < aViewCount ? &aViewPackets[ viewIndex ] : nullptr;
-    const bool                   legacyDirectDraw = aCore.EngineConfig().GetLegacyDirectDraw();
-    const bool                   gpuCullRecord    = aCore.EngineConfig().GetGpuCullEnabled() && !legacyDirectDraw;
+    const bool                   legacyDirectDraw = aToggles.myLegacyDirectDraw;
+    const bool                   gpuCullRecord    = aToggles.myGpuCullEnabled && !legacyDirectDraw;
 
     if ( aViewCount > 0 && packet != nullptr && gpuCullRecord && !sGpuIndirectPathLoggedOnce ) {
         UtilLogger::Info( "RENDER", "Scene record using GPU-filled slot indirect (EntityCull.comp → myGpuCullIndirectBuffer)." );

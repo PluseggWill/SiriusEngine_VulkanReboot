@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Util/Util_ImGuiLayer.h"
+#include "Vk_ImGuiLayer.h"
 #include "Vk_RenderDoc.h"
 
 #include <chrono>
@@ -14,8 +14,8 @@ struct Vk_PlatformContext {
     uint32_t    myHeight = 0;
     GLFWwindow* myWindow = nullptr;
 
-    Util_ImGuiLayer myImGuiLayer;
-    Vk_RenderDoc    myRenderDoc;
+    Vk_ImGuiLayer myImGuiLayer;
+    Vk_RenderDoc  myRenderDoc;
 
     std::chrono::high_resolution_clock::time_point myLastFrameTime;
     bool                                           myHasLastFrameTime = false;

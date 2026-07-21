@@ -1,35 +1,36 @@
 #include "Gfx_MeshCpu.h"
 
+#include "../Util/Util_ObjLoad.h"
+
 #include <glm/glm.hpp>
 #include <stdexcept>
 #include <unordered_map>
-
-#ifndef TINYOBJLOADER_IMPLEMENTATION
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-#endif
+#include <vector>
 
 namespace {
 
-std::vector< glm::vec3 > ComputeSmoothNormals( const tinyobj::attrib_t& attrib, const std::vector< tinyobj::shape_t >& shapes ) {
-    const size_t             vertexCount = attrib.vertices.size() / 3;
+std::vector< glm::vec3 > ComputeSmoothNormals( const Util_ObjAttrib& aAttrib, const std::vector< Util_ObjShape >& aShapes ) {
+    const size_t             vertexCount = aAttrib.myVertices.size() / 3;
     std::vector< glm::vec3 > normals( vertexCount, glm::vec3( 0.0f ) );
 
-    for ( const auto& shape : shapes ) {
-        for ( size_t i = 0; i + 2 < shape.mesh.indices.size(); i += 3 ) {
-            const auto& idx0 = shape.mesh.indices[ i ];
-            const auto& idx1 = shape.mesh.indices[ i + 1 ];
-            const auto& idx2 = shape.mesh.indices[ i + 2 ];
+    for ( const Util_ObjShape& shape : aShapes ) {
+        for ( size_t i = 0; i + 2 < shape.myIndices.size(); i += 3 ) {
+            const Util_ObjIndex& idx0 = shape.myIndices[ i ];
+            const Util_ObjIndex& idx1 = shape.myIndices[ i + 1 ];
+            const Util_ObjIndex& idx2 = shape.myIndices[ i + 2 ];
 
-            const glm::vec3 p0 = { attrib.vertices[ 3 * idx0.vertex_index + 0 ], attrib.vertices[ 3 * idx0.vertex_index + 1 ], attrib.vertices[ 3 * idx0.vertex_index + 2 ] };
-            const glm::vec3 p1 = { attrib.vertices[ 3 * idx1.vertex_index + 0 ], attrib.vertices[ 3 * idx1.vertex_index + 1 ], attrib.vertices[ 3 * idx1.vertex_index + 2 ] };
-            const glm::vec3 p2 = { attrib.vertices[ 3 * idx2.vertex_index + 0 ], attrib.vertices[ 3 * idx2.vertex_index + 1 ], attrib.vertices[ 3 * idx2.vertex_index + 2 ] };
+            const glm::vec3 p0 = { aAttrib.myVertices[ 3 * idx0.myVertexIndex + 0 ], aAttrib.myVertices[ 3 * idx0.myVertexIndex + 1 ],
+                                   aAttrib.myVertices[ 3 * idx0.myVertexIndex + 2 ] };
+            const glm::vec3 p1 = { aAttrib.myVertices[ 3 * idx1.myVertexIndex + 0 ], aAttrib.myVertices[ 3 * idx1.myVertexIndex + 1 ],
+                                   aAttrib.myVertices[ 3 * idx1.myVertexIndex + 2 ] };
+            const glm::vec3 p2 = { aAttrib.myVertices[ 3 * idx2.myVertexIndex + 0 ], aAttrib.myVertices[ 3 * idx2.myVertexIndex + 1 ],
+                                   aAttrib.myVertices[ 3 * idx2.myVertexIndex + 2 ] };
 
             const glm::vec3 faceNormal = glm::cross( p1 - p0, p2 - p0 );
             if ( glm::dot( faceNormal, faceNormal ) > 0.0f ) {
-                normals[ idx0.vertex_index ] += faceNormal;
-                normals[ idx1.vertex_index ] += faceNormal;
-                normals[ idx2.vertex_index ] += faceNormal;
+                normals[ idx0.myVertexIndex ] += faceNormal;
+                normals[ idx1.myVertexIndex ] += faceNormal;
+                normals[ idx2.myVertexIndex ] += faceNormal;
             }
         }
     }
@@ -65,35 +66,36 @@ Gfx_Bounds ComputeLocalBoundsFromVertices( const std::vector< Gfx_Vertex >& aVer
 }  // namespace
 
 void Gfx_MeshCpu::LoadFromPath( const std::string& aPath ) {
-    tinyobj::attrib_t                          attrib;
-    std::vector< tinyobj::shape_t >            shapes;
-    std::vector< tinyobj::material_t >         materials;
-    std::string                                warn, error;
+    Util_ObjAttrib                             attrib;
+    std::vector< Util_ObjShape >               shapes;
+    std::string                                error;
     std::unordered_map< Gfx_Vertex, uint32_t > uniqueVertices{};
 
-    if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &error, aPath.c_str() ) ) {
-        throw std::runtime_error( warn + error );
+    if ( !UtilObjLoad::LoadTriangulated( aPath, attrib, shapes, error ) ) {
+        throw std::runtime_error( error.empty() ? "failed to load OBJ" : error );
     }
 
-    const bool hasObjNormals   = !attrib.normals.empty();
+    const bool hasObjNormals   = !attrib.myNormals.empty();
     const auto computedNormals = hasObjNormals ? std::vector< glm::vec3 >{} : ComputeSmoothNormals( attrib, shapes );
 
-    for ( const auto& shape : shapes ) {
-        for ( const auto& index : shape.mesh.indices ) {
+    for ( const Util_ObjShape& shape : shapes ) {
+        for ( const Util_ObjIndex& index : shape.myIndices ) {
             Gfx_Vertex vertex{};
-            vertex.pos   = { attrib.vertices[ 3 * index.vertex_index + 0 ], attrib.vertices[ 3 * index.vertex_index + 1 ], attrib.vertices[ 3 * index.vertex_index + 2 ] };
+            vertex.pos   = { attrib.myVertices[ 3 * index.myVertexIndex + 0 ], attrib.myVertices[ 3 * index.myVertexIndex + 1 ],
+                             attrib.myVertices[ 3 * index.myVertexIndex + 2 ] };
             vertex.color = { 1.0f, 1.0f, 1.0f };
-            if ( index.texcoord_index >= 0 && !attrib.texcoords.empty() ) {
-                vertex.texCoord = { attrib.texcoords[ 2 * index.texcoord_index + 0 ], 1.0f - attrib.texcoords[ 2 * index.texcoord_index + 1 ] };
+            if ( index.myTexcoordIndex >= 0 && !attrib.myTexcoords.empty() ) {
+                vertex.texCoord = { attrib.myTexcoords[ 2 * index.myTexcoordIndex + 0 ], 1.0f - attrib.myTexcoords[ 2 * index.myTexcoordIndex + 1 ] };
             }
             else {
                 vertex.texCoord = { 0.0f, 0.0f };
             }
-            if ( index.normal_index >= 0 ) {
-                vertex.normal = { attrib.normals[ 3 * index.normal_index + 0 ], attrib.normals[ 3 * index.normal_index + 1 ], attrib.normals[ 3 * index.normal_index + 2 ] };
+            if ( index.myNormalIndex >= 0 ) {
+                vertex.normal = { attrib.myNormals[ 3 * index.myNormalIndex + 0 ], attrib.myNormals[ 3 * index.myNormalIndex + 1 ],
+                                  attrib.myNormals[ 3 * index.myNormalIndex + 2 ] };
             }
             else {
-                vertex.normal = computedNormals[ index.vertex_index ];
+                vertex.normal = computedNormals[ index.myVertexIndex ];
             }
 
             if ( uniqueVertices.count( vertex ) == 0 ) {

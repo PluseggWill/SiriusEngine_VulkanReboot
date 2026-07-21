@@ -7,6 +7,8 @@
 #include "WorldState.h"
 #include <vector>
 
+#include "../Gfx/Gfx_RenderCamera.h"
+
 class Vk_Renderer;
 class Pf_PlatformHost;
 
@@ -32,6 +34,7 @@ private:
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
+    Gfx_RenderCamera           myFlyCamera;
     Pf_PlatformHost*           myPlatformHost            = nullptr;
     Vk_Renderer*               myRenderer                = nullptr;  // owned for app lifetime; set in Run()
     bool                       myRenderDocCaptureKeyDown = false;

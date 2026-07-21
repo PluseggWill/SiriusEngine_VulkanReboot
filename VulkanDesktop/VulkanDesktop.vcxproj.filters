@@ -70,6 +70,12 @@
     <ClCompile Include="Util\Util_Loader.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_ImageDecode.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_ObjLoad.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_Logger.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -106,8 +112,8 @@
     <ClCompile Include="Util\Util_StatsOverlay.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Util\Util_ImGuiLayer.cpp">
-      <Filter>Util</Filter>
+    <ClCompile Include="RenderCore\Vk_ImGuiLayer.cpp">
+      <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp">
       <Filter>Util\ThirdParty\imgui\backends</Filter>
@@ -286,6 +292,9 @@
     <ClCompile Include="RenderCore\Vk_IblResources.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_TextureLoader.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -325,6 +334,12 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Loader.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_ImageDecode.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_ObjLoad.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_Logger.h">
@@ -402,8 +417,8 @@
     <ClInclude Include="Util\Util_StatsOverlay.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Util\Util_ImGuiLayer.h">
-      <Filter>Util</Filter>
+    <ClInclude Include="RenderCore\Vk_ImGuiLayer.h">
+      <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h">
       <Filter>Gfx</Filter>
@@ -511,6 +526,12 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_RhiDevice.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_PrimaryCameraState.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_RenderFeatures.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h">
@@ -633,6 +654,9 @@
     <ClInclude Include="RenderCore\Vk_Texture.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
+    <ClInclude Include="RenderCore\Vk_TextureLoader.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
     <ClInclude Include="RenderCore\Vk_Types.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
@@ -648,6 +672,18 @@
     <ClInclude Include="RenderContract\Gpu_ClusterLight.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_ClusterPush.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_CullPush.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_DrawTemplate.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_EntityRecord.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
     <ClInclude Include="RenderContract\Gpu_EnvironmentData.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
@@ -659,6 +695,9 @@
     </ClInclude>
     <ClInclude Include="RenderContract\Gpu_PostSettings.h">
       <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\Pf_FrameHooks.h">
+      <Filter>Platform</Filter>
     </ClInclude>
     <ClInclude Include="Platform\Pf_PlatformHost.h">
       <Filter>Platform</Filter>

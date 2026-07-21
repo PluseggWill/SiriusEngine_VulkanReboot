@@ -1,4 +1,4 @@
-// Module: Gfx_EntityGpuRecord — per-slot SSBO layout + CPU fill for GPU cull input.
+// Module: Gfx_EntityGpuRecord — CPU fill for Gpu_EntityRecord (GPU cull input).
 #include "Gfx_EntityGpuRecord.h"
 
 uint32_t Gfx_ResolveEntityRecordMeshId( const Gfx_SceneSoA& aScene, uint32_t aSlot, const Gfx_EntityRecordLodParams& aLod ) {
@@ -9,8 +9,8 @@ uint32_t Gfx_ResolveEntityRecordMeshId( const Gfx_SceneSoA& aScene, uint32_t aSl
     return Gfx_ResolveLodMeshIdForSlot( aScene, aLod.myCameraEye, *aLod.myLodTable, *aLod.myLodState, aSlot );
 }
 
-void Gfx_FillEntityGpuRecord( Gfx_EntityGpuRecord& aOut, const Gfx_SceneSoA& aScene, uint32_t aSlot, uint32_t aIndexCount ) {
-    aOut = Gfx_EntityGpuRecord{};
+void Gfx_FillEntityGpuRecord( Gpu_EntityRecord& aOut, const Gfx_SceneSoA& aScene, uint32_t aSlot, uint32_t aIndexCount ) {
+    aOut = Gpu_EntityRecord{};
 
     if ( !aScene.IsSlotActive( aSlot ) ) {
         return;

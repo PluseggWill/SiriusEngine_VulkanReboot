@@ -8,7 +8,7 @@
 |-------|--------|
 | **Gate** | **G5** ✓ · next quality gate **G3** (S10 MeshImport) |
 | **Next sprint** | **S10** Content pipeline · [`Wishlist.md`](Wishlist.md) § S10 · [`content-pipeline_Plan.md`](content-pipeline_Plan.md) |
-| **WIP task** | — |
+| **WIP task** | [`architecture-modularity-peel_Plan.md`](architecture-modularity-peel_Plan.md) + [`_Progress.md`](architecture-modularity-peel_Progress.md) · **MOD-B7** next |
 | **Last closed** | architecture-boundary-hardening (ABH-1..7) |
 | **Track** | **S10 content/scenes** → S11–S15 VFX/env · S16–S20 scale · **S21** lab ∥ |
 

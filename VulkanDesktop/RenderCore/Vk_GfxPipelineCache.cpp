@@ -1,7 +1,5 @@
 #include "Vk_GfxPipelineCache.h"
 
-#include "../Gfx/Gfx_RenderPreset.h"
-#include "../Util/Util_EngineConfig.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_PipelineDiagnostics.h"
@@ -207,7 +205,7 @@ void Vk_GfxPipelineCache::CreateBindlessGfxPipelines( Vk_Renderer& aCore ) {
 
 void Vk_GfxPipelineCache::CreateHybridResolveGfxPipelines( Vk_Renderer& aCore ) {
     // ForwardTransparent over copied G-buffer depth — HDR hybrid RP owned by Vk_PostProcessPass.
-    if ( !Gfx_RenderPreset::IsHybridDeferred( aCore.EngineConfig().GetRenderPresetName() ) || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
+    if ( !aCore.RenderFeatures().myHybridDeferred || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
         return;
     }
 

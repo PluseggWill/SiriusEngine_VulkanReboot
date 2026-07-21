@@ -16,14 +16,12 @@
 #include "../Gfx/Gfx_PostSettings.h"
 #include "../Gfx/Gfx_RenderView.h"
 #include "../Gfx/Gfx_SceneGpuLoadParams.h"
+#include "Vk_PrimaryCameraState.h"
+#include "Vk_RenderFeatures.h"
 
 #include "../Util/Util_FrameStats.h"
 
-#include "../Util/Util_InputSnapshot.h"
-
 #include "Vk_ActiveRenderView.h"
-
-#include "../Gfx/Gfx_RenderCamera.h"
 
 #include "Vk_DataStruct.h"
 
@@ -93,9 +91,14 @@ public:
     Vk_Renderer& operator=( const Vk_Renderer& ) = delete;
 
     // Non-owning; must outlive Vk_Renderer (Application::myConfig). Call from InitApp before RenderCore reads config.
+    // Snapshots init policy into RenderFeatures() so device/init paths avoid live EngineConfig policy getters.
     void BindEngineConfig( const Util_EngineConfig* aConfig );
 
     const Util_EngineConfig& EngineConfig() const;
+
+    const Vk_RenderFeatures& RenderFeatures() const {
+        return myRenderFeatures;
+    }
 
     void SetSize( const uint32_t aWidth, const uint32_t aHeight );
 
@@ -124,7 +127,14 @@ public:
     void BeginImGuiFrame();  // after Pf_PlatformHost::BeginFrame and InputSystem::Sample.
     void OnPlatformFrameStart( std::chrono::high_resolution_clock::time_point aFrameStart, float aDeltaSeconds );
 
-    void ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings );
+    // App owns Gfx_RenderCamera; sync matrices for AO/SSR/deferred/env eye each frame.
+    void SetPrimaryCameraState( const Vk_PrimaryCameraState& aCamera ) {
+        myPrimaryCamera = aCamera;
+    }
+
+    const Vk_PrimaryCameraState& GetPrimaryCameraState() const {
+        return myPrimaryCamera;
+    }
 
     void SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime );
 
@@ -181,11 +191,6 @@ public:
     void SetPlatformWindow( GLFWwindow* aWindow );
     void NotifyFramebufferResized();
     void BindPlatformHost( Pf_PlatformHost* aPlatformHost );
-
-    const Gfx_RenderCamera& GetFlyCamera() const {
-
-        return myCamera;
-    }
 
     Gfx_Bounds GetShadowCasterBounds() const;
 
@@ -308,8 +313,8 @@ public:
 
     Vk_PlatformContext myPlatformCtx;
 
-    // Session presentation (fly camera + env UBO); not moved into contexts yet.
-    Gfx_RenderCamera myCamera;
+    // Primary view matrices (synced from App-owned Gfx_RenderCamera each frame).
+    Vk_PrimaryCameraState myPrimaryCamera{};
 
     Gpu_EnvironmentData myEnvironmentData;
 
@@ -341,6 +346,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
+    Vk_RenderFeatures        myRenderFeatures{};
     Pf_PlatformHost*         myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
 
 private:

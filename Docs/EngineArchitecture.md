@@ -67,11 +67,11 @@ flowchart TB
 | **App/** | Create pipelines or descriptor layouts; compose Vulkan viewport/scissor primitives for views |
 | **Platform/** | Own renderer passes, scene state, or draw-prep policy |
 | **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, or `Util/` |
-| **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
+| **Util/** | Own per-frame draw ordering; `#include` Vulkan / `vk*` create/upload (GPU upload → `Vk_TextureLoader`; ImGui RP/FB → `Vk_ImGuiLayer`); call `stbi_*` / `tinyobj::*` outside `Util_ImageDecode` / `Util_ObjLoad` |
 
-**App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+**App ↔ RenderCore (locked):** `WorldState` + debug UI + **fly camera (`Gfx_RenderCamera`)** in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles` (incl. gpuCull / legacyDirectDraw / hybridDeferred policy), syncs `Vk_PrimaryCameraState`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Init policy (`Vk_RenderFeatures`) is snapshotted at `BindEngineConfig`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
-**Platform boundary (locked):** `Pf_PlatformHost` is the only bridge for window/surface/frame timing callbacks. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete `Pf_GlfwPlatformHost` implementation.
+**Platform boundary (locked):** `Pf_PlatformHost` is the only bridge for window/surface/frame timing callbacks. Frame start / ImGui NewFrame / framebuffer resize use **`Pf_FrameHooks`** (opaque user + fn ptrs) — Platform must not take `Vk_Renderer&`. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete `Pf_GlfwPlatformHost` implementation.
 
 **RenderContract boundary (locked):** `RenderContract/Gpu_*.h` holds plain GPU structs and pure packing helpers only. Decision logic that needs Gfx math (e.g. directional shadow compare) lives in `Gfx_*` wrappers. Fly camera logic lives in `Gfx_RenderCamera`; Vulkan viewport/scissor resolution lives in RenderCore (`Vk_ResolveActiveRenderViews`).
 
@@ -91,7 +91,7 @@ flowchart TB
 | Layer | Types |
 |-------|--------|
 | **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
-| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles + aliases `Gfx_Mesh` etc.) |
+| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles) |
 | **Gpu_*** UBO / SSBO structs | `RenderContract/Gpu_*.h` (shader contract; camera/env/lighting/material/cluster; included by RenderCore via `Vk_Types.h`) |
 
 

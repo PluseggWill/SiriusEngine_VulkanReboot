@@ -23,8 +23,8 @@ struct Vk_SwapchainContext {
     // HybridDeferred: depth LOAD after G-buffer depth copy; color CLEAR then DeferredLighting + ForwardTransparent.
     VkRenderPass myHybridResolveRenderPass = VK_NULL_HANDLE;
 
-    Gfx_Texture myDepthTexture;
-    Gfx_Texture myColorTexture;
+    Vk_TextureResource myDepthTexture;
+    Vk_TextureResource myColorTexture;
 
     Vk_DeletionQueue mySwapChainDeletionQueue;
 

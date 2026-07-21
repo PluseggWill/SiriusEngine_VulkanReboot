@@ -22,7 +22,7 @@ struct Vk_DepthPyramidState {
     VkSampler             myDepthSampler        = VK_NULL_HANDLE;
     VkSampler             myPyramidSampler      = VK_NULL_HANDLE;
 
-    Gfx_Texture                                 myPyramid{};
+    Vk_TextureResource                          myPyramid{};
     std::array< VkImageView, kHiZMaxMipLevels > myMipViews{};
     uint32_t                                    myMipLevelCount = 0;
 

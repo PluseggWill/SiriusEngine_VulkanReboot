@@ -99,8 +99,8 @@ void Vk_DescriptorSystem::EnsureBindlessDefaultTexture( Vk_Renderer& aCore ) {
     std::memcpy( mapped, kWhiteRgba, sizeof( kWhiteRgba ) );
     vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, stagingBuffer.myAllocation );
 
-    const VkExtent3D extent{ kWidth, kHeight, 1 };
-    Gfx_Texture&     texture = aCore.myRhi.myDeviceCtx.myBindlessDefaultTexture;
+    const VkExtent3D    extent{ kWidth, kHeight, 1 };
+    Vk_TextureResource& texture = aCore.myRhi.myDeviceCtx.myBindlessDefaultTexture;
     context.CreateImage( extent, kBindlessDefaultTextureFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                          VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, texture.AllocImage() );
     context.TransitionImageLayout( texture.Image(), kBindlessDefaultTextureFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
@@ -165,7 +165,7 @@ void Vk_DescriptorSystem::CreateDescriptorSetLayout( Vk_Renderer& aCore ) {
     aCore.mySceneGpuCtx.myMaterialSetLayout    = layouts.myMaterialSetLayout;
     aCore.mySceneGpuCtx.myObjectSetLayout      = layouts.myObjectSetLayout;
 
-    if ( aCore.EngineConfig().GetDescriptorLayoutMismatchTest() ) {
+    if ( aCore.RenderFeatures().myDescriptorLayoutMismatchTest ) {
         VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( aCore.myRhi.myDeviceCtx, aCore.mySceneGpuCtx, aCore );
     }
 }
@@ -231,10 +231,10 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
     std::vector< VkDescriptorImageInfo > imageInfos( VkDescriptorPolicy::kMaxBindlessTextures );
     for ( size_t slot = 0; slot < VkDescriptorPolicy::kMaxBindlessTextures; ++slot ) {
         if ( slot < textureCount ) {
-            const Gfx_Texture& texture     = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( slot ) );
-            imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[ slot ].imageView   = texture.ImageView();
-            imageInfos[ slot ].sampler     = aCore.mySceneGpuCtx.myTextureSampler;
+            const Vk_TextureResource& texture = aCore.mySceneGpuCtx.myResourceTables.GetTexture( static_cast< uint32_t >( slot ) );
+            imageInfos[ slot ].imageLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfos[ slot ].imageView      = texture.ImageView();
+            imageInfos[ slot ].sampler        = aCore.mySceneGpuCtx.myTextureSampler;
         }
         else {
             imageInfos[ slot ].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -245,8 +245,8 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
 
     std::vector< Gpu_MaterialTableEntry > tableEntries( materialCount );
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t      textureId = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Material& material  = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        const uint32_t             textureId = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Vk_MaterialResource& material  = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
         if ( textureId >= textureCount ) {
             throw std::runtime_error( "bindless material " + std::to_string( materialId ) + " textureId " + std::to_string( textureId ) + " >= textureCount "
                                       + std::to_string( textureCount ) );
@@ -379,7 +379,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     // 1×1 white fallback for aoMap binding (forward path; deferred path binds the actual AO texture at runtime).
     VkDescriptorImageInfo aoInfo{};
     {
-        Gfx_Texture& tex = aCore.mySceneGpuCtx.myAoFallbackWhite;
+        Vk_TextureResource& tex = aCore.mySceneGpuCtx.myAoFallbackWhite;
         aCore.CreateImage( VkExtent2D{ 1, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                            VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, tex.AllocImage() );
         tex.ImageView() = aCore.CreateImageView( tex.Image(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT );
@@ -494,13 +494,13 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
     }
 
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
-        const uint32_t      textureId   = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
-        const Gfx_Texture&  texture     = aCore.mySceneGpuCtx.myResourceTables.GetTexture( textureId );
-        const Gfx_Material& material    = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
-        Vk_AllocatedBuffer& paramBuffer = aCore.mySceneGpuCtx.myMaterialParamBuffers[ materialId ];
+        const uint32_t             textureId   = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
+        const Vk_TextureResource&  texture     = aCore.mySceneGpuCtx.myResourceTables.GetTexture( textureId );
+        const Vk_MaterialResource& material    = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
+        Vk_AllocatedBuffer&        paramBuffer = aCore.mySceneGpuCtx.myMaterialParamBuffers[ materialId ];
         aCore.CreateBuffer( sizeof( Gpu_MaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
 
-        const Gpu_MaterialParams params = Gfx_MaterialToGpuParams( material );
+        const Gpu_MaterialParams params = Vk_MaterialResourceToGpuParams( material );
         void*                    mapped = nullptr;
         vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, paramBuffer.myAllocation, &mapped );
         memcpy( mapped, &params, sizeof( params ) );

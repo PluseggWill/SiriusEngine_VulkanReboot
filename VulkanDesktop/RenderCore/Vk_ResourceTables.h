@@ -11,7 +11,7 @@ struct Util_EngineConfig;
 struct Vk_ResourceContext;
 struct Vk_DeletionQueue;
 
-// GPU resource tables: stable mesh/material/texture ids → loaded Gfx_* + material→texture link.
+// GPU resource tables: stable mesh/material/texture ids → loaded Vk_*Resource + material→texture link.
 // Hot path (extract/draw records) uses ids only; resolve at record/descriptor update boundaries.
 class Vk_ResourceTables {
 public:
@@ -21,10 +21,10 @@ public:
     void LoadFromManifest( const Util_EngineConfig& aConfig, const Gfx_ResourceManifest& aManifest, const Vk_ResourceContext& aContext, Vk_DeletionQueue& aSceneDeletionQueue,
                            uint32_t& aTextureMipLevels, VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
-    const Gfx_Mesh&     GetMesh( uint32_t aMeshId ) const;
-    const Gfx_Material& GetMaterial( uint32_t aMaterialId ) const;
-    const Gfx_Texture&  GetTexture( uint32_t aTextureId ) const;
-    uint32_t            GetTextureIdForMaterial( uint32_t aMaterialId ) const;
+    const Vk_MeshResource&     GetMesh( uint32_t aMeshId ) const;
+    const Vk_MaterialResource& GetMaterial( uint32_t aMaterialId ) const;
+    const Vk_TextureResource&  GetTexture( uint32_t aTextureId ) const;
+    uint32_t                   GetTextureIdForMaterial( uint32_t aMaterialId ) const;
 
     size_t GetMeshCount() const {
         return myMeshes.size();
@@ -46,15 +46,16 @@ public:
     void RefreshMaterialPipelines( VkPipeline aOpaquePipeline, VkPipeline aTransparentPipeline, VkPipelineLayout aLayout );
 
 private:
-    Gfx_Mesh*     LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
-                            Vk_DeletionQueue& aSceneDeletionQueue );
-    Gfx_Texture*  LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
-                               Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
-    Gfx_Material* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout, const Gfx_MaterialManifestEntry& aSurface );
+    Vk_MeshResource*     LoadMesh( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aMeshId, const Vk_ResourceContext& aContext,
+                                   Vk_DeletionQueue& aSceneDeletionQueue );
+    Vk_TextureResource*  LoadTexture( const Util_EngineConfig& aConfig, const std::string& aPath, uint32_t aTextureId, const Vk_ResourceContext& aContext,
+                                      Vk_DeletionQueue& aSceneDeletionQueue, uint32_t& aMipLevels );
+    Vk_MaterialResource* CreateMaterialEntry( uint32_t aMaterialId, uint32_t aTextureId, VkPipeline aPipeline, VkPipelineLayout aLayout,
+                                              const Gfx_MaterialManifestEntry& aSurface );
 
-    std::vector< Gfx_Mesh >     myMeshes;
-    std::vector< Gfx_Material > myMaterials;
-    std::vector< Gfx_Texture >  myTextures;
-    std::vector< uint32_t >     myMaterialTextureIds;
-    uint16_t                    myMaterialTableGeneration = 0;
+    std::vector< Vk_MeshResource >     myMeshes;
+    std::vector< Vk_MaterialResource > myMaterials;
+    std::vector< Vk_TextureResource >  myTextures;
+    std::vector< uint32_t >            myMaterialTextureIds;
+    uint16_t                           myMaterialTableGeneration = 0;
 };

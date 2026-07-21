@@ -56,7 +56,7 @@ void Vk_FrameUniformUploader::UpdateEnvironment( const Vk_Renderer& aCore, uint3
 
     // Env eye follows primary fly camera (not per-view scene cameras).
 
-    env.myViewWorldPos = glm::vec4( aCore.myCamera.myEye, 1.0f );
+    env.myViewWorldPos = glm::vec4( aCore.myPrimaryCamera.myEye, 1.0f );
 
     char* mapGpuEnvData = nullptr;
 

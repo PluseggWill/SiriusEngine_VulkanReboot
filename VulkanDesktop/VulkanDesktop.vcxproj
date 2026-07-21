@@ -183,7 +183,7 @@
     <ClCompile Include="Util\Util_TuningPrefs.cpp" />
     <ClCompile Include="Util\Util_TuningPanel.cpp" />
     <ClCompile Include="Util\Util_StatsOverlay.cpp" />
-    <ClCompile Include="Util\Util_ImGuiLayer.cpp" />
+    <ClCompile Include="RenderCore\Vk_ImGuiLayer.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="..\lib\imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="..\lib\imgui\imgui.cpp" />
@@ -249,6 +249,7 @@
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
     <ClCompile Include="RenderCore\Vk_IblResources.cpp" />
+    <ClCompile Include="RenderCore\Vk_TextureLoader.cpp" />
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ScenePasses.cpp" />
     <ClCompile Include="RenderCore\Vk_SwapchainHost.cpp" />
@@ -260,6 +261,8 @@
     <ClCompile Include="Util\Util_ValidationLayers.cpp" />
     <ClCompile Include="Util\Util_FrameStats.cpp" />
     <ClCompile Include="Util\Util_Loader.cpp" />
+    <ClCompile Include="Util\Util_ImageDecode.cpp" />
+    <ClCompile Include="Util\Util_ObjLoad.cpp" />
     <ClCompile Include="Util\Util_Logger.cpp" />
     <ClCompile Include="Util\Util_PerfLog.cpp" />
     <ClCompile Include="Util\Util_ResolvePath.cpp" />
@@ -291,7 +294,7 @@
     <ClInclude Include="Util\Util_TuningPrefs.h" />
     <ClInclude Include="Util\Util_TuningPanel.h" />
     <ClInclude Include="Util\Util_StatsOverlay.h" />
-    <ClInclude Include="Util\Util_ImGuiLayer.h" />
+    <ClInclude Include="RenderCore\Vk_ImGuiLayer.h" />
     <ClInclude Include="Gfx\Gfx_DrawCullSort.h" />
     <ClInclude Include="Gfx\Gfx_Bounds.h" />
     <ClInclude Include="Gfx\Gfx_DemoSceneSim.h" />
@@ -328,6 +331,8 @@
     <ClInclude Include="RenderCore\Vk_Renderer.h" />
     <ClInclude Include="RenderCore\Vk_RendererContexts.h" />
     <ClInclude Include="RenderCore\Vk_RhiDevice.h" />
+    <ClInclude Include="RenderCore\Vk_PrimaryCameraState.h" />
+    <ClInclude Include="RenderCore\Vk_RenderFeatures.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />
     <ClInclude Include="RenderCore\Vk_FrameCpuPrepResult.h" />
     <ClInclude Include="RenderCore\Vk_FrameResult.h" />
@@ -366,6 +371,10 @@
     <ClInclude Include="RenderContract\Gpu_AoMethod.h" />
     <ClInclude Include="RenderContract\Gpu_AoSettings.h" />
     <ClInclude Include="RenderContract\Gpu_ClusterLight.h" />
+    <ClInclude Include="RenderContract\Gpu_ClusterPush.h" />
+    <ClInclude Include="RenderContract\Gpu_CullPush.h" />
+    <ClInclude Include="RenderContract\Gpu_DrawTemplate.h" />
+    <ClInclude Include="RenderContract\Gpu_EntityRecord.h" />
     <ClInclude Include="RenderContract\Gpu_EnvironmentData.h" />
     <ClInclude Include="RenderContract\Gpu_LightingGlobals.h" />
     <ClInclude Include="RenderContract\Gpu_MaterialParams.h" />
@@ -377,6 +386,7 @@
     <ClInclude Include="RenderCore\Vk_ScenePasses.h" />
     <ClInclude Include="RenderCore\Vk_SwapchainHost.h" />
     <ClInclude Include="RenderCore\Vk_Texture.h" />
+    <ClInclude Include="RenderCore\Vk_TextureLoader.h" />
     <ClInclude Include="RenderCore\Vk_Types.h" />
     <ClInclude Include="RenderCore\Vk_Window.h" />
     <ClInclude Include="Util\Util_EngineConfig.h" />
@@ -385,8 +395,11 @@
     <ClInclude Include="Util\Util_ValidationLayers.h" />
     <ClInclude Include="Util\Util_FrameStats.h" />
     <ClInclude Include="Util\Util_Loader.h" />
+    <ClInclude Include="Util\Util_ImageDecode.h" />
+    <ClInclude Include="Util\Util_ObjLoad.h" />
     <ClInclude Include="Util\Util_Logger.h" />
     <ClInclude Include="Util\Util_VulkanResult.h" />
+    <ClInclude Include="Platform\Pf_FrameHooks.h" />
     <ClInclude Include="Platform\Pf_PlatformHost.h" />
     <ClInclude Include="Platform\Pf_GlfwPlatformHost.h" />
     <ClInclude Include="Gfx\Gfx_ActiveRenderView.h" />

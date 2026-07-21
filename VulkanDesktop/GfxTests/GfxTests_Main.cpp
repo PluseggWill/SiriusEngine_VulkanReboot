@@ -346,7 +346,7 @@ void TestEntityGpuRecordSync() {
     localBounds.myMax = glm::vec3( 1.0f );
     scene.SetLocalBoundsForSlot( id.myIndex, localBounds );
 
-    Gfx_EntityGpuRecord record{};
+    Gpu_EntityRecord record{};
     Gfx_FillEntityGpuRecord( record, scene, id.myIndex, 99 );
 
     Expect( record.myLayerMask != 0, "entity record: active slot has layer mask" );

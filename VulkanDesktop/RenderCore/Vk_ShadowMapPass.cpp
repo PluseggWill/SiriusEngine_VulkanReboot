@@ -200,7 +200,7 @@ void RecordShadowDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, cons
         for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
             const uint32_t          absoluteDrawIndex = batch.myFirstDrawIndex + drawIndex;
             const Gfx_DrawInstance& draw              = aPass.myDraws[ absoluteDrawIndex ];
-            const Gfx_Mesh&         mesh              = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
+            const Vk_MeshResource&  mesh              = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
 
             VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
             VkDeviceSize offsets[]       = { 0 };

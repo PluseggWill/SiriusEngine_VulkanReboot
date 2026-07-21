@@ -1,6 +1,6 @@
 # Epic Plan: architecture-modularity-peel
 
-**Status:** Planned (post-ABH follow-on; parallel-OK with S10)  
+**Status:** In Progress (2026-07-21; next MOD-B7; Track A + B1–B3 done)  
 **Scope:** `VulkanDesktop/{App,Gfx,RenderCore,RenderContract,Util,Platform}`  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · [`Wishlist.md`](Wishlist.md) · closed [`architecture-boundary-hardening_Plan.md`](Archived/plans/architecture-boundary-hardening_Plan.md) · [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)
 
@@ -257,7 +257,7 @@ flowchart TB
 
 ## Kickoff checklist
 
-- [ ] User confirms Decisions (or overrides).
-- [ ] Add README open-roadmap pointer (done with this file) / set **Active now** when starting MOD-A1.
+- [x] User confirms Decisions (or overrides) — defaults via vibe kickoff 2026-07-21.
+- [x] Add README open-roadmap pointer (done with this file) / set **Active now** when starting MOD-A1.
 - [ ] Optional: hardening-index row in `Active-Plan.md` if this epic enters the formal queue.
 - [ ] Start MOD-A1 with `Verify-CI` baseline green.

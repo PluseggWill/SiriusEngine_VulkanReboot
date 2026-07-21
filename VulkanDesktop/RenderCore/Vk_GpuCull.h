@@ -20,6 +20,6 @@ void Init( Vk_Renderer& aCore );
 
 void CreateFrameBuffers( Vk_Renderer& aCore );
 
-void RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep );
+void RecordDispatches( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Vk_FrameCpuPrepResult& aPrep, bool aGpuCullEnabled );
 
 }  // namespace Vk_GpuCull

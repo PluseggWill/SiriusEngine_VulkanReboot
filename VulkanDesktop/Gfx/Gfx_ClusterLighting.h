@@ -2,63 +2,39 @@
 
 #include "../RenderContract/Gpu_ClusterLight.h"
 
+#include "../RenderContract/Gpu_ClusterPush.h"
+
 #include <cstdint>
 
-// FG v0 hybrid deferred: cluster grid + pass push constants (GPU light SSBO layouts live in RenderContract).
+// FG v0 hybrid deferred: cluster grid helpers (GPU light + push layouts live in RenderContract).
+
 namespace Gfx_ClusterLighting {
 
-constexpr uint32_t kTileSize                  = 16u;
-constexpr uint32_t kDepthSlices               = 24u;
-constexpr uint32_t kMaxLights                 = 1u;  // slice 2 stub: directional sun only
-constexpr uint32_t kMaxLightsPerCluster       = Gpu_ClusterMaxLightsPerCluster;
+constexpr uint32_t kTileSize = 16u;
+
+constexpr uint32_t kDepthSlices = 24u;
+
+constexpr uint32_t kMaxLights = 1u;  // slice 2 stub: directional sun only
+
+constexpr uint32_t kMaxLightsPerCluster = Gpu_ClusterMaxLightsPerCluster;
+
 constexpr uint32_t kClusterBuildWorkgroupSize = 64u;
 
 inline uint32_t TilesForExtent( uint32_t aPixels, uint32_t aTileSize = kTileSize ) {
+
     return ( aPixels + aTileSize - 1u ) / aTileSize;
 }
 
 inline uint32_t ClusterCount( uint32_t aWidth, uint32_t aHeight ) {
+
     return TilesForExtent( aWidth ) * TilesForExtent( aHeight ) * kDepthSlices;
 }
 
 // Screen-space cluster index (slice 3 stub: fixed depth slice 0).
+
 inline uint32_t ClusterIndexFromTile( uint32_t aTileX, uint32_t aTileY, uint32_t aTilesX, uint32_t aTilesY, uint32_t aDepthSlice = 0u ) {
+
     return aTileX + aTileY * aTilesX + aDepthSlice * aTilesX * aTilesY;
 }
-
-struct Gfx_ClusterBuildPushConstants {
-    uint32_t clusterCount = 0;
-    uint32_t lightCount   = 0;
-    uint32_t pad0         = 0;
-    uint32_t pad1         = 0;
-};
-
-// Push constants for DeferredLighting.frag (grid + ambient + PBR resolve).
-struct Gfx_DeferredLightingPushConstants {
-    uint32_t tilesX     = 0;
-    uint32_t tilesY     = 0;
-    uint32_t tileSize   = kTileSize;
-    uint32_t depthSlice = 0;  // slice 3 stub: always 0
-    float    ambientColor[ 4 ];
-    float    viewWorldPos[ 4 ];
-    float    legacySpecularStrength = 0.0f;  // unused under PBR; keeps vec4 layout for legacyAndDebug.xy
-    float    legacyShininess        = 1.0f;
-    float    debugView              = 0.0f;  // Gfx_DebugViewMode packed (match forward fogDistances.w)
-    float    legacyPad              = 0.0f;
-    float    contactSoftEnabled     = 1.0f;  // contactSoftParams.x: RG contact map for AO + sun shadow
-    float    ddgiEnabled            = 0.0f;  // contactSoftParams.y
-    float    ddgiIntensity          = 0.0f;  // contactSoftParams.z
-    float    ddgiDebugOverlay       = 0.0f;  // contactSoftParams.w
-    uint32_t ddgiProbeCountX        = 1;     // ddgiProbeCounts.x
-    uint32_t ddgiProbeCountY        = 1;     // ddgiProbeCounts.y
-    uint32_t ddgiProbeCountZ        = 1;     // ddgiProbeCounts.z
-    uint32_t ddgiProbeCountPad      = 0u;    // ddgiProbeCounts.w: bit0=bent-normal cones, bit2=local reflection probe
-    float    ddgiVolumeMin[ 4 ]     = {};
-    float    ddgiVolumeMax[ 4 ]     = {};
-    float    invViewProj[ 16 ];  // column-major glm; inverse(proj * view) for depth reconstruct
-};
-
-static_assert( sizeof( Gfx_ClusterBuildPushConstants ) == 16, "push constants must match ClusterBuild.comp" );
-static_assert( sizeof( Gfx_DeferredLightingPushConstants ) == 192, "push constants must match DeferredLighting.frag" );
 
 }  // namespace Gfx_ClusterLighting

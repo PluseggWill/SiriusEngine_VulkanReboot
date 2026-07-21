@@ -14,7 +14,7 @@ struct Vk_ShadowMapState {
 
     static constexpr uint32_t kMapSize = 2048u;
 
-    Gfx_Texture myDepth{};
+    Vk_TextureResource myDepth{};
 
     VkRenderPass myRenderPass = VK_NULL_HANDLE;
 

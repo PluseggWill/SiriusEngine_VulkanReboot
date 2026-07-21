@@ -52,11 +52,6 @@
 #include <unordered_map>
 #include <vector>
 
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-#endif
-
 #ifndef VMA_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -67,7 +62,13 @@ Vk_Renderer::~Vk_Renderer() {}
 
 // Called once from Application before scene load / main loop (non-owning; must outlive Vk_Renderer).
 void Vk_Renderer::BindEngineConfig( const Util_EngineConfig* aConfig ) {
-    myEngineConfig = aConfig;
+    myEngineConfig   = aConfig;
+    myRenderFeatures = {};
+    if ( aConfig != nullptr ) {
+        myRenderFeatures.myHybridDeferred               = Gfx_RenderPreset::IsHybridDeferred( aConfig->GetRenderPresetName() );
+        myRenderFeatures.myDescriptorLayoutMismatchTest = aConfig->GetDescriptorLayoutMismatchTest();
+        myRenderFeatures.myValidationEnabled            = aConfig->IsValidationEnabled();
+    }
 }
 
 const Util_EngineConfig& Vk_Renderer::EngineConfig() const {
@@ -201,7 +202,7 @@ void Vk_Renderer::LoadSceneGpuResources( const Gfx_SceneGpuLoadParams& aLoadPara
 
     Vk_GfxPipelineCache::InitScenePipelines( *this );
 
-    if ( Gfx_RenderPreset::IsHybridDeferred( EngineConfig().GetRenderPresetName() ) ) {
+    if ( myRenderFeatures.myHybridDeferred ) {
         Vk_GBufferPass::Init( *this );
         Vk_ClusterBuildPass::Init( *this );
         Vk_DepthPyramidPass::Init( *this );
@@ -551,10 +552,10 @@ void Vk_Renderer::CreateInstanceSlabs() {
 
 // M2 prep: persistently mapped indirect + template SSBO rings (CPU fill in FillDrawTemplates; P3 GPU cull reuses layout).
 void Vk_Renderer::CreateDrawTemplateBuffers() {
-    static_assert( sizeof( Gfx_DrawIndirectCommand ) == sizeof( VkDrawIndexedIndirectCommand ), "Gfx_DrawIndirectCommand must match Vulkan" );
+    static_assert( sizeof( Gpu_DrawIndirectCommand ) == sizeof( VkDrawIndexedIndirectCommand ), "Gpu_DrawIndirectCommand must match Vulkan" );
 
     const VkDeviceSize indirectBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( VkDrawIndexedIndirectCommand );
-    const VkDeviceSize templateBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( Gfx_DrawTemplate );
+    const VkDeviceSize templateBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxDrawTemplateEntries ) * sizeof( Gpu_DrawTemplate );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         CreateBuffer( indirectBytes, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myDrawIndirectBuffer, true );
@@ -589,7 +590,7 @@ void Vk_Renderer::CreateDrawTemplateBuffers() {
 
 // P3: per SoA slot entity-record SSBO (CPU fill in FillEntityRecords; compute cull reads same layout).
 void Vk_Renderer::CreateEntityRecordBuffers() {
-    const VkDeviceSize recordBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxEntitySlots ) * sizeof( Gfx_EntityGpuRecord );
+    const VkDeviceSize recordBytes = static_cast< VkDeviceSize >( VkDescriptorPolicy::kMaxEntitySlots ) * sizeof( Gpu_EntityRecord );
 
     for ( int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         CreateBuffer( recordBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myEntityRecordBuffer, true );
@@ -685,12 +686,12 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
 
     aOut.mySceneSlotCount = static_cast< uint32_t >( aInput.myScene->GetSlotCount() );
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
-        Gfx_GpuCullPushConstants& cullParams = aOut.myGpuCullViews[ viewIndex ];
-        cullParams.viewProj                  = aViews[ viewIndex ].myCameraProj * aViews[ viewIndex ].myCameraView;
-        cullParams.viewLayerMask             = aViews[ viewIndex ].myView.myLayerMask;
-        cullParams.slotCount                 = aOut.mySceneSlotCount;
-        cullParams.outputBaseSlot            = viewIndex * perViewEntitySlots;
-        cullParams.pad                       = 0;
+        Gpu_CullPushConstants& cullParams = aOut.myGpuCullViews[ viewIndex ];
+        cullParams.viewProj               = aViews[ viewIndex ].myCameraProj * aViews[ viewIndex ].myCameraView;
+        cullParams.viewLayerMask          = aViews[ viewIndex ].myView.myLayerMask;
+        cullParams.slotCount              = aOut.mySceneSlotCount;
+        cullParams.outputBaseSlot         = viewIndex * perViewEntitySlots;
+        cullParams.pad                    = 0;
     }
 
     const bool lodEnabled = aToggles.myLodEnabled;
@@ -730,7 +731,7 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
         prepParams.myDrawBufferBaseIndex    = viewIndex * perViewMaxEntries;
         prepParams.myDrawBufferMaxEntries   = perViewMaxEntries;
         prepParams.myViewLayerMask          = aViews[ viewIndex ].myView.myLayerMask;
-        prepParams.myGpuCullEnabled         = EngineConfig().GetGpuCullEnabled();
+        prepParams.myGpuCullEnabled         = aToggles.myGpuCullEnabled;
         prepParams.myResourceTables         = &mySceneGpuCtx.myResourceTables;
 
         mySceneGpuCtx.myDrawPrep.ClearFrameOutputs();
@@ -782,7 +783,6 @@ bool Vk_Renderer::PrepareFrameCpu( const Gfx_FramePrepInput& aInput, const Gfx_F
 }
 
 Vk_FrameResult Vk_Renderer::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep ) {
-    ( void )aToggles;
     if ( !aPrep.myOk || aPrep.myFrameData == nullptr ) {
         return Vk_FrameResult::SkipFrame;
     }
@@ -801,7 +801,7 @@ Vk_FrameResult Vk_Renderer::DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles,
         throw std::runtime_error( "failed to begin recording command buffer!" );
     }
 
-    Vk_GpuCull::RecordDispatches( *this, frameData.myCommandBuffer, aPrep );
+    Vk_GpuCull::RecordDispatches( *this, frameData.myCommandBuffer, aPrep, aToggles.myGpuCullEnabled );
 
     Vk_RendererContexts contexts = BuildContexts();
     Vk_ScenePasses::RecordScene( contexts, aToggles, frameData.myCommandBuffer, aPrep.myImageIndex, aPrep.myViewports, aPrep.myScissors, aPrep.myFrameDescriptors,
@@ -1219,10 +1219,6 @@ void Vk_Renderer::OnPlatformFrameStart( std::chrono::high_resolution_clock::time
     }
     myPlatformCtx.myLastFrameTime    = aFrameStart;
     myPlatformCtx.myHasLastFrameTime = true;
-}
-
-void Vk_Renderer::ApplyCameraInput( float aDeltaSeconds, const Util_InputSnapshot& aInput, const Util_CameraSettings& aCameraSettings ) {
-    myCamera.ApplyInput( aDeltaSeconds, aInput, aCameraSettings );
 }
 
 void Vk_Renderer::SetFrameInputSampleTime( std::chrono::high_resolution_clock::time_point aSampleTime ) {

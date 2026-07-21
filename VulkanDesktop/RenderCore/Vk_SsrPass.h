@@ -16,9 +16,9 @@ struct Vk_SsrState {
     VkDescriptorPool      myDescriptorPool      = VK_NULL_HANDLE;
     VkSampler             myGBufferSampler      = VK_NULL_HANDLE;
 
-    Gfx_Texture mySsrOutput{};
+    Vk_TextureResource mySsrOutput{};
     // Previous-frame lit HDR (scene color after hybrid resolve). Ping-pong for temporal SSR radiance.
-    Gfx_Texture myLitHdrHistory[ 2 ]{};
+    Vk_TextureResource myLitHdrHistory[ 2 ]{};
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myDescriptorSets{};
 

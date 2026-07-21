@@ -361,7 +361,7 @@ void VerifyLitBindlessReflectionContract( const Util_EngineConfig& aConfig ) {
 // Dev-only layout mismatch probe; takes narrow contexts instead of Vk_Renderer friend (phase 4).
 void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContext& aDevice, Vk_SceneGpuContext& aScene, Vk_Renderer& aCoreOps ) {
     ( void )aScene;
-    if ( !aCoreOps.EngineConfig().IsValidationEnabled() ) {
+    if ( !aCoreOps.RenderFeatures().myValidationEnabled ) {
         throw std::runtime_error( "--descriptor-layout-mismatch-test requires validation layers (use --validation, not --no-validation)" );
     }
     if ( !UtilDebugMessenger::HasActiveMessenger() ) {

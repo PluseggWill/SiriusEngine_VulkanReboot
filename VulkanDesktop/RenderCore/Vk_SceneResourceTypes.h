@@ -1,6 +1,6 @@
 #pragma once
 
-// GPU-resident mesh/material/texture tables. CPU geometry: Gfx_MeshCpu; aliases Gfx_* keep record path stable.
+// GPU-resident mesh/material/texture tables. CPU geometry: Gfx_MeshCpu.
 
 #include "../Gfx/Gfx_MaterialTypes.h"
 #include "../Gfx/Gfx_MeshCpu.h"
@@ -76,13 +76,3 @@ struct Vk_RenderObject {
     Vk_MaterialResource* myMaterial = nullptr;
     glm::mat4            myTransform{ 1.0f };
 };
-
-// Legacy aliases — prefer Vk_*Resource in new RenderCore code.
-using Gfx_Texture      = Vk_TextureResource;
-using Gfx_Material     = Vk_MaterialResource;
-using Gfx_Mesh         = Vk_MeshResource;
-using Gfx_RenderObject = Vk_RenderObject;
-
-inline Gpu_MaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
-    return Vk_MaterialResourceToGpuParams( aMaterial );
-}

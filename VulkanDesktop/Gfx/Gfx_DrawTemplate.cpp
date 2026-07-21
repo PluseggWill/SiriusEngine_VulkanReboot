@@ -1,6 +1,6 @@
 #include "Gfx_DrawTemplate.h"
 
-void Gfx_FillDrawTemplate( Gfx_DrawTemplate& aOut, const Gfx_DrawInstance& aDraw, uint32_t aIndexCount, uint32_t aInstanceDataOffset ) {
+void Gfx_FillDrawTemplate( Gpu_DrawTemplate& aOut, const Gfx_DrawInstance& aDraw, uint32_t aIndexCount, uint32_t aInstanceDataOffset ) {
     // firstIndex/vertexOffset/firstInstance are 0 today; mesh-local IB starts at 0. aIndexCount is mesh.myIndexCount from buffer build.
     aOut.myIndirect.indexCount    = aIndexCount;
     aOut.myIndirect.instanceCount = 1;

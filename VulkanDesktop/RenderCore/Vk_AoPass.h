@@ -52,15 +52,15 @@ struct Vk_AoState {
 
     VkSampler myGBufferSampler = VK_NULL_HANDLE;
 
-    Gfx_Texture myAoRaw{};  // full-res R8 — deferred / contact-soft input
+    Vk_TextureResource myAoRaw{};  // full-res R8 — deferred / contact-soft input
 
-    Gfx_Texture myAoHalf{};  // half-res R8 — HBAO+ / GTAO intermediate
+    Vk_TextureResource myAoHalf{};  // half-res R8 — HBAO+ / GTAO intermediate
 
-    Gfx_Texture myBentNormalHalf{};  // half-res RG8 octahedral bent normal (GTAO only; deferred binding 18)
+    Vk_TextureResource myBentNormalHalf{};  // half-res RG8 octahedral bent normal (GTAO only; deferred binding 18)
 
-    Gfx_Texture myAoBlur{};  // classic SSAO separable blur ping-pong
+    Vk_TextureResource myAoBlur{};  // classic SSAO separable blur ping-pong
 
-    Gfx_Texture myAoHistory[ 2 ]{};  // temporal AO history ping-pong
+    Vk_TextureResource myAoHistory[ 2 ]{};  // temporal AO history ping-pong
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myClassicDescriptorSets{};
 
