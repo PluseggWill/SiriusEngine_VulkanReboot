@@ -160,6 +160,9 @@
     <ClCompile Include="Gfx\Gfx_AoPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_Bounds.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -281,6 +284,9 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_DepthPyramidPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="Gfx\Gfx_FramePacketValidation.cpp">
@@ -640,6 +646,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_AoPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_PassId.h">

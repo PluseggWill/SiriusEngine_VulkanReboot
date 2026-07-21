@@ -197,6 +197,7 @@
     <ClCompile Include="App\WorldState.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
     <ClCompile Include="Gfx\Gfx_AoPass.cpp" />
+    <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp" />
     <ClCompile Include="Gfx\Gfx_Bounds.cpp" />
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
     <ClCompile Include="Gfx\Gfx_ObjectiveRuntime.cpp" />
@@ -244,6 +245,7 @@
     <ClCompile Include="RenderCore\Vk_SceneResourceTypes.cpp" />
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_DepthPyramidPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPassLayouts.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass_Record.cpp" />
@@ -372,6 +374,7 @@
     <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h" />
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
     <ClInclude Include="Gfx\Gfx_AoPass.h" />
+    <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h" />
     <ClInclude Include="Gfx\Gfx_PassId.h" />
     <ClInclude Include="Gfx\Gfx_FramePlan.h" />
     <ClInclude Include="Gfx\Gfx_RenderPipeline.h" />

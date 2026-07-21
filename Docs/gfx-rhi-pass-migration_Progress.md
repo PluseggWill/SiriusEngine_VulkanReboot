@@ -38,3 +38,9 @@
 - **Files:** `Gfx_PipelineBuildInput` / `Gfx_PassResourceReady`, `ResolveEnableFlags`, `Vk_GBufferPass` fills readiness+settings, `Vk_FrameGraph` consumes `myEnable` only
 - **Behavior:** Sun/AO/DDGI/contact-soft policy in Gfx; FG no longer reads `Vk_*State` for enable
 - **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1 -SkipGpuCull` exit 0
+
+## 2026-07-21 — E4.1 DepthPyramid Record via Gfx + Rhi
+
+- **Files:** `Gfx/Gfx_DepthPyramidPass.{h,cpp}`, `RenderCore/Vk_DepthPyramidPass_Record.cpp`, Init stays in `Vk_DepthPyramidPass.cpp`
+- **Behavior:** Hi-Z mip loop + barriers recorded through Rhi; facade adopts handles
+- **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1 -SkipGpuCull` exit 0

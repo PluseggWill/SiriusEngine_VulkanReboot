@@ -16,9 +16,17 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E0 policy | Done |
 | E1 Rhi surface (+ E1b) | Done |
 | E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
-| E3 `Gfx_RenderPipeline` + FramePlan | **In progress** — topology + enable policy in Gfx; RC fills readiness + Record |
-| E4 migrate remaining passes | Pending |
+| E3 `Gfx_RenderPipeline` + FramePlan | Done (topology + enable policy in Gfx; RC fills readiness + Record) |
+| E4 migrate remaining passes | **In progress** — E4.1 DepthPyramid Record via Gfx+Rhi |
 | E5 cleanup / docs archive | Pending |
+
+## Steps (E4)
+
+| Step | Detail | Verify |
+|------|--------|--------|
+| E4.1 | `Gfx_DepthPyramidPass::Record` + thin `Vk_DepthPyramidPass_Record` | Smoke |
+| E4.2 | ClusterBuild Record → Gfx | Smoke |
+| E4.3 | ShadowAoSoft Record → Gfx | Smoke + validation |
 
 ## Steps (E3)
 

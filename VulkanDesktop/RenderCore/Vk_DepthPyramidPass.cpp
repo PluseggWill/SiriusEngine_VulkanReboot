@@ -1,6 +1,10 @@
 // Module: Vk_DepthPyramidPass — Hi-Z min-depth pyramid (R32_SFLOAT mip chain) from G-buffer depth.
 #include "Vk_DepthPyramidPass.h"
 
+#include "../Gfx/Gfx_DepthPyramidPass.h"
+
+static_assert( kHiZMaxMipLevels == Gfx_DepthPyramidPass::kMaxMipLevels, "Hi-Z mip cap must match Gfx_DepthPyramidPass" );
+
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
@@ -17,7 +21,13 @@ namespace {
 constexpr char     kDepthPyramidShaderPath[] = "VulkanDesktop/Shader_Generated/DepthPyramid.spv";
 constexpr VkFormat kPyramidFormat            = VK_FORMAT_R32_SFLOAT;
 
-VkImageLayout sPyramidLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+}  // namespace
+
+namespace Vk_DepthPyramidPassDetail {
+VkImageLayout gPyramidLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+namespace {
 
 struct DepthPyramidPushConstants {
     uint32_t mipLevel;
@@ -27,19 +37,6 @@ struct DepthPyramidPushConstants {
 };
 
 static_assert( sizeof( DepthPyramidPushConstants ) == 16, "DepthPyramidPushConstants must match DepthPyramid.comp push block" );
-
-VkImageMemoryBarrier DepthImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess,
-                                        uint32_t aBaseMip, uint32_t aMipCount ) {
-    VkImageMemoryBarrier barrier{};
-    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout        = aOldLayout;
-    barrier.newLayout        = aNewLayout;
-    barrier.srcAccessMask    = aSrcAccess;
-    barrier.dstAccessMask    = aDstAccess;
-    barrier.image            = aImage;
-    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, aBaseMip, aMipCount, 0, 1 };
-    return barrier;
-}
 
 VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFormat, uint32_t aBaseMip ) {
     VkImageViewCreateInfo viewInfo         = VkInit::ImageViewCreateInfo( aFormat, aImage, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
@@ -72,8 +69,8 @@ void DestroyPyramidImage( Vk_Renderer& aCore ) {
         state.myPyramid.AllocImage() = {};
     }
 
-    sPyramidLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-    state.myMipLevelCount = 0;
+    Vk_DepthPyramidPassDetail::gPyramidLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    state.myMipLevelCount                     = 0;
 }
 
 void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, uint32_t aDstMip, uint32_t aSrcMip ) {
@@ -264,16 +261,6 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     UtilLogger::Info( "PIPELINE", "DepthPyramid compute pipeline created." );
 }
 
-void CmdBarrierPyramidForComputeWrite( VkCommandBuffer aCommandBuffer, VkImage aImage, uint32_t aMipCount, VkImageLayout& aInOutLayout ) {
-    const VkImageLayout  oldLayout = aInOutLayout;
-    const VkImageLayout  newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    VkImageMemoryBarrier barrier =
-        DepthImageBarrier( aImage, oldLayout, newLayout, oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, 0, aMipCount );
-    const VkPipelineStageFlags srcStage = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-    aInOutLayout = newLayout;
-}
-
 }  // namespace
 
 namespace Vk_DepthPyramidPass {
@@ -315,61 +302,6 @@ void Init( Vk_Renderer& aCore ) {
     CreatePyramidImage( aCore );
     AllocateDescriptorSets( aCore, true );
     aCore.myDepthPyramidState.myInitialized = true;
-}
-
-void RecordBuild( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
-    Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
-    if ( !state.myInitialized || state.myMipLevelCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
-        return;
-    }
-
-    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
-    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
-
-    CmdBarrierPyramidForComputeWrite( aCommandBuffer, state.myPyramid.Image(), state.myMipLevelCount, sPyramidLayout );
-
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myComputePipeline );
-
-    for ( uint32_t dstMip = 0; dstMip < state.myMipLevelCount; ++dstMip ) {
-        const bool     isFirstMip = ( dstMip == 0 );
-        const uint32_t srcMip     = dstMip > 0 ? dstMip - 1 : 0;
-        const uint32_t srcWidth   = isFirstMip ? width : std::max( 1u, width >> dstMip );
-        const uint32_t srcHeight  = isFirstMip ? height : std::max( 1u, height >> dstMip );
-        const uint32_t dstWidth   = std::max( 1u, srcWidth >> 1 );
-        const uint32_t dstHeight  = std::max( 1u, srcHeight >> 1 );
-
-        vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ][ dstMip ], 0, nullptr );
-
-        DepthPyramidPushConstants push{};
-        push.mipLevel   = dstMip;
-        push.isFirstMip = isFirstMip ? 1u : 0u;
-        push.srcWidth   = srcWidth;
-        push.srcHeight  = srcHeight;
-        vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
-
-        if ( dstMip > 0 ) {
-            VkImageMemoryBarrier srcReady = DepthImageBarrier( state.myPyramid.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT,
-                                                               VK_ACCESS_SHADER_READ_BIT, srcMip, 1 );
-            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &srcReady );
-        }
-
-        if ( aCore.AreCommandDebugLabelsEnabled() ) {
-            aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=DepthPyramidMip" );
-        }
-        vkCmdDispatch( aCommandBuffer, ( dstWidth + 7 ) / 8, ( dstHeight + 7 ) / 8, 1 );
-        if ( aCore.AreCommandDebugLabelsEnabled() ) {
-            aCore.CmdEndDebugLabel( aCommandBuffer );
-        }
-
-        VkImageMemoryBarrier dstWritten = DepthImageBarrier( state.myPyramid.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT,
-                                                             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, dstMip, 1 );
-        vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &dstWritten );
-    }
-
-    VkImageMemoryBarrier pyramidForSample = DepthImageBarrier( state.myPyramid.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                               VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, 0, state.myMipLevelCount );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &pyramidForSample );
-    sPyramidLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 VkImageView GetMipView( const Vk_Renderer& aCore, uint32_t aMipLevel ) {
