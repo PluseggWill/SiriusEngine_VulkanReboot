@@ -135,7 +135,7 @@ public:
 
     Vk_FrameResult DrawFrameGpu( const Gfx_FrameDebugToggles& aToggles, Vk_FrameCpuPrepResult& aPrep );
 
-    GpuEnvironmentData& GetEnvironmentData() {
+    Gpu_EnvironmentData& GetEnvironmentData() {
 
         return myEnvironmentData;
     }
@@ -311,7 +311,7 @@ public:
     // Session presentation (fly camera + env UBO); not moved into contexts yet.
     Gfx_RenderCamera myCamera;
 
-    GpuEnvironmentData myEnvironmentData;
+    Gpu_EnvironmentData myEnvironmentData;
 
     Gfx_LightingSettings myLightingSettings;
 
@@ -341,7 +341,7 @@ public:
     const Gfx_SceneSoA* myBoundSceneSoA = nullptr;
 
     const Util_EngineConfig* myEngineConfig = nullptr;
-    Pf_PlatformHost*            myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
+    Pf_PlatformHost*         myPlatformHost = nullptr;  // Non-owning; bound by Application for window/surface callbacks.
 
 private:
     void Clear();

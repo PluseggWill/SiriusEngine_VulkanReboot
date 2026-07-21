@@ -29,7 +29,7 @@ alwaysApply: false
 
 ## 领域
 
-- **Gpu***：std140/430、对应 shader binding、字段复用说明
+- **Gpu_***：std140/430、对应 shader binding、字段复用说明
 - **Descriptors**：index + type + stage；与 `Vk_Enum.h`/GLSL 同步
 - **Queues**：graphics/transfer 复用、`CONCURRENT` vs `EXCLUSIVE`
 - **Paths**：在 `UtilLoader::ResolvePath` 等解析点注明逻辑路径，非每次 `ReadFile`

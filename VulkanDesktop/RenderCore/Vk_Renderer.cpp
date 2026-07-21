@@ -1,7 +1,6 @@
 // Module: Vk_Renderer - device, swapchain, frame loop (acquire -> prep -> record -> present).
 // Scene CPU: App (WorldState). View packets: Gfx_BuildViewFramePacket. GPU upload prep: Vk_FrameDrawPrep.
 #include "Vk_Renderer.h"
-#include "../Platform/Pf_PlatformHost.h"
 #include "../Gfx/Gfx_Bounds.h"
 #include "../Gfx/Gfx_DrawTemplate.h"
 #include "../Gfx/Gfx_EntityGpuRecord.h"
@@ -10,6 +9,7 @@
 #include "../Gfx/Gfx_SceneApply.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
+#include "../Platform/Pf_PlatformHost.h"
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
@@ -498,7 +498,7 @@ void Vk_Renderer::CreateFrameData() {
         }
 
         // Per-frame camera UBO slab (one slot per render view).
-        VkDeviceSize bufferSize = static_cast< VkDeviceSize >( kGfxMaxRenderViews ) * static_cast< VkDeviceSize >( PadUniformBufferSize( sizeof( GpuCameraData ) ) );
+        VkDeviceSize bufferSize = static_cast< VkDeviceSize >( kGfxMaxRenderViews ) * static_cast< VkDeviceSize >( PadUniformBufferSize( sizeof( Gpu_CameraData ) ) );
 
         CreateBuffer( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_ONLY, myFrameCtx.myFrameDatas[ i ].myCameraBuffer, true );
 
@@ -614,12 +614,12 @@ void Vk_Renderer::CreateEntityRecordBuffers() {
 void Vk_Renderer::CreateUniformBuffers() {
     // Device-scoped env UBO slab (CPU defaults at scene load; App_InitScenePresentation).
     // Each in-flight frame uses a static slice offset (not UNIFORM_BUFFER_DYNAMIC).
-    const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuEnvironmentData ) );
+    const size_t envDataBufferSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( Gpu_EnvironmentData ) );
     CreateBuffer( envDataBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myEnvDataBuffer, true );
 
     myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ = ]() { vmaDestroyBuffer( myRhi.myDeviceCtx.myAllocator, myEnvDataBuffer.myBuffer, myEnvDataBuffer.myAllocation ); } );
 
-    const size_t lightingGlobalsSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( GpuLightingGlobals ) );
+    const size_t lightingGlobalsSize = MAX_FRAMES_IN_FLIGHT * PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) );
     CreateBuffer( lightingGlobalsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, myLightingGlobalsBuffer, true );
     myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
         [ = ]() { vmaDestroyBuffer( myRhi.myDeviceCtx.myAllocator, myLightingGlobalsBuffer.myBuffer, myLightingGlobalsBuffer.myAllocation ); } );
@@ -1158,7 +1158,7 @@ void Vk_Renderer::CopyBufferGraphicsQueue( VkBuffer aSrcBuffer, VkBuffer aDstBuf
 }
 
 size_t Vk_Renderer::InstanceSlabStride() const {
-    return PadUniformBufferSize( sizeof( GpuObjectData ) );
+    return PadUniformBufferSize( sizeof( Gpu_ObjectData ) );
 }
 
 // Per-frame UBO upload is delegated to Vk_FrameUniformUploader.

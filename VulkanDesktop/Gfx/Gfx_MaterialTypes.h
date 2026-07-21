@@ -1,18 +1,19 @@
 #pragma once
 
-#include <cstddef>
+#include "../RenderContract/Gpu_MaterialParams.h"
+
 #include <cstdint>
 
 #include <glm/glm.hpp>
 
-// Alpha mode for forward materials (matches MaterialData.alphaMode in lit shaders).
+// CPU/scene aliases for the shader-contract alpha mode (values owned by RenderContract).
 enum Gfx_MaterialAlphaMode : uint32_t {
-    Gfx_MaterialAlphaMode_Opaque = 0,
-    Gfx_MaterialAlphaMode_Mask   = 1,
-    Gfx_MaterialAlphaMode_Blend  = 2,
+    Gfx_MaterialAlphaMode_Opaque = Gpu_MaterialAlphaMode_Opaque,
+    Gfx_MaterialAlphaMode_Mask   = Gpu_MaterialAlphaMode_Mask,
+    Gfx_MaterialAlphaMode_Blend  = Gpu_MaterialAlphaMode_Blend,
 };
 
-// Forward debug visualization (packed in GpuEnvironmentData.myFogDistance.w for lit shaders).
+// Forward debug visualization (packed in Gpu_EnvironmentData.myFogDistance.w for lit shaders).
 enum Gfx_DebugViewMode : uint32_t {
     Gfx_DebugViewMode_Lit         = 0,
     Gfx_DebugViewMode_Depth       = 1,
@@ -38,30 +39,8 @@ struct Gfx_MaterialSurface {
     bool      myIsTransparent = false;
 };
 
-// std140, Set 1 binding 1 — must match MaterialData in TriangleFrag_Lit.frag (Stage 1 forward contract).
-struct GpuMaterialParams {
-    alignas( 16 ) glm::vec4 myBaseColorFactor{ 1.0f };
-    alignas( 4 ) float myRoughness    = 0.5f;
-    alignas( 4 ) float myMetallic     = 0.0f;
-    alignas( 4 ) float myAlpha        = 1.0f;
-    alignas( 4 ) uint32_t myAlphaMode = Gfx_MaterialAlphaMode_Opaque;
-};
-
-// std430 material table entry — must match GpuMaterialEntry in TriangleFrag_Lit_Bindless.frag (vec4 @ 32).
-struct GpuMaterialTableEntry {
-    uint32_t  myTextureIndex = 0;
-    float     myRoughness    = 0.5f;
-    float     myMetallic     = 0.0f;
-    float     myAlpha        = 1.0f;
-    uint32_t  myAlphaMode    = Gfx_MaterialAlphaMode_Opaque;
-    uint32_t  _padStd430[ 3 ]{};  // std430: vec4 baseColorFactor starts at byte 32
-    glm::vec4 myBaseColorFactor{ 1.0f };
-};
-static_assert( sizeof( GpuMaterialTableEntry ) == 48, "GpuMaterialTableEntry std430 size" );
-static_assert( offsetof( GpuMaterialTableEntry, myBaseColorFactor ) == 32, "GpuMaterialTableEntry std430 vec4 offset" );
-
-inline GpuMaterialParams Gfx_MaterialSurfaceToGpuParams( const Gfx_MaterialSurface& aSurface ) {
-    GpuMaterialParams params{};
+inline Gpu_MaterialParams Gfx_MaterialSurfaceToGpuParams( const Gfx_MaterialSurface& aSurface ) {
+    Gpu_MaterialParams params{};
     params.myBaseColorFactor = aSurface.myBaseColorFactor;
     params.myRoughness       = aSurface.myRoughness;
     params.myMetallic        = aSurface.myMetallic;

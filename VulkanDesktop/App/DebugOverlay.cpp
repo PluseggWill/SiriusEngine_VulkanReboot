@@ -84,11 +84,11 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
         return;
     }
 
-    GpuEnvironmentData&   anEnvironment     = aCore.GetEnvironmentData();
-    Gfx_LightingSettings& aLightingSettings = aCore.GetLightingSettings();
-    Gfx_AoSettings&       aAoSettings       = aCore.GetAoSettings();
-    Gfx_PostSettings&     aPostSettings     = aCore.GetPostSettings();
-    const Gfx_RenderCamera&      aFlyCamera        = aCore.GetFlyCamera();
+    Gpu_EnvironmentData&    anEnvironment     = aCore.GetEnvironmentData();
+    Gfx_LightingSettings&   aLightingSettings = aCore.GetLightingSettings();
+    Gfx_AoSettings&         aAoSettings       = aCore.GetAoSettings();
+    Gfx_PostSettings&       aPostSettings     = aCore.GetPostSettings();
+    const Gfx_RenderCamera& aFlyCamera        = aCore.GetFlyCamera();
 
     const ImVec2 display = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos( ImVec2( 10.f, display.y - 10.f ), ImGuiCond_FirstUseEver, ImVec2( 0.f, 1.f ) );

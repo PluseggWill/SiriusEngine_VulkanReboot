@@ -69,7 +69,7 @@ void PrepareViews( Vk_Renderer& aCore, std::array< Vk_ActiveRenderView, kGfxMaxR
         state.myJitterPixel =
             glm::vec2( state.myJitterNdc.x * static_cast< float >( extent.width ) * 0.5f, state.myJitterNdc.y * static_cast< float >( extent.height ) * 0.5f );
         aViews[ 0 ].myCameraProj = Gfx_TemporalJitter::ApplyToProjection( aViews[ 0 ].myCameraProj, state.myJitterNdc );
-        state.myHaltonIndex         = ( state.myHaltonIndex + 1u ) % Gfx_TemporalJitter::kSequenceLength;
+        state.myHaltonIndex      = ( state.myHaltonIndex + 1u ) % Gfx_TemporalJitter::kSequenceLength;
     }
     else {
         state.myJitterNdc   = glm::vec2( 0.0f );

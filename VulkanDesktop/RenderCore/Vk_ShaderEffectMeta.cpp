@@ -416,12 +416,12 @@ void VkShaderEffectMeta_RunLitBatchLayoutMismatchValidationTest( Vk_DeviceContex
     }
 
     Vk_AllocatedBuffer probeBuffer{};
-    aCoreOps.CreateBuffer( sizeof( GpuObjectData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, probeBuffer, true );
+    aCoreOps.CreateBuffer( sizeof( Gpu_ObjectData ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, probeBuffer, true );
 
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = probeBuffer.myBuffer;
     bufferInfo.offset = 0;
-    bufferInfo.range  = sizeof( GpuObjectData );
+    bufferInfo.range  = sizeof( Gpu_ObjectData );
 
     UtilDebugMessenger::BeginValidationErrorCapture();
     VkWriteDescriptorSet mismatchWrite = VkInit::DescriptorSetWriteCreateInfo( wrongSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &bufferInfo, eVk_ObjectModelBinding, 1 );

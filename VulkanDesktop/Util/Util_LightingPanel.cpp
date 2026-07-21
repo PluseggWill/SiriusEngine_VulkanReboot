@@ -153,7 +153,7 @@ void LogLightingSettingsIfChanged( const Gfx_LightingSettings& aSettings ) {
 
 }  // namespace
 
-void UtilLightingPanel::BuildSunContents( GpuEnvironmentData& anEnvironment, bool& aShowSunGizmo ) {
+void UtilLightingPanel::BuildSunContents( Gpu_EnvironmentData& anEnvironment, bool& aShowSunGizmo ) {
     ImGui::ColorEdit3( "Ambient", &anEnvironment.myAmbientColor.x );
     ImGui::ColorEdit3( "Sun color", &anEnvironment.mySunlightColor.x );
     ImGui::SliderFloat( "Sun intensity", &anEnvironment.mySunlightColor.w, 0.f, 8.f );
@@ -313,7 +313,7 @@ void UtilLightingPanel::BuildContactSoftContents( Gfx_AoSettings& aAoSettings ) 
     }
 }
 
-void UtilLightingPanel::DrawViewportSunGizmo( const GpuEnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Gfx_RenderCamera& aCamera,
+void UtilLightingPanel::DrawViewportSunGizmo( const Gpu_EnvironmentData& anEnvironment, const Gfx_LightingSettings& aLightingSettings, const Gfx_RenderCamera& aCamera,
                                               bool aShowSunGizmo, bool aShowDdgiVolumeBounds ) {
     if ( !aShowSunGizmo ) {
         return;

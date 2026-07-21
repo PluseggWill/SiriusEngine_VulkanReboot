@@ -639,19 +639,25 @@
     <ClInclude Include="RenderCore\Vk_Window.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuAoMethod.h">
+    <ClInclude Include="RenderContract\Gpu_AoMethod.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuAoSettings.h">
+    <ClInclude Include="RenderContract\Gpu_AoSettings.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuEnvironmentData.h">
+    <ClInclude Include="RenderContract\Gpu_ClusterLight.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuLightingGlobals.h">
+    <ClInclude Include="RenderContract\Gpu_EnvironmentData.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuPostSettings.h">
+    <ClInclude Include="RenderContract\Gpu_LightingGlobals.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_MaterialParams.h">
+      <Filter>RenderContract</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContract\Gpu_PostSettings.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
     <ClInclude Include="Platform\Pf_PlatformHost.h">
@@ -666,10 +672,10 @@
     <ClInclude Include="Gfx\Gfx_ShaderPermutationTypes.h">
       <Filter>Gfx</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuCameraData.h">
+    <ClInclude Include="RenderContract\Gpu_CameraData.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
-    <ClInclude Include="RenderContract\GpuObjectData.h">
+    <ClInclude Include="RenderContract\Gpu_ObjectData.h">
       <Filter>RenderContract</Filter>
     </ClInclude>
   </ItemGroup>

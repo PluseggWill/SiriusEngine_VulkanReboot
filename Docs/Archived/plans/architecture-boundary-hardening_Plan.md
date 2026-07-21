@@ -1,8 +1,8 @@
 # Plan: architecture-boundary-hardening
 
-**Status:** Planned (architecture debt paydown; supports S9–S10 delivery stability)  
+**Status:** Closed (2026-07-21)  
 **Scope:** `VulkanDesktop/App`, `VulkanDesktop/Gfx`, `VulkanDesktop/RenderCore`, `VulkanDesktop/RenderContract`  
-**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · [`Wishlist.md`](Wishlist.md)
+**Related:** [`EngineArchitecture.md`](../../EngineArchitecture.md) · [`Active-Plan.md`](../../Active-Plan.md) · [`Wishlist.md`](../../Wishlist.md) · Progress: [`architecture-boundary-hardening_Progress.md`](architecture-boundary-hardening_Progress.md)
 
 ## Goal
 

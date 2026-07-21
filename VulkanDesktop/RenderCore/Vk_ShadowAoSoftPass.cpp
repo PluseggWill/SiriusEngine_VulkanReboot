@@ -159,8 +159,8 @@ void UpdatePackDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescri
 
     VkDescriptorBufferInfo lightingGlobalsInfo{};
     lightingGlobalsInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
-    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuLightingGlobals ) ) * aFrameIndex;
-    lightingGlobalsInfo.range  = sizeof( GpuLightingGlobals );
+    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * aFrameIndex;
+    lightingGlobalsInfo.range  = sizeof( Gpu_LightingGlobals );
 
     VkDescriptorImageInfo softOutInfo{};
     softOutInfo.imageView   = state.mySoftPing.ImageView();

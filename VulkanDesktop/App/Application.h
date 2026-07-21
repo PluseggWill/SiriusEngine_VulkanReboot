@@ -32,7 +32,7 @@ private:
     Gfx_SceneDesc              mySceneDesc;
     std::string                myLastLoadedScenePath;
     InputSystem                myInput;
-    Pf_PlatformHost*              myPlatformHost            = nullptr;
+    Pf_PlatformHost*           myPlatformHost            = nullptr;
     Vk_Renderer*               myRenderer                = nullptr;  // owned for app lifetime; set in Run()
     bool                       myRenderDocCaptureKeyDown = false;
     bool                       myRestartKeyDown          = false;

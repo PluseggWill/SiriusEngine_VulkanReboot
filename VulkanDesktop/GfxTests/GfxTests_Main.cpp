@@ -328,9 +328,9 @@ void TestSunElevationShadowGate() {
     Expect( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( false, overheadSun ), "shadows disabled skips compare" );
 
     Gfx_LightingSettings settings{};
-    settings.myShadowsEnabled        = true;
-    settings.myIblEnabled            = true;
-    const GpuLightingGlobals globals = Gfx_BuildLightingGlobals( settings, glm::mat4( 1.0f ), 0.0f, belowSun, 2048u );
+    settings.myShadowsEnabled         = true;
+    settings.myIblEnabled             = true;
+    const Gpu_LightingGlobals globals = Gfx_BuildLightingGlobals( settings, glm::mat4( 1.0f ), 0.0f, belowSun, 2048u );
     Expect( globals.myShadowParams.z == 0.0f, "below-horizon sun clears shadow compare flag" );
     Expect( globals.myShadowParams.w > 0.0f, "shadow PCF texel stride uploaded" );
 }
@@ -514,7 +514,7 @@ void TestClusterGridCount() {
     Expect( tilesW == 120, "cluster tilesX for 1920px @16" );
     Expect( tilesH == 68, "cluster tilesY for 1080px @16" );
     Expect( Gfx_ClusterLighting::ClusterCount( 1920, 1080 ) == tilesW * tilesH * Gfx_ClusterLighting::kDepthSlices, "cluster count = tilesX * tilesY * depthSlices" );
-    Expect( sizeof( Gfx_ClusterLighting::GpuClusterLightList ) == sizeof( uint32_t ) * ( 1 + Gfx_ClusterLighting::kMaxLightsPerCluster ), "GpuClusterLightList std430 size" );
+    Expect( sizeof( Gpu_ClusterLightList ) == sizeof( uint32_t ) * ( 1 + Gfx_ClusterLighting::kMaxLightsPerCluster ), "Gpu_ClusterLightList std430 size" );
 }
 
 void TestSliceSceneAssets( const std::filesystem::path& aRepoRoot ) {
@@ -635,7 +635,7 @@ int main() {
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 
-    // GpuMaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.
+    // Gpu_MaterialTableEntry std430 layout: static_assert in Vk_Types.h (VulkanDesktop build). Shader: VK_MAX_BINDLESS_TEXTURES.
     Expect( VkDescriptorPolicy::kMaxBindlessTextures == 64, "kMaxBindlessTextures must match TriangleFrag_Lit_Bindless.frag VK_MAX_BINDLESS_TEXTURES" );
 
     if ( gFailures > 0 ) {

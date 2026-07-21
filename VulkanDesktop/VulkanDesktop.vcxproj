@@ -363,11 +363,13 @@
     <ClInclude Include="RenderCore\Vk_TemporalState.h" />
     <ClInclude Include="RenderCore\Vk_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_AoMethod.h" />
-    <ClInclude Include="RenderContract\GpuAoMethod.h" />
-    <ClInclude Include="RenderContract\GpuAoSettings.h" />
-    <ClInclude Include="RenderContract\GpuEnvironmentData.h" />
-    <ClInclude Include="RenderContract\GpuLightingGlobals.h" />
-    <ClInclude Include="RenderContract\GpuPostSettings.h" />
+    <ClInclude Include="RenderContract\Gpu_AoMethod.h" />
+    <ClInclude Include="RenderContract\Gpu_AoSettings.h" />
+    <ClInclude Include="RenderContract\Gpu_ClusterLight.h" />
+    <ClInclude Include="RenderContract\Gpu_EnvironmentData.h" />
+    <ClInclude Include="RenderContract\Gpu_LightingGlobals.h" />
+    <ClInclude Include="RenderContract\Gpu_MaterialParams.h" />
+    <ClInclude Include="RenderContract\Gpu_PostSettings.h" />
     <ClInclude Include="RenderCore\Vk_DeferredLightingPass.h" />
     <ClInclude Include="RenderCore\Vk_ShadowMapPass.h" />
     <ClInclude Include="RenderCore\Vk_IblResources.h" />
@@ -389,8 +391,8 @@
     <ClInclude Include="Platform\Pf_GlfwPlatformHost.h" />
     <ClInclude Include="Gfx\Gfx_ActiveRenderView.h" />
     <ClInclude Include="Gfx\Gfx_ShaderPermutationTypes.h" />
-    <ClInclude Include="RenderContract\GpuCameraData.h" />
-    <ClInclude Include="RenderContract\GpuObjectData.h" />
+    <ClInclude Include="RenderContract\Gpu_CameraData.h" />
+    <ClInclude Include="RenderContract\Gpu_ObjectData.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\LaunchVulkanDesktop.cmd" />

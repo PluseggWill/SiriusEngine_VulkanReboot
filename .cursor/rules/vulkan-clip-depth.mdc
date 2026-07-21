@@ -24,7 +24,7 @@ alwaysApply: false
 
 ## Known dual convention (temporary)
 
-- **Main camera** (`Vk_Camera`) may still use default GLM `perspective` (OpenGL Z) + Y flip only — do **not** copy that into the shadow path.
+- **Main camera** (`Gfx_RenderCamera`) may still use default GLM `perspective` (OpenGL Z) + Y flip only — do **not** copy that into the shadow path.
 - Reconstruct-from-depth helpers that stuff raw depth into clip Z are camera-convention-sensitive; fix in a dedicated ZO camera migration, not by reintroducing OpenGL Z remap on shadows.
 
 ## Tests

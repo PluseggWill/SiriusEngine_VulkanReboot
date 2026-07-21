@@ -97,7 +97,7 @@ int Application::Run( int argc, char** argv ) {
         InitApp( argc, argv );
         LoadAndVerifyScene();
 
-        Vk_Renderer&     rendererRef = *myRenderer;
+        Vk_Renderer&        rendererRef = *myRenderer;
         Pf_GlfwPlatformHost platformHost;
         myPlatformHost = &platformHost;
         rendererRef.BindPlatformHost( myPlatformHost );
@@ -168,12 +168,12 @@ void Application::LoadAndVerifyScene() {
 }
 
 void Application::RunMainLoop() {
-    Vk_Renderer&  renderer        = *myRenderer;
+    Vk_Renderer&     renderer        = *myRenderer;
     Pf_PlatformHost& platformHost    = *myPlatformHost;
-    const int     smokeFrameLimit = myConfig.GetSmokeFrameLimit();
-    const double  smokeSeconds    = myConfig.GetSmokeSeconds();
-    int           renderedFrames  = 0;
-    const auto    smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    const int        smokeFrameLimit = myConfig.GetSmokeFrameLimit();
+    const double     smokeSeconds    = myConfig.GetSmokeSeconds();
+    int              renderedFrames  = 0;
+    const auto       smokeStart      = ( smokeFrameLimit > 0 || smokeSeconds > 0.0 ) ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
     if ( smokeSeconds > 0.0 ) {
         UtilLogger::Info( "APP", "Smoke dwell: " + std::to_string( smokeSeconds ) + "s after scene load (main loop)." );
     }
@@ -193,8 +193,8 @@ void Application::RunMainLoop() {
         Gfx_TickObjectiveRuntime( myWorld.myLoadedScene.myObjective, renderer.GetFlyCamera().GetEye(), frameSeconds, myDebugUI.myObjectiveRuntime );
 
         uint32_t viewCount = 0;
-        auto gfxViews = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera() );
-        auto views    = Vk_ResolveActiveRenderViews( gfxViews, viewCount, renderer.GetSwapChainExtent() );
+        auto     gfxViews  = BuildActiveRenderViews( viewCount, myWorld, myDebugUI, renderer.GetFlyCamera() );
+        auto     views     = Vk_ResolveActiveRenderViews( gfxViews, viewCount, renderer.GetSwapChainExtent() );
         Vk_Temporal::PrepareViews( renderer, views, viewCount );
         Gfx_FramePrepInput          prepInput = BuildFramePrepInput( myWorld );
         const Gfx_FrameDebugToggles toggles   = Gfx_FrameDebugTogglesFromRenderDebug( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass,

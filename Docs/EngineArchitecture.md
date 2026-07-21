@@ -63,14 +63,17 @@ flowchart TB
 | Folder | Must not |
 |--------|----------|
 | **Gfx/** | `#include` Vulkan headers; call `vk*` |
-| **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path |
-| **App/** | Create pipelines or descriptor layouts |
+| **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path; `#include` concrete `App/*` |
+| **App/** | Create pipelines or descriptor layouts; compose Vulkan viewport/scissor primitives for views |
 | **Platform/** | Own renderer passes, scene state, or draw-prep policy |
+| **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, or `Util/` |
 | **Util/** | Own per-frame draw ordering (only config/load/UI helpers) |
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
 **Platform boundary (locked):** `Pf_PlatformHost` is the only bridge for window/surface/frame timing callbacks. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete `Pf_GlfwPlatformHost` implementation.
+
+**RenderContract boundary (locked):** `RenderContract/Gpu_*.h` holds plain GPU structs and pure packing helpers only. Decision logic that needs Gfx math (e.g. directional shadow compare) lives in `Gfx_*` wrappers. Fly camera logic lives in `Gfx_RenderCamera`; Vulkan viewport/scissor resolution lives in RenderCore (`Vk_ResolveActiveRenderViews`).
 
 ### Frame / naming glossary (RenderCore)
 
@@ -89,7 +92,7 @@ flowchart TB
 |-------|--------|
 | **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
 | **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles + aliases `Gfx_Mesh` etc.) |
-| **Gpu*** UBO structs | `RenderContract/Gpu*.h` (shader contract; included by RenderCore via `Vk_Types.h`) |
+| **Gpu_*** UBO / SSBO structs | `RenderContract/Gpu_*.h` (shader contract; camera/env/lighting/material/cluster; included by RenderCore via `Vk_Types.h`) |
 
 
 ---
@@ -291,14 +294,14 @@ flowchart LR
 
 | Set | Update frequency | Type |
 |-----|------------------|------|
-| **0** | Per frame / view | `UNIFORM_BUFFER` (camera, env, **`GpuLightingGlobals`**) + **`COMBINED_IMAGE_SAMPLER`** (shadow compare, irradiance/prefilter/sky cubemaps, BRDF LUT) — bindings 0–7 per `Vk_Enum.h` / `DescriptorContract_LitBatch.json` |
+| **0** | Per frame / view | `UNIFORM_BUFFER` (camera, env, **`Gpu_LightingGlobals`**) + **`COMBINED_IMAGE_SAMPLER`** (shadow compare, irradiance/prefilter/sky cubemaps, BRDF LUT) — bindings 0–7 per `Vk_Enum.h` / `DescriptorContract_LitBatch.json` |
 | **1** | Per material batch **or** one bindless set | `COMBINED_IMAGE_SAMPLER` / indexing |
 | **2** | Per draw via **`dynamicOffset`** into instance slab | `UNIFORM_BUFFER_DYNAMIC` |
 
 **Hard rules:**
 
-- Never patch a **shared** frame UBO between draws (e.g. do not reuse `GpuCameraData.model` per draw).
-- **S5 (2026-06-12):** lighting resources live on Set 0 (no new shader permutations). Runtime **shadow / IBL / intensity** toggles via **`GpuLightingGlobals`** UBO + config / ImGui — not `#ifdef` branches. Deferred resolve uses a **separate Set 0 layout** (G-buffer + cluster SSBOs + same lighting bindings 5–10). Directional shadow: single **2048²** reverse-Z depth map, **Vulkan ZO clip Z `[0,1]`** (`Gfx_MakeVulkanOrthoReverseZ`); compare depth = clip Z (no OpenGL `*0.5+0.5`); PCF in `PbrShadow.glsl` / `ClipDepth.glsl`. See `.cursor/rules/vulkan-clip-depth.mdc`.
+- Never patch a **shared** frame UBO between draws (e.g. do not reuse `Gpu_CameraData.model` per draw).
+- **S5 (2026-06-12):** lighting resources live on Set 0 (no new shader permutations). Runtime **shadow / IBL / intensity** toggles via **`Gpu_LightingGlobals`** UBO + config / ImGui — not `#ifdef` branches. Deferred resolve uses a **separate Set 0 layout** (G-buffer + cluster SSBOs + same lighting bindings 5–10). Directional shadow: single **2048²** reverse-Z depth map, **Vulkan ZO clip Z `[0,1]`** (`Gfx_MakeVulkanOrthoReverseZ`); compare depth = clip Z (no OpenGL `*0.5+0.5`); PCF in `PbrShadow.glsl` / `ClipDepth.glsl`. See `.cursor/rules/vulkan-clip-depth.mdc`.
 - Per-draw `mat4` → Set 2 dynamic slice or push constants (policy allows both; demo uses Set 2).
 - Material count / texture set changes → full scene GPU reload today (see `Vk_DescriptorPolicy.h`).
 

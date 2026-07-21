@@ -289,8 +289,8 @@ std::filesystem::path DefaultPath( const std::filesystem::path& aAssetRoot ) {
 }
 
 Snapshot Capture( Vk_Renderer& aRenderer, const Util_CameraSettings& aCamera, const ViewportToggles& aViewport ) {
-    const GpuEnvironmentData& env = aRenderer.GetEnvironmentData();
-    Snapshot                  snap{};
+    const Gpu_EnvironmentData& env = aRenderer.GetEnvironmentData();
+    Snapshot                   snap{};
     snap.myAmbientColor      = env.myAmbientColor;
     snap.mySunlightColor     = env.mySunlightColor;
     snap.mySunlightDirection = env.mySunlightDirection;
@@ -303,12 +303,12 @@ Snapshot Capture( Vk_Renderer& aRenderer, const Util_CameraSettings& aCamera, co
 }
 
 void Apply( const Snapshot& aSnapshot, Vk_Renderer& aRenderer, Util_CameraSettings& aCamera, ViewportToggles& aViewport ) {
-    GpuEnvironmentData& env             = aRenderer.GetEnvironmentData();
-    const float         debugViewPacked = env.myFogDistance.w;  // session-only; owned by Render debug tab
-    env.myAmbientColor                  = aSnapshot.myAmbientColor;
-    env.mySunlightColor                 = aSnapshot.mySunlightColor;
-    env.mySunlightDirection             = aSnapshot.mySunlightDirection;
-    env.myFogDistance.w                 = debugViewPacked;
+    Gpu_EnvironmentData& env             = aRenderer.GetEnvironmentData();
+    const float          debugViewPacked = env.myFogDistance.w;  // session-only; owned by Render debug tab
+    env.myAmbientColor                   = aSnapshot.myAmbientColor;
+    env.mySunlightColor                  = aSnapshot.mySunlightColor;
+    env.mySunlightDirection              = aSnapshot.mySunlightDirection;
+    env.myFogDistance.w                  = debugViewPacked;
 
     aRenderer.GetLightingSettings() = aSnapshot.myLighting;
     aRenderer.GetAoSettings()       = aSnapshot.myAo;

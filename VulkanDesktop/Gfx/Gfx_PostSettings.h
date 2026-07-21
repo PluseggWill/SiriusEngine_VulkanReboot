@@ -1,5 +1,5 @@
 #pragma once
 
-#include "../RenderContract/GpuPostSettings.h"
+#include "../RenderContract/Gpu_PostSettings.h"
 
-using Gfx_PostSettings = GpuPostSettings;
+using Gfx_PostSettings = Gpu_PostSettings;

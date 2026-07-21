@@ -46,8 +46,8 @@ struct Vk_MaterialResource {
     bool             myIsTransparent = false;
 };
 
-inline GpuMaterialParams Vk_MaterialResourceToGpuParams( const Vk_MaterialResource& aMaterial ) {
-    GpuMaterialParams params{};
+inline Gpu_MaterialParams Vk_MaterialResourceToGpuParams( const Vk_MaterialResource& aMaterial ) {
+    Gpu_MaterialParams params{};
     params.myBaseColorFactor = aMaterial.myBaseColorFactor;
     params.myRoughness       = aMaterial.myRoughness;
     params.myMetallic        = aMaterial.myMetallic;
@@ -83,6 +83,6 @@ using Gfx_Material     = Vk_MaterialResource;
 using Gfx_Mesh         = Vk_MeshResource;
 using Gfx_RenderObject = Vk_RenderObject;
 
-inline GpuMaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
+inline Gpu_MaterialParams Gfx_MaterialToGpuParams( const Gfx_Material& aMaterial ) {
     return Vk_MaterialResourceToGpuParams( aMaterial );
 }

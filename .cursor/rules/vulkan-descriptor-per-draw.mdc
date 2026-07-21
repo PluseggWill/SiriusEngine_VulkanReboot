@@ -10,7 +10,7 @@ Locked policy: `Docs/EngineArchitecture.md` §6, `VulkanDesktop/RenderCore/Vk_De
 
 ## Per-draw `mat4` model (and similar)
 
-- **Do not** patch a **shared** per-frame `UNIFORM_BUFFER` (e.g. `GpuCameraData.model`) between multiple `vkCmdDraw*` calls that reuse the **same** bound descriptor set. Later draws may all see the **last** CPU write.
+- **Do not** patch a **shared** per-frame `UNIFORM_BUFFER` (e.g. `Gpu_CameraData.model`) between multiple `vkCmdDraw*` calls that reuse the **same** bound descriptor set. Later draws may all see the **last** CPU write.
 - **Do** use one of:
   - **`UNIFORM_BUFFER_DYNAMIC`** — one slab, distinct `dynamicOffset` per draw (Set 2; **demo path** in `TriangleVertex.vert`).
   - **Push constants** — `mat4` model still valid per policy for other pipelines.
@@ -28,4 +28,4 @@ Locked policy: `Docs/EngineArchitecture.md` §6, `VulkanDesktop/RenderCore/Vk_De
 
 ## Shader / C++ contract
 
-- Changing UBO layout or push ranges requires **same change set**: `GpuCameraData`, `TriangleVertex.vert`, `CreateGfxPipeline` layout, SPIR-V rebuild; update `EngineArchitecture.md` §6 **only if policy narrative changes** (`docs-roadmap-arch-sync.mdc`); always update `Archived-Plan.md` § S1 notes when desktop path changes.
+- Changing UBO layout or push ranges requires **same change set**: `Gpu_CameraData`, `TriangleVertex.vert`, `CreateGfxPipeline` layout, SPIR-V rebuild; update `EngineArchitecture.md` §6 **only if policy narrative changes** (`docs-roadmap-arch-sync.mdc`); always update `Archived-Plan.md` § S1 notes when desktop path changes.

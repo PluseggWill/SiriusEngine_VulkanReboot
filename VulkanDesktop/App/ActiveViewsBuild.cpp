@@ -1,7 +1,7 @@
 #include "ActiveViewsBuild.h"
 
-#include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_RenderCamera.h"
+#include "../Gfx/Gfx_SceneDesc.h"
 #include "DebugUIState.h"
 #include "WorldState.h"
 #include <algorithm>
@@ -70,7 +70,7 @@ std::array< Gfx_ActiveRenderView, kGfxMaxRenderViews > BuildActiveRenderViews( u
         views[ 1 ].myView.myViewport         = viewportNorm;
         views[ 1 ].myView.myLayerMask        = sceneCamera.myLayerMask;
 
-        const float viewportAspect = viewportNorm.w > 0.0f ? ( viewportNorm.z / viewportNorm.w ) * aFlyCamera.myAspect : aFlyCamera.myAspect;
+        const float      viewportAspect = viewportNorm.w > 0.0f ? ( viewportNorm.z / viewportNorm.w ) * aFlyCamera.myAspect : aFlyCamera.myAspect;
         Gfx_RenderCamera secondaryCamera;
         secondaryCamera.SetLens( sceneCamera.myFovYDeg, aFlyCamera.myNear, aFlyCamera.myFar, viewportAspect );
         secondaryCamera.LookAt( sceneCamera.myEye, sceneCamera.myCenter, sceneCamera.myUp );

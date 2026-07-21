@@ -49,7 +49,7 @@ void DestroyClusterListBuffers( Vk_Renderer& aCore, bool aClearDescriptorSets ) 
     state.myClusterCount = 0;
 }
 
-void WriteSunLightFromEnvironment( Gfx_ClusterLighting::GpuClusterLight& aOut, const GpuEnvironmentData& aEnv ) {
+void WriteSunLightFromEnvironment( Gpu_ClusterLight& aOut, const Gpu_EnvironmentData& aEnv ) {
     const glm::vec3 sunDir = glm::normalize( glm::vec3( aEnv.mySunlightDirection ) );
     const glm::vec3 sunCol = glm::vec3( aEnv.mySunlightColor ) * aEnv.mySunlightColor.w;
     std::memcpy( aOut.direction, glm::value_ptr( glm::vec4( sunDir, 0.0f ) ), sizeof( float ) * 4 );
@@ -62,7 +62,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     VkDescriptorBufferInfo lightsInfo{};
     lightsInfo.buffer = state.myLightsBuffer.myBuffer;
     lightsInfo.offset = 0;
-    lightsInfo.range  = sizeof( Gfx_ClusterLighting::GpuClusterLight ) * Gfx_ClusterLighting::kMaxLights;
+    lightsInfo.range  = sizeof( Gpu_ClusterLight ) * Gfx_ClusterLighting::kMaxLights;
 
     VkDescriptorBufferInfo listsInfo{};
     listsInfo.buffer = state.myClusterListBuffers[ aFrameIndex ].myBuffer;
@@ -83,7 +83,7 @@ void AllocateClusterListBuffers( Vk_Renderer& aCore, bool aAllocateDescriptors )
     const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
     state.myClusterCount  = Gfx_ClusterLighting::ClusterCount( width, height );
 
-    const VkDeviceSize listBytes = static_cast< VkDeviceSize >( state.myClusterCount ) * sizeof( Gfx_ClusterLighting::GpuClusterLightList );
+    const VkDeviceSize listBytes = static_cast< VkDeviceSize >( state.myClusterCount ) * sizeof( Gpu_ClusterLightList );
 
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.CreateBuffer( listBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY, state.myClusterListBuffers[ i ], false );
@@ -183,7 +183,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
         }
     } );
 
-    const VkDeviceSize lightsBytes = sizeof( Gfx_ClusterLighting::GpuClusterLight ) * Gfx_ClusterLighting::kMaxLights;
+    const VkDeviceSize lightsBytes = sizeof( Gpu_ClusterLight ) * Gfx_ClusterLighting::kMaxLights;
     aCore.CreateBuffer( lightsBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, state.myLightsBuffer, true );
     vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, state.myLightsBuffer.myAllocation, &state.myLightsMapped );
 
@@ -248,7 +248,7 @@ void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
 
     // Slice 2: single directional sun (slice 3 DeferredLighting reads the same lights SSBO).
     if ( state.myLightsMapped != nullptr ) {
-        auto* lights = static_cast< Gfx_ClusterLighting::GpuClusterLight* >( state.myLightsMapped );
+        auto* lights = static_cast< Gpu_ClusterLight* >( state.myLightsMapped );
         WriteSunLightFromEnvironment( lights[ 0 ], aCore.myEnvironmentData );
     }
 

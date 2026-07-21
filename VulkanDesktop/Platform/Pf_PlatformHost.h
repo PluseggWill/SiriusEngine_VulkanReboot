@@ -13,13 +13,13 @@ public:
     virtual ~Pf_PlatformHost() = default;
 
     virtual void InitWindow( uint32_t aWidth, uint32_t aHeight, Vk_Renderer& aRenderer ) = 0;
-    virtual void ShutdownWindow()                                                         = 0;
+    virtual void ShutdownWindow()                                                        = 0;
 
     virtual bool ShouldClose() const = 0;
     virtual void RequestClose()      = 0;
 
     virtual void BeginFrame( Vk_Renderer& aRenderer, float& aOutDeltaSeconds ) = 0;
-    virtual void BeginImGuiFrame( Vk_Renderer& aRenderer )                      = 0;
+    virtual void BeginImGuiFrame( Vk_Renderer& aRenderer )                     = 0;
 
     virtual void CreateSurface( Vk_RhiDevice& aRhiDevice )   = 0;
     virtual void RecreateSurface( Vk_RhiDevice& aRhiDevice ) = 0;

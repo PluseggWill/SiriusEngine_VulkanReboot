@@ -41,7 +41,7 @@ inline VkRect2D Vk_ToScissor( const VkExtent2D& aExtent, const VkViewport& aView
 inline std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > Vk_ResolveActiveRenderViews( const std::array< Gfx_ActiveRenderView, kGfxMaxRenderViews >& aViews,
                                                                                           uint32_t aViewCount, VkExtent2D aExtent ) {
     std::array< Vk_ActiveRenderView, kGfxMaxRenderViews > outViews{};
-    const uint32_t activeViewCount = std::min( aViewCount, kGfxMaxRenderViews );
+    const uint32_t                                        activeViewCount = std::min( aViewCount, kGfxMaxRenderViews );
     for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
         outViews[ viewIndex ].myView       = aViews[ viewIndex ].myView;
         outViews[ viewIndex ].myCameraView = aViews[ viewIndex ].myCameraView;

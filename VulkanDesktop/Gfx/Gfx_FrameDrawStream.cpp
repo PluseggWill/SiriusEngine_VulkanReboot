@@ -59,9 +59,10 @@ void Gfx_BuildFrameDrawStream( const Gfx_FrameDrawStreamParams& aParams, Gfx_Fra
 
     if ( !aLogs.myExtractLoggedOnce ) {
         UtilLogger::Debug( "EXTRACT", "entities=" + std::to_string( aParams.myScene->GetActiveCount() ) + " draws=" + std::to_string( aOut.myDrawCountBeforeCull ) );
+        // Info once: G0-smoke GpuCull profile asserts "(gpu-deferred)" at stress logLevel=info.
         const char* cullMode = aParams.myGpuCullEnabled ? "gpu-deferred" : "frustum+layer";
-        UtilLogger::Debug( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
-                                       + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (" + cullMode + ")" );
+        UtilLogger::Info( "CULL", "opaque=" + std::to_string( aOut.myExtract.myOpaque.myDrawInstances.size() )
+                                      + " transparent=" + std::to_string( aOut.myExtract.myTransparent.myDrawInstances.size() ) + " (" + cullMode + ")" );
         aLogs.myExtractLoggedOnce = true;
     }
 }

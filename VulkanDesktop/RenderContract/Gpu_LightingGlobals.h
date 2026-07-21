@@ -6,15 +6,15 @@
 
 // std140 UBO — Set 0 binding eVk_LightingGlobalsBinding.
 // myShadowParams: x = SSR enabled (0/1), y = specular occlusion enabled (0/1), z = shadow compare, w = 1/shadowMapSize.
-struct GpuLightingGlobals {
+struct Gpu_LightingGlobals {
     alignas( 16 ) glm::mat4 myLightViewProj{};
     alignas( 16 ) glm::vec4 myShadowParams{ 0.0f, 0.0f, 1.0f, 0.0f };
     alignas( 16 ) glm::vec4 myIblParams{ 1.0f, 1.0f, 0.0f, 0.0f };
 };
 
-static_assert( sizeof( GpuLightingGlobals ) == 96, "GpuLightingGlobals must be std140-compatible (96 bytes)" );
+static_assert( sizeof( Gpu_LightingGlobals ) == 96, "Gpu_LightingGlobals must be std140-compatible (96 bytes)" );
 
-struct GpuLightingSettings {
+struct Gpu_LightingSettings {
     bool      myShadowsEnabled              = true;
     bool      myIblEnabled                  = true;
     float     myIblIntensity                = 1.35f;
@@ -48,9 +48,9 @@ struct GpuLightingSettings {
 };
 
 // Contract helper: caller provides shadow-compare decision to keep RenderContract independent from higher-level lighting math.
-inline GpuLightingGlobals Gpu_BuildLightingGlobals( const GpuLightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,
+inline Gpu_LightingGlobals Gpu_BuildLightingGlobals( const Gpu_LightingSettings& aSettings, const glm::mat4& aLightViewProj, float aPrefilterMaxMipLevel,
                                                      bool aEnableShadowCompare, uint32_t aShadowMapSize ) {
-    GpuLightingGlobals globals{};
+    Gpu_LightingGlobals globals{};
     globals.myLightViewProj  = aLightViewProj;
     globals.myShadowParams.x = aSettings.mySsrEnabled ? 1.0f : 0.0f;
     globals.myShadowParams.y = aSettings.mySpecularOcclusionEnabled ? 1.0f : 0.0f;

@@ -34,5 +34,5 @@ alwaysApply: false
 
 ## Descriptor / UBO contract
 
-- Bindings must match `Vk_Enum.h`, `GpuCameraData` / `GpuEnvironmentData`, and `TriangleFrag_Lit.frag` / `TriangleVertex.vert`.
+- Bindings must match `Vk_Enum.h`, `Gpu_CameraData` / `Gpu_EnvironmentData`, and `TriangleFrag_Lit.frag` / `TriangleVertex.vert`.
 - When editing layouts, update C++, GLSL, `Shader/DescriptorContract_LitBatch.json` and/or `DescriptorContract_LitBindless.json`, and comments together (MSBuild fails on drift).

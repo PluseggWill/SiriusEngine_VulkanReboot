@@ -11,7 +11,7 @@
 //   Set 2 Object   - UNIFORM_BUFFER_DYNAMIC into a per-frame instance slab, and/or push constants (S1).
 //
 // Push constants: mat4 model (64 B) only for per-draw transform unless maxPushConstantsSize allows more.
-// Do not put full GpuCameraData (272 B) in push constants without a capability check (min is often 128 B).
+// Do not put full Gpu_CameraData (272 B) in push constants without a capability check (min is often 128 B).
 
 namespace VkDescriptorPolicy {
 

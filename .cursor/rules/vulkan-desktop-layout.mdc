@@ -6,14 +6,16 @@ alwaysApply: false
 
 # VulkanDesktop — 目录与命名
 
-## 模块划分（三类 + 入口）
+## 模块划分（+ 入口）
 
 | 模块 | 磁盘目录 | 职责 |
 |------|----------|------|
 | **App** | `VulkanDesktop/App/` | Application lifecycle, input, **WorldState (target)**, debug overlay |
 | **Util** | `VulkanDesktop/Util/` | 日志、加载、帧统计、ImGui/面板 |
-| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制、相机 |
-| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material），与 API 无关 |
+| **Platform** | `VulkanDesktop/Platform/` | `Pf_PlatformHost` + GLFW concrete host (window/surface/frame timing) |
+| **RenderContract** | `VulkanDesktop/RenderContract/` | `Gpu_*.h` UBO/shared structs only — no `App`/`Gfx`/`RenderCore`/`Util` includes |
+| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制 |
+| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material、fly camera），与 API 无关 |
 | **入口** | `VulkanDesktop/VulkanDesktop.cpp` | `main`，留在项目根 |
 
 着色器：源 `VulkanDesktop/Shader/`，生成物 `Shader_Generated/`（`.spv`）。VS 过滤器 **Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
@@ -28,6 +30,8 @@ alwaysApply: false
 VulkanDesktop.cpp
 App/           ← Application, InputSystem, WorldState (peel target)
 Util/          ← Util_* ；ThirdParty/imgui/
+Platform/      ← Pf_PlatformHost, Pf_GlfwPlatformHost
+RenderContract/← Gpu_*.h
 RenderCore/    ← Vk_*
 Gfx/
   Shader/              ← *.vert, *.frag, CompileShader*.bat
@@ -36,8 +40,8 @@ Gfx/
 
 ## 命名
 
-- 文件：`{Util|Vk|Gfx}_{Name}.h/.cpp`
-- 类型：与文件名一致（`Vk_Core`, `Gfx_Mesh`）；GPU UBO → `Gpu*`（不加模块前缀）；描述符成员 `eVk_*`
+- 文件：`{Util|Vk|Gfx|Pf}_{Name}.h/.cpp`；GPU UBO headers → `Gpu_*.h` under `RenderContract/`
+- 类型：与文件名一致（`Vk_Renderer`, `Gfx_Mesh`, `Pf_PlatformHost`, `Gpu_CameraData`）；描述符成员 `eVk_*`
 - Util 自由函数 → `UtilLogger::` 等；RenderCore 初始化辅助 → `VkInit::`
 - 成员 `my*`，参数 `a*`
 
@@ -45,8 +49,10 @@ Gfx/
 
 - **Util**：Logger、Loader、ImGui/面板、统计
 - **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载（例：Lighting / Post / Render Debug 分列）。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。
-- **Vk_**：设备、交换链、管线、录制、相机、RAII 缓冲
-- **Gfx_**：mesh/material/场景 SoA；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
+- **Pf_**：platform host seam（window/surface/timing）
+- **Vk_**：设备、交换链、管线、录制、RAII 缓冲
+- **Gfx_**：mesh/material/场景 SoA / `Gfx_RenderCamera`；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
+- **Gpu_***：shader contract structs in `RenderContract/` only
 
 ### Include
 
@@ -56,7 +62,7 @@ Gfx/
 
 ### 反例
 
-- 无前缀类型名；`Gfx_Camera` 放在 `Vk_Camera.h`；改 Vulkan 结构体字段名（保持 `pQueueFamilyIndices`）
+- 无前缀类型名；把 fly camera 放回 `RenderCore`；`Gpu*` 契约塞进 `Vk_*` 头；改 Vulkan 结构体字段名（保持 `pQueueFamilyIndices`）
 
 ## C++ / Vulkan 实现
 

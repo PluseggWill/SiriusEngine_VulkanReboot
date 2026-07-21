@@ -11,9 +11,9 @@ enum eDescriptorSet : uint32_t {
 
 // Set 0 (Frame) - TriangleVertex.vert set 0; TriangleFrag_Lit.frag env only (no albedo).
 enum eDescriptorBinding {
-    eVk_CameraBinding          = 0,  // VERTEX | GpuCameraData (view, proj)
-    eVk_EnvBinding             = 1,  // FRAGMENT | GpuEnvironmentData (myFogDistance: xyz lighting, w debug view)
-    eVk_LightingGlobalsBinding = 2,  // FRAGMENT | GpuLightingGlobals (shadow + IBL toggles)
+    eVk_CameraBinding          = 0,  // VERTEX | Gpu_CameraData (view, proj)
+    eVk_EnvBinding             = 1,  // FRAGMENT | Gpu_EnvironmentData (myFogDistance: xyz lighting, w debug view)
+    eVk_LightingGlobalsBinding = 2,  // FRAGMENT | Gpu_LightingGlobals (shadow + IBL toggles)
     eVk_ShadowMapBinding       = 3,  // FRAGMENT | sampler2DShadow depth compare
     eVk_IrradianceMapBinding   = 4,  // FRAGMENT | samplerCube irradiance
     eVk_PrefilterMapBinding    = 5,  // FRAGMENT | samplerCube prefiltered specular
@@ -26,16 +26,16 @@ enum eDescriptorBinding {
 // Set 1 (Material) - TriangleFrag_Lit.frag set 1; bound once per material batch.
 enum eVk_MaterialBinding : uint32_t {
     eVk_MaterialTextureBinding = 0,  // FRAGMENT | combined image sampler (albedo)
-    eVk_MaterialAlphaBinding   = 1,  // FRAGMENT | GpuMaterialParams (alpha)
+    eVk_MaterialAlphaBinding   = 1,  // FRAGMENT | Gpu_MaterialParams (alpha)
 };
 
 // Set 1 (Bindless) - TriangleFrag_Lit_Bindless.frag; one set per pass.
 enum eVk_BindlessMaterialBinding : uint32_t {
     eVk_BindlessTextureArrayBinding  = 0,  // FRAGMENT | sampler2D[]
-    eVk_BindlessMaterialTableBinding = 1,  // FRAGMENT | SSBO GpuMaterialTableEntry[]
+    eVk_BindlessMaterialTableBinding = 1,  // FRAGMENT | SSBO Gpu_MaterialTableEntry[]
 };
 
 // Set 2 (Object) - TriangleVertex.vert binding 0; UNIFORM_BUFFER_DYNAMIC + dynamicOffset per draw.
 enum eVk_ObjectBinding : uint32_t {
-    eVk_ObjectModelBinding = 0,  // VERTEX | GpuObjectData
+    eVk_ObjectModelBinding = 0,  // VERTEX | Gpu_ObjectData
 };

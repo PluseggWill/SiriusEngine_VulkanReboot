@@ -1,7 +1,7 @@
 #pragma once
 
 // Runtime post-process tuning (ImGui → Renderer session).
-struct GpuPostSettings {
+struct Gpu_PostSettings {
     float myExposure         = 1.2f;
     bool  myTaaEnabled       = false;
     float myTaaBlend         = 0.875f;  // history weight; lower = sharper / more responsive

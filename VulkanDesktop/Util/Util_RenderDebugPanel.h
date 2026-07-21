@@ -5,7 +5,7 @@
 #include "../Gfx/Gfx_MaterialTypes.h"
 #include "Util_EngineConfig.h"
 
-struct GpuEnvironmentData;
+struct Gpu_EnvironmentData;
 
 namespace UtilRenderDebugPanel {
 
@@ -19,6 +19,6 @@ struct State {
 };
 
 // Parent window/tab must already be open (no Begin/End here). Patches myFogDistance.w before UpdateEnvironment.
-void BuildContents( const Util_EngineConfig& aConfig, State& aState, GpuEnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws );
+void BuildContents( const Util_EngineConfig& aConfig, State& aState, Gpu_EnvironmentData& anEnvironment, uint32_t aVisibleOpaqueDraws, uint32_t aVisibleTransparentDraws );
 
 }  // namespace UtilRenderDebugPanel

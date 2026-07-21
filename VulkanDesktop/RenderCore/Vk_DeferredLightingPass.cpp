@@ -6,10 +6,10 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Gfx/Gfx_RenderCamera.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
-#include "../Gfx/Gfx_RenderCamera.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
@@ -127,7 +127,7 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     VkDescriptorBufferInfo lightsInfo{};
     lightsInfo.buffer = aCore.myClusterBuildState.myLightsBuffer.myBuffer;
     lightsInfo.offset = 0;
-    lightsInfo.range  = sizeof( Gfx_ClusterLighting::GpuClusterLight ) * Gfx_ClusterLighting::kMaxLights;
+    lightsInfo.range  = sizeof( Gpu_ClusterLight ) * Gfx_ClusterLighting::kMaxLights;
 
     VkDescriptorBufferInfo listsInfo{};
     listsInfo.buffer = aCore.myClusterBuildState.myClusterListBuffers[ aFrameIndex ].myBuffer;
@@ -141,8 +141,8 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
 
     VkDescriptorBufferInfo lightingGlobalsInfo{};
     lightingGlobalsInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
-    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuLightingGlobals ) ) * aFrameIndex;
-    lightingGlobalsInfo.range  = sizeof( GpuLightingGlobals );
+    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * aFrameIndex;
+    lightingGlobalsInfo.range  = sizeof( Gpu_LightingGlobals );
 
     VkDescriptorImageInfo shadowInfo{};
     shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
@@ -414,8 +414,9 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
     state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, state.myPipelineLayout, vertPath, fragPath );
 
+    // DDGI atlases are owned by DestroyDdgiAtlas (called from Destroy / RecreateForExtent), not this queue —
+    // capturing atlas handles here would double-free after resize and previously leaked the irradiance atlas.
     const VkDevice              device                  = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator          allocator               = aCore.myRhi.myDeviceCtx.myAllocator;
     const VkPipelineLayout      pipelineLayout          = state.myPipelineLayout;
     const VkDescriptorSetLayout setLayout               = state.mySetLayout;
     const VkDescriptorPool      descriptorPool          = state.myDescriptorPool;
@@ -424,46 +425,33 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const VkPipelineLayout      ddgiProbePipelineLayout = state.myDdgiProbeUpdatePipelineLayout;
     const VkDescriptorSetLayout ddgiProbeSetLayout      = state.myDdgiProbeSetLayout;
     const VkDescriptorPool      ddgiProbeDescriptorPool = state.myDdgiProbeDescriptorPool;
-    const VkImageView           ddgiProbeView           = state.myDdgiProbeIrradianceAtlas.ImageView();
-    const VkImage               ddgiProbeImage          = state.myDdgiProbeIrradianceAtlas.Image();
-    const VmaAllocation         ddgiProbeAlloc          = state.myDdgiProbeIrradianceAtlas.Allocation();
-    const VkImageView           ddgiVisibilityView      = state.myDdgiProbeVisibilityAtlas.ImageView();
-    const VkImage               ddgiVisibilityImage     = state.myDdgiProbeVisibilityAtlas.Image();
-    const VmaAllocation         ddgiVisibilityAlloc     = state.myDdgiProbeVisibilityAtlas.Allocation();
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, allocator, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipeline, ddgiProbePipelineLayout,
-                                                            ddgiProbeSetLayout, ddgiProbeDescriptorPool, ddgiProbeView, ddgiProbeImage, ddgiProbeAlloc, ddgiVisibilityView,
-                                                            ddgiVisibilityImage, ddgiVisibilityAlloc ]() {
-        if ( pipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
-        }
-        if ( setLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, setLayout, nullptr );
-        }
-        if ( descriptorPool != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-        }
-        if ( sampler != VK_NULL_HANDLE ) {
-            vkDestroySampler( device, sampler, nullptr );
-        }
-        if ( ddgiProbePipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, ddgiProbePipeline, nullptr );
-        }
-        if ( ddgiProbePipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, ddgiProbePipelineLayout, nullptr );
-        }
-        if ( ddgiProbeSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, ddgiProbeSetLayout, nullptr );
-        }
-        if ( ddgiProbeDescriptorPool != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorPool( device, ddgiProbeDescriptorPool, nullptr );
-        }
-        if ( ddgiVisibilityView != VK_NULL_HANDLE ) {
-            vkDestroyImageView( device, ddgiVisibilityView, nullptr );
-        }
-        if ( ddgiVisibilityImage != VK_NULL_HANDLE ) {
-            vmaDestroyImage( allocator, ddgiVisibilityImage, ddgiVisibilityAlloc );
-        }
-    } );
+    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
+        [ device, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipeline, ddgiProbePipelineLayout, ddgiProbeSetLayout, ddgiProbeDescriptorPool ]() {
+            if ( pipelineLayout != VK_NULL_HANDLE ) {
+                vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
+            }
+            if ( setLayout != VK_NULL_HANDLE ) {
+                vkDestroyDescriptorSetLayout( device, setLayout, nullptr );
+            }
+            if ( descriptorPool != VK_NULL_HANDLE ) {
+                vkDestroyDescriptorPool( device, descriptorPool, nullptr );
+            }
+            if ( sampler != VK_NULL_HANDLE ) {
+                vkDestroySampler( device, sampler, nullptr );
+            }
+            if ( ddgiProbePipeline != VK_NULL_HANDLE ) {
+                vkDestroyPipeline( device, ddgiProbePipeline, nullptr );
+            }
+            if ( ddgiProbePipelineLayout != VK_NULL_HANDLE ) {
+                vkDestroyPipelineLayout( device, ddgiProbePipelineLayout, nullptr );
+            }
+            if ( ddgiProbeSetLayout != VK_NULL_HANDLE ) {
+                vkDestroyDescriptorSetLayout( device, ddgiProbeSetLayout, nullptr );
+            }
+            if ( ddgiProbeDescriptorPool != VK_NULL_HANDLE ) {
+                vkDestroyDescriptorPool( device, ddgiProbeDescriptorPool, nullptr );
+            }
+        } );
 
     UtilLogger::Info( "PIPELINE", "DeferredLighting graphics pipeline created." );
 }
@@ -541,6 +529,7 @@ void Destroy( Vk_Renderer& aCore ) {
             vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
         }
     }
+    DestroyDdgiAtlas( aCore );
     aCore.myDeferredLightingState.myDescriptorSets                = {};
     aCore.myDeferredLightingState.myDdgiProbeDescriptorSets       = {};
     aCore.myDeferredLightingState.myPipeline                      = VK_NULL_HANDLE;

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../RenderContract/GpuAoMethod.h"
+#include "../RenderContract/Gpu_AoMethod.h"
 
-using Gfx_AoMethod = GpuAoMethod;
+using Gfx_AoMethod = Gpu_AoMethod;
 
 inline const char* Gfx_AoMethodLabel( Gfx_AoMethod aMethod ) {
-    return GpuAoMethodLabel( aMethod );
+    return Gpu_AoMethodLabel( aMethod );
 }
 
 inline bool Gfx_AoMethodUsesHalfResTarget( Gfx_AoMethod aMethod ) {
-    return GpuAoMethodUsesHalfResTarget( aMethod );
+    return Gpu_AoMethodUsesHalfResTarget( aMethod );
 }

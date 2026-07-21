@@ -3,7 +3,7 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_PostSettings.h"
-#include "../RenderContract/GpuEnvironmentData.h"
+#include "../RenderContract/Gpu_EnvironmentData.h"
 #include "Util_EngineConfig.h"
 #include "Util_InputSnapshot.h"
 

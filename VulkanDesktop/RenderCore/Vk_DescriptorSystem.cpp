@@ -141,7 +141,7 @@ void Vk_DescriptorSystem::LogLayoutContract( const Vk_Renderer& aCore ) {
                                    ? "set1=textureArray+materialSSBO (TriangleFrag_Lit_Bindless.frag)"
                                    : "set1=texSampler+MaterialData UBO per materialId (TriangleFrag_Lit.frag)";
     UtilLogger::Info( "DESCRIPTOR", std::string( "layout contract: path=" ) + materialPath + " sets=0,1,2 (frame,material,object) "
-                                        + "set0=camera+env+lighting+IBL+shadow (TriangleVertex/TriangleFrag_Lit) set2=GpuObjectData DYNAMIC (TriangleVertex) " + set1Summary
+                                        + "set0=camera+env+lighting+IBL+shadow (TriangleVertex/TriangleFrag_Lit) set2=Gpu_ObjectData DYNAMIC (TriangleVertex) " + set1Summary
                                         + " rebuild=LoadScene/UnloadScene; swapchain=RefreshMaterialPipelines only" );
 }
 
@@ -243,7 +243,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
         }
     }
 
-    std::vector< GpuMaterialTableEntry > tableEntries( materialCount );
+    std::vector< Gpu_MaterialTableEntry > tableEntries( materialCount );
     for ( size_t materialId = 0; materialId < materialCount; ++materialId ) {
         const uint32_t      textureId = aCore.mySceneGpuCtx.myResourceTables.GetTextureIdForMaterial( static_cast< uint32_t >( materialId ) );
         const Gfx_Material& material  = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
@@ -259,7 +259,7 @@ void Vk_DescriptorSystem::CreateBindlessDescriptorResources( Vk_Renderer& aCore 
         tableEntries[ materialId ].myBaseColorFactor = material.myBaseColorFactor;
     }
 
-    const VkDeviceSize tableSize = sizeof( GpuMaterialTableEntry ) * materialCount;
+    const VkDeviceSize tableSize = sizeof( Gpu_MaterialTableEntry ) * materialCount;
     aCore.CreateBuffer( tableSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, aCore.mySceneGpuCtx.myMaterialTableBuffer, true );
     void* mapped = nullptr;
     vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, aCore.mySceneGpuCtx.myMaterialTableBuffer.myAllocation, &mapped );
@@ -420,13 +420,13 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) {
         VkDescriptorBufferInfo envBufferInfo{};
         envBufferInfo.buffer = aCore.myEnvDataBuffer.myBuffer;
-        envBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuEnvironmentData ) ) * i;
-        envBufferInfo.range  = sizeof( GpuEnvironmentData );
+        envBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_EnvironmentData ) ) * i;
+        envBufferInfo.range  = sizeof( Gpu_EnvironmentData );
 
         VkDescriptorBufferInfo lightingBufferInfo{};
         lightingBufferInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
-        lightingBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuLightingGlobals ) ) * i;
-        lightingBufferInfo.range  = sizeof( GpuLightingGlobals );
+        lightingBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * i;
+        lightingBufferInfo.range  = sizeof( Gpu_LightingGlobals );
 
         for ( uint32_t viewIndex = 0; viewIndex < kGfxMaxRenderViews; ++viewIndex ) {
             VkDescriptorSetAllocateInfo allocInfo{};
@@ -441,8 +441,8 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
 
             VkDescriptorBufferInfo camBufferInfo{};
             camBufferInfo.buffer = aCore.myFrameCtx.myFrameDatas[ i ].myCameraBuffer.myBuffer;
-            camBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( GpuCameraData ) ) * viewIndex;
-            camBufferInfo.range  = sizeof( GpuCameraData );
+            camBufferInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_CameraData ) ) * viewIndex;
+            camBufferInfo.range  = sizeof( Gpu_CameraData );
 
             const VkDescriptorSet                                     globalSet        = aCore.myFrameCtx.myFrameDatas[ i ].myGlobalDescriptors[ viewIndex ];
             std::array< VkWriteDescriptorSet, eVk_FrameBindingCount > descriptorWrites = {
@@ -471,7 +471,7 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
         VkDescriptorBufferInfo objectBufferInfo{};
         objectBufferInfo.buffer          = aCore.myFrameCtx.myFrameDatas[ i ].myObjectBuffer.myBuffer;
         objectBufferInfo.offset          = 0;
-        objectBufferInfo.range           = sizeof( GpuObjectData );
+        objectBufferInfo.range           = sizeof( Gpu_ObjectData );
         VkWriteDescriptorSet objectWrite = VkInit::DescriptorSetWriteCreateInfo( aCore.myFrameCtx.myFrameDatas[ i ].myObjectDescriptor,
                                                                                  VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &objectBufferInfo, eVk_ObjectModelBinding, 1 );
         vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &objectWrite, 0, nullptr );
@@ -498,10 +498,10 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
         const Gfx_Texture&  texture     = aCore.mySceneGpuCtx.myResourceTables.GetTexture( textureId );
         const Gfx_Material& material    = aCore.mySceneGpuCtx.myResourceTables.GetMaterial( static_cast< uint32_t >( materialId ) );
         Vk_AllocatedBuffer& paramBuffer = aCore.mySceneGpuCtx.myMaterialParamBuffers[ materialId ];
-        aCore.CreateBuffer( sizeof( GpuMaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
+        aCore.CreateBuffer( sizeof( Gpu_MaterialParams ), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, paramBuffer, true );
 
-        const GpuMaterialParams params = Gfx_MaterialToGpuParams( material );
-        void*                   mapped = nullptr;
+        const Gpu_MaterialParams params = Gfx_MaterialToGpuParams( material );
+        void*                    mapped = nullptr;
         vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, paramBuffer.myAllocation, &mapped );
         memcpy( mapped, &params, sizeof( params ) );
         vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, paramBuffer.myAllocation );
@@ -518,7 +518,7 @@ void Vk_DescriptorSystem::CreateMaterialDescriptorSets( Vk_Renderer& aCore ) {
         VkDescriptorBufferInfo paramInfo{};
         paramInfo.buffer = paramBuffer.myBuffer;
         paramInfo.offset = 0;
-        paramInfo.range  = sizeof( GpuMaterialParams );
+        paramInfo.range  = sizeof( Gpu_MaterialParams );
         std::array< VkWriteDescriptorSet, 2 > writes{};
         writes[ 0 ] = VkInit::DescriptorSetWriteCreateInfo( aCore.mySceneGpuCtx.myMaterialDescriptorSets[ materialId ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &imageInfo,
                                                             eVk_MaterialTextureBinding, 1 );
