@@ -322,8 +322,7 @@ void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aC
     if ( layout == kReadLayout ) {
         return;
     }
-    const VkImageLayout oldLayout =
-        ( layout == VK_IMAGE_LAYOUT_UNDEFINED ) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : layout;
+    const VkImageLayout  oldLayout = ( layout == VK_IMAGE_LAYOUT_UNDEFINED ) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : layout;
     VkImageMemoryBarrier barrier =
         DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), oldLayout, kReadLayout, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
