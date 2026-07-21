@@ -196,6 +196,7 @@
     <ClCompile Include="App\InputSystem.cpp" />
     <ClCompile Include="App\WorldState.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
+    <ClCompile Include="Gfx\Gfx_AoPass.cpp" />
     <ClCompile Include="Gfx\Gfx_Bounds.cpp" />
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
     <ClCompile Include="Gfx\Gfx_ObjectiveRuntime.cpp" />
@@ -369,6 +370,7 @@
     <ClInclude Include="RenderCore\Vk_AllocatedResource.h" />
     <ClInclude Include="RenderCore\Vk_SceneResourceTypes.h" />
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
+    <ClInclude Include="Gfx\Gfx_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_AoSettings.h" />
     <ClInclude Include="Gfx\Gfx_PostSettings.h" />
     <ClInclude Include="Gfx\Gfx_TemporalJitter.h" />

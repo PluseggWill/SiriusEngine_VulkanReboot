@@ -50,6 +50,7 @@
 
 #include "Vk_PlatformContext.h"
 
+#include "../Rhi/Rhi_Handles.h"
 #include "Vk_RendererContexts.h"
 #include "Vk_ResourceContext.h"
 #include "Vk_RhiDevice.h"
@@ -283,6 +284,9 @@ public:
     Util_FrameStats myFrameStats;
 
     Vk_RhiDevice myRhi;
+
+    // Opaque Rhi view of myRhi for Gfx_*Pass record paths (non-owning wrap).
+    Rhi_Device myGfxRhiDevice;
 
     Vk_SwapchainContext mySwapchainCtx;
 

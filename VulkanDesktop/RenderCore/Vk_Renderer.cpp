@@ -10,6 +10,7 @@
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Platform/Pf_PlatformHost.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Util/Util_DebugMessenger.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
@@ -27,6 +28,7 @@
 #include "Vk_IblResources.h"
 #include "Vk_PipelineDiagnostics.h"
 #include "Vk_RenderDevice.h"
+#include "Vk_RhiBackend.h"
 #include "Vk_ScenePasses.h"
 #include "Vk_ShadowMapPass.h"
 #include "Vk_SwapchainHost.h"
@@ -142,6 +144,8 @@ void Vk_Renderer::Clear() {
     // Persist pipeline cache blob while device is still valid.
     Vk_DevicePipelineCache::Destroy( *this );
 
+    Rhi::DeviceDestroy( myGfxRhiDevice );
+
     vkDestroyDevice( myRhi.myDeviceCtx.myDevice, nullptr );
 
     vkDestroySurfaceKHR( myRhi.myDeviceCtx.myInstance, myRhi.myDeviceCtx.mySurface, nullptr );
@@ -164,6 +168,15 @@ void Vk_Renderer::InitRenderDevice() {
     }
     Vk_RenderDevice::Init( *this, *myPlatformHost );
     myPlatformCtx.myRenderDoc.BindVulkanHandles( myRhi.myDeviceCtx.myDevice );
+
+    myGfxRhiDevice = RhiVulkan::DeviceWrap( myRhi );
+    {
+        PFN_vkCmdBeginDebugUtilsLabelEXT beginLabel =
+            reinterpret_cast< PFN_vkCmdBeginDebugUtilsLabelEXT >( vkGetDeviceProcAddr( myRhi.myDeviceCtx.myDevice, "vkCmdBeginDebugUtilsLabelEXT" ) );
+        PFN_vkCmdEndDebugUtilsLabelEXT endLabel =
+            reinterpret_cast< PFN_vkCmdEndDebugUtilsLabelEXT >( vkGetDeviceProcAddr( myRhi.myDeviceCtx.myDevice, "vkCmdEndDebugUtilsLabelEXT" ) );
+        RhiVulkan::DeviceSetDebugUtils( myGfxRhiDevice, beginLabel, endLabel );
+    }
 
     Vk_SwapchainHost::Init( *this );
 

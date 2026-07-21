@@ -507,6 +507,25 @@ void CommandListDrawIndexed( Rhi_CommandList& aList, uint32_t aIndexCount, uint3
     vkCmdDrawIndexed( impl->myCmd, aIndexCount, aInstanceCount, aFirstIndex, aVertexOffset, aFirstInstance );
 }
 
+void CommandListCopyImage( Rhi_CommandList& aList, const ImageCopy& aCopy ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || !HasLogicalDevice( impl->myDevice ) ) {
+        return;
+    }
+    auto srcIt = impl->myDevice->myTextures.find( aCopy.mySrc.myId );
+    auto dstIt = impl->myDevice->myTextures.find( aCopy.myDst.myId );
+    if ( srcIt == impl->myDevice->myTextures.end() || dstIt == impl->myDevice->myTextures.end() ) {
+        return;
+    }
+    VkImageCopy region{};
+    region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.srcSubresource.layerCount = 1;
+    region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.dstSubresource.layerCount = 1;
+    region.extent                    = { aCopy.myWidth, aCopy.myHeight, 1 };
+    vkCmdCopyImage( impl->myCmd, srcIt->second.myAlloc.myImage, ToVkLayout( aCopy.mySrcLayout ), dstIt->second.myAlloc.myImage, ToVkLayout( aCopy.myDstLayout ), 1, &region );
+}
+
 Rhi_Buffer DeviceCreateBuffer( Rhi_Device& aDevice, const BufferDesc& aDesc ) {
     DeviceImpl* impl = AsDevice( aDevice );
     if ( !HasLogicalDevice( impl ) || aDesc.mySizeBytes == 0 || impl->myVk->myDeviceCtx.myAllocator == nullptr ) {

@@ -43,4 +43,15 @@ void CommandListDraw( Rhi_CommandList& aList, uint32_t aVertexCount, uint32_t aI
 
 void CommandListDrawIndexed( Rhi_CommandList& aList, uint32_t aIndexCount, uint32_t aInstanceCount, uint32_t aFirstIndex, int32_t aVertexOffset, uint32_t aFirstInstance );
 
+struct ImageCopy {
+    Rhi_Texture     mySrc{};
+    Rhi_Texture     myDst{};
+    Rhi_ImageLayout mySrcLayout = Rhi_ImageLayout::TransferSrc;
+    Rhi_ImageLayout myDstLayout = Rhi_ImageLayout::TransferDst;
+    uint32_t        myWidth     = 1;
+    uint32_t        myHeight    = 1;
+};
+
+void CommandListCopyImage( Rhi_CommandList& aList, const ImageCopy& aCopy );
+
 }  // namespace Rhi

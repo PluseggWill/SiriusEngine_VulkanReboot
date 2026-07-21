@@ -9,7 +9,15 @@
 
 Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular rendering passes without including Vulkan or `RenderCore`. RenderCore becomes the Vulkan backend that implements `Rhi_*`.
 
-This kickoff covers **E0 (policy)** + **E1 (minimal Rhi surface + backend + tests)** only. Pass migration (E2+) is follow-up on the same branch/epic.
+This kickoff covered **E0–E1b**. **E2 (AO Record via Gfx+Rhi)** landed on the same branch; Init still in RenderCore.
+
+## Steps (E2)
+
+| Step | Detail | Verify |
+|------|--------|--------|
+| E2.1 | `Gfx_AoPass::Record` owns AO compute orchestration via Rhi | Compile |
+| E2.2 | `Vk_AoPass_Record` thin facade + `DeviceWrap` on `Vk_Renderer` | Smoke + validation |
+| E2.3 | `CommandListCopyImage` for temporal history blit | G0-validation |
 
 ## Non-goals (this kickoff)
 
