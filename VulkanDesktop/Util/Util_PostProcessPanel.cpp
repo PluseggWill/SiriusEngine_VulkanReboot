@@ -1,18 +1,13 @@
 #include "Util_PostProcessPanel.h"
 
-#include "../Gfx/Gfx_PostSettings.h"
-#include "../Gfx/Gfx_RenderPreset.h"
-#include "../RenderCore/Vk_Renderer.h"
-#include "../RenderCore/Vk_Temporal.h"
-#include "Util_EngineConfig.h"
-
 #include <imgui.h>
 
 namespace UtilPostProcessPanel {
 
-void BuildContents( const Util_EngineConfig& aConfig, Gfx_PostSettings& aPostSettings, Vk_Renderer& aCore ) {
-    const bool hybridDeferred = Gfx_RenderPreset::IsHybridDeferred( aConfig.GetRenderPresetName() );
-    if ( !hybridDeferred ) {
+void BuildContents( bool aHybridDeferred, Gfx_PostSettings& aPostSettings, Actions& aOutActions ) {
+    aOutActions = {};
+
+    if ( !aHybridDeferred ) {
         ImGui::TextDisabled( "Post-process (tonemap / bloom) requires render preset HybridDeferred." );
         return;
     }
@@ -24,11 +19,11 @@ void BuildContents( const Util_EngineConfig& aConfig, Gfx_PostSettings& aPostSet
     const bool taaWasEnabled = aPostSettings.myTaaEnabled;
     if ( ImGui::Checkbox( "TAA enabled", &aPostSettings.myTaaEnabled ) ) {
         if ( aPostSettings.myTaaEnabled && !taaWasEnabled ) {
-            aCore.myPostProcessState.myTaaHistoryReady = false;
-            Vk_Temporal::RequestReset( aCore, Vk_TemporalResetFlag::Manual );
+            aOutActions.myClearTaaHistoryReady       = true;
+            aOutActions.myRequestTemporalManualReset = true;
         }
         else if ( !aPostSettings.myTaaEnabled && taaWasEnabled ) {
-            aCore.myPostProcessState.myTaaHistoryReady = false;
+            aOutActions.myClearTaaHistoryReady = true;
         }
     }
     if ( ImGui::IsItemHovered() ) {

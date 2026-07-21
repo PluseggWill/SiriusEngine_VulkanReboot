@@ -55,6 +55,12 @@
     <ClCompile Include="Util\Util_EngineConfig.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\Util_EngineConfigCli.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\Util_EngineConfigJson.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\Util_AssetManifest.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -271,6 +277,9 @@
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_PostProcessPassLayouts.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -284,6 +293,9 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_DeferredLightingPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp">
@@ -319,6 +331,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Util\Util_EngineConfig.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\Util_EngineConfigInternal.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\Util_AssetManifest.h">
@@ -492,6 +507,9 @@
     <ClInclude Include="Gfx\Gfx_MaterialTypes.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DebugView.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_MeshCpu.h">
       <Filter>Gfx</Filter>
     </ClInclude>
@@ -607,6 +625,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_PostProcessPass.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_PostProcessPassInternal.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_ShadowAoSoftPass.h">

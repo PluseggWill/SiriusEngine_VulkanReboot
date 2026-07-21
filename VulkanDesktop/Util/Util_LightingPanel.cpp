@@ -4,7 +4,7 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Gfx/Gfx_RenderCamera.h"
-#include "../RenderCore/Vk_Types.h"
+#include "../RenderContract/Gpu_EnvironmentData.h"
 #include "Util_Logger.h"
 
 #include <glm/glm.hpp>

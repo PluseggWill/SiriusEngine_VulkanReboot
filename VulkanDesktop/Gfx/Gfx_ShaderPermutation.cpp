@@ -1,8 +1,6 @@
 #include "Gfx_ShaderPermutation.h"
 
-#include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Logger.h"
-#include "../Util/Util_ResolvePath.h"
 
 #include <nlohmann/json.hpp>
 
@@ -51,15 +49,14 @@ uint16_t EncodeSortKeyPermSlot( uint16_t aShaderPermutationId, uint16_t aMateria
     return static_cast< uint16_t >( ( ( aShaderPermutationId & 0xFFu ) << 8 ) | ( aMaterialTableGeneration & 0xFFu ) );
 }
 
-void Initialize( const Util_EngineConfig& aConfig ) {
+void Initialize( const std::string& aResolvedRegistryPath ) {
     if ( gInitialized ) {
         return;
     }
 
-    const std::string resolvedPath = UtilResolvePath::Resolve( aConfig, kRegistryLogicalPath );
-    std::ifstream     file( resolvedPath );
+    std::ifstream file( aResolvedRegistryPath );
     if ( !file.is_open() ) {
-        throw std::runtime_error( "Gfx_ShaderPermutation: cannot open registry: " + resolvedPath );
+        throw std::runtime_error( "Gfx_ShaderPermutation: cannot open registry: " + aResolvedRegistryPath );
     }
 
     Json root;
@@ -67,11 +64,11 @@ void Initialize( const Util_EngineConfig& aConfig ) {
         file >> root;
     }
     catch ( const Json::exception& e ) {
-        throw std::runtime_error( std::string( "Gfx_ShaderPermutation: invalid JSON: " ) + resolvedPath + " - " + e.what() );
+        throw std::runtime_error( std::string( "Gfx_ShaderPermutation: invalid JSON: " ) + aResolvedRegistryPath + " - " + e.what() );
     }
 
     if ( !root.contains( "permutations" ) || !root[ "permutations" ].is_array() ) {
-        throw std::runtime_error( "Gfx_ShaderPermutation: missing permutations[] in " + resolvedPath );
+        throw std::runtime_error( "Gfx_ShaderPermutation: missing permutations[] in " + aResolvedRegistryPath );
     }
 
     gDefinitions.clear();
@@ -113,9 +110,10 @@ void Initialize( const Util_EngineConfig& aConfig ) {
     }
 
     gInitialized = true;
-    SetActiveByName( aConfig.GetShaderPermutationName() );
+    // Default active = first registry entry until App calls SetActiveByName.
+    gActiveId = gDefinitions.empty() ? 0u : gDefinitions.front().myId;
 
-    UtilLogger::Info( "SHADER-PERM", "registry loaded: " + std::to_string( gDefinitions.size() ) + " permutation(s) from " + kRegistryLogicalPath );
+    UtilLogger::Info( "SHADER-PERM", "registry loaded: " + std::to_string( gDefinitions.size() ) + " permutation(s) from " + aResolvedRegistryPath );
 }
 
 bool IsInitialized() {

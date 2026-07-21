@@ -110,6 +110,8 @@
     <ClCompile Include="Gfx\Gfx_RenderPreset.cpp" />
     <ClCompile Include="Gfx\Gfx_ShaderPermutation.cpp" />
     <ClCompile Include="Util\Util_EngineConfig.cpp" />
+    <ClCompile Include="Util\Util_EngineConfigCli.cpp" />
+    <ClCompile Include="Util\Util_EngineConfigJson.cpp" />
     <ClCompile Include="Util\Util_ResolvePath.cpp" />
     <ClCompile Include="Util\Util_Logger.cpp" />
     <ClCompile Include="Util\Util_ValidationLayers.cpp" />

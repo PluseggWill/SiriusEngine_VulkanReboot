@@ -1,6 +1,6 @@
 #include "Util_RenderDebugPanel.h"
 
-#include "../RenderCore/Vk_Types.h"
+#include "../RenderContract/Gpu_EnvironmentData.h"
 #include "Util_EngineConfig.h"
 
 #include <algorithm>

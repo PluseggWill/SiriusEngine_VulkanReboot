@@ -18,6 +18,7 @@
 #include "../RenderCore/Vk_DescriptorPolicy.h"
 #include "../RenderCore/Vk_RhiDevice.h"
 #include "../Util/Util_EngineConfig.h"
+#include "../Util/Util_ResolvePath.h"
 
 #include <vulkan/vulkan.h>
 
@@ -91,7 +92,8 @@ void InitTestConfig( const std::filesystem::path& aRepoRoot, Util_EngineConfig& 
 
     char* argv[] = { arg0, arg1, arg2 };
     aOutConfig.LoadFromArgv( 3, argv );
-    Gfx_ShaderPermutation::Initialize( aOutConfig );
+    Gfx_ShaderPermutation::Initialize( UtilResolvePath::Resolve( aOutConfig, Gfx_ShaderPermutation::kRegistryLogicalPath ) );
+    Gfx_ShaderPermutation::SetActiveByName( aOutConfig.GetShaderPermutationName() );
 }
 
 void TestConfigPrecedence( const std::filesystem::path& aRepoRoot ) {

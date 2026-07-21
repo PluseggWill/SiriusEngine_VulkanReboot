@@ -12,8 +12,6 @@
 #include <filesystem>
 #include <string>
 
-class Vk_Renderer;
-
 // Module: Util_TuningPrefs — serialize ImGui tuning to Config/user-tuning.json (gitignored).
 // Load order: struct defaults → engine.json lighting → user-tuning.json (after scene env init).
 // Does not persist Render-debug (debug view, skip pass) or scene selection.
@@ -39,13 +37,17 @@ struct Snapshot {
 
 std::filesystem::path DefaultPath( const std::filesystem::path& aAssetRoot );
 
-Snapshot Capture( Vk_Renderer& aRenderer, const Util_CameraSettings& aCamera, const ViewportToggles& aViewport );
-void     Apply( const Snapshot& aSnapshot, Vk_Renderer& aRenderer, Util_CameraSettings& aCamera, ViewportToggles& aViewport );
+Snapshot Capture( const Gpu_EnvironmentData& anEnvironment, const Gfx_LightingSettings& aLighting, const Gfx_AoSettings& anAo, const Gfx_PostSettings& aPost,
+                  const Util_CameraSettings& aCamera, const ViewportToggles& aViewport );
+
+void Apply( const Snapshot& aSnapshot, Gpu_EnvironmentData& anEnvironment, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo, Gfx_PostSettings& aPost,
+            Util_CameraSettings& aCamera, ViewportToggles& aViewport );
 
 bool LoadFromFile( const std::filesystem::path& aPath, Snapshot& aOut );
 void SaveToFile( const std::filesystem::path& aPath, const Snapshot& aSnapshot );
 
-// Renderer + camera/viewport only; caller restores environment (App_ApplyDefaultEnvironment).
-void ResetRendererTuning( const Util_EngineConfig& aConfig, Vk_Renderer& aRenderer, Util_CameraSettings& aCamera, ViewportToggles& aViewport );
+// Settings + camera/viewport only; caller restores environment (App_ApplyDefaultEnvironmentData).
+void ResetTuning( const Util_EngineConfig& aConfig, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo, Gfx_PostSettings& aPost, Util_CameraSettings& aCamera,
+                  ViewportToggles& aViewport );
 
 }  // namespace Util_TuningPrefs

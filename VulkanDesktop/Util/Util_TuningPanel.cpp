@@ -2,7 +2,6 @@
 
 #include "../App/DebugUIState.h"
 #include "../App/SceneCpuLoad.h"
-#include "../RenderCore/Vk_Renderer.h"
 #include "Util_Logger.h"
 
 #include <exception>
@@ -23,10 +22,12 @@ namespace {
 
 }  // namespace
 
-void BuildToolbar( const Util_EngineConfig& aConfig, Vk_Renderer& aCore, DebugUIState& aDebugUI ) {
+void BuildToolbar( const Util_EngineConfig& aConfig, Gpu_EnvironmentData& anEnvironment, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo, Gfx_PostSettings& aPost,
+                   DebugUIState& aDebugUI ) {
     if ( ImGui::Button( "Save tuning" ) ) {
         try {
-            const Util_TuningPrefs::Snapshot snap = Util_TuningPrefs::Capture( aCore, aDebugUI.myCameraSettings, ToViewportToggles( aDebugUI.myViewportOverlays ) );
+            const Util_TuningPrefs::Snapshot snap =
+                Util_TuningPrefs::Capture( anEnvironment, aLighting, anAo, aPost, aDebugUI.myCameraSettings, ToViewportToggles( aDebugUI.myViewportOverlays ) );
             Util_TuningPrefs::SaveToFile( Util_TuningPrefs::DefaultPath( aConfig.GetAssetRoot() ), snap );
             UtilLogger::Info( "CONFIG", "Saved user tuning." );
         }
@@ -37,22 +38,23 @@ void BuildToolbar( const Util_EngineConfig& aConfig, Vk_Renderer& aCore, DebugUI
     ImGui::SameLine();
     if ( ImGui::Button( "Reset tuning" ) ) {
         Util_TuningPrefs::ViewportToggles viewport = ToViewportToggles( aDebugUI.myViewportOverlays );
-        Util_TuningPrefs::ResetRendererTuning( aConfig, aCore, aDebugUI.myCameraSettings, viewport );
+        Util_TuningPrefs::ResetTuning( aConfig, aLighting, anAo, aPost, aDebugUI.myCameraSettings, viewport );
         FromViewportToggles( viewport, aDebugUI.myViewportOverlays );
-        App_ApplyDefaultEnvironment( aCore );
+        App_ApplyDefaultEnvironmentData( anEnvironment );
         UtilLogger::Info( "CONFIG", "Reset tuning to baseline." );
     }
     ImGui::SameLine();
     ImGui::TextDisabled( "Config/user-tuning.json" );
 }
 
-void LoadAndApplyIfPresent( const std::filesystem::path& aAssetRoot, Vk_Renderer& aCore, DebugUIState& aDebugUI ) {
+void LoadAndApplyIfPresent( const std::filesystem::path& aAssetRoot, Gpu_EnvironmentData& anEnvironment, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo,
+                            Gfx_PostSettings& aPost, DebugUIState& aDebugUI ) {
     Util_TuningPrefs::ViewportToggles viewport = ToViewportToggles( aDebugUI.myViewportOverlays );
     Util_TuningPrefs::Snapshot        snap{};
     if ( !Util_TuningPrefs::LoadFromFile( Util_TuningPrefs::DefaultPath( aAssetRoot ), snap ) ) {
         return;
     }
-    Util_TuningPrefs::Apply( snap, aCore, aDebugUI.myCameraSettings, viewport );
+    Util_TuningPrefs::Apply( snap, anEnvironment, aLighting, anAo, aPost, aDebugUI.myCameraSettings, viewport );
     FromViewportToggles( viewport, aDebugUI.myViewportOverlays );
     UtilLogger::Info( "CONFIG", std::string( "Applied user tuning: " ) + Util_TuningPrefs::DefaultPath( aAssetRoot ).string() );
 }

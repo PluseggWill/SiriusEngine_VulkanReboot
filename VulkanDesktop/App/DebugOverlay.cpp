@@ -8,6 +8,8 @@
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../RenderCore/Vk_FrameCpuPrepResult.h"
 #include "../RenderCore/Vk_Renderer.h"
+#include "../RenderCore/Vk_Temporal.h"
+#include "../RenderCore/Vk_TemporalState.h"
 #include "../RenderCore/Vk_Types.h"
 #include "../Util/Util_CameraPanel.h"
 #include "../Util/Util_FrameStats.h"
@@ -96,7 +98,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
     ImGui::SetNextWindowSize( ImVec2( 440.f, 380.f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowBgAlpha( 0.9f );
     if ( ImGui::Begin( "Engine Debug", &aDebugUI.myPanelVisibility.myShowEngineDebug ) ) {
-        UtilTuningPanel::BuildToolbar( aConfig, aCore, aDebugUI );
+        UtilTuningPanel::BuildToolbar( aConfig, anEnvironment, aLightingSettings, aAoSettings, aPostSettings, aDebugUI );
         ImGui::Separator();
         if ( ImGui::BeginTabBar( "EngineDebugTabs", ImGuiTabBarFlags_None ) ) {
             if ( ImGui::BeginTabItem( "Scene" ) ) {
@@ -125,11 +127,30 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Post" ) ) {
-                UtilPostProcessPanel::BuildContents( aConfig, aPostSettings, aCore );
+                UtilPostProcessPanel::Actions postActions{};
+                UtilPostProcessPanel::BuildContents( aCore.RenderFeatures().myHybridDeferred, aPostSettings, postActions );
+                if ( postActions.myClearTaaHistoryReady ) {
+                    aCore.myPostProcessState.myTaaHistoryReady = false;
+                }
+                if ( postActions.myRequestTemporalManualReset ) {
+                    Vk_Temporal::RequestReset( aCore, Vk_TemporalResetFlag::Manual );
+                }
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Temporal" ) ) {
-                UtilTemporalPanel::BuildContents( aCore );
+                UtilTemporalPanel::State temporalState{};
+                temporalState.myJitterEnabled           = aCore.myTemporalState.myJitterEnabled;
+                temporalState.myHaltonIndex             = aCore.myTemporalState.myHaltonIndex;
+                temporalState.myJitterNdc               = aCore.myTemporalState.myJitterNdc;
+                temporalState.myJitterPixel             = aCore.myTemporalState.myJitterPixel;
+                temporalState.myHistoryValid            = aCore.myTemporalState.myHistoryValid;
+                temporalState.myLastAppliedResetReasons = aCore.myTemporalState.myLastAppliedResetReasons;
+                UtilTemporalPanel::Actions temporalActions{};
+                UtilTemporalPanel::BuildContents( temporalState, aPostSettings.myTaaEnabled, temporalActions );
+                aCore.myTemporalState.myJitterEnabled = temporalState.myJitterEnabled;
+                if ( temporalActions.myRequestManualReset ) {
+                    Vk_Temporal::RequestReset( aCore, Vk_TemporalResetFlag::Manual );
+                }
                 ImGui::EndTabItem();
             }
             if ( ImGui::BeginTabItem( "Camera" ) ) {

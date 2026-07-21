@@ -8,12 +8,16 @@
 #include <stdexcept>
 #include <vector>
 
-std::string UtilLoader::ResolvePath( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
-    return UtilResolvePath::Resolve( aConfig, aFilename );
+std::string UtilLoader::ResolvePath( const std::filesystem::path& aAssetRoot, const std::string& aFilename ) {
+    return UtilResolvePath::Resolve( aAssetRoot, aFilename );
 }
 
-std::vector< char > UtilLoader::ReadFile( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
-    const std::string resolvedPath = ResolvePath( aConfig, aFilename );
+std::string UtilLoader::ResolvePath( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
+    return ResolvePath( aConfig.GetAssetRoot(), aFilename );
+}
+
+std::vector< char > UtilLoader::ReadFile( const std::filesystem::path& aAssetRoot, const std::string& aFilename ) {
+    const std::string resolvedPath = ResolvePath( aAssetRoot, aFilename );
     UtilLogger::Debug( "LOADER", "Reading file: " + resolvedPath );
     std::ifstream file( resolvedPath, std::ios::ate | std::ios::binary );
 
@@ -30,4 +34,8 @@ std::vector< char > UtilLoader::ReadFile( const Util_EngineConfig& aConfig, cons
 
     file.close();
     return buffer;
+}
+
+std::vector< char > UtilLoader::ReadFile( const Util_EngineConfig& aConfig, const std::string& aFilename ) {
+    return ReadFile( aConfig.GetAssetRoot(), aFilename );
 }

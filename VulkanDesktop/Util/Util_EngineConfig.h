@@ -12,6 +12,8 @@
 
 // Instance-based engine config: Config/engine.json + CLI overrides (CLI wins).
 // Owned by Application; pass const Util_EngineConfig& (or BindEngineConfig on Vk_Renderer).
+// Implementation split: Util_EngineConfig.cpp (load + getters), Util_EngineConfigJson.cpp,
+// Util_EngineConfigCli.cpp; shared helpers in Util_EngineConfigInternal.h.
 
 struct Util_EngineConfig {
     struct FeatureFlags {

@@ -1,6 +1,6 @@
 # Epic Plan: architecture-modularity-peel
 
-**Status:** In Progress (2026-07-21; next MOD-B7; Track A + B1–B3 done)  
+**Status:** Closed (2026-07-21)  
 **Scope:** `VulkanDesktop/{App,Gfx,RenderCore,RenderContract,Util,Platform}`  
 **Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · [`Wishlist.md`](Wishlist.md) · closed [`architecture-boundary-hardening_Plan.md`](Archived/plans/architecture-boundary-hardening_Plan.md) · [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md)
 

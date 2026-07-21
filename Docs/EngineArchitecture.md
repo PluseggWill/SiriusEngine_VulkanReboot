@@ -62,18 +62,22 @@ flowchart TB
 
 | Folder | Must not |
 |--------|----------|
-| **Gfx/** | `#include` Vulkan headers; call `vk*` |
+| **Gfx/** | `#include` Vulkan headers; call `vk*`; take `Util_EngineConfig` on public load/registry APIs (App resolves paths / active names) |
 | **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path; `#include` concrete `App/*` |
 | **App/** | Create pipelines or descriptor layouts; compose Vulkan viewport/scissor primitives for views |
 | **Platform/** | Own renderer passes, scene state, or draw-prep policy |
 | **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, or `Util/` |
-| **Util/** | Own per-frame draw ordering; `#include` Vulkan / `vk*` create/upload (GPU upload → `Vk_TextureLoader`; ImGui RP/FB → `Vk_ImGuiLayer`); call `stbi_*` / `tinyobj::*` outside `Util_ImageDecode` / `Util_ObjLoad` |
+| **Util/** | Own per-frame draw ordering; `#include` Vulkan / `vk*` create/upload (GPU upload → `Vk_TextureLoader`; ImGui RP/FB → `Vk_ImGuiLayer`); `#include` `Vk_Renderer` from panel headers (edit settings DTOs; App applies); call `stbi_*` / `tinyobj::*` outside `Util_ImageDecode` / `Util_ObjLoad` |
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI + **fly camera (`Gfx_RenderCamera`)** in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles` (incl. gpuCull / legacyDirectDraw / hybridDeferred policy), syncs `Vk_PrimaryCameraState`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Init policy (`Vk_RenderFeatures`) is snapshotted at `BindEngineConfig`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
+
+**Gfx ↔ Util (locked):** App resolves asset paths and selects active shader permutation from config; `Gfx_ShaderPermutation::Initialize` takes a resolved registry path; `Gfx_LoadSceneDesc` takes `assetRoot` + logical path (no `Util_EngineConfig` type in Gfx public APIs). `Gfx_RenderCamera` consumes `Util_InputSnapshot` / `Util_CameraSettings` (App samples input → camera); accepted shared input DTOs, not EngineConfig.
 
 **Platform boundary (locked):** `Pf_PlatformHost` is the only bridge for window/surface/frame timing callbacks. Frame start / ImGui NewFrame / framebuffer resize use **`Pf_FrameHooks`** (opaque user + fn ptrs) — Platform must not take `Vk_Renderer&`. `RenderCore` must not include concrete `App/*` platform hosts; App selects the concrete `Pf_GlfwPlatformHost` implementation.
 
 **RenderContract boundary (locked):** `RenderContract/Gpu_*.h` holds plain GPU structs and pure packing helpers only. Decision logic that needs Gfx math (e.g. directional shadow compare) lives in `Gfx_*` wrappers. Fly camera logic lives in `Gfx_RenderCamera`; Vulkan viewport/scissor resolution lives in RenderCore (`Vk_ResolveActiveRenderViews`).
+
+**Shared infra (locked):** `Util_Logger` and `Util_VulkanResult` remain Util-owned shared infrastructure used by RenderCore/Gfx (no separate `Core/Log` peel). Descriptor binding indices: `Vk_Enum.h` / `Vk_DescriptorPolicy.h` are the code source of truth; reflection contracts verify — do not duplicate binding enums into Gfx.
 
 ### Frame / naming glossary (RenderCore)
 

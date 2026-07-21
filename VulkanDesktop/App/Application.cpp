@@ -17,6 +17,7 @@
 #include "../RenderCore/Vk_Renderer.h"
 #include "../Util/Util_AssetManifest.h"
 #include "../Util/Util_Logger.h"
+#include "../Util/Util_ResolvePath.h"
 #include "../Util/Util_ScenePanel.h"
 #include "../Util/Util_TuningPanel.h"
 #include "ActiveViewsBuild.h"
@@ -84,7 +85,8 @@ void ActivateSceneGpu( Vk_Renderer& aRenderer, Gfx_RenderCamera& aFlyCamera, Wor
     aRenderer.LoadSceneGpuResources( loadParams );
     App_InitScenePresentation( aRenderer, aFlyCamera, aWorld );
     // user-tuning.json overrides scene env + renderer session knobs (lighting/AO/post/camera).
-    UtilTuningPanel::LoadAndApplyIfPresent( aConfig.GetAssetRoot(), aRenderer, aDebugUI );
+    UtilTuningPanel::LoadAndApplyIfPresent( aConfig.GetAssetRoot(), aRenderer.GetEnvironmentData(), aRenderer.GetLightingSettings(), aRenderer.GetAoSettings(),
+                                            aRenderer.GetPostSettings(), aDebugUI );
 }
 
 }  // namespace
@@ -151,7 +153,8 @@ void Application::InitApp( int argc, char** argv ) {
 
     Vk_Renderer& renderer = *myRenderer;
     renderer.BindEngineConfig( &myConfig );
-    Gfx_ShaderPermutation::Initialize( myConfig );
+    Gfx_ShaderPermutation::Initialize( UtilResolvePath::Resolve( myConfig, Gfx_ShaderPermutation::kRegistryLogicalPath ) );
+    Gfx_ShaderPermutation::SetActiveByName( myConfig.GetShaderPermutationName() );
 
     UtilLogger::Info( "APP", "InitApp." );
 
@@ -173,7 +176,7 @@ void Application::InitApp( int argc, char** argv ) {
 
 void Application::LoadAndVerifyScene() {
     UtilLogger::Info( "APP", "LoadSceneDesc." );
-    mySceneDesc = Gfx_LoadSceneDesc( myConfig, myConfig.GetSceneLogicalPath() );
+    mySceneDesc = Gfx_LoadSceneDesc( myConfig.GetAssetRoot(), myConfig.GetSceneLogicalPath() );
     UtilLogger::Info( "APP", "VerifyManifest." );
     Util_VerifyManifest( myConfig, Util_CollectDependencies( mySceneDesc ), myConfig.GetAssetVerifyPolicy() );
 }
@@ -295,7 +298,7 @@ void Application::TryProcessSceneReload() {
     UtilLogger::Info( "APP", "Scene reload requested: " + reloadPath );
 
     auto loadScene = [ & ]( const std::string& aPath ) {
-        Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig, aPath );
+        Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig.GetAssetRoot(), aPath );
         Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
         CommitSceneToWorld( myWorld, std::move( desc ), aPath );
         ActivateSceneGpu( renderer, myFlyCamera, myWorld, myDebugUI, myConfig, aPath );

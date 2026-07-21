@@ -6,14 +6,13 @@
 #include <string>
 #include <vector>
 
-struct Util_EngineConfig;
-
 // S2 permutation registry runtime API (see Shader/PermutationRegistry.json).
 // Type-only consumers should include Gfx_ShaderPermutationTypes.h.
+// App resolves the registry path + active name from Util_EngineConfig; Gfx does not take EngineConfig.
 
 namespace Gfx_ShaderPermutation {
 
-void Initialize( const Util_EngineConfig& aConfig );
+void Initialize( const std::string& aResolvedRegistryPath );
 bool IsInitialized();
 
 const std::vector< Gfx_ShaderPermutationDef >& GetDefinitions();

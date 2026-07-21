@@ -74,10 +74,14 @@ void App_InitScenePresentation( Vk_Renderer& aCore, Gfx_RenderCamera& aFlyCamera
     aCore.SetPrimaryCameraState( primary );
 }
 
+void App_ApplyDefaultEnvironmentData( Gpu_EnvironmentData& anEnvironment ) {
+    anEnvironment.myAmbientColor      = { 0.24f, 0.26f, 0.30f, 1.0f };
+    anEnvironment.myFogColor          = { 0.92f, 0.95f, 1.0f, 1.0f };
+    anEnvironment.myFogDistance       = { 0.0f, 0.0f, 1.0f, anEnvironment.myFogDistance.w };
+    anEnvironment.mySunlightDirection = { glm::vec4( Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight(), 0.0f ) };
+    anEnvironment.mySunlightColor     = { 1.15f, 1.12f, 1.02f, 2.5f };
+}
+
 void App_ApplyDefaultEnvironment( Vk_Renderer& aCore ) {
-    aCore.myEnvironmentData.myAmbientColor      = { 0.24f, 0.26f, 0.30f, 1.0f };
-    aCore.myEnvironmentData.myFogColor          = { 0.92f, 0.95f, 1.0f, 1.0f };
-    aCore.myEnvironmentData.myFogDistance       = { 0.0f, 0.0f, 1.0f, aCore.myEnvironmentData.myFogDistance.w };
-    aCore.myEnvironmentData.mySunlightDirection = { glm::vec4( Gfx_LightingMath::Gfx_DefaultSunDirectionTowardLight(), 0.0f ) };
-    aCore.myEnvironmentData.mySunlightColor     = { 1.15f, 1.12f, 1.02f, 2.5f };
+    App_ApplyDefaultEnvironmentData( aCore.myEnvironmentData );
 }

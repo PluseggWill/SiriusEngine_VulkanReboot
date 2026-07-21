@@ -386,11 +386,11 @@ void ParseCameras( const Json& aRoot, Gfx_SceneDesc& aOut ) {
 
 }  // namespace
 
-Gfx_SceneDesc Gfx_LoadSceneDesc( const Util_EngineConfig& aConfig, const std::string& aLogicalPath ) {
-    const std::string resolved = UtilLoader::ResolvePath( aConfig, aLogicalPath );
+Gfx_SceneDesc Gfx_LoadSceneDesc( const std::filesystem::path& aAssetRoot, const std::string& aLogicalPath ) {
+    const std::string resolved = UtilLoader::ResolvePath( aAssetRoot, aLogicalPath );
     UtilLogger::Info( "SCENE", "Loading scene: " + aLogicalPath + " -> " + resolved );
 
-    const std::vector< char > bytes = UtilLoader::ReadFile( aConfig, aLogicalPath );
+    const std::vector< char > bytes = UtilLoader::ReadFile( aAssetRoot, aLogicalPath );
     const std::string         text( bytes.begin(), bytes.end() );
 
     Json root;

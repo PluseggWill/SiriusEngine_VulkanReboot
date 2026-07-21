@@ -1,7 +1,6 @@
 #include "Util_TuningPrefs.h"
 
 #include "../Gfx/Gfx_AoMethod.h"
-#include "../RenderCore/Vk_Renderer.h"
 #include "Util_Logger.h"
 
 #include <fstream>
@@ -288,33 +287,33 @@ std::filesystem::path DefaultPath( const std::filesystem::path& aAssetRoot ) {
     return aAssetRoot / "Config" / "user-tuning.json";
 }
 
-Snapshot Capture( Vk_Renderer& aRenderer, const Util_CameraSettings& aCamera, const ViewportToggles& aViewport ) {
-    const Gpu_EnvironmentData& env = aRenderer.GetEnvironmentData();
-    Snapshot                   snap{};
-    snap.myAmbientColor      = env.myAmbientColor;
-    snap.mySunlightColor     = env.mySunlightColor;
-    snap.mySunlightDirection = env.mySunlightDirection;
-    snap.myLighting          = aRenderer.GetLightingSettings();
-    snap.myAo                = aRenderer.GetAoSettings();
-    snap.myPost              = aRenderer.GetPostSettings();
+Snapshot Capture( const Gpu_EnvironmentData& anEnvironment, const Gfx_LightingSettings& aLighting, const Gfx_AoSettings& anAo, const Gfx_PostSettings& aPost,
+                  const Util_CameraSettings& aCamera, const ViewportToggles& aViewport ) {
+    Snapshot snap{};
+    snap.myAmbientColor      = anEnvironment.myAmbientColor;
+    snap.mySunlightColor     = anEnvironment.mySunlightColor;
+    snap.mySunlightDirection = anEnvironment.mySunlightDirection;
+    snap.myLighting          = aLighting;
+    snap.myAo                = anAo;
+    snap.myPost              = aPost;
     snap.myCamera            = aCamera;
     snap.myViewport          = aViewport;
     return snap;
 }
 
-void Apply( const Snapshot& aSnapshot, Vk_Renderer& aRenderer, Util_CameraSettings& aCamera, ViewportToggles& aViewport ) {
-    Gpu_EnvironmentData& env             = aRenderer.GetEnvironmentData();
-    const float          debugViewPacked = env.myFogDistance.w;  // session-only; owned by Render debug tab
-    env.myAmbientColor                   = aSnapshot.myAmbientColor;
-    env.mySunlightColor                  = aSnapshot.mySunlightColor;
-    env.mySunlightDirection              = aSnapshot.mySunlightDirection;
-    env.myFogDistance.w                  = debugViewPacked;
+void Apply( const Snapshot& aSnapshot, Gpu_EnvironmentData& anEnvironment, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo, Gfx_PostSettings& aPost,
+            Util_CameraSettings& aCamera, ViewportToggles& aViewport ) {
+    const float debugViewPacked       = anEnvironment.myFogDistance.w;  // session-only; owned by Render debug tab
+    anEnvironment.myAmbientColor      = aSnapshot.myAmbientColor;
+    anEnvironment.mySunlightColor     = aSnapshot.mySunlightColor;
+    anEnvironment.mySunlightDirection = aSnapshot.mySunlightDirection;
+    anEnvironment.myFogDistance.w     = debugViewPacked;
 
-    aRenderer.GetLightingSettings() = aSnapshot.myLighting;
-    aRenderer.GetAoSettings()       = aSnapshot.myAo;
-    aRenderer.GetPostSettings()     = aSnapshot.myPost;
-    aCamera                         = aSnapshot.myCamera;
-    aViewport                       = aSnapshot.myViewport;
+    aLighting = aSnapshot.myLighting;
+    anAo      = aSnapshot.myAo;
+    aPost     = aSnapshot.myPost;
+    aCamera   = aSnapshot.myCamera;
+    aViewport = aSnapshot.myViewport;
 }
 
 bool LoadFromFile( const std::filesystem::path& aPath, Snapshot& aOut ) {
@@ -401,16 +400,17 @@ void SaveToFile( const std::filesystem::path& aPath, const Snapshot& aSnapshot )
     file << root.dump( 2 ) << '\n';
 }
 
-void ResetRendererTuning( const Util_EngineConfig& aConfig, Vk_Renderer& aRenderer, Util_CameraSettings& aCamera, ViewportToggles& aViewport ) {
+void ResetTuning( const Util_EngineConfig& aConfig, Gfx_LightingSettings& aLighting, Gfx_AoSettings& anAo, Gfx_PostSettings& aPost, Util_CameraSettings& aCamera,
+                  ViewportToggles& aViewport ) {
     const std::filesystem::path path = DefaultPath( aConfig.GetAssetRoot() );
     std::error_code             ec;
     std::filesystem::remove( path, ec );
 
-    aRenderer.GetLightingSettings() = aConfig.GetLightingSettings();
-    aRenderer.GetAoSettings()       = Gfx_AoSettings{};
-    aRenderer.GetPostSettings()     = Gfx_PostSettings{};
-    aCamera                         = Util_CameraSettings{};
-    aViewport                       = ViewportToggles{};
+    aLighting = aConfig.GetLightingSettings();
+    anAo      = Gfx_AoSettings{};
+    aPost     = Gfx_PostSettings{};
+    aCamera   = Util_CameraSettings{};
+    aViewport = ViewportToggles{};
 
     UtilLogger::Info( "CONFIG", "Reset renderer tuning (user-tuning.json removed if present)." );
 }

@@ -1,6 +1,8 @@
 // Module: Vk_PostProcessPass — HDR hybrid resolve target + tonemap/bloom to swapchain.
 #include "Vk_PostProcessPass.h"
 
+#include "Vk_PostProcessPassInternal.h"
+
 #include "../Gfx/Gfx_PostSettings.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
@@ -23,12 +25,6 @@ constexpr char     kBloomThresholdSpv[] = "VulkanDesktop/Shader_Generated/BloomT
 constexpr char     kBloomBlurSpv[]      = "VulkanDesktop/Shader_Generated/BloomBlur.spv";
 constexpr char     kTaaResolveSpv[]     = "VulkanDesktop/Shader_Generated/TaaResolve.spv";
 constexpr VkFormat kBloomFormat         = VK_FORMAT_R16G16B16A16_SFLOAT;
-
-VkImageLayout sSceneColorLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sTaaResolvedLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sTaaHistoryLayouts[ 2 ] = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
-VkImageLayout sBloomPingLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sBloomPongLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
 
 struct TonemapPushConstants {
     float    exposure;
@@ -525,12 +521,7 @@ void RebuildResources( Vk_Renderer& aCore ) {
 
     // Extent-scoped only (RP/FB). Sampler + descriptor pool live for pass lifetime — never flush them here.
     aCore.myPostProcessState.myDeletionQueue.flush();
-    sSceneColorLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaResolvedLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaHistoryLayouts[ 0 ] = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaHistoryLayouts[ 1 ] = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPingLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPongLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_PostProcessPassDetail::ResetImageLayouts();
 
     Vk_PostProcessState& state = aCore.myPostProcessState;
     DestroyTexture( aCore, state.mySceneColor );
@@ -621,18 +612,18 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
         return;
     }
 
-    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
-            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), Vk_PostProcessPassDetail::gSceneColorLayout,
+                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
             vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                                   &barrier );
         }
-        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_PostProcessPassDetail::gSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if ( sBloomPingLayout != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout  oldLayout = sBloomPingLayout;
+    if ( Vk_PostProcessPassDetail::gBloomPingLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = Vk_PostProcessPassDetail::gBloomPingLayout;
         VkAccessFlags        srcAccess = 0;
         VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
@@ -645,10 +636,10 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
         }
         VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPing.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sBloomPingLayout = VK_IMAGE_LAYOUT_GENERAL;
+        Vk_PostProcessPassDetail::gBloomPingLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
-    if ( sBloomPongLayout != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout  oldLayout = sBloomPongLayout;
+    if ( Vk_PostProcessPassDetail::gBloomPongLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = Vk_PostProcessPassDetail::gBloomPongLayout;
         VkAccessFlags        srcAccess = 0;
         VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
@@ -661,7 +652,7 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
         }
         VkImageMemoryBarrier barrier = SceneColorBarrier( state.myBloomPong.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sBloomPongLayout = VK_IMAGE_LAYOUT_GENERAL;
+        Vk_PostProcessPassDetail::gBloomPongLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
 
     BloomThresholdPushConstants thresholdPush{ post.myBloomThreshold, 0.f, 0.f, 0.f };
@@ -696,7 +687,7 @@ void RecordBloom( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
     VkImageMemoryBarrier bloomBarrier = SceneColorBarrier( state.myBloomPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                                            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bloomBarrier );
-    sBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_PostProcessPassDetail::gBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
@@ -711,21 +702,21 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
         state.myTaaHistoryReady = false;
     }
 
-    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
-            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+    if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), Vk_PostProcessPassDetail::gSceneColorLayout,
+                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
             vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                                   &barrier );
         }
-        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_PostProcessPassDetail::gSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     const uint32_t writeIndex = state.myTaaHistoryWriteIndex;
     const uint32_t readIndex  = 1u - writeIndex;
 
-    if ( sTaaHistoryLayouts[ readIndex ] != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        const VkImageLayout  oldLayout = sTaaHistoryLayouts[ readIndex ];
+    if ( Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ] != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        const VkImageLayout  oldLayout = Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ];
         VkAccessFlags        srcAccess = 0;
         VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_GENERAL ) {
@@ -735,11 +726,11 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
         VkImageMemoryBarrier barrier =
             SceneColorBarrier( state.myTaaHistory[ readIndex ].Image(), oldLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcAccess, VK_ACCESS_SHADER_READ_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sTaaHistoryLayouts[ readIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if ( sTaaResolvedLayout != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout  oldLayout = sTaaResolvedLayout;
+    if ( Vk_PostProcessPassDetail::gTaaResolvedLayout != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = Vk_PostProcessPassDetail::gTaaResolvedLayout;
         VkAccessFlags        srcAccess = 0;
         VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
@@ -752,7 +743,7 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
         }
         VkImageMemoryBarrier barrier = SceneColorBarrier( state.myTaaResolved.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sTaaResolvedLayout = VK_IMAGE_LAYOUT_GENERAL;
+        Vk_PostProcessPassDetail::gTaaResolvedLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
 
     TaaResolvePushConstants push{};
@@ -781,11 +772,11 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
     VkImageMemoryBarrier resolvedToRead0 = SceneColorBarrier( state.myTaaResolved.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                                               VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &resolvedToRead0 );
-    sTaaResolvedLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_PostProcessPassDetail::gTaaResolvedLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // Copy resolved -> history (writeIndex) for next frame.
-    if ( sTaaHistoryLayouts[ writeIndex ] != VK_IMAGE_LAYOUT_GENERAL ) {
-        const VkImageLayout  oldLayout = sTaaHistoryLayouts[ writeIndex ];
+    if ( Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] != VK_IMAGE_LAYOUT_GENERAL ) {
+        const VkImageLayout  oldLayout = Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ];
         VkAccessFlags        srcAccess = 0;
         VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
@@ -795,7 +786,7 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
         VkImageMemoryBarrier barrier =
             SceneColorBarrier( state.myTaaHistory[ writeIndex ].Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL, srcAccess, VK_ACCESS_SHADER_WRITE_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_GENERAL;
+        Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_GENERAL;
     }
 
     VkImageCopy copy{};
@@ -822,10 +813,10 @@ void RecordTaaResolve( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint3
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0,
                           nullptr, static_cast< uint32_t >( toReadBarriers.size() ), toReadBarriers.data() );
 
-    sTaaResolvedLayout               = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    sTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    state.myTaaHistoryWriteIndex     = 1u - state.myTaaHistoryWriteIndex;
-    state.myTaaHistoryReady          = true;
+    Vk_PostProcessPassDetail::gTaaResolvedLayout               = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    state.myTaaHistoryWriteIndex                               = 1u - state.myTaaHistoryWriteIndex;
+    state.myTaaHistoryReady                                    = true;
 }
 
 }  // namespace
@@ -837,7 +828,7 @@ bool HasHybridResolve( const Vk_Renderer& aCore ) {
 }
 
 void MarkSceneColorShaderRead() {
-    sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_PostProcessPassDetail::gSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void Destroy( Vk_Renderer& aCore ) {
@@ -913,12 +904,7 @@ void Destroy( Vk_Renderer& aCore ) {
     state.myHybridRenderPass  = VK_NULL_HANDLE;
     state.myHybridFramebuffer = VK_NULL_HANDLE;
     state.myInitialized       = false;
-    sSceneColorLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaResolvedLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaHistoryLayouts[ 0 ]   = VK_IMAGE_LAYOUT_UNDEFINED;
-    sTaaHistoryLayouts[ 1 ]   = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPingLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
-    sBloomPongLayout          = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_PostProcessPassDetail::ResetImageLayouts();
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -952,24 +938,24 @@ void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aI
     RecordBloom( aCore, aCommandBuffer, aFrameIndex );
 
     const Gfx_PostSettings& post = aCore.myPostSettings;
-    if ( !post.myBloomEnabled && sBloomPingLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-        const VkImageLayout        oldLayout = sBloomPingLayout;
+    if ( !post.myBloomEnabled && Vk_PostProcessPassDetail::gBloomPingLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        const VkImageLayout        oldLayout = Vk_PostProcessPassDetail::gBloomPingLayout;
         VkImageMemoryBarrier       barrier = SceneColorBarrier( state.myBloomPing.Image(), oldLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT );
         const VkPipelineStageFlags srcStage = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
         vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-        sBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_PostProcessPassDetail::gBloomPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
-    if ( sSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+    if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
         // Hybrid RP finalLayout is already SHADER_READ_ONLY; Prefer MarkSceneColorShaderRead after resolve.
         // Avoid UNDEFINED→READ (discards contents). Only barrier when we know a real prior layout.
-        if ( sSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
-            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), sSceneColorLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        if ( Vk_PostProcessPassDetail::gSceneColorLayout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+            VkImageMemoryBarrier barrier = SceneColorBarrier( state.mySceneColor.Image(), Vk_PostProcessPassDetail::gSceneColorLayout,
+                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
             vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
                                   &barrier );
         }
-        sSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_PostProcessPassDetail::gSceneColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     // Refresh every frame so ImGui TAA toggle cannot leave tonemap bound to an unwritten taaResolved.

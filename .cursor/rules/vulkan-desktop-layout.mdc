@@ -48,7 +48,7 @@ Gfx/
 ### 类型归属
 
 - **Util**：Logger、Loader（文件 IO）、ImGui 面板 widgets、统计
-- **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载（例：Lighting / Post / Render Debug 分列）。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。Vulkan ImGui render-pass/FB → `Vk_ImGuiLayer`。
+- **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载。面板编辑 settings DTO / Actions，不 `#include Vk_Renderer`；副作用由 App 施加。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。Vulkan ImGui render-pass/FB → `Vk_ImGuiLayer`。
 - **Pf_**：platform host seam（window/surface/timing）
 - **Vk_**：设备、交换链、管线、录制、RAII 缓冲
 - **Gfx_**：mesh/material/场景 SoA / `Gfx_RenderCamera`；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`

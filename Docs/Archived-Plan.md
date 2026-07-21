@@ -46,6 +46,7 @@ Completed work from [`Active-Plan.md`](Active-Plan.md). Per-task logs: [`Archive
 | **Specular IBL stack** | 2026-07-13 | Prefilter GGX mips + specular occlusion + SSR layering (+ C v0 cones/probe) | `specular-ibl-stack` |
 | **S9 / G5** | 2026-07-14 | Halton + G-buffer MV + TAA v0.5; AO/SSR on shared temporal lifetime | [`temporal_Plan.md`](Archived/plans/temporal_Plan.md) · branch retro [`S8-S9-回顾总结.md`](Archived/S8-S9-回顾总结.md) |
 | **ABH** | 2026-07-21 | Platform host peel; RenderContract independence; `Gfx_RenderCamera` + view resolve; Gfx demo/permutation cleanup | [`architecture-boundary-hardening_Plan.md`](Archived/plans/architecture-boundary-hardening_Plan.md) |
+| **MOD** | 2026-07-21 | Hot-path DTOs; Loader/ImGui/Platform peel; panel DTOs; Gfx path APIs; EngineConfig TU split; DeferredLighting Record peel | [`architecture-modularity-peel_Plan.md`](Archived/plans/architecture-modularity-peel_Plan.md) |
 
 Lighting stage epics (closed): Stage 1 [`forward-rendering-epic_Plan.md`](Archived/plans/forward-rendering-epic_Plan.md) · Stage 2 [`hybrid-deferred-epic_Plan.md`](Archived/plans/hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](Archived/plans/ddgi-lighting-epic_Plan.md).
 
