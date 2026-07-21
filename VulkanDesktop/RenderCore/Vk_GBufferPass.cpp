@@ -118,6 +118,7 @@ VkPipeline BuildGBufferPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, V
     UtilVulkanResult::ThrowOnFailure(
         vkCreateGraphicsPipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
         "vkCreateGraphicsPipelines GBuffer" );
+    UtilLogger::Info( "PIPELINE", "GBuffer pipeline created." );
 
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
@@ -229,6 +230,7 @@ void CreateGBufferImages( Vk_Renderer& aCore ) {
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                        VK_SAMPLE_COUNT_1_BIT, aCore.myGBufferState.myDepth.AllocImage() );
     aCore.myGBufferState.myDepth.ImageView() = aCore.CreateImageView( aCore.myGBufferState.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
+    aCore.myGBufferState.myDepthLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
 
     {
         const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
@@ -315,11 +317,18 @@ void CmdBarrierGBufferColorsForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer
 
 // G-buffer depth: attachment -> shader read (Hi-Z / SSAO / deferred reconstruct before swapchain depth copy).
 void CmdBarrierGBufferDepthForShaderRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
+    constexpr VkImageLayout kReadLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    VkImageLayout&          layout      = aCore.myGBufferState.myDepthLayout;
+    if ( layout == kReadLayout ) {
+        return;
+    }
+    const VkImageLayout oldLayout =
+        ( layout == VK_IMAGE_LAYOUT_UNDEFINED ) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : layout;
     VkImageMemoryBarrier barrier =
-        DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-                           VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        DepthImageBarrier( aCore.myGBufferState.myDepth.Image(), oldLayout, kReadLayout, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
     vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                           nullptr, 0, nullptr, 1, &barrier );
+    layout = kReadLayout;
 }
 
 // Shadow pass depth must be visible to DeferredLighting fragment shader (separate render pass from hybrid resolve).
@@ -419,6 +428,7 @@ void Destroy( Vk_Renderer& aCore ) {
     aCore.myGBufferState.myDeletionQueue.flush();
     aCore.myGBufferState.myFramebuffer = VK_NULL_HANDLE;
     aCore.myGBufferState.myRenderPass  = VK_NULL_HANDLE;
+    aCore.myGBufferState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     aCore.myGBufferState.myInitialized = false;
 }
 

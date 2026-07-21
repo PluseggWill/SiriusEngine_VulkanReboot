@@ -147,6 +147,7 @@ void CreatePipeline( Vk_Renderer& aCore ) {
          != VK_SUCCESS ) {
         throw std::runtime_error( "Vk_ClusterBuildPass: failed to create compute pipeline" );
     }
+    UtilLogger::Info( "PIPELINE", "ClusterBuild compute pipeline created." );
 
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
 
@@ -196,8 +197,6 @@ void CreatePipeline( Vk_Renderer& aCore ) {
         }
         vmaDestroyBuffer( allocator, lightsBuffer.myBuffer, lightsBuffer.myAllocation );
     } );
-
-    UtilLogger::Info( "PIPELINE", "ClusterBuild compute pipeline created." );
 }
 
 }  // namespace

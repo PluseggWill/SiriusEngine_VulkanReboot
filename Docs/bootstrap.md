@@ -115,7 +115,7 @@ From repository root (PowerShell 5.1+):
 | Script | Gate | What it does |
 |--------|------|----------------|
 | [`Scripts/Verify-CI.ps1`](../Scripts/Verify-CI.ps1) | **G0** (blocks M2) | MSBuild Debug\|x64 → shader drift → `GfxTests.exe` |
-| [`Scripts/Verify-Smoke.ps1`](../Scripts/Verify-Smoke.ps1) | G0-smoke | Graceful smoke (`stress.json` + `engine.stress.json`) + `Assert-SmokeLog.ps1` |
+| [`Scripts/Verify-Smoke.ps1`](../Scripts/Verify-Smoke.ps1) | G0-smoke | Graceful smoke (`sponza.json` + `engine.json`) + `Assert-SmokeLog.ps1` |
 | [`Scripts/Verify-Bootstrap.ps1`](../Scripts/Verify-Bootstrap.ps1) | Bootstrap | Build → `--help` → smoke (same as Verify-Smoke) → startup log checks |
 
 ```powershell

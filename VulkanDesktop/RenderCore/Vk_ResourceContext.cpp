@@ -203,6 +203,13 @@ void Vk_ResourceContext::TransitionImageLayout( VkImage aImage, VkFormat aFormat
         srcStage              = VK_PIPELINE_STAGE_TRANSFER_BIT;
         dstStage              = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    else if ( anOldLayout == VK_IMAGE_LAYOUT_UNDEFINED && aNewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
+        // Discard contents; used for feature atlases sampled when the producer pass is skipped.
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        srcStage              = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage              = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    }
     else if ( anOldLayout == VK_IMAGE_LAYOUT_UNDEFINED && aNewLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;

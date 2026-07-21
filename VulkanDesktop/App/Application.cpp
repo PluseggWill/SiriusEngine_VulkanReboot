@@ -122,6 +122,7 @@ int Application::Run( int argc, char** argv ) {
         UtilLogger::Info( "APP", "LoadScene." );
         myLastLoadedScenePath = myConfig.GetSceneLogicalPath();
         CommitSceneToWorld( myWorld, std::move( mySceneDesc ), myLastLoadedScenePath );
+        Gfx_ResetFrameDrawStreamLogState( myStreamLogs );
         ActivateSceneGpu( rendererRef, myFlyCamera, myWorld, myDebugUI, myConfig, myLastLoadedScenePath );
         Gfx_ResetObjectiveRuntime( myDebugUI.myObjectiveRuntime );
 
@@ -226,7 +227,6 @@ void Application::RunMainLoop() {
             Gfx_FrameDebugTogglesFromApp( myDebugUI.myRenderDebug.mySkipOpaquePass, myDebugUI.myRenderDebug.mySkipTransparentPass, myDebugUI.myRenderDebug.myLodEnabled,
                                           myConfig.GetGpuCullEnabled(), myConfig.GetLegacyDirectDraw(), Gfx_RenderPreset::IsHybridDeferred( myConfig.GetRenderPresetName() ) );
         std::array< Gfx_FrameRenderPacket, kGfxMaxRenderViews > viewPackets{};
-        Gfx_FrameDrawStreamLogState                             streamLogs{};
         const uint32_t                                          activeViewCount = std::min( viewCount, kGfxMaxRenderViews );
         for ( uint32_t viewIndex = 0; viewIndex < activeViewCount; ++viewIndex ) {
             Gfx_LodState  secondaryViewLodState;
@@ -247,7 +247,7 @@ void Application::RunMainLoop() {
             packetParams.myLodDebugLogicalMeshId = prepInput.myLodDebugLogicalMeshId;
             packetParams.myGpuCullEnabled        = toggles.myGpuCullEnabled;
             size_t drawCountBeforeCull           = 0;
-            Gfx_BuildViewFramePacket( packetParams, streamLogs, viewPackets[ viewIndex ], drawCountBeforeCull );
+            Gfx_BuildViewFramePacket( packetParams, myStreamLogs, viewPackets[ viewIndex ], drawCountBeforeCull );
         }
         Vk_FrameCpuPrepResult prep{};
         if ( renderer.PrepareFrameCpu( prepInput, toggles, views, viewCount, viewPackets, prep ) ) {
@@ -301,6 +301,7 @@ void Application::TryProcessSceneReload() {
         Gfx_SceneDesc desc = Gfx_LoadSceneDesc( myConfig.GetAssetRoot(), aPath );
         Util_VerifyManifest( myConfig, Util_CollectDependencies( desc ), myConfig.GetAssetVerifyPolicy() );
         CommitSceneToWorld( myWorld, std::move( desc ), aPath );
+        Gfx_ResetFrameDrawStreamLogState( myStreamLogs );
         ActivateSceneGpu( renderer, myFlyCamera, myWorld, myDebugUI, myConfig, aPath );
         myLastLoadedScenePath = aPath;
     };

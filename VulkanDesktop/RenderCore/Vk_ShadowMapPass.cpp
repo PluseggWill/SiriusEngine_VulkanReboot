@@ -157,6 +157,7 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
     pipelineBuilder.myPipelineLayout                = state.myPipelineLayout;
     pipelineBuilder.SetDynamicStates( { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_DEPTH_BIAS } );
     state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, state.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
+    UtilLogger::Info( "PIPELINE", "ShadowMap directional pass created." );
 
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
     vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );

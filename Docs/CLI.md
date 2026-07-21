@@ -87,7 +87,7 @@
 
 **默认基准场景（Sponza）：** [`Data/Scenes/sponza.json`](../Data/Scenes/sponza.json) — McGuire Crytek Sponza（~25 子网格）；模型需 `powershell -File Scripts/Fetch-SponzaMcGuire.ps1`。可选 [`Config/engine.sponza.json`](../Config/engine.sponza.json)。
 
-**压力 / CI 冒烟场景：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落，~108 实体、`lodEnabled: true`；`Verify-Smoke.ps1` / G0-smoke **固定**使用此组合（两遍：CPU indirect + `--gpu-cull`），与默认 `sponza.json` 无关。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
+**压力场景（可选）：** [`Config/engine.stress.json`](../Config/engine.stress.json) + [`Data/Scenes/stress.json`](../Data/Scenes/stress.json) — 河谷聚落，~108 实体、`lodEnabled: true`。**G0-smoke**（`Verify-Smoke.ps1`）默认使用 `engine.json` + `sponza.json`（两遍：CPU indirect + `--gpu-cull`）。最小加载仍可用 [`smoke.json`](../Data/Scenes/smoke.json)。
 
 **HybridDeferred（默认）：** `renderPreset` 为 `HybridDeferred`；bindless + batch 双路径（见 slice 5）。回退 forward：`--render-preset ForwardLit`。batch-only 验证时设 `FORCE_MATERIAL_BATCH=1`（见 [`Platform.md`](Platform.md)）。
 

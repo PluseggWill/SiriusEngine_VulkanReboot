@@ -128,6 +128,11 @@ void CreateSoftImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
 void CreateSoftImages( Vk_Renderer& aCore ) {
     CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPing );
     CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPong );
+    // Deferred may bind SoftPing as SHADER_READ_ONLY before the first Soft dispatch (or if Soft is skipped).
+    aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPing.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPong.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    sSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    sSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
     const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;

@@ -501,17 +501,7 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
                                           "Vk_PostProcessPass: bloom blur V descriptor set alloc" );
     }
 
-    const std::string tonemapVertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv );
-    const std::string tonemapFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapFragSpv );
-    state.myTonemapPipeline           = BuildTonemapPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, state.myTonemapPipelineLayout, tonemapVertPath, tonemapFragPath );
-
-    const std::string thresholdPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv );
-    const std::string blurPath      = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
-    state.myBloomThresholdPipeline  = BuildComputePipeline( aCore, state.myBloomThresholdPipelineLayout, thresholdPath );
-    state.myBloomBlurPipeline       = BuildComputePipeline( aCore, state.myBloomBlurPipelineLayout, blurPath );
-
-    const std::string taaPath  = UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv );
-    state.myTaaResolvePipeline = BuildComputePipeline( aCore, state.myTaaResolvePipelineLayout, taaPath );
+    // Pipelines are built in RebuildResources (Init always calls it; also on resize).
 }
 
 void RebuildResources( Vk_Renderer& aCore ) {
@@ -551,6 +541,10 @@ void RebuildResources( Vk_Renderer& aCore ) {
     if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
         aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    if ( aCore.myPostProcessState.myTaaResolvePipeline != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTaaResolvePipeline, nullptr );
+        aCore.myPostProcessState.myTaaResolvePipeline = VK_NULL_HANDLE;
     }
     if ( aCore.myPostProcessState.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomThresholdPipeline, nullptr );

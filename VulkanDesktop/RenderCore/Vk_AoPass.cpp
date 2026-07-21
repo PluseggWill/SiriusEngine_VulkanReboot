@@ -124,10 +124,15 @@ void CreateAoImages( Vk_Renderer& aCore ) {
     aCore.CreateImage( HalfExtent( full.width, full.height ), kBentNormalFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                        VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myAoState.myBentNormalHalf.AllocImage() );
     aCore.myAoState.myBentNormalHalf.ImageView() = aCore.CreateImageView( aCore.myAoState.myBentNormalHalf.Image(), kBentNormalFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    // Classic SSAO may never write bent normals; deferred still samples binding 18 as SHADER_READ_ONLY.
+    aCore.TransitionImageLayout( aCore.myAoState.myBentNormalHalf.Image(), kBentNormalFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    Vk_AoPassDetail::gBentHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
                                 + " half=" + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
-                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM" );
+                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM"
+                                + " bent=" + std::to_string( reinterpret_cast< uintptr_t >( aCore.myAoState.myBentNormalHalf.Image() ) )
+                                + " raw=" + std::to_string( reinterpret_cast< uintptr_t >( aCore.myAoState.myAoRaw.Image() ) ) );
 }
 
 void UpdateClassicDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {

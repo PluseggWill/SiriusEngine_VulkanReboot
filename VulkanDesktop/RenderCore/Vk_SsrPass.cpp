@@ -86,10 +86,14 @@ void CreateHistoryImages( Vk_Renderer& aCore ) {
         return;
     }
 
-    for ( Vk_TextureResource& history : aCore.mySsrState.myLitHdrHistory ) {
+    for ( uint32_t i = 0; i < 2; ++i ) {
+        Vk_TextureResource& history = aCore.mySsrState.myLitHdrHistory[ i ];
         aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                            VK_SAMPLE_COUNT_1_BIT, history.AllocImage() );
         history.ImageView() = aCore.CreateImageView( history.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+        // First-frame SSR samples history as SHADER_READ_ONLY before RecordHistoryUpdate has written it.
+        aCore.TransitionImageLayout( history.Image(), kSsrFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+        sHistoryLayouts[ i ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     UtilLogger::Info( "SSR", "lit HDR history ping-pong: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );

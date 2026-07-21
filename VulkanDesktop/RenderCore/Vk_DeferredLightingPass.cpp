@@ -83,6 +83,7 @@ void DestroyDdgiAtlas( Vk_Renderer& aCore ) {
 }
 
 void CreateDdgiAtlas( Vk_Renderer& aCore ) {
+    DestroyDdgiAtlas( aCore );
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
     state.myDdgiProbeCountX         = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountX );
     state.myDdgiProbeCountY         = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountY );
@@ -97,8 +98,12 @@ void CreateDdgiAtlas( Vk_Renderer& aCore ) {
     aCore.CreateImage( atlasExtent, VK_FORMAT_R16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
                        VK_SAMPLE_COUNT_1_BIT, state.myDdgiProbeVisibilityAtlas.AllocImage() );
     state.myDdgiProbeVisibilityAtlas.ImageView() = aCore.CreateImageView( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT );
-    state.myDdgiAtlasReadable                    = false;
-    state.myDdgiHistoryForceReset                = true;
+    // Deferred always samples these as SHADER_READ_ONLY (even when DDGI is off) — leave UNDEFINED and validation fails.
+    aCore.TransitionImageLayout( state.myDdgiProbeIrradianceAtlas.Image(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 1 );
+    aCore.TransitionImageLayout( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    state.myDdgiAtlasReadable     = false;
+    state.myDdgiHistoryForceReset = true;
     state.myDdgiPrevVolumeCenter                 = aCore.myLightingSettings.myDdgiVolumeCenter;
     state.myDdgiPrevVolumeExtents                = aCore.myLightingSettings.myDdgiVolumeExtents;
     state.myDdgiPrevCameraEye                    = aCore.myPrimaryCamera.myEye;
@@ -107,6 +112,10 @@ void CreateDdgiAtlas( Vk_Renderer& aCore ) {
 // Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.
 void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+
+    // Validation rejects null imageView on COMBINED_IMAGE_SAMPLER; use albedo when a feature target is absent.
+    const VkImageView safeView = aCore.myGBufferState.myAlbedo.ImageView();
+    auto              orSafe   = [ safeView ]( VkImageView aView ) { return aView != VK_NULL_HANDLE ? aView : safeView; };
 
     VkDescriptorImageInfo albedoInfo{};
     albedoInfo.sampler     = state.myGBufferSampler;
@@ -145,62 +154,62 @@ void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
 
     VkDescriptorImageInfo shadowInfo{};
     shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
-    shadowInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
+    shadowInfo.imageView   = orSafe( aCore.myShadowMapState.myDepth.ImageView() );
     shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo irradianceInfo{};
     irradianceInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    irradianceInfo.imageView   = aCore.myIblResourcesState.myIrradiance.ImageView();
+    irradianceInfo.imageView   = orSafe( aCore.myIblResourcesState.myIrradiance.ImageView() );
     irradianceInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo prefilterInfo{};
     prefilterInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    prefilterInfo.imageView   = aCore.myIblResourcesState.myPrefilter.ImageView();
+    prefilterInfo.imageView   = orSafe( aCore.myIblResourcesState.myPrefilter.ImageView() );
     prefilterInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo brdfLutInfo{};
     brdfLutInfo.sampler     = aCore.myIblResourcesState.myBrdfLutSampler;
-    brdfLutInfo.imageView   = aCore.myIblResourcesState.myBrdfLut.ImageView();
+    brdfLutInfo.imageView   = orSafe( aCore.myIblResourcesState.myBrdfLut.ImageView() );
     brdfLutInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo skyInfo{};
     skyInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    skyInfo.imageView   = aCore.myIblResourcesState.mySky.ImageView();
+    skyInfo.imageView   = orSafe( aCore.myIblResourcesState.mySky.ImageView() );
     skyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo shadowDepthReadInfo{};
     shadowDepthReadInfo.sampler     = aCore.myShadowMapState.myDepthReadSampler;
-    shadowDepthReadInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
+    shadowDepthReadInfo.imageView   = orSafe( aCore.myShadowMapState.myDepth.ImageView() );
     shadowDepthReadInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo aoInfo{};
     aoInfo.sampler     = state.myGBufferSampler;
-    aoInfo.imageView   = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
+    aoInfo.imageView   = orSafe( Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore ) );
     aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo hiZInfo{};
     hiZInfo.sampler     = aCore.myDepthPyramidState.myPyramidSampler;
-    hiZInfo.imageView   = aCore.myDepthPyramidState.myPyramid.ImageView();
+    hiZInfo.imageView   = orSafe( aCore.myDepthPyramidState.myPyramid.ImageView() );
     hiZInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo ddgiProbeInfo{};
     ddgiProbeInfo.sampler     = state.myGBufferSampler;
-    ddgiProbeInfo.imageView   = state.myDdgiProbeIrradianceAtlas.ImageView();
+    ddgiProbeInfo.imageView   = orSafe( state.myDdgiProbeIrradianceAtlas.ImageView() );
     ddgiProbeInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo ddgiVisibilityInfo{};
     ddgiVisibilityInfo.sampler     = state.myGBufferSampler;
-    ddgiVisibilityInfo.imageView   = state.myDdgiProbeVisibilityAtlas.ImageView();
+    ddgiVisibilityInfo.imageView   = orSafe( state.myDdgiProbeVisibilityAtlas.ImageView() );
     ddgiVisibilityInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo ssrInfo{};
     ssrInfo.sampler     = state.myGBufferSampler;
-    ssrInfo.imageView   = Vk_SsrPass::GetOutputImageView( aCore );
+    ssrInfo.imageView   = orSafe( Vk_SsrPass::GetOutputImageView( aCore ) );
     ssrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo bentInfo{};
     bentInfo.sampler     = state.myGBufferSampler;
-    bentInfo.imageView   = Vk_AoPass::GetBentNormalHalfView( aCore );
+    bentInfo.imageView   = orSafe( Vk_AoPass::GetBentNormalHalfView( aCore ) );
     bentInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     VkDescriptorImageInfo mvInfo{};
     mvInfo.sampler     = state.myGBufferSampler;
@@ -311,6 +320,9 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor pool" );
     }
 
+    // Atlases must exist before UpdateDescriptorSet — bindings 15/16 reject null imageView.
+    CreateDdgiAtlas( aCore );
+
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -322,8 +334,6 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         }
         UpdateDescriptorSet( aCore, i );
     }
-
-    CreateDdgiAtlas( aCore );
 
     const std::array< VkDescriptorSetLayoutBinding, 4 > ddgiBindings = {
         VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
@@ -341,7 +351,8 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
 
     VkPushConstantRange ddgiPushRange{};
     ddgiPushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    ddgiPushRange.size       = sizeof( uint32_t ) * 8 + sizeof( float ) * 16;
+    // Must match DdgiProbeUpdate.comp / RecordDdgiProbeUpdate push (7 x vec4 = 112 bytes).
+    ddgiPushRange.size = sizeof( uint32_t ) * 8 + sizeof( float ) * 20;
 
     VkPipelineLayoutCreateInfo ddgiPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
     ddgiPipelineLayoutInfo.setLayoutCount             = 1;
@@ -420,12 +431,12 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
     const VkDescriptorSetLayout setLayout               = state.mySetLayout;
     const VkDescriptorPool      descriptorPool          = state.myDescriptorPool;
     const VkSampler             sampler                 = state.myGBufferSampler;
-    const VkPipeline            ddgiProbePipeline       = state.myDdgiProbeUpdatePipeline;
     const VkPipelineLayout      ddgiProbePipelineLayout = state.myDdgiProbeUpdatePipelineLayout;
     const VkDescriptorSetLayout ddgiProbeSetLayout      = state.myDdgiProbeSetLayout;
     const VkDescriptorPool      ddgiProbeDescriptorPool = state.myDdgiProbeDescriptorPool;
+    // DDGI compute pipeline is destroyed in Destroy(); do not capture it here (avoids double-free).
     aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
-        [ device, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipeline, ddgiProbePipelineLayout, ddgiProbeSetLayout, ddgiProbeDescriptorPool ]() {
+        [ device, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipelineLayout, ddgiProbeSetLayout, ddgiProbeDescriptorPool ]() {
             if ( pipelineLayout != VK_NULL_HANDLE ) {
                 vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
             }
@@ -437,9 +448,6 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
             }
             if ( sampler != VK_NULL_HANDLE ) {
                 vkDestroySampler( device, sampler, nullptr );
-            }
-            if ( ddgiProbePipeline != VK_NULL_HANDLE ) {
-                vkDestroyPipeline( device, ddgiProbePipeline, nullptr );
             }
             if ( ddgiProbePipelineLayout != VK_NULL_HANDLE ) {
                 vkDestroyPipelineLayout( device, ddgiProbePipelineLayout, nullptr );
@@ -465,8 +473,13 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
+        VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
         if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
+            vkDestroyPipeline( device, aCore.myDeferredLightingState.myPipeline, nullptr );
+        }
+        // Destroy DDGI compute here (not only via device deletion queue) so UnloadScene cannot leak it.
+        if ( aCore.myDeferredLightingState.myDdgiProbeUpdatePipeline != VK_NULL_HANDLE ) {
+            vkDestroyPipeline( device, aCore.myDeferredLightingState.myDdgiProbeUpdatePipeline, nullptr );
         }
     }
     DestroyDdgiAtlas( aCore );

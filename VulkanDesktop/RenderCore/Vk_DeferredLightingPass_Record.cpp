@@ -91,9 +91,14 @@ static void UpdateAoDescriptorBinding( Vk_Renderer& aCore, uint32_t aFrameIndex 
         return;
     }
 
+    VkImageView contactView = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
+    if ( contactView == VK_NULL_HANDLE ) {
+        contactView = aCore.myGBufferState.myAlbedo.ImageView();
+    }
+
     VkDescriptorImageInfo aoInfo{};
     aoInfo.sampler     = state.myGBufferSampler;
-    aoInfo.imageView   = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
+    aoInfo.imageView   = contactView;
     aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     const VkWriteDescriptorSet write =
@@ -113,18 +118,18 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
 
     VkImageMemoryBarrier toGeneralIrr{};
     toGeneralIrr.sType                                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toGeneralIrr.oldLayout                             = state.myDdgiAtlasReadable ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    // CreateDdgiAtlas transitions atlases to SHADER_READ_ONLY; probe update always starts from that layout.
+    toGeneralIrr.oldLayout                             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     toGeneralIrr.newLayout                             = VK_IMAGE_LAYOUT_GENERAL;
-    toGeneralIrr.srcAccessMask                         = state.myDdgiAtlasReadable ? VK_ACCESS_SHADER_READ_BIT : 0;
+    toGeneralIrr.srcAccessMask                         = VK_ACCESS_SHADER_READ_BIT;
     toGeneralIrr.dstAccessMask                         = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
     toGeneralIrr.image                                 = state.myDdgiProbeIrradianceAtlas.Image();
     toGeneralIrr.subresourceRange                      = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     VkImageMemoryBarrier toGeneralVis                  = toGeneralIrr;
     toGeneralVis.image                                 = state.myDdgiProbeVisibilityAtlas.Image();
-    const VkPipelineStageFlags            ddgiSrcStage = state.myDdgiAtlasReadable ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     std::array< VkImageMemoryBarrier, 2 > toGeneral    = { toGeneralIrr, toGeneralVis };
-    vkCmdPipelineBarrier( aCommandBuffer, ddgiSrcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, static_cast< uint32_t >( toGeneral.size() ),
-                          toGeneral.data() );
+    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
+                          static_cast< uint32_t >( toGeneral.size() ), toGeneral.data() );
 
     struct DdgiProbePush {
         glm::uvec4 probeGrid;

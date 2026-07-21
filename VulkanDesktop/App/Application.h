@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Gfx/Gfx_FrameDrawStream.h"
 #include "../Gfx/Gfx_SceneDesc.h"
 #include "../Util/Util_EngineConfig.h"
 #include "DebugUIState.h"
@@ -27,16 +28,17 @@ private:
     void        TryProcessSceneReload();
     std::string TakePendingSceneReloadPath();
 
-    std::vector< const char* > myDeviceExtensions;
-    Util_EngineConfig          myConfig;  // Single source of truth; bound on Vk_Renderer in InitApp.
-    WorldState                 myWorld;
-    DebugUIState               myDebugUI;
-    Gfx_SceneDesc              mySceneDesc;
-    std::string                myLastLoadedScenePath;
-    InputSystem                myInput;
-    Gfx_RenderCamera           myFlyCamera;
-    Pf_PlatformHost*           myPlatformHost            = nullptr;
-    Vk_Renderer*               myRenderer                = nullptr;  // owned for app lifetime; set in Run()
-    bool                       myRenderDocCaptureKeyDown = false;
-    bool                       myRestartKeyDown          = false;
+    std::vector< const char* >  myDeviceExtensions;
+    Util_EngineConfig           myConfig;  // Single source of truth; bound on Vk_Renderer in InitApp.
+    WorldState                  myWorld;
+    DebugUIState                myDebugUI;
+    Gfx_SceneDesc               mySceneDesc;
+    std::string                 myLastLoadedScenePath;
+    InputSystem                 myInput;
+    Gfx_RenderCamera            myFlyCamera;
+    Gfx_FrameDrawStreamLogState myStreamLogs{};  // once-per-scene CULL/BATCH logs (not per-frame)
+    Pf_PlatformHost*            myPlatformHost            = nullptr;
+    Vk_Renderer*                myRenderer                = nullptr;  // owned for app lifetime; set in Run()
+    bool                        myRenderDocCaptureKeyDown = false;
+    bool                        myRestartKeyDown          = false;
 };

@@ -173,6 +173,7 @@ void BuildHybridDeferredNodes( std::vector< FrameGraphNode >& aOutNodes ) {
                                 }
                             }
                             vkCmdEndRenderPass( aCtx.myCommandBuffer );
+                            aCore.myGBufferState.myDepthLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                         } } );
 
     aOutNodes.push_back(
