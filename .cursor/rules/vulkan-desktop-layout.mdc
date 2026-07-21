@@ -13,9 +13,10 @@ alwaysApply: false
 | **App** | `VulkanDesktop/App/` | Application lifecycle, input, **WorldState (target)**, debug overlay |
 | **Util** | `VulkanDesktop/Util/` | 日志、文件 IO、帧统计、ImGui **widgets/panels**（Vulkan ImGui 后端在 RenderCore `Vk_ImGuiLayer`） |
 | **Platform** | `VulkanDesktop/Platform/` | `Pf_PlatformHost` + GLFW concrete host (window/surface/frame timing) |
-| **RenderContract** | `VulkanDesktop/RenderContract/` | `Gpu_*.h` UBO/shared structs only — no `App`/`Gfx`/`RenderCore`/`Util` includes |
-| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan 设备、交换链、管线、录制 |
-| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据（mesh、material、fly camera），与 API 无关 |
+| **RenderContract** | `VulkanDesktop/RenderContract/` | `Gpu_*.h` UBO/shared structs only — no `App`/`Gfx`/`RenderCore`/`Rhi`/`Util` includes |
+| **Rhi** | `VulkanDesktop/Rhi/` | Opaque GPU API for Gfx (`Rhi_Device`, `Rhi_CommandList`, …) — **public headers must not include `vulkan.h`** |
+| **RenderCore** | `VulkanDesktop/RenderCore/` | Vulkan backend (`Vk_RhiBackend`, `Vk_RhiDevice`), swapchain, transitional `Vk_*Pass` |
+| **Gfx** | `VulkanDesktop/Gfx/` | 场景/视图数据 + (target) `Gfx_*Pass` via Rhi；**no `vulkan.h` / no `RenderCore/`** |
 | **入口** | `VulkanDesktop/VulkanDesktop.cpp` | `main`，留在项目根 |
 
 着色器：源 `VulkanDesktop/Shader/`，生成物 `Shader_Generated/`（`.spv`）。VS 过滤器 **Gfx\Shader**、**Gfx\Shader Generated**。详见 **`shader-build.mdc`**。
@@ -32,7 +33,8 @@ App/           ← Application, InputSystem, WorldState (peel target)
 Util/          ← Util_* ；ThirdParty/imgui/
 Platform/      ← Pf_PlatformHost, Pf_GlfwPlatformHost
 RenderContract/← Gpu_*.h
-RenderCore/    ← Vk_*
+Rhi/           ← Rhi_* opaque GPU API (no vulkan.h in public headers)
+RenderCore/    ← Vk_* backend + transitional passes
 Gfx/
   Shader/              ← *.vert, *.frag, CompileShader*.bat
   Shader Generated/    ← *.spv（勿手改）
@@ -40,8 +42,8 @@ Gfx/
 
 ## 命名
 
-- 文件：`{Util|Vk|Gfx|Pf}_{Name}.h/.cpp`；GPU UBO headers → `Gpu_*.h` under `RenderContract/`
-- 类型：与文件名一致（`Vk_Renderer`, `Gfx_Mesh`, `Pf_PlatformHost`, `Gpu_CameraData`）；描述符成员 `eVk_*`
+- 文件：`{Util|Vk|Gfx|Pf|Rhi}_{Name}.h/.cpp`；GPU UBO headers → `Gpu_*.h` under `RenderContract/`
+- 类型：与文件名一致（`Vk_Renderer`, `Gfx_Mesh`, `Pf_PlatformHost`, `Rhi_Device`, `Gpu_CameraData`）；描述符成员 `eVk_*`
 - Util 自由函数 → `UtilLogger::` 等；RenderCore 初始化辅助 → `VkInit::`
 - 成员 `my*`，参数 `a*`
 
@@ -50,8 +52,9 @@ Gfx/
 - **Util**：Logger、Loader（文件 IO）、ImGui 面板 widgets、统计
 - **Util 面板：** 一类调试 UI 一个 `Util_*Panel.{h,cpp}`；在 `App/DebugOverlay.cpp` 的 Engine Debug 标签页挂载。面板编辑 settings DTO / Actions，不 `#include Vk_Renderer`；副作用由 App 施加。面板内只做 `BuildContents`，不负责 `ImGui::Begin/End`。Vulkan ImGui render-pass/FB → `Vk_ImGuiLayer`。
 - **Pf_**：platform host seam（window/surface/timing）
-- **Vk_**：设备、交换链、管线、录制、RAII 缓冲
-- **Gfx_**：mesh/material/场景 SoA / `Gfx_RenderCamera`；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
+- **Rhi_**：opaque GPU handles / command list for Gfx — public `Rhi/*.h` never include Vulkan
+- **Vk_**：设备、交换链、管线、录制、RAII 缓冲；`Vk_RhiBackend` implements `Rhi_*`
+- **Gfx_**：mesh/material/场景 SoA / `Gfx_RenderCamera`；（target）`Gfx_*Pass` calling only Rhi；新类型优先 `Gfx/`，勿塞进 `Vk_Types.h`
 - **Gpu_***：shader contract structs in `RenderContract/` only
 
 ### Include

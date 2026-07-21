@@ -221,6 +221,7 @@
     <ClCompile Include="RenderCore\Vk_Bindless.cpp" />
     <ClCompile Include="RenderCore\Vk_Renderer.cpp" />
     <ClCompile Include="RenderCore\Vk_RhiDevice.cpp" />
+    <ClCompile Include="RenderCore\Vk_RhiBackend.cpp" />
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp" />
     <ClCompile Include="RenderCore\Vk_ShaderEffectMeta.cpp" />
     <ClCompile Include="RenderCore\Vk_FrameUniformUploader.cpp" />
@@ -339,6 +340,11 @@
     <ClInclude Include="RenderCore\Vk_Renderer.h" />
     <ClInclude Include="RenderCore\Vk_RendererContexts.h" />
     <ClInclude Include="RenderCore\Vk_RhiDevice.h" />
+    <ClInclude Include="RenderCore\Vk_RhiBackend.h" />
+    <ClInclude Include="Rhi\Rhi_Handles.h" />
+    <ClInclude Include="Rhi\Rhi_Enums.h" />
+    <ClInclude Include="Rhi\Rhi_Device.h" />
+    <ClInclude Include="Rhi\Rhi_CommandList.h" />
     <ClInclude Include="RenderCore\Vk_PrimaryCameraState.h" />
     <ClInclude Include="RenderCore\Vk_RenderFeatures.h" />
     <ClInclude Include="RenderCore\Vk_FrameUniformUploader.h" />

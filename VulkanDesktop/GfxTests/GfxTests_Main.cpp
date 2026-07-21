@@ -17,6 +17,8 @@
 #include "../Gfx/Gfx_TemporalJitter.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
 #include "../RenderCore/Vk_RhiDevice.h"
+#include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_ResolvePath.h"
 
@@ -596,6 +598,38 @@ void TestRhiDeviceHeadlessConstruct() {
     }
 }
 
+void TestRhiOpaqueDeviceAndCommandList() {
+    // Gfx-facing path: only Rhi/ headers (vulkan included elsewhere in this TU for legacy Vk_RhiDevice test).
+    Rhi_Device device = Rhi::DeviceCreateHeadless( false );
+    Expect( static_cast< bool >( device ), "Rhi DeviceCreateHeadless returns handle" );
+    Expect( Rhi::DeviceIsValid( device ), "Rhi DeviceIsValid after headless create" );
+    Expect( !Rhi::DeviceHasLogicalDevice( device ), "Headless Rhi device has no logical device" );
+
+    Rhi_CommandList list = Rhi::DeviceCreateCommandList( device );
+    Expect( static_cast< bool >( list ), "Rhi DeviceCreateCommandList returns handle" );
+    Expect( Rhi::CommandListIsValid( list ), "Rhi CommandListIsValid" );
+    Expect( !Rhi::CommandListIsRecordingReady( list ), "CommandList not recording-ready until backend bind" );
+
+    // Destroy device while a command list still lives — shell stays until list is destroyed (refcount).
+    Rhi::DeviceDestroy( device );
+    Expect( !static_cast< bool >( device ), "DeviceDestroy clears handle" );
+    Expect( Rhi::CommandListIsValid( list ), "CommandList remains valid after DeviceDestroy (refcount)" );
+
+    Rhi::CommandListBeginDebugLabel( list, "GfxTests.Rhi" );
+    Rhi::CommandListEndDebugLabel( list );
+
+    Rhi::CommandListDestroy( list );
+    Expect( !static_cast< bool >( list ), "CommandListDestroy clears handle" );
+
+    // Resource create without logical device must fail closed.
+    Rhi_Device      again = Rhi::DeviceCreateHeadless( false );
+    Rhi::BufferDesc bufDesc{};
+    bufDesc.mySizeBytes = 64;
+    Rhi_Buffer buf      = Rhi::DeviceCreateBuffer( again, bufDesc );
+    Expect( !static_cast< bool >( buf ), "CreateBuffer fails closed without logical device" );
+    Rhi::DeviceDestroy( again );
+}
+
 }  // namespace
 
 int main() {
@@ -634,6 +668,7 @@ int main() {
     TestRenderPresetHybridDeferred();
     TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
+    TestRhiOpaqueDeviceAndCommandList();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

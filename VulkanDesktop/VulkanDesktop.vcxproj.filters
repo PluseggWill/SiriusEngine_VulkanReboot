@@ -34,6 +34,9 @@
     <Filter Include="Platform">
       <UniqueIdentifier>{8c78a8c3-3ae2-4ae1-bcc8-3d4c32ed0fcf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rhi">
+      <UniqueIdentifier>{a9b0c1d2-e3f4-4567-8901-23456789abcd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="VulkanDesktop.cpp" />
@@ -212,6 +215,9 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_RhiDevice.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_RhiBackend.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_DescriptorSystem.cpp">
@@ -554,6 +560,21 @@
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_RhiDevice.h">
       <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_RhiBackend.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="Rhi\Rhi_Handles.h">
+      <Filter>Rhi</Filter>
+    </ClInclude>
+    <ClInclude Include="Rhi\Rhi_Enums.h">
+      <Filter>Rhi</Filter>
+    </ClInclude>
+    <ClInclude Include="Rhi\Rhi_Device.h">
+      <Filter>Rhi</Filter>
+    </ClInclude>
+    <ClInclude Include="Rhi\Rhi_CommandList.h">
+      <Filter>Rhi</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_PrimaryCameraState.h">
       <Filter>RenderCore</Filter>

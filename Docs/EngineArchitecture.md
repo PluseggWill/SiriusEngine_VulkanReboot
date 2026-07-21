@@ -26,10 +26,17 @@ flowchart TB
     WORLD[WorldState — App owns SoA CPU]
   end
 
-  subgraph GFX [Gfx/ — no Vulkan]
+  subgraph GFX [Gfx/ — no vulkan.h]
     SOA[Scene SoA columns]
     EXTRACT[Extract / cull / sort / batch]
     PACKETS[FrameRenderPacket]
+    PASSES[Gfx_*Pass target — via Rhi]
+    PIPE[Gfx_RenderPipeline target]
+  end
+
+  subgraph RHI [Rhi/ — opaque GPU API]
+    RDEV[Rhi_Device]
+    RCMD[Rhi_CommandList]
   end
 
   subgraph UTIL [Util/]
@@ -41,9 +48,10 @@ flowchart TB
     PHOST[Pf_PlatformHost — window / surface / frame timing]
   end
 
-  subgraph RC [RenderCore/ — Vulkan only]
-    CORE[Vk_Renderer orchestrator]
-    PEEL[Vk_RhiDevice · Vk_FrameGraph · ScenePasses · …]
+  subgraph RC [RenderCore/ — Vulkan backend]
+    CORE[Vk_Renderer frame shell]
+    BACKEND[Vk_RhiBackend · Vk_RhiDevice]
+    PEEL[Vk_FrameGraph · ScenePasses · Vk_*Pass transitional]
     TABLES[Vk_ResourceTables]
   end
 
@@ -53,21 +61,31 @@ flowchart TB
   SOA --> EXTRACT
   EXTRACT --> PACKETS
   PACKETS --> PEEL
+  PASSES --> RDEV
+  PIPE --> PASSES
+  RDEV --> BACKEND
+  RCMD --> BACKEND
   CONFIG --> APPLICATION
   LOAD --> TABLES
   APPLICATION --> PHOST
   PEEL --> PHOST
   CORE --> PEEL
+  CORE --> BACKEND
 ```
 
 | Folder | Must not |
 |--------|----------|
-| **Gfx/** | `#include` Vulkan headers; call `vk*`; take `Util_EngineConfig` on public load/registry APIs (App resolves paths / active names) |
-| **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path; `#include` concrete `App/*` |
+| **Gfx/** | `#include` Vulkan headers (`vulkan.h`); call `vk*`; `#include` `RenderCore/*`; take `Util_EngineConfig` on public load/registry APIs (App resolves paths / active names). **May** `#include` `Rhi/*` and call `Rhi_*` for GPU work (pass migration target). |
+| **Rhi/** | `#include` `vulkan.h` in **public** headers; own lighting/post/shadow business logic; `#include` `App/` / `Gfx/` / `Util/` (except nothing today — keep Rhi free of engine DTO). Implementation lives in RenderCore (`Vk_RhiBackend`). |
+| **RenderCore/** | Own gameplay rules; mutate SoA simulation columns from record path; `#include` concrete `App/*`. Long-term: pass **implementations** move to Gfx; RenderCore keeps Vulkan backend + WSI/frame submit. |
 | **App/** | Create pipelines or descriptor layouts; compose Vulkan viewport/scissor primitives for views |
 | **Platform/** | Own renderer passes, scene state, or draw-prep policy |
-| **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, or `Util/` |
+| **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, `Rhi/`, or `Util/` |
 | **Util/** | Own per-frame draw ordering; `#include` Vulkan / `vk*` create/upload (GPU upload → `Vk_TextureLoader`; ImGui RP/FB → `Vk_ImGuiLayer`); `#include` `Vk_Renderer` from panel headers (edit settings DTOs; App applies); call `stbi_*` / `tinyobj::*` outside `Util_ImageDecode` / `Util_ObjLoad` |
+
+**Gfx ↔ Rhi (locked):** Gfx obtains GPU effects only through `Rhi_*` opaque handles / command lists. Gfx must not include `RenderCore` or Vulkan headers. `Vk_RhiDevice` is an internal RenderCore factory that **implements** Rhi — not the public dialogue surface for Gfx.
+
+**Migration note:** Until E2–E4 complete, hybrid deferred passes still live as `Vk_*Pass` in RenderCore; new code should prefer Rhi-shaped seams. Epic: [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md).
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI + **fly camera (`Gfx_RenderCamera`)** in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles` (incl. gpuCull / legacyDirectDraw / hybridDeferred policy), syncs `Vk_PrimaryCameraState`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Init policy (`Vk_RenderFeatures`) is snapshotted at `BindEngineConfig`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
@@ -94,8 +112,9 @@ flowchart TB
 
 | Layer | Types |
 |-------|--------|
-| **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, … |
-| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource` (GPU handles) |
+| **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, …; target: `Gfx_*Pass` state that holds `Rhi_*` handles |
+| **Rhi/** | Opaque `Rhi_Device`, `Rhi_CommandList`, (later) buffer/texture/pipeline handles — no Vulkan types in public headers |
+| **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource`; `Vk_RhiBackend` maps Rhi ↔ Vulkan |
 | **Gpu_*** UBO / SSBO structs | `RenderContract/Gpu_*.h` (shader contract; camera/env/lighting/material/cluster; included by RenderCore via `Vk_Types.h`) |
 
 
@@ -403,14 +422,17 @@ Features (shadows, IBL, MSAA, tonemap) attach via:
 ```mermaid
 flowchart TB
   PRE[Render preset]
-  PRE --> FGTOP[Frame graph topology]
+  PRE --> PIPE[Gfx_RenderPipeline]
+  PIPE --> PLAN[Gfx_FramePlan]
+  PLAN --> GPASS[Gfx_*Pass Record]
+  GPASS --> RHI[Rhi_CommandList]
+  RHI --> VK[RenderCore Vulkan backend]
   PRE --> PERM[Permutation subset]
   PRE --> COL[Extra SoA columns if needed]
-  FGTOP --> PASSES[Which passes exist]
   PERM --> PIPES[Pipeline variants]
 ```
 
-Not via scattered `if (feature)` in per-entity virtual calls. Benchmark methodology → [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
+Not via scattered `if (feature)` in per-entity virtual calls. Target ownership: topology/enable in Gfx; GPU primitives in Rhi; Vulkan in RenderCore. Migration epic: [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md). Benchmark methodology → [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
 
 ---
 

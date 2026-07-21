@@ -95,6 +95,7 @@
     <ClCompile Include="GfxTests\GfxTests_Main.cpp" />
     <ClCompile Include="GfxTests\GfxTests_VmaImpl.cpp" />
     <ClCompile Include="RenderCore\Vk_RhiDevice.cpp" />
+    <ClCompile Include="RenderCore\Vk_RhiBackend.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
