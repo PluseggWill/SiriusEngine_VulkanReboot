@@ -28,6 +28,8 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] Rhi_Pipeline       PipelineAdopt( VkPipeline aPipeline );
 [[nodiscard]] Rhi_PipelineLayout PipelineLayoutAdopt( VkPipelineLayout aLayout );
 [[nodiscard]] Rhi_DescriptorSet  DescriptorSetAdopt( VkDescriptorSet aSet );
+[[nodiscard]] Rhi_RenderPass     RenderPassAdopt( VkRenderPass aRenderPass );
+[[nodiscard]] Rhi_Framebuffer    FramebufferAdopt( VkFramebuffer aFramebuffer );
 // Registers a non-owned image/view on aDevice so barriers / TextureGetVk* work.
 [[nodiscard]] Rhi_Texture TextureAdopt( const Rhi_Device& aDevice, VkImage aImage, VkImageView aView, VkFormat aFormat, uint32_t aMipLevels );
 [[nodiscard]] Rhi_Buffer  BufferAdopt( VkBuffer aBuffer );
@@ -35,6 +37,8 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] VkPipeline       PipelineGetVk( Rhi_Pipeline aPipeline );
 [[nodiscard]] VkPipelineLayout PipelineLayoutGetVk( Rhi_PipelineLayout aLayout );
 [[nodiscard]] VkDescriptorSet  DescriptorSetGetVk( Rhi_DescriptorSet aSet );
+[[nodiscard]] VkRenderPass     RenderPassGetVk( Rhi_RenderPass aRenderPass );
+[[nodiscard]] VkFramebuffer    FramebufferGetVk( Rhi_Framebuffer aFramebuffer );
 [[nodiscard]] VkBuffer         BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer );
 [[nodiscard]] VkImage          TextureGetVkImage( const Rhi_Device& aDevice, Rhi_Texture aTexture );
 [[nodiscard]] VkImageView      TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture );

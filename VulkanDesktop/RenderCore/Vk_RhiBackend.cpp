@@ -272,6 +272,12 @@ VkPipelineStageFlags ToVkStage( Rhi_PipelineStage aStage ) {
     if ( bits & static_cast< uint32_t >( Rhi_PipelineStage::Host ) ) {
         flags |= VK_PIPELINE_STAGE_HOST_BIT;
     }
+    if ( bits & static_cast< uint32_t >( Rhi_PipelineStage::EarlyFragmentTests ) ) {
+        flags |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    if ( bits & static_cast< uint32_t >( Rhi_PipelineStage::LateFragmentTests ) ) {
+        flags |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    }
     return flags == 0 ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : flags;
 }
 
@@ -473,15 +479,10 @@ void CommandListPipelineBarrier( Rhi_CommandList& aList, const BufferBarrier* aB
     VkPipelineStageFlags dstStage = 0;
 
     for ( uint32_t i = 0; i < aBarrierCount; ++i ) {
-        const BufferBarrier& b        = aBarriers[ i ];
-        VkBuffer             resolved = VK_NULL_HANDLE;
-        auto                 it       = impl->myDevice->myBuffers.find( b.myBuffer.myId );
-        if ( it != impl->myDevice->myBuffers.end() ) {
-            resolved = it->second.myAlloc.myBuffer;
-        }
-        else {
-            resolved = reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( b.myBuffer.myId ) );
-        }
+        const BufferBarrier& b  = aBarriers[ i ];
+        auto                 it = impl->myDevice->myBuffers.find( b.myBuffer.myId );
+        const VkBuffer       resolved =
+            ( it != impl->myDevice->myBuffers.end() ) ? it->second.myAlloc.myBuffer : reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( b.myBuffer.myId ) );
         if ( resolved == VK_NULL_HANDLE ) {
             continue;
         }
@@ -504,6 +505,17 @@ void CommandListPipelineBarrier( Rhi_CommandList& aList, const BufferBarrier* aB
     vkCmdPipelineBarrier( impl->myCmd, srcStage, dstStage, 0, 0, nullptr, static_cast< uint32_t >( vkBarriers.size() ), vkBarriers.data(), 0, nullptr );
 }
 
+void CommandListMemoryBarrier( Rhi_CommandList& aList, const MemoryBarrierDesc& aBarrier ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE ) {
+        return;
+    }
+    VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+    barrier.srcAccessMask = ToVkAccess( aBarrier.mySrcAccess );
+    barrier.dstAccessMask = ToVkAccess( aBarrier.myDstAccess );
+    vkCmdPipelineBarrier( impl->myCmd, ToVkStage( aBarrier.mySrcStage ), ToVkStage( aBarrier.myDstStage ), 0, 1, &barrier, 0, nullptr, 0, nullptr );
+}
+
 void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_Pipeline aPipeline ) {
     CommandListImpl* impl = AsCmd( aList );
     VkPipeline       pipe = reinterpret_cast< VkPipeline >( static_cast< uintptr_t >( aPipeline.myId ) );
@@ -513,14 +525,18 @@ void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBin
     vkCmdBindPipeline( impl->myCmd, ToVkBindPoint( aBindPoint ), pipe );
 }
 
-void CommandListBindDescriptorSet( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_PipelineLayout aLayout, uint32_t aSetIndex, Rhi_DescriptorSet aSet ) {
+void CommandListBindDescriptorSet( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_PipelineLayout aLayout, uint32_t aSetIndex, Rhi_DescriptorSet aSet,
+                                   const uint32_t* aDynamicOffsets, uint32_t aDynamicOffsetCount ) {
     CommandListImpl* impl   = AsCmd( aList );
     VkPipelineLayout layout = reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
     VkDescriptorSet  set    = reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
     if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || set == VK_NULL_HANDLE ) {
         return;
     }
-    vkCmdBindDescriptorSets( impl->myCmd, ToVkBindPoint( aBindPoint ), layout, aSetIndex, 1, &set, 0, nullptr );
+    if ( aDynamicOffsetCount > 0 && aDynamicOffsets == nullptr ) {
+        return;
+    }
+    vkCmdBindDescriptorSets( impl->myCmd, ToVkBindPoint( aBindPoint ), layout, aSetIndex, 1, &set, aDynamicOffsetCount, aDynamicOffsets );
 }
 
 void CommandListPushConstants( Rhi_CommandList& aList, Rhi_PipelineLayout aLayout, Rhi_ShaderStage aStages, uint32_t aOffsetBytes, uint32_t aSizeBytes, const void* aData ) {
@@ -554,6 +570,118 @@ void CommandListDrawIndexed( Rhi_CommandList& aList, uint32_t aIndexCount, uint3
         return;
     }
     vkCmdDrawIndexed( impl->myCmd, aIndexCount, aInstanceCount, aFirstIndex, aVertexOffset, aFirstInstance );
+}
+
+VkBuffer ResolveVkBuffer( CommandListImpl* aImpl, Rhi_Buffer aBuffer ) {
+    if ( aImpl == nullptr || aImpl->myDevice == nullptr || aBuffer.myId == 0 ) {
+        return VK_NULL_HANDLE;
+    }
+    auto it = aImpl->myDevice->myBuffers.find( aBuffer.myId );
+    if ( it != aImpl->myDevice->myBuffers.end() ) {
+        return it->second.myAlloc.myBuffer;
+    }
+    return reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( aBuffer.myId ) );
+}
+
+void CommandListBindVertexBuffer( Rhi_CommandList& aList, uint32_t aBinding, Rhi_Buffer aBuffer, uint64_t aOffsetBytes ) {
+    CommandListImpl* impl   = AsCmd( aList );
+    const VkBuffer   buffer = ResolveVkBuffer( impl, aBuffer );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || buffer == VK_NULL_HANDLE ) {
+        return;
+    }
+    const VkDeviceSize offset = static_cast< VkDeviceSize >( aOffsetBytes );
+    vkCmdBindVertexBuffers( impl->myCmd, aBinding, 1, &buffer, &offset );
+}
+
+void CommandListBindIndexBuffer( Rhi_CommandList& aList, Rhi_Buffer aBuffer, uint64_t aOffsetBytes, Rhi_IndexType aIndexType ) {
+    CommandListImpl* impl   = AsCmd( aList );
+    const VkBuffer   buffer = ResolveVkBuffer( impl, aBuffer );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || buffer == VK_NULL_HANDLE ) {
+        return;
+    }
+    const VkIndexType indexType = aIndexType == Rhi_IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+    vkCmdBindIndexBuffer( impl->myCmd, buffer, static_cast< VkDeviceSize >( aOffsetBytes ), indexType );
+}
+
+void CommandListSetViewport( Rhi_CommandList& aList, const Viewport& aViewport ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE ) {
+        return;
+    }
+    VkViewport vp{};
+    vp.x        = aViewport.myX;
+    vp.y        = aViewport.myY;
+    vp.width    = aViewport.myWidth;
+    vp.height   = aViewport.myHeight;
+    vp.minDepth = aViewport.myMinDepth;
+    vp.maxDepth = aViewport.myMaxDepth;
+    vkCmdSetViewport( impl->myCmd, 0, 1, &vp );
+}
+
+void CommandListSetScissor( Rhi_CommandList& aList, const Scissor& aScissor ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE ) {
+        return;
+    }
+    VkRect2D scissor{};
+    scissor.offset = { aScissor.myX, aScissor.myY };
+    scissor.extent = { aScissor.myWidth, aScissor.myHeight };
+    vkCmdSetScissor( impl->myCmd, 0, 1, &scissor );
+}
+
+void CommandListSetDepthBias( Rhi_CommandList& aList, float aConstantFactor, float aClamp, float aSlopeFactor ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE ) {
+        return;
+    }
+    vkCmdSetDepthBias( impl->myCmd, aConstantFactor, aClamp, aSlopeFactor );
+}
+
+void CommandListBeginRenderPass( Rhi_CommandList& aList, const RenderPassBeginInfo& aInfo ) {
+    CommandListImpl*    impl        = AsCmd( aList );
+    const VkRenderPass  renderPass  = reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aInfo.myRenderPass.myId ) );
+    const VkFramebuffer framebuffer = reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aInfo.myFramebuffer.myId ) );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || renderPass == VK_NULL_HANDLE || framebuffer == VK_NULL_HANDLE || aInfo.myWidth == 0 || aInfo.myHeight == 0 ) {
+        return;
+    }
+    if ( aInfo.myClearCount > 0 && aInfo.myClears == nullptr ) {
+        return;
+    }
+
+    std::vector< VkClearValue > clears;
+    clears.reserve( aInfo.myClearCount );
+    for ( uint32_t i = 0; i < aInfo.myClearCount; ++i ) {
+        VkClearValue      cv{};
+        const ClearValue& src = aInfo.myClears[ i ];
+        if ( src.myType == Rhi_ClearValueType::DepthStencil ) {
+            cv.depthStencil.depth   = src.myDepth;
+            cv.depthStencil.stencil = src.myStencil;
+        }
+        else {
+            cv.color.float32[ 0 ] = src.myColor[ 0 ];
+            cv.color.float32[ 1 ] = src.myColor[ 1 ];
+            cv.color.float32[ 2 ] = src.myColor[ 2 ];
+            cv.color.float32[ 3 ] = src.myColor[ 3 ];
+        }
+        clears.push_back( cv );
+    }
+
+    VkRenderPassBeginInfo begin{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+    begin.renderPass        = renderPass;
+    begin.framebuffer       = framebuffer;
+    begin.renderArea.offset = { aInfo.myOffsetX, aInfo.myOffsetY };
+    begin.renderArea.extent = { aInfo.myWidth, aInfo.myHeight };
+    begin.clearValueCount   = static_cast< uint32_t >( clears.size() );
+    begin.pClearValues      = clears.empty() ? nullptr : clears.data();
+    vkCmdBeginRenderPass( impl->myCmd, &begin, VK_SUBPASS_CONTENTS_INLINE );
+}
+
+void CommandListEndRenderPass( Rhi_CommandList& aList ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE ) {
+        return;
+    }
+    vkCmdEndRenderPass( impl->myCmd );
 }
 
 void CommandListCopyImage( Rhi_CommandList& aList, const ImageCopy& aCopy ) {
@@ -756,6 +884,18 @@ Rhi_DescriptorSet DescriptorSetAdopt( VkDescriptorSet aSet ) {
     return out;
 }
 
+Rhi_RenderPass RenderPassAdopt( VkRenderPass aRenderPass ) {
+    Rhi_RenderPass out;
+    out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aRenderPass ) );
+    return out;
+}
+
+Rhi_Framebuffer FramebufferAdopt( VkFramebuffer aFramebuffer ) {
+    Rhi_Framebuffer out;
+    out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aFramebuffer ) );
+    return out;
+}
+
 Rhi_Texture TextureAdopt( const Rhi_Device& aDevice, VkImage aImage, VkImageView aView, VkFormat aFormat, uint32_t aMipLevels ) {
     DeviceImpl* impl = AsDevice( aDevice );
     if ( impl == nullptr || aImage == VK_NULL_HANDLE ) {
@@ -791,6 +931,14 @@ VkPipelineLayout PipelineLayoutGetVk( Rhi_PipelineLayout aLayout ) {
 
 VkDescriptorSet DescriptorSetGetVk( Rhi_DescriptorSet aSet ) {
     return reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
+}
+
+VkRenderPass RenderPassGetVk( Rhi_RenderPass aRenderPass ) {
+    return reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aRenderPass.myId ) );
+}
+
+VkFramebuffer FramebufferGetVk( Rhi_Framebuffer aFramebuffer ) {
+    return reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aFramebuffer.myId ) );
 }
 
 VkBuffer BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer ) {

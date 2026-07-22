@@ -71,17 +71,23 @@ enum class Rhi_ImageLayout : uint8_t {
 enum class Rhi_MemoryUsage : uint8_t { GpuOnly = 0, CpuToGpu, GpuToCpu };
 
 enum class Rhi_PipelineStage : uint32_t {
-    TopOfPipe       = 1u << 0,
-    DrawIndirect    = 1u << 1,
-    VertexShader    = 1u << 2,
-    FragmentShader  = 1u << 3,
-    ComputeShader   = 1u << 4,
-    ColorAttachment = 1u << 5,
-    Transfer        = 1u << 6,
-    BottomOfPipe    = 1u << 7,
-    AllCommands     = 1u << 8,
-    Host            = 1u << 9,
+    TopOfPipe          = 1u << 0,
+    DrawIndirect       = 1u << 1,
+    VertexShader       = 1u << 2,
+    FragmentShader     = 1u << 3,
+    ComputeShader      = 1u << 4,
+    ColorAttachment    = 1u << 5,
+    Transfer           = 1u << 6,
+    BottomOfPipe       = 1u << 7,
+    AllCommands        = 1u << 8,
+    Host               = 1u << 9,
+    EarlyFragmentTests = 1u << 10,
+    LateFragmentTests  = 1u << 11,
 };
+
+enum class Rhi_IndexType : uint8_t { Uint16 = 0, Uint32 };
+
+enum class Rhi_ClearValueType : uint8_t { Color = 0, DepthStencil };
 
 inline Rhi_PipelineStage operator|( Rhi_PipelineStage a, Rhi_PipelineStage b ) {
     return static_cast< Rhi_PipelineStage >( static_cast< uint32_t >( a ) | static_cast< uint32_t >( b ) );

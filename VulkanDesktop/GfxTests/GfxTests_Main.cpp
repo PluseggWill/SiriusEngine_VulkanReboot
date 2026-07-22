@@ -17,6 +17,7 @@
 #include "../Gfx/Gfx_ShaderPermutation.h"
 #include "../Gfx/Gfx_TemporalJitter.h"
 #include "../RenderCore/Vk_DescriptorPolicy.h"
+#include "../RenderCore/Vk_RhiBackend.h"
 #include "../RenderCore/Vk_RhiDevice.h"
 #include "../Rhi/Rhi_CommandList.h"
 #include "../Rhi/Rhi_Device.h"
@@ -714,6 +715,57 @@ void TestRhiOpaqueDeviceAndCommandList() {
     Rhi::DeviceDestroy( again );
 }
 
+void TestRhiGraphicsRecordingSurface() {
+    // E4.6a: graphics recording APIs must compile and no-op safely without a bound Vk command buffer.
+    Rhi_Device      device = Rhi::DeviceCreateHeadless( false );
+    Rhi_CommandList list   = Rhi::DeviceCreateCommandList( device );
+
+    const Rhi_RenderPass  rp = RhiVulkan::RenderPassAdopt( reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( 0x11 ) ) );
+    const Rhi_Framebuffer fb = RhiVulkan::FramebufferAdopt( reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( 0x22 ) ) );
+    Expect( static_cast< bool >( rp ), "RenderPassAdopt yields handle" );
+    Expect( static_cast< bool >( fb ), "FramebufferAdopt yields handle" );
+    Expect( RhiVulkan::RenderPassGetVk( rp ) == reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( 0x11 ) ), "RenderPassGetVk round-trip" );
+    Expect( RhiVulkan::FramebufferGetVk( fb ) == reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( 0x22 ) ), "FramebufferGetVk round-trip" );
+
+    Rhi::ClearValue depthClear{};
+    depthClear.myType  = Rhi_ClearValueType::DepthStencil;
+    depthClear.myDepth = 0.0f;
+
+    Rhi::RenderPassBeginInfo begin{};
+    begin.myRenderPass  = rp;
+    begin.myFramebuffer = fb;
+    begin.myWidth       = 64;
+    begin.myHeight      = 64;
+    begin.myClears      = &depthClear;
+    begin.myClearCount  = 1;
+    Rhi::CommandListBeginRenderPass( list, begin );
+    Rhi::CommandListSetViewport( list, Rhi::Viewport{ 0.f, 0.f, 64.f, 64.f, 0.f, 1.f } );
+    Rhi::CommandListSetScissor( list, Rhi::Scissor{ 0, 0, 64, 64 } );
+    Rhi::CommandListSetDepthBias( list, 1.0f, 0.0f, 1.5f );
+
+    const uint32_t dynOffset = 256u;
+    Rhi::CommandListBindDescriptorSet( list, Rhi_PipelineBindPoint::Graphics, {}, 0, {}, &dynOffset, 1 );
+    Rhi::CommandListBindVertexBuffer( list, 0, RhiVulkan::BufferAdopt( reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( 0x33 ) ) ), 0 );
+    Rhi::CommandListBindIndexBuffer( list, RhiVulkan::BufferAdopt( reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( 0x44 ) ) ), 0, Rhi_IndexType::Uint32 );
+    Rhi::CommandListDraw( list, 3, 1, 0, 0 );
+    Rhi::CommandListDrawIndexed( list, 3, 1, 0, 0, 0 );
+    Rhi::CommandListEndRenderPass( list );
+
+    Rhi::MemoryBarrierDesc mem{};
+    mem.mySrcStage  = Rhi_PipelineStage::ComputeShader;
+    mem.myDstStage  = Rhi_PipelineStage::ComputeShader;
+    mem.mySrcAccess = Rhi_Access::ShaderWrite;
+    mem.myDstAccess = Rhi_Access::ShaderRead;
+    Rhi::CommandListMemoryBarrier( list, mem );
+
+    const Rhi_PipelineStage depthStages = Rhi_PipelineStage::EarlyFragmentTests | Rhi_PipelineStage::LateFragmentTests;
+    Expect( ( static_cast< uint32_t >( depthStages ) & static_cast< uint32_t >( Rhi_PipelineStage::EarlyFragmentTests ) ) != 0, "EarlyFragmentTests flag set" );
+    Expect( ( static_cast< uint32_t >( depthStages ) & static_cast< uint32_t >( Rhi_PipelineStage::LateFragmentTests ) ) != 0, "LateFragmentTests flag set" );
+
+    Rhi::CommandListDestroy( list );
+    Rhi::DeviceDestroy( device );
+}
+
 }  // namespace
 
 int main() {
@@ -755,6 +807,7 @@ int main() {
     TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
     TestRhiOpaqueDeviceAndCommandList();
+    TestRhiGraphicsRecordingSurface();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();
 

@@ -57,3 +57,10 @@
 - **Review:** Bugbot on uncommitted E4.2–E4.5 diff — no bugs
 - **Docs:** `gfx-rhi-pass-migration_Plan.md` expanded with E4.6 gap matrix, FG RP ownership, Rhi surface checklist (Begin/End RP, viewport/scissor/bias, VB/IB, dynamic offsets, memory barrier, fragment-test stages), ordered E4.6a–f steps
 - **Verification:** plan-only; runtime re-verify on next E4.6a slice
+
+## 2026-07-22 — E4.6a Rhi graphics recording surface
+
+- **Files:** `Rhi_Handles` (RenderPass/Framebuffer), `Rhi_Enums` (Early/LateFragmentTests, IndexType, ClearValueType), `Rhi_CommandList` (Begin/End RP, viewport/scissor/bias, VB/IB, dynamic offsets, MemoryBarrierDesc), `Vk_RhiBackend` adopt/impl, GfxTests `TestRhiGraphicsRecordingSurface`
+- **Note:** struct named `MemoryBarrierDesc` (Win32 `MemoryBarrier` macro collision)
+- **Non-goals kept:** no RP create from Gfx; no pass peels in this slice
+- **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`

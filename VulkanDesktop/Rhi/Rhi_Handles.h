@@ -109,3 +109,19 @@ struct Rhi_ShaderModule {
         return myId != 0;
     }
 };
+
+struct Rhi_RenderPass {
+    uint64_t myId = 0;
+
+    explicit operator bool() const {
+        return myId != 0;
+    }
+};
+
+struct Rhi_Framebuffer {
+    uint64_t myId = 0;
+
+    explicit operator bool() const {
+        return myId != 0;
+    }
+};
