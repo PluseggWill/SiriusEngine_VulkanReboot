@@ -35,6 +35,9 @@ void Init( Vk_Renderer& aCore );
 void Destroy( Vk_Renderer& aCore );
 void RecreateForExtent( Vk_Renderer& aCore );
 
+// Vulkan descriptor refresh — called from Record facade before Gfx_SsrPass::RecordTrace.
+void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex );
+
 void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex );
 void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer );
 

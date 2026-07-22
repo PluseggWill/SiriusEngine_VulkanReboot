@@ -15,14 +15,17 @@
 #include <stdexcept>
 #include <string>
 
+namespace Vk_SsrPassDetail {
+VkImageLayout                  gSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+std::array< VkImageLayout, 2 > gHistoryLayouts{ VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
+}  // namespace Vk_SsrPassDetail
+
 namespace {
 
 constexpr char     kSsrShaderPath[] = "VulkanDesktop/Shader_Generated/SsrTrace.spv";
 constexpr VkFormat kSsrFormat       = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-VkImageLayout                  sSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-std::array< VkImageLayout, 2 > sHistoryLayouts{ VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
-
+// Push size must stay aligned with Gfx_SsrPass::TracePush / SsrTrace.comp (used for pipeline layout).
 struct SsrPushConstants {
     alignas( 16 ) glm::mat4 view;
     alignas( 16 ) glm::mat4 proj;
@@ -35,18 +38,6 @@ struct SsrPushConstants {
 };
 
 static_assert( sizeof( SsrPushConstants ) == 240, "SsrPushConstants must match SsrTrace.comp push block" );
-
-VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
-    VkImageMemoryBarrier barrier{};
-    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout        = aOldLayout;
-    barrier.newLayout        = aNewLayout;
-    barrier.srcAccessMask    = aSrcAccess;
-    barrier.dstAccessMask    = aDstAccess;
-    barrier.image            = aImage;
-    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    return barrier;
-}
 
 void DestroySsrImage( Vk_Renderer& aCore ) {
     const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
@@ -61,7 +52,7 @@ void DestroySsrImage( Vk_Renderer& aCore ) {
         vmaDestroyImage( allocator, texture.Image(), texture.Allocation() );
         texture.AllocImage() = {};
     }
-    sSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_SsrPassDetail::gSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 void DestroySsrImages( Vk_Renderer& aCore ) {
@@ -77,7 +68,7 @@ void DestroySsrImages( Vk_Renderer& aCore ) {
             history.AllocImage() = {};
         }
     }
-    sHistoryLayouts = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
+    Vk_SsrPassDetail::gHistoryLayouts = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
 }
 
 void CreateHistoryImages( Vk_Renderer& aCore ) {
@@ -93,7 +84,7 @@ void CreateHistoryImages( Vk_Renderer& aCore ) {
         history.ImageView() = aCore.CreateImageView( history.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
         // First-frame SSR samples history as SHADER_READ_ONLY before RecordHistoryUpdate has written it.
         aCore.TransitionImageLayout( history.Image(), kSsrFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-        sHistoryLayouts[ i ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_SsrPassDetail::gHistoryLayouts[ i ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
 
     UtilLogger::Info( "SSR", "lit HDR history ping-pong: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
@@ -113,7 +104,7 @@ void CreateSsrImage( Vk_Renderer& aCore ) {
     UtilLogger::Info( "SSR", "target: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) + " format=RGBA16F" );
 }
 
-void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_SsrState& state = aCore.mySsrState;
 
     VkDescriptorImageInfo depthInfo{};
@@ -273,13 +264,17 @@ void AllocateDescriptorSets( Vk_Renderer& aCore ) {
         if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
             throw std::runtime_error( "Vk_SsrPass: failed to allocate descriptor set" );
         }
-        UpdateDescriptorSet( aCore, i );
+        UpdateDescriptorSetImpl( aCore, i );
     }
 }
 
 }  // namespace
 
 namespace Vk_SsrPass {
+
+void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+    UpdateDescriptorSetImpl( aCore, aFrameIndex );
+}
 
 void Destroy( Vk_Renderer& aCore ) {
     if ( !aCore.mySsrState.myInitialized ) {
@@ -309,7 +304,7 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     CreateHistoryImages( aCore );
     aCore.mySsrState.myHistoryReady = false;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        UpdateDescriptorSet( aCore, i );
+        UpdateDescriptorSetImpl( aCore, i );
     }
 }
 
@@ -330,110 +325,10 @@ void Init( Vk_Renderer& aCore ) {
     aCore.mySsrState.myInitialized = true;
 }
 
-void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
-    Vk_SsrState& state = aCore.mySsrState;
-    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE ) {
-        return;
-    }
-
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
-    }
-
-    UpdateDescriptorSet( aCore, aFrameIndex );
-
-    const VkImageLayout        oldLayout = sSsrLayout;
-    VkImageMemoryBarrier       toGeneral = ColorImageBarrier( state.mySsrOutput.Image(), oldLayout, VK_IMAGE_LAYOUT_GENERAL,
-                                                        oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT );
-    const VkPipelineStageFlags srcStage  = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toGeneral );
-    sSsrLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    SsrPushConstants push{};
-    push.view = aCore.myPrimaryCamera.myView;
-    push.proj = aCore.myPrimaryCamera.myProj;
-    // Hit-world reprojection uses shared temporal prev VP (surface MV is the wrong UV for radiance history).
-    push.prevViewProj = aCore.myTemporalState.myPrevViewProj;
-    push.params       = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness, aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f,
-                                   aCore.myLightingSettings.mySsrThickness );
-    const uint32_t hiZMaxMip = Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u;
-    push.trace               = glm::uvec4( aCore.myLightingSettings.mySsrMaxSteps, hiZMaxMip, 0u, 0u );
-    push.screenSize          = glm::vec2( static_cast< float >( extent.width ), static_cast< float >( extent.height ) );
-    push.historyValid        = ( aCore.myTemporalState.myHistoryValid && state.myHistoryReady ) ? 1.0f : 0.0f;
-    push.depthRejectSigma    = aCore.myLightingSettings.mySsrHistoryDepthReject;
-
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=SSR" );
-    }
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myComputePipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );
-    vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
-    vkCmdDispatch( aCommandBuffer, ( extent.width + 7 ) / 8, ( extent.height + 7 ) / 8, 1 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
-
-    VkImageMemoryBarrier toRead = ColorImageBarrier( state.mySsrOutput.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT,
-                                                     VK_ACCESS_SHADER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toRead );
-    sSsrLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-}
+// RecordCompute / RecordHistoryUpdate live in Vk_SsrPass_Record.cpp (Gfx_SsrPass via Rhi).
 
 VkImageView GetOutputImageView( const Vk_Renderer& aCore ) {
     return aCore.mySsrState.mySsrOutput.ImageView();
-}
-
-void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
-    // Called after hybrid deferred resolve ends: copy lit scene color into ping-pong history for next-frame SSR.
-    Vk_SsrState& state = aCore.mySsrState;
-    if ( !state.myInitialized || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
-        return;
-    }
-
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
-    }
-
-    Vk_TextureResource& sceneColor = aCore.myPostProcessState.mySceneColor;
-    if ( sceneColor.Image() == VK_NULL_HANDLE ) {
-        return;
-    }
-
-    const uint32_t      writeIndex = 1u - state.myHistoryWriteIndex;
-    Vk_TextureResource& history    = state.myLitHdrHistory[ writeIndex ];
-
-    VkImageMemoryBarrier sceneToSrc = ColorImageBarrier( sceneColor.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                         VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &sceneToSrc );
-
-    VkImageLayout&             historyLayout   = sHistoryLayouts[ writeIndex ];
-    VkImageMemoryBarrier       historyToDst    = ColorImageBarrier( history.Image(), historyLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                           historyLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT );
-    const VkPipelineStageFlags historySrcStage = historyLayout == VK_IMAGE_LAYOUT_UNDEFINED ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    vkCmdPipelineBarrier( aCommandBuffer, historySrcStage, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &historyToDst );
-
-    VkImageCopy copyRegion{};
-    copyRegion.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.srcSubresource.mipLevel       = 0;
-    copyRegion.srcSubresource.baseArrayLayer = 0;
-    copyRegion.srcSubresource.layerCount     = 1;
-    copyRegion.dstSubresource                = copyRegion.srcSubresource;
-    copyRegion.extent                        = { extent.width, extent.height, 1 };
-    vkCmdCopyImage( aCommandBuffer, sceneColor.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, history.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion );
-
-    VkImageMemoryBarrier                  sceneToRead = ColorImageBarrier( sceneColor.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                                           VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
-    VkImageMemoryBarrier                  historyToRead = ColorImageBarrier( history.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                                             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    std::array< VkImageMemoryBarrier, 2 > toRead        = { sceneToRead, historyToRead };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
-                          static_cast< uint32_t >( toRead.size() ), toRead.data() );
-
-    historyLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    state.myHistoryWriteIndex = writeIndex;
-    state.myHistoryReady      = true;
 }
 
 }  // namespace Vk_SsrPass

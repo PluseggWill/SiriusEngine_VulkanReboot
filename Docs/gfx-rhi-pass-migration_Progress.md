@@ -44,3 +44,16 @@
 - **Files:** `Gfx/Gfx_DepthPyramidPass.{h,cpp}`, `RenderCore/Vk_DepthPyramidPass_Record.cpp`, Init stays in `Vk_DepthPyramidPass.cpp`
 - **Behavior:** Hi-Z mip loop + barriers recorded through Rhi; facade adopts handles
 - **Verification:** `Verify-CI.ps1` exit 0; `Verify-Smoke.ps1 -SkipGpuCull` exit 0
+
+## 2026-07-21 — E4.2–E4.5 compute Records → Gfx + Rhi
+
+- **Files:** `Gfx_ClusterBuildPass`, `Gfx_ShadowAoSoftPass`, `Gfx_SsrPass`, `Gfx_DdgiPass` + `Vk_*_Record` facades; Rhi `BufferBarrier` / `HostWrite` / `Host` stage; Soft/SSR/DDGI wired in vcxproj
+- **Behavior:** Cluster/Soft/SSR/DDGI compute orchestration in Gfx (no vulkan.h); Init/descriptors/CPU policy stay in RenderCore; Soft keeps `CmdBarrierForDeferredRead` in facade; SSR descriptor update stays in RC before Gfx trace
+- **Deferred (E4.6):** ShadowMap / DeferredLighting fullscreen draw / PostProcess — need Rhi graphics/RP
+- **Verification:** `Verify-CI.ps1` exit 0; smoke/validation pending at land time
+
+## 2026-07-22 — Review + E4.6 plan detail
+
+- **Review:** Bugbot on uncommitted E4.2–E4.5 diff — no bugs
+- **Docs:** `gfx-rhi-pass-migration_Plan.md` expanded with E4.6 gap matrix, FG RP ownership, Rhi surface checklist (Begin/End RP, viewport/scissor/bias, VB/IB, dynamic offsets, memory barrier, fragment-test stages), ordered E4.6a–f steps
+- **Verification:** plan-only; runtime re-verify on next E4.6a slice

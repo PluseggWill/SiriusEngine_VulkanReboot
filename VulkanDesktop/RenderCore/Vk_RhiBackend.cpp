@@ -269,6 +269,9 @@ VkPipelineStageFlags ToVkStage( Rhi_PipelineStage aStage ) {
     if ( bits & static_cast< uint32_t >( Rhi_PipelineStage::AllCommands ) ) {
         flags |= VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     }
+    if ( bits & static_cast< uint32_t >( Rhi_PipelineStage::Host ) ) {
+        flags |= VK_PIPELINE_STAGE_HOST_BIT;
+    }
     return flags == 0 ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : flags;
 }
 
@@ -292,6 +295,9 @@ VkAccessFlags ToVkAccess( Rhi_Access aAccess ) {
     }
     if ( bits & static_cast< uint32_t >( Rhi_Access::TransferWrite ) ) {
         flags |= VK_ACCESS_TRANSFER_WRITE_BIT;
+    }
+    if ( bits & static_cast< uint32_t >( Rhi_Access::HostWrite ) ) {
+        flags |= VK_ACCESS_HOST_WRITE_BIT;
     }
     return flags;
 }
@@ -453,6 +459,49 @@ void CommandListPipelineBarrier( Rhi_CommandList& aList, const ImageBarrier* aBa
         return;
     }
     vkCmdPipelineBarrier( impl->myCmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, static_cast< uint32_t >( vkBarriers.size() ), vkBarriers.data() );
+}
+
+void CommandListPipelineBarrier( Rhi_CommandList& aList, const BufferBarrier* aBarriers, uint32_t aBarrierCount ) {
+    CommandListImpl* impl = AsCmd( aList );
+    if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || aBarriers == nullptr || aBarrierCount == 0 || impl->myDevice == nullptr ) {
+        return;
+    }
+
+    std::vector< VkBufferMemoryBarrier > vkBarriers;
+    vkBarriers.reserve( aBarrierCount );
+    VkPipelineStageFlags srcStage = 0;
+    VkPipelineStageFlags dstStage = 0;
+
+    for ( uint32_t i = 0; i < aBarrierCount; ++i ) {
+        const BufferBarrier& b        = aBarriers[ i ];
+        VkBuffer             resolved = VK_NULL_HANDLE;
+        auto                 it       = impl->myDevice->myBuffers.find( b.myBuffer.myId );
+        if ( it != impl->myDevice->myBuffers.end() ) {
+            resolved = it->second.myAlloc.myBuffer;
+        }
+        else {
+            resolved = reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( b.myBuffer.myId ) );
+        }
+        if ( resolved == VK_NULL_HANDLE ) {
+            continue;
+        }
+        VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+        barrier.srcAccessMask       = ToVkAccess( b.mySrcAccess );
+        barrier.dstAccessMask       = ToVkAccess( b.myDstAccess );
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.buffer              = resolved;
+        barrier.offset              = 0;
+        barrier.size                = VK_WHOLE_SIZE;
+        srcStage |= ToVkStage( b.mySrcStage );
+        dstStage |= ToVkStage( b.myDstStage );
+        vkBarriers.push_back( barrier );
+    }
+
+    if ( vkBarriers.empty() ) {
+        return;
+    }
+    vkCmdPipelineBarrier( impl->myCmd, srcStage, dstStage, 0, 0, nullptr, static_cast< uint32_t >( vkBarriers.size() ), vkBarriers.data(), 0, nullptr );
 }
 
 void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_Pipeline aPipeline ) {

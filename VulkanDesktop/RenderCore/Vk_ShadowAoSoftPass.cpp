@@ -11,11 +11,10 @@
 #include "Vk_AoPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
-#include "Vk_ShadowMapPass.h"
 
 #include <vma/vk_mem_alloc.h>
 
-#include <glm/glm.hpp>
+#include <glm/vec4.hpp>
 
 #include <array>
 #include <cstring>
@@ -28,9 +27,7 @@ constexpr char     kPackShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoP
 constexpr char     kBlurShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoBlur.spv";
 constexpr VkFormat kSoftFormat       = VK_FORMAT_R8G8_UNORM;
 
-VkImageLayout sSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout sSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
+// Mirrors Gfx_ShadowAoSoftPass push blocks — only sizes are needed here for pipeline layout creation.
 struct ShadowAoPackPushConstants {
     alignas( 16 ) glm::vec4 params;
 };
@@ -46,17 +43,14 @@ struct ShadowAoBlurPushConstants {
 
 static_assert( sizeof( ShadowAoBlurPushConstants ) == 16, "ShadowAoBlurPushConstants must match ShadowAoBlur.comp push block" );
 
-VkImageMemoryBarrier ColorImageBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
-    VkImageMemoryBarrier barrier{};
-    barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout        = aOldLayout;
-    barrier.newLayout        = aNewLayout;
-    barrier.srcAccessMask    = aSrcAccess;
-    barrier.dstAccessMask    = aDstAccess;
-    barrier.image            = aImage;
-    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    return barrier;
-}
+}  // namespace
+
+namespace Vk_ShadowAoSoftPassDetail {
+VkImageLayout gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+}  // namespace Vk_ShadowAoSoftPassDetail
+
+namespace {
 
 void DestroySoftTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
     const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
@@ -74,8 +68,8 @@ void DestroySoftTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
 void DestroySoftImages( Vk_Renderer& aCore ) {
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPing );
     DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPong );
-    sSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    sSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 void DestroyFallbackImages( Vk_Renderer& aCore ) {
@@ -131,8 +125,8 @@ void CreateSoftImages( Vk_Renderer& aCore ) {
     // Deferred may bind SoftPing as SHADER_READ_ONLY before the first Soft dispatch (or if Soft is skipped).
     aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPing.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
     aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPong.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-    sSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    sSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
     const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
@@ -387,49 +381,6 @@ void AllocateDescriptorSets( Vk_Renderer& aCore ) {
     UpdateAllDescriptorSets( aCore );
 }
 
-void CmdBarrierGBufferForPackRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
-    std::array< VkImageMemoryBarrier, 1 > barriers = {
-        ColorImageBarrier( aCore.myGBufferState.myWorldPosition.Image(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                           VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT ),
-    };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
-                          static_cast< uint32_t >( barriers.size() ), barriers.data() );
-}
-
-void CmdBarrierSoftForComputeWrite( VkCommandBuffer aCommandBuffer, VkImage aImage, VkImageLayout& aInOutLayout ) {
-    const VkImageLayout  oldLayout = aInOutLayout;
-    const VkImageLayout  newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    VkImageMemoryBarrier barrier =
-        ColorImageBarrier( aImage, oldLayout, newLayout, oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ? 0 : VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT );
-    const VkPipelineStageFlags srcStage = oldLayout == VK_IMAGE_LAYOUT_UNDEFINED                  ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
-                                          : oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-                                                                                                  : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-    vkCmdPipelineBarrier( aCommandBuffer, srcStage, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-    aInOutLayout = newLayout;
-}
-
-void CmdDispatchBlur( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkDescriptorSet aSet, float aRadius, float aDepthSigma, uint32_t aAxisX, uint32_t aAxisY,
-                      uint32_t aWidth, uint32_t aHeight, const char* aDebugLabel ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBlurPipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myBlurPipelineLayout, 0, 1, &aSet, 0, nullptr );
-
-    ShadowAoBlurPushConstants push{};
-    push.axisX      = aAxisX;
-    push.axisY      = aAxisY;
-    push.radius     = aRadius;
-    push.depthSigma = aDepthSigma;
-    vkCmdPushConstants( aCommandBuffer, state.myBlurPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
-
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, aDebugLabel );
-    }
-    vkCmdDispatch( aCommandBuffer, ( aWidth + 7 ) / 8, ( aHeight + 7 ) / 8, 1 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
-}
-
 }  // namespace
 
 namespace Vk_ShadowAoSoftPass {
@@ -476,76 +427,7 @@ void Init( Vk_Renderer& aCore ) {
     aCore.myShadowAoSoftState.myInitialized = true;
 }
 
-void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex, bool aAoPassRan ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
-        return;
-    }
-
-    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
-    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
-    if ( width == 0 || height == 0 ) {
-        return;
-    }
-
-    const Gfx_AoSettings& aoSettings = aCore.myAoSettings;
-    if ( !aoSettings.myContactSoftEnabled ) {
-        return;
-    }
-
-    Vk_ShadowMapPass::CmdBarrierForDeferredRead( aCore, aCommandBuffer );
-    CmdBarrierGBufferForPackRead( aCore, aCommandBuffer );
-
-    const bool            useAoRaw = aAoPassRan && aoSettings.myEnabled;
-    const VkDescriptorSet packSet  = useAoRaw ? state.myPackDescriptorSets[ aFrameIndex ] : state.myPackNoAoDescriptorSets[ aFrameIndex ];
-
-    if ( useAoRaw ) {
-        const VkImageLayout rawLayout = Vk_AoPass::GetRawAoLayout();
-        if ( rawLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ) {
-            VkImageMemoryBarrier aoForPack = ColorImageBarrier( aCore.myAoState.myAoRaw.Image(), rawLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                                VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT );
-            vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &aoForPack );
-            Vk_AoPass::NoteRawAoLayout( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-        }
-    }
-
-    CmdBarrierSoftForComputeWrite( aCommandBuffer, state.mySoftPing.Image(), sSoftPingLayout );
-    CmdBarrierSoftForComputeWrite( aCommandBuffer, state.mySoftPong.Image(), sSoftPongLayout );
-
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPackPipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myPackPipelineLayout, 0, 1, &packSet, 0, nullptr );
-
-    ShadowAoPackPushConstants packPush{};
-    packPush.params.x = useAoRaw ? 1.0f : 0.0f;
-    vkCmdPushConstants( aCommandBuffer, state.myPackPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( packPush ), &packPush );
-
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ShadowAoPack" );
-    }
-    vkCmdDispatch( aCommandBuffer, ( width + 7 ) / 8, ( height + 7 ) / 8, 1 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
-
-    VkImageMemoryBarrier packedBarrier =
-        ColorImageBarrier( state.mySoftPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &packedBarrier );
-
-    const float blurRadius = aoSettings.myContactSoftBlurRadius;
-    const float depthSigma = aoSettings.myContactSoftDepthSigma;
-    CmdDispatchBlur( aCore, aCommandBuffer, state.myBlurHorizDescriptorSets[ aFrameIndex ], blurRadius, depthSigma, 1, 0, width, height, "Pass=ShadowAoBlurH" );
-
-    VkImageMemoryBarrier pongWritten =
-        ColorImageBarrier( state.mySoftPong.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &pongWritten );
-
-    CmdDispatchBlur( aCore, aCommandBuffer, state.myBlurVertDescriptorSets[ aFrameIndex ], blurRadius, depthSigma, 0, 1, width, height, "Pass=ShadowAoBlurV" );
-
-    VkImageMemoryBarrier softForDeferred = ColorImageBarrier( state.mySoftPing.Image(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                              VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &softForDeferred );
-    sSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-}
+// RecordCompute now lives in Vk_ShadowAoSoftPass_Record.cpp (thin facade over Gfx_ShadowAoSoftPass::Record).
 
 VkImageView GetDeferredContactMapView( const Vk_Renderer& aCore ) {
     const Gfx_AoSettings&       aoSettings = aCore.myAoSettings;

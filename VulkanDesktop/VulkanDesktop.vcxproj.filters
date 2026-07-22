@@ -160,7 +160,19 @@
     <ClCompile Include="Gfx\Gfx_AoPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ClusterBuildPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_DdgiPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ShadowAoSoftPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_SsrPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
     <ClCompile Include="Gfx\Gfx_Bounds.cpp">
@@ -283,6 +295,9 @@
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ClusterBuildPass_Record.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
@@ -304,7 +319,13 @@
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass_Record.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_SsrPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Temporal.cpp">
@@ -648,7 +669,19 @@
     <ClInclude Include="Gfx\Gfx_AoPass.h">
       <Filter>Gfx</Filter>
     </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ClusterBuildPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
     <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_DdgiPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ShadowAoSoftPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_SsrPass.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_PassId.h">

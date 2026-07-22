@@ -31,6 +31,16 @@ struct ImageBarrier {
 
 void CommandListPipelineBarrier( Rhi_CommandList& aList, const ImageBarrier* aBarriers, uint32_t aBarrierCount );
 
+struct BufferBarrier {
+    Rhi_Buffer        myBuffer{};
+    Rhi_PipelineStage mySrcStage  = Rhi_PipelineStage::TopOfPipe;
+    Rhi_PipelineStage myDstStage  = Rhi_PipelineStage::BottomOfPipe;
+    Rhi_Access        mySrcAccess = Rhi_Access::None;
+    Rhi_Access        myDstAccess = Rhi_Access::None;
+};
+
+void CommandListPipelineBarrier( Rhi_CommandList& aList, const BufferBarrier* aBarriers, uint32_t aBarrierCount );
+
 void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_Pipeline aPipeline );
 
 void CommandListBindDescriptorSet( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_PipelineLayout aLayout, uint32_t aSetIndex, Rhi_DescriptorSet aSet );

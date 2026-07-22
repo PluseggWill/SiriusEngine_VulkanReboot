@@ -4,12 +4,16 @@
 #include "../Gfx/Gfx_AoMethod.h"
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
+#include "../Gfx/Gfx_DdgiPass.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
+#include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_AoPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 #include "Vk_ShadowAoSoftPass.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
@@ -109,37 +113,14 @@ static void UpdateAoDescriptorBinding( Vk_Renderer& aCore, uint32_t aFrameIndex 
 void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
     if ( !state.myInitialized || !aCore.myLightingSettings.myDdgiEnabled || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDdgiProbeUpdatePipeline == VK_NULL_HANDLE
-         || state.myDdgiProbeDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE ) {
+         || state.myDdgiProbeDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE || !aCore.myGfxRhiDevice ) {
         return;
     }
     if ( state.myDdgiTotalProbeCount == 0u ) {
         return;
     }
 
-    VkImageMemoryBarrier toGeneralIrr{};
-    toGeneralIrr.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    // CreateDdgiAtlas transitions atlases to SHADER_READ_ONLY; probe update always starts from that layout.
-    toGeneralIrr.oldLayout                          = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    toGeneralIrr.newLayout                          = VK_IMAGE_LAYOUT_GENERAL;
-    toGeneralIrr.srcAccessMask                      = VK_ACCESS_SHADER_READ_BIT;
-    toGeneralIrr.dstAccessMask                      = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-    toGeneralIrr.image                              = state.myDdgiProbeIrradianceAtlas.Image();
-    toGeneralIrr.subresourceRange                   = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    VkImageMemoryBarrier toGeneralVis               = toGeneralIrr;
-    toGeneralVis.image                              = state.myDdgiProbeVisibilityAtlas.Image();
-    std::array< VkImageMemoryBarrier, 2 > toGeneral = { toGeneralIrr, toGeneralVis };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
-                          static_cast< uint32_t >( toGeneral.size() ), toGeneral.data() );
-
-    struct DdgiProbePush {
-        glm::uvec4 probeGrid;
-        glm::uvec4 updateInfo;
-        glm::vec4  ambient;
-        glm::vec4  blend;
-        glm::vec4  volumeMin;
-        glm::vec4  volumeMax;
-        glm::vec4  integrateParams;
-    } push{};
+    Gfx_DdgiPass::ProbePush push{};
     push.probeGrid           = glm::uvec4( state.myDdgiProbeCountX, state.myDdgiProbeCountY, state.myDdgiProbeCountZ, state.myDdgiTotalProbeCount );
     const uint32_t budget    = std::max( 1u, std::min( aCore.myLightingSettings.myDdgiUpdateBudget, state.myDdgiTotalProbeCount ) );
     push.updateInfo          = glm::uvec4( aCore.myFrameCtx.myFrameNumber, budget, state.myDdgiUpdateCursor, aCore.myLightingSettings.myDdgiStaggeredUpdate ? 1u : 0u );
@@ -158,34 +139,30 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     push.volumeMax            = glm::vec4( volumeMax, 0.0f );
     push.integrateParams      = glm::vec4( 16.0f, 25.0f, 3.0f, 0.12f );  // samples, maxDistance, distanceFalloff, minVisibility
 
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=DDGI ProbeUpdate" );
-    }
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myDdgiProbeUpdatePipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, state.myDdgiProbeUpdatePipelineLayout, 0, 1, &state.myDdgiProbeDescriptorSets[ aFrameIndex ], 0,
-                             nullptr );
-    vkCmdPushConstants( aCommandBuffer, state.myDdgiProbeUpdatePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( push ), &push );
+    Rhi_CommandList cmd = Rhi::DeviceCreateCommandList( aCore.myGfxRhiDevice );
+    RhiVulkan::CommandListBindVk( cmd, aCommandBuffer );
 
-    const uint32_t atlasWidth  = state.myDdgiProbeCountX * state.myDdgiProbeCountY;
-    const uint32_t atlasHeight = state.myDdgiProbeCountZ;
-    vkCmdDispatch( aCommandBuffer, ( atlasWidth + 7 ) / 8, ( atlasHeight + 7 ) / 8, 1 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
+    Gfx_DdgiPass::GpuResources gpu{};
+    gpu.myPipeline        = RhiVulkan::PipelineAdopt( state.myDdgiProbeUpdatePipeline );
+    gpu.myLayout          = RhiVulkan::PipelineLayoutAdopt( state.myDdgiProbeUpdatePipelineLayout );
+    gpu.mySet             = RhiVulkan::DescriptorSetAdopt( state.myDdgiProbeDescriptorSets[ aFrameIndex ] );
+    gpu.myIrradianceAtlas = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myDdgiProbeIrradianceAtlas.Image(), state.myDdgiProbeIrradianceAtlas.ImageView(),
+                                                     VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    gpu.myVisibilityAtlas =
+        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myDdgiProbeVisibilityAtlas.Image(), state.myDdgiProbeVisibilityAtlas.ImageView(), VK_FORMAT_R16_SFLOAT, 1 );
 
-    VkImageMemoryBarrier toReadIrr{};
-    toReadIrr.sType                              = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    toReadIrr.oldLayout                          = VK_IMAGE_LAYOUT_GENERAL;
-    toReadIrr.newLayout                          = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    toReadIrr.srcAccessMask                      = VK_ACCESS_SHADER_WRITE_BIT;
-    toReadIrr.dstAccessMask                      = VK_ACCESS_SHADER_READ_BIT;
-    toReadIrr.image                              = state.myDdgiProbeIrradianceAtlas.Image();
-    toReadIrr.subresourceRange                   = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    VkImageMemoryBarrier toReadVis               = toReadIrr;
-    toReadVis.image                              = state.myDdgiProbeVisibilityAtlas.Image();
-    std::array< VkImageMemoryBarrier, 2 > toRead = { toReadIrr, toReadVis };
-    vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr,
-                          static_cast< uint32_t >( toRead.size() ), toRead.data() );
+    Gfx_DdgiPass::RecordInput input{};
+    input.myPush        = push;
+    input.myAtlasWidth  = state.myDdgiProbeCountX * state.myDdgiProbeCountY;
+    input.myAtlasHeight = state.myDdgiProbeCountZ;
+    input.myDebugLabels = aCore.AreCommandDebugLabelsEnabled();
+
+    Gfx_DdgiPass::RecordProbeUpdate( cmd, gpu, input );
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myIrradianceAtlas );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myVisibilityAtlas );
+    Rhi::CommandListDestroy( cmd );
+
     state.myDdgiAtlasReadable     = true;
     state.myDdgiHistoryForceReset = false;
     state.myDdgiPrevVolumeCenter  = aCore.myLightingSettings.myDdgiVolumeCenter;

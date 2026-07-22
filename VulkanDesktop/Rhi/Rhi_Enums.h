@@ -80,6 +80,7 @@ enum class Rhi_PipelineStage : uint32_t {
     Transfer        = 1u << 6,
     BottomOfPipe    = 1u << 7,
     AllCommands     = 1u << 8,
+    Host            = 1u << 9,
 };
 
 inline Rhi_PipelineStage operator|( Rhi_PipelineStage a, Rhi_PipelineStage b ) {
@@ -94,6 +95,7 @@ enum class Rhi_Access : uint32_t {
     DepthStencilRW    = 1u << 3,
     TransferRead      = 1u << 4,
     TransferWrite     = 1u << 5,
+    HostWrite         = 1u << 6,
 };
 
 inline Rhi_Access operator|( Rhi_Access a, Rhi_Access b ) {
