@@ -2,11 +2,9 @@
 #include "Vk_ShadowMapPass.h"
 
 #include "../Gfx/Gfx_LightingMath.h"
-#include "../Gfx/Gfx_RenderPacket.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
-#include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Renderer.h"
@@ -189,34 +187,6 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
                       "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x" + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
 }
 
-void RecordShadowDraws( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aPass, bool aEmitDebugLabels ) {
-    const VkDescriptorSet  objectDescriptor = aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor;
-    const VkPipelineLayout layout           = aCore.myShadowMapState.myPipelineLayout;
-
-    ShadowPushConstants push{};
-    push.myLightViewProj = aCore.myShadowMapState.myLightViewProj;
-    vkCmdPushConstants( aCommandBuffer, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof( push ), &push );
-
-    for ( const Gfx_BatchRun& batch : aPass.myBatchRuns ) {
-        for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
-            const uint32_t          absoluteDrawIndex = batch.myFirstDrawIndex + drawIndex;
-            const Gfx_DrawInstance& draw              = aPass.myDraws[ absoluteDrawIndex ];
-            const Vk_MeshResource&  mesh              = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
-
-            VkBuffer     vertexBuffers[] = { mesh.myVertexBuffer.myBuffer };
-            VkDeviceSize offsets[]       = { 0 };
-            vkCmdBindVertexBuffers( aCommandBuffer, 0, 1, vertexBuffers, offsets );
-            vkCmdBindIndexBuffer( aCommandBuffer, mesh.myIndexBuffer.myBuffer, 0, VK_INDEX_TYPE_UINT32 );
-
-            const uint32_t dynamicOffset = draw.myInstanceDataOffset;
-            vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &objectDescriptor, 1, &dynamicOffset );
-
-            aCore.myFrameStats.myDrawCalls++;
-            vkCmdDrawIndexed( aCommandBuffer, mesh.myIndexCount, 1, 0, 0, 0 );
-        }
-    }
-}
-
 VkImageMemoryBarrier MakeShadowDepthBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
     VkImageMemoryBarrier barrier{};
     barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -302,70 +272,6 @@ void Init( Vk_Renderer& aCore ) {
     aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels ) {
-    if ( !aCore.myShadowMapState.myInitialized ) {
-        return;
-    }
-
-    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
-    if ( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
-        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
-        return;
-    }
-
-    const Gfx_Bounds sceneBounds = aCore.GetShadowCasterBounds();
-
-    const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
-        Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
-
-    aCore.myShadowMapState.myLightViewProj     = shadowSetup.myLightViewProj;
-    aCore.myShadowMapState.myDepthBiasConstant = shadowSetup.myDepthBiasConstant;
-    aCore.myShadowMapState.myDepthBiasSlope    = shadowSetup.myDepthBiasSlope;
-
-    Vk_ShadowMapState& state = aCore.myShadowMapState;
-
-    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                              VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT );
-
-    VkRenderPassBeginInfo beginInfo{};
-    beginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    beginInfo.renderPass        = state.myRenderPass;
-    beginInfo.framebuffer       = state.myFramebuffer;
-    beginInfo.renderArea.offset = { 0, 0 };
-    beginInfo.renderArea.extent = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
-    VkClearValue clear{};
-    clear.depthStencil        = { 0.0f, 0 };
-    beginInfo.clearValueCount = 1;
-    beginInfo.pClearValues    = &clear;
-
-    VkViewport viewport{};
-    viewport.width    = static_cast< float >( Vk_ShadowMapState::kMapSize );
-    viewport.height   = static_cast< float >( Vk_ShadowMapState::kMapSize );
-    viewport.maxDepth = 1.0f;
-    VkRect2D scissor{ { 0, 0 }, { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize } };
-
-    if ( aEmitDebugLabels ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=ShadowMap" );
-    }
-
-    vkCmdBeginRenderPass( aCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE );
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipeline );
-    vkCmdSetViewport( aCommandBuffer, 0, 1, &viewport );
-    vkCmdSetScissor( aCommandBuffer, 0, 1, &scissor );
-    vkCmdSetDepthBias( aCommandBuffer, state.myDepthBiasConstant, 0.0f, state.myDepthBiasSlope );
-
-    if ( !aCasterPass.myDraws.empty() ) {
-        RecordShadowDraws( aCore, aCommandBuffer, aCasterPass, aEmitDebugLabels );
-    }
-
-    vkCmdEndRenderPass( aCommandBuffer );
-    state.myDepthLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    if ( aEmitDebugLabels ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
-
-    Vk_FrameUniformUploader::UpdateLightingGlobals( aCore, aCore.myFrameCtx.myCurrentFrame, state.myLightViewProj );
-}
+// RecordDraw lives in Vk_ShadowMapPass_Record.cpp (Gfx_ShadowMapPass via Rhi).
 
 }  // namespace Vk_ShadowMapPass

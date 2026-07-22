@@ -70,3 +70,9 @@
 - **Files:** `Gfx/Gfx_DeferredLightingPass.{h,cpp}`, thin `Vk_DeferredLightingPass_Record::RecordDraw`
 - **Behavior:** fullscreen triangle bind/push/draw through Rhi; `UpdateAoDescriptorBinding` + `BuildPushConstants` stay in facade; hybrid RP Begin/End still FG-owned
 - **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`
+
+## 2026-07-22 — E4.6c–e PostProcess + ShadowMap Records via Gfx + Rhi
+
+- **Files:** `Gfx_PostProcessPass` (TAA/Bloom/Tonemap), `Gfx_ShadowMapPass`, facades `Vk_PostProcessPass_Record` / `Vk_ShadowMapPass_Record`; Init + descriptor updates + Shadow depth pre-barrier stay in RC
+- **Behavior:** Post compute+tonemap RP and Shadow depth RP/draws recorded through Rhi; E4.6f (FG hybrid/GBuffer Begin/End peel) deferred to E5
+- **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`; smoke/validation recommended before E5

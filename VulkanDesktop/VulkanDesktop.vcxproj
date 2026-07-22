@@ -201,7 +201,9 @@
     <ClCompile Include="Gfx\Gfx_DeferredLightingPass.cpp" />
     <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp" />
     <ClCompile Include="Gfx\Gfx_DdgiPass.cpp" />
+    <ClCompile Include="Gfx\Gfx_PostProcessPass.cpp" />
     <ClCompile Include="Gfx\Gfx_ShadowAoSoftPass.cpp" />
+    <ClCompile Include="Gfx\Gfx_ShadowMapPass.cpp" />
     <ClCompile Include="Gfx\Gfx_SsrPass.cpp" />
     <ClCompile Include="Gfx\Gfx_Bounds.cpp" />
     <ClCompile Include="Gfx\Gfx_DemoSceneSim.cpp" />
@@ -257,6 +259,8 @@
     <ClCompile Include="RenderCore\Vk_PostProcessPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass_Record.cpp" />
+    <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
+    <ClCompile Include="RenderCore\Vk_ShadowMapPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp" />
     <ClCompile Include="RenderCore\Vk_SsrPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_Temporal.cpp" />
@@ -265,7 +269,6 @@
     <ClCompile Include="RenderCore\Vk_AoPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass_Record.cpp" />
-    <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
     <ClCompile Include="RenderCore\Vk_IblResources.cpp" />
     <ClCompile Include="RenderCore\Vk_TextureLoader.cpp" />
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp" />
@@ -386,7 +389,9 @@
     <ClInclude Include="Gfx\Gfx_DeferredLightingPass.h" />
     <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h" />
     <ClInclude Include="Gfx\Gfx_DdgiPass.h" />
+    <ClInclude Include="Gfx\Gfx_PostProcessPass.h" />
     <ClInclude Include="Gfx\Gfx_ShadowAoSoftPass.h" />
+    <ClInclude Include="Gfx\Gfx_ShadowMapPass.h" />
     <ClInclude Include="Gfx\Gfx_SsrPass.h" />
     <ClInclude Include="Gfx\Gfx_PassId.h" />
     <ClInclude Include="Gfx\Gfx_FramePlan.h" />

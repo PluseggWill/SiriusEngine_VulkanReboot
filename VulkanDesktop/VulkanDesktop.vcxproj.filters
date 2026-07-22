@@ -169,6 +169,12 @@
     <ClCompile Include="Gfx\Gfx_DeferredLightingPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_PostProcessPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="Gfx\Gfx_ShadowMapPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DdgiPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -323,6 +329,9 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass_Record.cpp">
+      <Filter>RenderCore</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderCore\Vk_ShadowMapPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp">
@@ -679,6 +688,12 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DeferredLightingPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_PostProcessPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_ShadowMapPass.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DdgiPass.h">
