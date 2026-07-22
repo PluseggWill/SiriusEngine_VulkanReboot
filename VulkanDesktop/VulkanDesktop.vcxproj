@@ -198,6 +198,7 @@
     <ClCompile Include="Gfx\Gfx_DrawCullSort.cpp" />
     <ClCompile Include="Gfx\Gfx_AoPass.cpp" />
     <ClCompile Include="Gfx\Gfx_ClusterBuildPass.cpp" />
+    <ClCompile Include="Gfx\Gfx_DeferredLightingPass.cpp" />
     <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp" />
     <ClCompile Include="Gfx\Gfx_DdgiPass.cpp" />
     <ClCompile Include="Gfx\Gfx_ShadowAoSoftPass.cpp" />
@@ -382,6 +383,7 @@
     <ClInclude Include="RenderCore\Vk_VertexLayout.h" />
     <ClInclude Include="Gfx\Gfx_AoPass.h" />
     <ClInclude Include="Gfx\Gfx_ClusterBuildPass.h" />
+    <ClInclude Include="Gfx\Gfx_DeferredLightingPass.h" />
     <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h" />
     <ClInclude Include="Gfx\Gfx_DdgiPass.h" />
     <ClInclude Include="Gfx\Gfx_ShadowAoSoftPass.h" />

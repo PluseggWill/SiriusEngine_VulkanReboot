@@ -17,7 +17,7 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E1 Rhi surface (+ E1b) | Done |
 | E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
 | E3 `Gfx_RenderPipeline` + FramePlan | Done (topology + enable policy in Gfx; RC fills readiness + Record) |
-| E4 migrate remaining passes | **In progress** — E4.1–E4.5 + **E4.6a done**; next E4.6b Deferred draw |
+| E4 migrate remaining passes | **In progress** — E4.1–E4.5 + E4.6a–b done; next E4.6c Post compute |
 | E5 cleanup / docs archive | Pending |
 
 ## Steps (E4)
@@ -29,8 +29,9 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E4.3 | ShadowAoSoft Record → Gfx | Smoke + validation | Done |
 | E4.4 | SSR RecordTrace + RecordHistoryUpdate → Gfx | Smoke + validation | Done |
 | E4.5 | DDGI ProbeUpdate Record → Gfx (facade stays in DeferredLighting_Record) | Smoke + validation | Done |
-| E4.6 | ShadowMap / DeferredLighting draw / PostProcess Record | Smoke + validation | **Next — peels E4.6b–e** |
+| E4.6 | ShadowMap / DeferredLighting draw / PostProcess Record | Smoke + validation | **Next — peels E4.6c–e** |
 | E4.6a | Rhi graphics recording surface (RP/FB adopt, Begin/End, viewport/scissor/bias, VB/IB, dynamic offsets, MemoryBarrierDesc, Early/LateFragmentTests) | Verify-CI | **Done** |
+| E4.6b | `Gfx_DeferredLightingPass::RecordDraw` + facade (AO descriptor update stays RC) | Smoke + validation | **Done** |
 
 ## Steps (E3)
 

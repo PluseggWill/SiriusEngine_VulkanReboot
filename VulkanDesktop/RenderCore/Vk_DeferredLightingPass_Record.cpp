@@ -5,6 +5,7 @@
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Gfx/Gfx_DdgiPass.h"
+#include "../Gfx/Gfx_DeferredLightingPass.h"
 #include "../Gfx/Gfx_LightingGlobals.h"
 #include "../Rhi/Rhi_CommandList.h"
 #include "../Rhi/Rhi_Device.h"
@@ -176,30 +177,34 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
 
 void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT ) {
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
         return;
     }
 
     static bool sDrawLoggedOnce = false;
 
+    // Descriptor write stays in RenderCore (Vulkan update API).
     UpdateAoDescriptorBinding( aCore, aFrameIndex );
 
-    const Gpu_DeferredLightingPushConstants push = BuildPushConstants( aCore );
+    Rhi_CommandList cmd = Rhi::DeviceCreateCommandList( aCore.myGfxRhiDevice );
+    RhiVulkan::CommandListBindVk( cmd, aCommandBuffer );
 
-    vkCmdBindPipeline( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipeline );
-    vkCmdBindDescriptorSets( aCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state.myPipelineLayout, 0, 1, &state.myDescriptorSets[ aFrameIndex ], 0, nullptr );
-    vkCmdPushConstants( aCommandBuffer, state.myPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof( push ), &push );
+    Gfx_DeferredLightingPass::GpuResources gpu{};
+    gpu.myPipeline = RhiVulkan::PipelineAdopt( state.myPipeline );
+    gpu.myLayout   = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.mySet      = RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ] );
 
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdBeginDebugLabel( aCommandBuffer, "Pass=DeferredLighting" );
-    }
-    vkCmdDraw( aCommandBuffer, 3, 1, 0, 0 );
-    if ( aCore.AreCommandDebugLabelsEnabled() ) {
-        aCore.CmdEndDebugLabel( aCommandBuffer );
-    }
+    Gfx_DeferredLightingPass::RecordInput input{};
+    input.myPush        = BuildPushConstants( aCore );
+    input.myDebugLabels = aCore.AreCommandDebugLabelsEnabled();
+
+    Gfx_DeferredLightingPass::RecordDraw( cmd, gpu, input );
+
+    Rhi::CommandListDestroy( cmd );
 
     if ( !sDrawLoggedOnce ) {
-        UtilLogger::Info( "FG", "DeferredLighting resolve: tiles=" + std::to_string( push.tilesX ) + "x" + std::to_string( push.tilesY ) + " (depth slice 0 stub)" );
+        UtilLogger::Info( "FG",
+                          "DeferredLighting resolve: tiles=" + std::to_string( input.myPush.tilesX ) + "x" + std::to_string( input.myPush.tilesY ) + " (depth slice 0 stub)" );
         sDrawLoggedOnce = true;
     }
 }

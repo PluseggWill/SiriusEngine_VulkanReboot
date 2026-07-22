@@ -64,3 +64,9 @@
 - **Note:** struct named `MemoryBarrierDesc` (Win32 `MemoryBarrier` macro collision)
 - **Non-goals kept:** no RP create from Gfx; no pass peels in this slice
 - **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`
+
+## 2026-07-22 — E4.6b DeferredLighting RecordDraw via Gfx + Rhi
+
+- **Files:** `Gfx/Gfx_DeferredLightingPass.{h,cpp}`, thin `Vk_DeferredLightingPass_Record::RecordDraw`
+- **Behavior:** fullscreen triangle bind/push/draw through Rhi; `UpdateAoDescriptorBinding` + `BuildPushConstants` stay in facade; hybrid RP Begin/End still FG-owned
+- **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`
