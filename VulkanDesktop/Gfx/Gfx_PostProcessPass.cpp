@@ -66,6 +66,13 @@ void RecordBloom( Rhi_CommandList& aCmd, const BloomGpu& aGpu, BloomInput& aInpu
     Rhi::CommandListPushConstants( aCmd, aGpu.myThresholdLayout, Rhi_ShaderStage::Compute, 0, sizeof( thresholdPush ), thresholdPush );
     Rhi::CommandListDispatch( aCmd, ( aInput.myWidth + 7 ) / 8, ( aInput.myHeight + 7 ) / 8, 1 );
 
+    Rhi::MemoryBarrierDesc afterThreshold{};
+    afterThreshold.mySrcStage  = Rhi_PipelineStage::ComputeShader;
+    afterThreshold.myDstStage  = Rhi_PipelineStage::ComputeShader;
+    afterThreshold.mySrcAccess = Rhi_Access::ShaderWrite;
+    afterThreshold.myDstAccess = Rhi_Access::ShaderRead;
+    Rhi::CommandListMemoryBarrier( aCmd, afterThreshold );
+
     auto runBlur = [ & ]( Rhi_DescriptorSet aSet, uint32_t aAxisX, uint32_t aAxisY ) {
         Rhi::CommandListBindPipeline( aCmd, Rhi_PipelineBindPoint::Compute, aGpu.myBlurPipeline );
         Rhi::CommandListBindDescriptorSet( aCmd, Rhi_PipelineBindPoint::Compute, aGpu.myBlurLayout, 0, aSet );

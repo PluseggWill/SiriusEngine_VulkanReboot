@@ -18,7 +18,16 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
 | E3 `Gfx_RenderPipeline` + FramePlan | Done (topology + enable policy in Gfx; RC fills readiness + Record) |
 | E4 migrate remaining passes | **Done** (E4.1–E4.6e; optional E4.6f FG RP peel deferred to E5) |
-| E5 cleanup / docs archive | Pending |
+| E5 cleanup / docs archive | **In progress** |
+
+## Steps (E5)
+
+| Step | Detail | Verify | Status |
+|------|--------|--------|--------|
+| E5.1 | Update `EngineArchitecture.md` migration note: HybridDeferred **Records** live in Gfx via Rhi; Init/descriptors/`Vk_*_Record` facades remain transitional; Rhi now includes graphics RP recording | Docs review | Pending |
+| E5.2 | Carve **E4.6f** (FG hybrid/GBuffer Begin/End peel) out of this epic close → follow-up note in Archived stub / Wishlist S21 maint | Docs | Pending |
+| E5.3 | Code hygiene: bloom threshold→blur sync fix (review finding); no broad facade deletion | Verify-CI | Pending |
+| E5.4 | Epic closeout: Progress Closeout → move Plan+Progress to `Docs/Archived/plans/`; Active-Plan stub; README Active now; Wishlist S21 checkbox | G0 + smoke preferred | Pending |
 
 ## Steps (E4)
 
