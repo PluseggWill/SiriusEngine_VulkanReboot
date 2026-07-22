@@ -76,3 +76,9 @@
 - **Files:** `Gfx_PostProcessPass` (TAA/Bloom/Tonemap), `Gfx_ShadowMapPass`, facades `Vk_PostProcessPass_Record` / `Vk_ShadowMapPass_Record`; Init + descriptor updates + Shadow depth pre-barrier stay in RC
 - **Behavior:** Post compute+tonemap RP and Shadow depth RP/draws recorded through Rhi; E4.6f (FG hybrid/GBuffer Begin/End peel) deferred to E5
 - **Verification:** `Verify-CI.ps1` exit 0; `GfxTests: all passed`; smoke/validation recommended before E5
+
+## Closeout — 2026-07-22
+
+- **Outcome:** Epic E0–E5 complete. HybridDeferred pass **Records** in Gfx via Rhi; Init/`Vk_*_Record` facades remain. Bloom threshold→horiz CS barrier fixed on review. E4.6f FG Begin/End peel left as S21 follow-up.
+- **Verification:** `Verify-CI.ps1` exit 0 throughout; sponza smoke/validation not re-run on close (recommended on merge).
+- **Deviations:** E4.6f not implemented in E5; Architecture migration note updated for Record ownership.

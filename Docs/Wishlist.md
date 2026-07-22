@@ -216,13 +216,14 @@
 
 ## S21 — Render lab + RHI WSI *(parallel)*
 
-**Plan:** `[vulkan-rhi-hardening-epic_Plan.md](vulkan-rhi-hardening-epic_Plan.md)` · pass ownership migration: [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md)
+**Plan:** `[vulkan-rhi-hardening-epic_Plan.md](vulkan-rhi-hardening-epic_Plan.md)` · pass ownership migration: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md)
 
 - [ ] Presets; GPU timestamps; benchmark runbook; screenshots; FG transient RT pool.
 - [ ] Bindless layout codegen; troubleshooting; licenses.
 - [ ] **RHI-D1–D3** WSI path.
 - [ ] MSAA vs TAA matrix; SSR follow-ups; pipeline_binary research.
-- [ ] **Opaque `Rhi/` + Gfx_*Pass migration** (E0–E5; does not block S10).
+- [x] **Opaque `Rhi/` + Gfx_*Pass migration** (E0–E5 closed 2026-07-22; Init/`Vk_*_Record` facades + FG Begin/End peel remain).
+- [ ] **FG hybrid/GBuffer Begin/End peel** (former E4.6f) into Gfx plan executor.
 
 ---
 

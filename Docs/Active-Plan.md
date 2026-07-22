@@ -71,7 +71,7 @@ flowchart TB
 
 **Why S10 early:** MeshImport + material hot reload unlocks complex glTF scenes before particles/water/terrain/hair dogfood. Meshlets still wait on **G3** (S17).
 
-**Parallel OK:** S11 ∥ S13 after S10; S16 ∥ S15; S21 ∥ anything; P-Sim ∥ anything; **gfx-rhi-pass-migration** ∥ S10 (avoid MeshImport hot files).
+**Parallel OK:** S11 ∥ S13 after S10; S16 ∥ S15; S21 ∥ anything; P-Sim ∥ anything.
 
 ---
 
@@ -79,9 +79,9 @@ flowchart TB
 
 | Epic | Focus | Plan | Blocks S10? |
 |------|--------|------|-------------|
-| **gfx-rhi-pass-migration** | Opaque `Rhi/` + move passes into Gfx via Rhi | [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md) | No |
+| ~~**gfx-rhi-pass-migration**~~ | Opaque `Rhi/` + Gfx Records via Rhi | [`Archived/plans/gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) | — closed 2026-07-22 |
 
-**Kickoff slice:** E0 policy + E1 minimal Rhi surface (this branch). E2+ pilot pass migration follows.
+**Follow-up (S21 maint):** peel `Vk_FrameGraph` GBuffer/hybrid Begin/End into Gfx (former E4.6f).
 
 ## Gates
 

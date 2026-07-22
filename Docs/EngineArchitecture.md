@@ -51,7 +51,7 @@ flowchart TB
   subgraph RC [RenderCore/ — Vulkan backend]
     CORE[Vk_Renderer frame shell]
     BACKEND[Vk_RhiBackend · Vk_RhiDevice]
-    PEEL[Vk_FrameGraph · ScenePasses · Vk_*Pass transitional]
+  PEEL[Vk_FrameGraph · Vk_*_Record facades · Init still RC]
     TABLES[Vk_ResourceTables]
   end
 
@@ -83,9 +83,9 @@ flowchart TB
 | **RenderContract/** | `#include` `App/`, `Gfx/`, `RenderCore/`, `Rhi/`, or `Util/` |
 | **Util/** | Own per-frame draw ordering; `#include` Vulkan / `vk*` create/upload (GPU upload → `Vk_TextureLoader`; ImGui RP/FB → `Vk_ImGuiLayer`); `#include` `Vk_Renderer` from panel headers (edit settings DTOs; App applies); call `stbi_*` / `tinyobj::*` outside `Util_ImageDecode` / `Util_ObjLoad` |
 
-**Gfx ↔ Rhi (locked):** Gfx obtains GPU effects only through `Rhi_*` opaque handles / command lists. Gfx must not include `RenderCore` or Vulkan headers. `Vk_RhiDevice` is an internal RenderCore factory that **implements** Rhi — not the public dialogue surface for Gfx.
+**Migration note (E0–E4 Records done):** HybridDeferred **pass recording** for AO / Hi-Z / Cluster / Soft / SSR / DDGI / Deferred draw / Post (TAA·Bloom·Tonemap) / ShadowMap lives in `Gfx_*Pass` via `Rhi_CommandList` (no `vulkan.h` in Gfx). RenderCore keeps **Init**, descriptor writes, layout trackers, and thin `Vk_*_Record` adopt facades; `Vk_FrameGraph` still owns GBuffer/hybrid **Begin/End** (optional peel deferred). **Epic:** [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) (E5 closeout).
 
-**Migration note:** Until E2–E4 complete, hybrid deferred passes still live as `Vk_*Pass` in RenderCore; new code should prefer Rhi-shaped seams. Epic: [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md).
+**Gfx ↔ Rhi (locked):** Gfx obtains GPU effects only through `Rhi_*` opaque handles / command lists. Gfx must not include `RenderCore` or Vulkan headers. `Vk_RhiDevice` is an internal RenderCore factory that **implements** Rhi — not the public dialogue surface for Gfx.
 
 **App ↔ RenderCore (locked):** `WorldState` + debug UI + **fly camera (`Gfx_RenderCamera`)** in **App**; **`Util_EngineConfig`** owned by `Application`. Per frame App builds `Gfx_FramePrepInput` + `Gfx_FrameDebugToggles` (incl. gpuCull / legacyDirectDraw / hybridDeferred policy), syncs `Vk_PrimaryCameraState`, runs CPU prep inputs, then `PrepareFrameCpu` / `DrawFrameGpu`. Init policy (`Vk_RenderFeatures`) is snapshotted at `BindEngineConfig`. Scene CPU bootstrap: `App_LoadSceneCpuState`; GPU load: `Vk_Renderer::LoadSceneGpuResources(const Gfx_SceneGpuLoadParams&)`. Recoverable swapchain/submit/present errors return `Vk_FrameResult` (skip frame or request shutdown) — no `throw` on those paths.
 
@@ -113,7 +113,7 @@ flowchart TB
 | Layer | Types |
 |-------|--------|
 | **Gfx/** | `Gfx_MeshCpu`, `Gfx_MaterialTypes`, `Gfx_Vertex`, `Gfx_FrameRenderPacket`, …; target: `Gfx_*Pass` state that holds `Rhi_*` handles |
-| **Rhi/** | Opaque `Rhi_Device`, `Rhi_CommandList`, (later) buffer/texture/pipeline handles — no Vulkan types in public headers |
+| **Rhi/** | Opaque `Rhi_Device`, `Rhi_CommandList`, buffer/texture/pipeline/render-pass/framebuffer handles — no Vulkan types in public headers; recording covers compute + graphics (Begin/End RP, viewport/scissor/bias, VB/IB, dynamic offsets) |
 | **RenderCore/** | `Vk_MeshResource`, `Vk_MaterialResource`, `Vk_TextureResource`; `Vk_RhiBackend` maps Rhi ↔ Vulkan |
 | **Gpu_*** UBO / SSBO structs | `RenderContract/Gpu_*.h` (shader contract; camera/env/lighting/material/cluster; included by RenderCore via `Vk_Types.h`) |
 
@@ -432,7 +432,7 @@ flowchart TB
   PERM --> PIPES[Pipeline variants]
 ```
 
-Not via scattered `if (feature)` in per-entity virtual calls. Target ownership: topology/enable in Gfx; GPU primitives in Rhi; Vulkan in RenderCore. Migration epic: [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md). Benchmark methodology → [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
+Not via scattered `if (feature)` in per-entity virtual calls. Target ownership: topology/enable in Gfx; GPU primitives in Rhi; Vulkan in RenderCore. Migration epic: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md). Benchmark methodology → [`Archived/plans/ci-verification_Plan.md`](Archived/plans/ci-verification_Plan.md).
 
 ---
 

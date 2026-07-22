@@ -1,9 +1,9 @@
 # Plan: gfx-rhi-pass-migration (E0–E5)
 
-**Status:** In progress (2026-07-22)  
+**Status:** Closed (2026-07-22)  
 **Branch:** `feat/gfx-rhi-pass-migration`  
-**Progress:** [`gfx-rhi-pass-migration_Progress.md`](gfx-rhi-pass-migration_Progress.md)  
-**Related:** [`EngineArchitecture.md`](EngineArchitecture.md) · [`Active-Plan.md`](Active-Plan.md) · Wishlist S21 · Cursor plan `gfx_renderpipeline_peel_c2a49d85` · closed [`rhi-independence_Plan.md`](Archived/plans/rhi-independence_Plan.md)
+**Progress:** [`gfx-rhi-pass-migration_Progress.md`](gfx-rhi-pass-migration_Progress.md) *(archived with Plan)*  
+**Related:** [`EngineArchitecture.md`](../EngineArchitecture.md) · [`Active-Plan.md`](../Active-Plan.md) · Wishlist S21 · Cursor plan `gfx_renderpipeline_peel_c2a49d85` · closed [`rhi-independence_Plan.md`](rhi-independence_Plan.md)
 
 ## Goal
 
@@ -17,17 +17,17 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E1 Rhi surface (+ E1b) | Done |
 | E2 AO Record pilot | Done (Init still RenderCore; thin `Vk_AoPass_Record` facade) |
 | E3 `Gfx_RenderPipeline` + FramePlan | Done (topology + enable policy in Gfx; RC fills readiness + Record) |
-| E4 migrate remaining passes | **Done** (E4.1–E4.6e; optional E4.6f FG RP peel deferred to E5) |
-| E5 cleanup / docs archive | **In progress** |
+| E4 migrate remaining passes | **Done** (E4.1–E4.6e; E4.6f out of epic → S21) |
+| E5 cleanup / docs archive | **Done** |
 
 ## Steps (E5)
 
 | Step | Detail | Verify | Status |
 |------|--------|--------|--------|
-| E5.1 | Update `EngineArchitecture.md` migration note: HybridDeferred **Records** live in Gfx via Rhi; Init/descriptors/`Vk_*_Record` facades remain transitional; Rhi now includes graphics RP recording | Docs review | Pending |
-| E5.2 | Carve **E4.6f** (FG hybrid/GBuffer Begin/End peel) out of this epic close → follow-up note in Archived stub / Wishlist S21 maint | Docs | Pending |
-| E5.3 | Code hygiene: bloom threshold→blur sync fix (review finding); no broad facade deletion | Verify-CI | Pending |
-| E5.4 | Epic closeout: Progress Closeout → move Plan+Progress to `Docs/Archived/plans/`; Active-Plan stub; README Active now; Wishlist S21 checkbox | G0 + smoke preferred | Pending |
+| E5.1 | Update `EngineArchitecture.md` migration note: HybridDeferred **Records** live in Gfx via Rhi; Init/descriptors/`Vk_*_Record` facades remain transitional; Rhi now includes graphics RP recording | Docs review | **Done** |
+| E5.2 | Carve **E4.6f** (FG hybrid/GBuffer Begin/End peel) out of this epic close → follow-up note in Archived stub / Wishlist S21 maint | Docs | **Done** |
+| E5.3 | Code hygiene: bloom threshold→blur sync fix (review finding); no broad facade deletion | Verify-CI | **Done** |
+| E5.4 | Epic closeout: Progress Closeout → move Plan+Progress to `Docs/Archived/plans/`; Active-Plan stub; README Active now; Wishlist S21 checkbox | G0 | **Done** |
 
 ## Steps (E4)
 
@@ -44,7 +44,7 @@ Introduce an opaque **`Rhi/`** GPU dialogue layer so **Gfx** can own modular ren
 | E4.6c | `Gfx_PostProcessPass::RecordTaa` / `RecordBloom` | Smoke + validation | **Done** |
 | E4.6d | `Gfx_PostProcessPass::RecordTonemap` | Smoke + validation | **Done** |
 | E4.6e | `Gfx_ShadowMapPass::Record` | Smoke + validation | **Done** |
-| E4.6f | (Optional) peel GBuffer/hybrid RP begin out of FG into Gfx | Smoke + validation | **Deferred to E5** |
+| E4.6f | (Optional) peel GBuffer/hybrid RP begin out of FG into Gfx | Smoke + validation | **Out of epic** — S21 follow-up |
 
 ## Steps (E3)
 
