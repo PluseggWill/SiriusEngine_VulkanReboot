@@ -3,12 +3,14 @@
 
 #include "Vk_PostProcessPassInternal.h"
 
+#include "../Gfx/Gfx_PostProcessPass.h"
 #include "../Gfx/Gfx_PostSettings.h"
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "../Util/Util_VulkanResult.h"
 
+#include "Vk_FrameCmd.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Renderer.h"
@@ -16,6 +18,7 @@
 
 #include "../Rhi/Rhi_Device.h"
 
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <stdexcept>
@@ -666,6 +669,111 @@ void RebuildResources( Vk_Renderer& aCore ) {
     }
 }
 
+void RecordBloom( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameIndex ) {
+    Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const Gfx_PostSettings& post  = aCore.myPostSettings;
+    if ( !post.myBloomEnabled ) {
+        return;
+    }
+
+    const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
+
+    Gfx_PostProcessPass::BloomGpu gpu{};
+    gpu.myThresholdPipeline = RhiVulkan::PipelineAdopt( state.myBloomThresholdPipeline );
+    gpu.myThresholdLayout   = RhiVulkan::PipelineLayoutAdopt( state.myBloomThresholdPipelineLayout );
+    gpu.myThresholdSet      = RhiVulkan::DescriptorSetAdopt( state.myBloomThresholdDescriptorSets[ aFrameIndex ] );
+    gpu.myBlurPipeline      = RhiVulkan::PipelineAdopt( state.myBloomBlurPipeline );
+    gpu.myBlurLayout        = RhiVulkan::PipelineLayoutAdopt( state.myBloomBlurPipelineLayout );
+    gpu.myBlurHorizSet      = RhiVulkan::DescriptorSetAdopt( state.myBloomBlurHorizDescriptorSets[ aFrameIndex ] );
+    gpu.myBlurVertSet       = RhiVulkan::DescriptorSetAdopt( state.myBloomBlurVertDescriptorSets[ aFrameIndex ] );
+    gpu.mySceneColor        = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myBloomPing         = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPing.Image(), state.myBloomPing.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myBloomPong         = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPong.Image(), state.myBloomPong.ImageView(), kPostSceneColorFormat, 1 );
+
+    Rhi_ImageLayout sceneLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
+    Rhi_ImageLayout pingLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gBloomPingLayout );
+    Rhi_ImageLayout pongLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gBloomPongLayout );
+
+    Gfx_PostProcessPass::BloomInput input{};
+    input.myWidth       = bloomExtent.width;
+    input.myHeight      = bloomExtent.height;
+    input.myThreshold   = post.myBloomThreshold;
+    input.mySceneLayout = &sceneLayout;
+    input.myPingLayout  = &pingLayout;
+    input.myPongLayout  = &pongLayout;
+
+    Gfx_PostProcessPass::RecordBloom( aCmd, gpu, input );
+
+    Vk_PostProcessPassDetail::gSceneColorLayout = Vk_FrameCmd::ImageLayoutToVk( sceneLayout );
+    Vk_PostProcessPassDetail::gBloomPingLayout  = Vk_FrameCmd::ImageLayoutToVk( pingLayout );
+    Vk_PostProcessPassDetail::gBloomPongLayout  = Vk_FrameCmd::ImageLayoutToVk( pongLayout );
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPing );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPong );
+}
+
+void RecordTaaResolve( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameIndex ) {
+    Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const Gfx_PostSettings& post  = aCore.myPostSettings;
+    if ( !post.myTaaEnabled ) {
+        state.myTaaHistoryReady = false;
+        return;
+    }
+
+    if ( !aCore.myTemporalState.myHistoryValid ) {
+        state.myTaaHistoryReady = false;
+    }
+
+    const uint32_t writeIndex = state.myTaaHistoryWriteIndex;
+    const uint32_t readIndex  = 1u - writeIndex;
+    UpdateTaaResolveDescriptorSet( aCore, aFrameIndex );
+
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+
+    Gfx_PostProcessPass::TaaGpu gpu{};
+    gpu.myPipeline   = RhiVulkan::PipelineAdopt( state.myTaaResolvePipeline );
+    gpu.myLayout     = RhiVulkan::PipelineLayoutAdopt( state.myTaaResolvePipelineLayout );
+    gpu.mySet        = RhiVulkan::DescriptorSetAdopt( state.myTaaResolveDescriptorSets[ aFrameIndex ] );
+    gpu.mySceneColor = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myResolved   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaResolved.Image(), state.myTaaResolved.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myHistoryRead =
+        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaHistory[ readIndex ].Image(), state.myTaaHistory[ readIndex ].ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myHistoryWrite =
+        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaHistory[ writeIndex ].Image(), state.myTaaHistory[ writeIndex ].ImageView(), kPostSceneColorFormat, 1 );
+
+    Rhi_ImageLayout sceneLayout     = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
+    Rhi_ImageLayout resolvedLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gTaaResolvedLayout );
+    Rhi_ImageLayout histReadLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ] );
+    Rhi_ImageLayout histWriteLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] );
+
+    Gfx_PostProcessPass::TaaInput input{};
+    input.myWidth              = extent.width;
+    input.myHeight             = extent.height;
+    input.myPush.historyBlend  = post.myTaaBlend;
+    input.myPush.historyValid  = ( aCore.myTemporalState.myHistoryValid && state.myTaaHistoryReady ) ? 1.0f : 0.0f;
+    input.myPush.varianceGamma = post.myTaaVarianceGamma;
+    input.myPush.sharpen       = post.myTaaSharpen;
+    input.mySceneLayout        = &sceneLayout;
+    input.myResolvedLayout     = &resolvedLayout;
+    input.myHistoryReadLayout  = &histReadLayout;
+    input.myHistoryWriteLayout = &histWriteLayout;
+
+    Gfx_PostProcessPass::RecordTaa( aCmd, gpu, input );
+
+    Vk_PostProcessPassDetail::gSceneColorLayout                = Vk_FrameCmd::ImageLayoutToVk( sceneLayout );
+    Vk_PostProcessPassDetail::gTaaResolvedLayout               = Vk_FrameCmd::ImageLayoutToVk( resolvedLayout );
+    Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ]  = Vk_FrameCmd::ImageLayoutToVk( histReadLayout );
+    Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] = Vk_FrameCmd::ImageLayoutToVk( histWriteLayout );
+    state.myTaaHistoryWriteIndex                               = 1u - state.myTaaHistoryWriteIndex;
+    state.myTaaHistoryReady                                    = true;
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myResolved );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myHistoryRead );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myHistoryWrite );
+}
+
 }  // namespace
 
 namespace Vk_PostProcessPass {
@@ -776,6 +884,59 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipelineResources( aCore );
     RebuildResources( aCore );
     aCore.myPostProcessState.myInitialized = true;
+}
+
+void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aImageIndex, uint32_t aFrameIndex ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    RecordTaaResolve( aCore, frameCmd.Get(), aFrameIndex );
+    RecordBloom( aCore, frameCmd.Get(), aFrameIndex );
+
+    const Gfx_PostSettings& post   = aCore.myPostSettings;
+    const VkExtent2D        extent = aCore.mySwapchainCtx.mySwapChainExtent;
+
+    UpdateTonemapDescriptorSet( aCore, aFrameIndex );
+
+    Gfx_PostProcessPass::TonemapGpu gpu{};
+    gpu.myPipeline    = RhiVulkan::PipelineAdopt( state.myTonemapPipeline );
+    gpu.myLayout      = RhiVulkan::PipelineLayoutAdopt( state.myTonemapPipelineLayout );
+    gpu.mySet         = RhiVulkan::DescriptorSetAdopt( state.myTonemapDescriptorSets[ aFrameIndex ] );
+    gpu.myRenderPass  = RhiVulkan::RenderPassAdopt( aCore.mySwapchainCtx.myRenderPass );
+    gpu.myFramebuffer = RhiVulkan::FramebufferAdopt( aCore.mySwapchainCtx.mySwapChainFrameBuffers[ aImageIndex ] );
+    gpu.mySceneColor  = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myBloomPing   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPing.Image(), state.myBloomPing.ImageView(), kPostSceneColorFormat, 1 );
+
+    Rhi_ImageLayout sceneLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
+    Rhi_ImageLayout pingLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gBloomPingLayout );
+
+    Gfx_PostProcessPass::TonemapInput input{};
+    input.myWidth               = extent.width;
+    input.myHeight              = extent.height;
+    input.myDebugLabels         = aCore.AreCommandDebugLabelsEnabled();
+    input.myBloomEnabled        = post.myBloomEnabled;
+    input.mySceneLayout         = &sceneLayout;
+    input.myPingLayout          = &pingLayout;
+    input.myPush.exposure       = post.myExposure;
+    input.myPush.bloomIntensity = post.myBloomIntensity;
+    input.myPush.tonemapEnabled = post.myTonemapEnabled ? 1u : 0u;
+    input.myPush.bloomEnabled   = post.myBloomEnabled ? 1u : 0u;
+    input.myPush.tonemapMode    = post.myTonemapMode != 0 ? 1u : 0u;
+
+    Gfx_PostProcessPass::RecordTonemap( frameCmd.Get(), gpu, input );
+
+    Vk_PostProcessPassDetail::gSceneColorLayout = Vk_FrameCmd::ImageLayoutToVk( sceneLayout );
+    Vk_PostProcessPassDetail::gBloomPingLayout  = Vk_FrameCmd::ImageLayoutToVk( pingLayout );
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPing );
 }
 
 }  // namespace Vk_PostProcessPass

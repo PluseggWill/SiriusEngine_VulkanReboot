@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_SsrPass.h"
+
 #include <array>
 
 #include "Vk_FrameLimits.h"
@@ -10,6 +12,9 @@ using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
 struct Vk_SsrState {
+    Gfx_SsrPass::PassState myGfx{};
+
+    // Non-owning Vk mirrors for descriptor allocation/updates (destroyed via Gfx PassState).
     VkPipeline            myComputePipeline     = VK_NULL_HANDLE;
     VkPipelineLayout      myPipelineLayout      = VK_NULL_HANDLE;
     VkDescriptorSetLayout myDescriptorSetLayout = VK_NULL_HANDLE;

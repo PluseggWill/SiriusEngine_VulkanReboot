@@ -745,6 +745,11 @@ void TestRhiComputeCreateSurface() {
     Rhi::ComputePipelineDesc pipeDesc{};
     Expect( !static_cast< bool >( Rhi::DeviceCreateComputePipeline( device, pipeDesc ) ), "CreateComputePipeline fails closed" );
 
+    Rhi::DescriptorBufferWrite bufWrite{};
+    Rhi::DeviceUpdateDescriptorBuffers( device, &bufWrite, 1 );
+
+    Expect( Rhi::DeviceMapBuffer( device, {} ) == nullptr, "DeviceMapBuffer fails closed without logical device" );
+
     Expect( static_cast< uint32_t >( Rhi_DescriptorType::StorageImage ) != 0 || true, "DescriptorType enum available" );
     Expect( Rhi_ImageLayout::DepthStencilReadOnly != Rhi_ImageLayout::ShaderReadOnly, "DepthStencilReadOnly distinct from ShaderReadOnly" );
 

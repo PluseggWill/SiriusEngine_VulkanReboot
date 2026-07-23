@@ -256,16 +256,13 @@
     <ClCompile Include="RenderCore\Vk_FrameCmd.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPass.cpp" />
     <ClCompile Include="RenderCore\Vk_PostProcessPassLayouts.cpp" />
-    <ClCompile Include="RenderCore\Vk_PostProcessPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp" />
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp" />
-    <ClCompile Include="RenderCore\Vk_ShadowMapPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp" />
     <ClCompile Include="RenderCore\Vk_Temporal.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPass.cpp" />
     <ClCompile Include="RenderCore\Vk_AoPassLayouts.cpp" />
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp" />
-    <ClCompile Include="RenderCore\Vk_DeferredLightingPass_Record.cpp" />
     <ClCompile Include="RenderCore\Vk_IblResources.cpp" />
     <ClCompile Include="RenderCore\Vk_TextureLoader.cpp" />
     <ClCompile Include="RenderCore\Vk_GBufferPass.cpp" />

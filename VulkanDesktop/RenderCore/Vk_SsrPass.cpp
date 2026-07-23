@@ -1,4 +1,4 @@
-// Module: Vk_SsrPass — Hi-Z screen-space reflections (specular-ibl-stack Phase B + temporal lit HDR).
+// Module: Vk_SsrPass — thin loader + Vk mirrors over Gfx_SsrPass Init/Record.
 #include "Vk_SsrPass.h"
 
 #include "../Gfx/Gfx_SsrPass.h"
@@ -15,8 +15,12 @@
 #include <glm/glm.hpp>
 
 #include <array>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_SsrPass::kMaxFramesInFlight ), "Gfx_SsrPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 namespace Vk_SsrPassDetail {
 VkImageLayout                  gSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -28,19 +32,37 @@ namespace {
 constexpr char     kSsrShaderPath[] = "VulkanDesktop/Shader_Generated/SsrTrace.spv";
 constexpr VkFormat kSsrFormat       = VK_FORMAT_R16G16B16A16_SFLOAT;
 
-// Push size must stay aligned with Gfx_SsrPass::TracePush / SsrTrace.comp (used for pipeline layout).
-struct SsrPushConstants {
-    alignas( 16 ) glm::mat4 view;
-    alignas( 16 ) glm::mat4 proj;
-    alignas( 16 ) glm::mat4 prevViewProj;
-    alignas( 16 ) glm::vec4 params;
-    alignas( 16 ) glm::uvec4 trace;
-    alignas( 8 ) glm::vec2 screenSize;
-    alignas( 4 ) float historyValid;
-    alignas( 4 ) float depthRejectSigma;
-};
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_SsrPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
 
-static_assert( sizeof( SsrPushConstants ) == 240, "SsrPushConstants must match SsrTrace.comp push block" );
+void ClearVkMirrors( Vk_SsrState& aState ) {
+    aState.myComputePipeline     = VK_NULL_HANDLE;
+    aState.myPipelineLayout      = VK_NULL_HANDLE;
+    aState.myDescriptorSetLayout = VK_NULL_HANDLE;
+    aState.myDescriptorPool      = VK_NULL_HANDLE;
+    aState.myGBufferSampler      = VK_NULL_HANDLE;
+}
+
+void SyncVkMirrors( Vk_Renderer& aCore ) {
+    Vk_SsrState& state = aCore.mySsrState;
+    Rhi_Device&  rhi   = aCore.myGfxRhiDevice;
+    const auto&  gfx   = state.myGfx;
+
+    state.myComputePipeline     = RhiVulkan::PipelineGetVk( rhi, gfx.myPipeline );
+    state.myPipelineLayout      = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myLayout );
+    state.myDescriptorSetLayout = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.mySetLayout );
+    state.myDescriptorPool      = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
+    state.myGBufferSampler      = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
+}
 
 void DestroySsrImage( Vk_Renderer& aCore ) {
     const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
@@ -159,101 +181,18 @@ void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
 }
 
 void CreatePipeline( Vk_Renderer& aCore ) {
-    Vk_SsrState& state = aCore.mySsrState;
+    const std::string         spvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kSsrShaderPath );
+    const std::vector< char > spirv   = LoadSpirvBytes( spvPath );
 
-    const std::array< VkDescriptorSetLayoutBinding, 7 > bindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 5 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6 ),
-    };
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
-    layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_SsrPass: failed to create descriptor set layout" );
+    Gfx_SsrPass::PipelineInitDesc pipeDesc{};
+    pipeDesc.mySpirvCode      = spirv.data();
+    pipeDesc.mySpirvBytes     = spirv.size();
+    pipeDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
+    if ( !Gfx_SsrPass::CreatePipeline( aCore.myGfxRhiDevice, pipeDesc, aCore.mySsrState.myGfx ) ) {
+        throw std::runtime_error( "Vk_SsrPass: Gfx CreatePipeline failed" );
     }
-
-    VkPushConstantRange        pushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( SsrPushConstants ) };
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &state.myDescriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_SsrPass: failed to create pipeline layout" );
-    }
-
-    const std::string spvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kSsrShaderPath );
-    VkShaderModule    module  = aCore.CreateShaderModule( spvPath );
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage  = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, module, "main" );
-    pipelineInfo.layout = state.myPipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline )
-         != VK_SUCCESS ) {
-        vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, module, nullptr );
-        throw std::runtime_error( "Vk_SsrPass: failed to create compute pipeline" );
-    }
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, module, nullptr );
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_LINEAR;
-    samplerInfo.minFilter               = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_SsrPass: failed to create G-buffer sampler" );
-    }
-
-    std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 7 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_SsrPass: failed to create descriptor pool" );
-    }
-
-    const VkDevice              device              = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkPipeline            computePipeline     = state.myComputePipeline;
-    const VkPipelineLayout      pipelineLayout      = state.myPipelineLayout;
-    const VkDescriptorSetLayout descriptorSetLayout = state.myDescriptorSetLayout;
-    const VkDescriptorPool      descriptorPool      = state.myDescriptorPool;
-    const VkSampler             gbufferSampler      = state.myGBufferSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, descriptorSetLayout, descriptorPool, gbufferSampler ]() {
-        if ( computePipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, computePipeline, nullptr );
-        }
-        if ( pipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
-        }
-        if ( descriptorSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, descriptorSetLayout, nullptr );
-        }
-        if ( descriptorPool != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-        }
-        if ( gbufferSampler != VK_NULL_HANDLE ) {
-            vkDestroySampler( device, gbufferSampler, nullptr );
-        }
-    } );
-
-    UtilLogger::Info( "PIPELINE", "SSR compute pipeline created." );
+    SyncVkMirrors( aCore );
+    UtilLogger::Info( "PIPELINE", "SSR compute pipeline created (Gfx)." );
 }
 
 void AllocateDescriptorSets( Vk_Renderer& aCore ) {
@@ -288,10 +227,14 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     DestroySsrImage( aCore );
     DestroySsrImages( aCore );
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_SsrPass::Destroy( aCore.myGfxRhiDevice, aCore.mySsrState.myGfx );
+    }
     aCore.mySsrState.myDescriptorSets    = {};
     aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
-    aCore.mySsrState.myInitialized       = false;
+    ClearVkMirrors( aCore.mySsrState );
+    aCore.mySsrState.myInitialized = false;
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -315,10 +258,13 @@ void Init( Vk_Renderer& aCore ) {
     if ( aCore.mySsrState.myInitialized ) {
         return;
     }
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_SsrPass: myGfxRhiDevice required for Gfx Init" );
+    }
     if ( !aCore.myGBufferState.myInitialized || !aCore.myDepthPyramidState.myInitialized || !Vk_PostProcessPass::HasHybridResolve( aCore ) ) {
         throw std::runtime_error( "Vk_SsrPass::Init requires GBuffer, DepthPyramid, and PostProcess hybrid resolve" );
     }
-    UtilLogger::Info( "FG", "Vk_SsrPass::Init." );
+    UtilLogger::Info( "FG", "Vk_SsrPass::Init (Gfx create)." );
     CreatePipeline( aCore );
     CreateSsrImage( aCore );
     CreateHistoryImages( aCore );

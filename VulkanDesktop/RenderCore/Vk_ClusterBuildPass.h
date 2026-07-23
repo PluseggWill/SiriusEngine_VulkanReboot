@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_ClusterBuildPass.h"
+
 #include <array>
 
 #include "Vk_FrameLimits.h"
@@ -9,7 +11,11 @@ struct VkCommandBuffer_T;
 using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
+// FG v0: compute pass filling per-cluster light index lists (sun-only v1 stub).
 struct Vk_ClusterBuildState {
+    Gfx_ClusterBuildPass::PassState myGfx{};
+
+    // Non-owning Vk mirrors for deferred descriptor updates (destroyed via Gfx PassState).
     VkPipeline            myComputePipeline     = VK_NULL_HANDLE;
     VkPipelineLayout      myPipelineLayout      = VK_NULL_HANDLE;
     VkDescriptorSetLayout myDescriptorSetLayout = VK_NULL_HANDLE;
@@ -25,7 +31,6 @@ struct Vk_ClusterBuildState {
     bool     myInitialized  = false;
 };
 
-// FG v0: compute pass filling per-cluster light index lists (sun-only v1 stub).
 namespace Vk_ClusterBuildPass {
 
 void Init( Vk_Renderer& aCore );

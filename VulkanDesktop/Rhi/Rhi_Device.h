@@ -191,4 +191,18 @@ struct DescriptorImageWrite {
 
 void DeviceUpdateDescriptorImages( Rhi_Device& aDevice, const DescriptorImageWrite* aWrites, uint32_t aWriteCount );
 
+struct DescriptorBufferWrite {
+    Rhi_DescriptorSet  mySet{};
+    uint32_t           myBinding = 0;
+    Rhi_DescriptorType myType    = Rhi_DescriptorType::StorageBuffer;
+    Rhi_Buffer         myBuffer{};
+    uint64_t           myOffsetBytes = 0;
+    uint64_t           myRangeBytes  = 0;  // 0 = VK_WHOLE_SIZE
+};
+
+void DeviceUpdateDescriptorBuffers( Rhi_Device& aDevice, const DescriptorBufferWrite* aWrites, uint32_t aWriteCount );
+
+[[nodiscard]] void* DeviceMapBuffer( Rhi_Device& aDevice, Rhi_Buffer aBuffer );
+void                DeviceUnmapBuffer( Rhi_Device& aDevice, Rhi_Buffer aBuffer );
+
 }  // namespace Rhi

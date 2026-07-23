@@ -1,12 +1,15 @@
 #pragma once
 
 #include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Rhi/Rhi_Enums.h"
 #include "../Rhi/Rhi_Handles.h"
 
 #include <cstdint>
 
 namespace Gfx_ShadowAoSoftPass {
+
+constexpr uint32_t kMaxFramesInFlight = 3u;
 
 struct GpuResources {
     Rhi_Pipeline       myPackPipeline{};
@@ -33,6 +36,31 @@ struct RecordInput {
     Rhi_ImageLayout* myPongLayout  = nullptr;
     Rhi_ImageLayout* myAoRawLayout = nullptr;  // optional inout when myUseAoRaw
 };
+
+struct PassState {
+    Rhi_Pipeline            myPackPipeline{};
+    Rhi_PipelineLayout      myPackLayout{};
+    Rhi_Pipeline            myBlurPipeline{};
+    Rhi_PipelineLayout      myBlurLayout{};
+    Rhi_DescriptorSetLayout myPackSetLayout{};
+    Rhi_DescriptorSetLayout myBlurSetLayout{};
+    Rhi_DescriptorPool      myPool{};
+    Rhi_Sampler             myGBufferSampler{};
+    bool                    myPipelineReady = false;
+};
+
+struct PipelineInitDesc {
+    const void* myPackSpirvCode  = nullptr;
+    size_t      myPackSpirvBytes = 0;
+    const void* myBlurSpirvCode  = nullptr;
+    size_t      myBlurSpirvBytes = 0;
+    uint32_t    myFramesInFlight = kMaxFramesInFlight;
+};
+
+[[nodiscard]] bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
+
+void DestroyPipelines( Rhi_Device& aDevice, PassState& aState );
+void Destroy( Rhi_Device& aDevice, PassState& aState );
 
 void Record( Rhi_CommandList& aCmd, const GpuResources& aGpu, RecordInput& aInput );
 

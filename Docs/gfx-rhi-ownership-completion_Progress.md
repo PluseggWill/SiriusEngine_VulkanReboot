@@ -3,6 +3,13 @@
 **Plan:** [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md)  
 **Started:** 2026-07-23
 
+## 2026-07-23 — O4 complete + O3 fan-out (Cluster/Soft/SSR)
+- **O4:** Deleted remaining `Vk_*_Record.cpp` (Post, ShadowMap, Deferred+DDGI); all FG records via pass TU + `Vk_FrameCmd`.
+- **O3:** ClusterBuild full Init in Gfx (buffers + map + descriptor buffer writes); Soft/SSR **CreatePipeline** in Gfx (images/descriptor writes still RC).
+- **Rhi:** `DeviceUpdateDescriptorBuffers`, `DeviceMapBuffer`/`UnmapBuffer`.
+- **Still pending:** AO/Post/Shadow/Deferred Init; Soft/SSR image Init; O5 shell retirement.
+- **Verification:** `Verify-CI` PASSED; `Verify-Smoke` PASSED; sponza `--validation` exit 0 (known `enabledLayerCount` only).
+
 ## 2026-07-23 — O3 DepthPyramid Init + O4 Record peel + graphics create
 - **DepthPyramid Init in Gfx:** `Gfx_DepthPyramidPass::{CreatePipeline,CreateOrRecreateImage,Destroy*}`; RC thin SPIR-V load + Vk mirrors for SSR/deferred.
 - **Deleted Record facades:** DepthPyramid, ClusterBuild, AO, Soft, SSR — FG/pass TUs call Gfx via `Vk_FrameCmd`.

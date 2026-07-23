@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Rhi/Rhi_Enums.h"
 #include "../Rhi/Rhi_Handles.h"
 
@@ -11,6 +12,8 @@
 #include <cstdint>
 
 namespace Gfx_SsrPass {
+
+constexpr uint32_t kMaxFramesInFlight = 3u;
 
 struct GpuResources {
     Rhi_Pipeline       myPipeline{};
@@ -47,6 +50,26 @@ struct HistoryInput {
     Rhi_ImageLayout* mySceneLayout   = nullptr;
     Rhi_ImageLayout* myHistoryLayout = nullptr;
 };
+
+struct PassState {
+    Rhi_Pipeline            myPipeline{};
+    Rhi_PipelineLayout      myLayout{};
+    Rhi_DescriptorSetLayout mySetLayout{};
+    Rhi_DescriptorPool      myPool{};
+    Rhi_Sampler             myGBufferSampler{};
+    bool                    myPipelineReady = false;
+};
+
+struct PipelineInitDesc {
+    const void* mySpirvCode      = nullptr;
+    size_t      mySpirvBytes     = 0;
+    uint32_t    myFramesInFlight = kMaxFramesInFlight;
+};
+
+[[nodiscard]] bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
+
+void DestroyPipeline( Rhi_Device& aDevice, PassState& aState );
+void Destroy( Rhi_Device& aDevice, PassState& aState );
 
 void RecordTrace( Rhi_CommandList& aCmd, const GpuResources& aGpu, TraceInput& aInput );
 void RecordHistoryUpdate( Rhi_CommandList& aCmd, const GpuResources& aGpu, HistoryInput& aInput );

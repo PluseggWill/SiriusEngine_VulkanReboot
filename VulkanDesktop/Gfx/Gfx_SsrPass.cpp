@@ -1,5 +1,7 @@
 #include "Gfx_SsrPass.h"
 
+#include <array>
+
 namespace {
 
 void BarrierColor( Rhi_CommandList& aCmd, Rhi_Texture aTex, Rhi_ImageLayout aOld, Rhi_ImageLayout aNew, Rhi_Access aSrcAccess, Rhi_Access aDstAccess,
@@ -18,6 +20,117 @@ void BarrierColor( Rhi_CommandList& aCmd, Rhi_Texture aTex, Rhi_ImageLayout aOld
 }  // namespace
 
 namespace Gfx_SsrPass {
+
+bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState ) {
+    if ( aState.myPipelineReady ) {
+        return true;
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || aDesc.mySpirvCode == nullptr || aDesc.mySpirvBytes == 0 ) {
+        return false;
+    }
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 7 > bindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 3, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 4, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 5, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 6, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           setLayoutDesc{};
+    setLayoutDesc.myBindings     = bindings.data();
+    setLayoutDesc.myBindingCount = static_cast< uint32_t >( bindings.size() );
+    aState.mySetLayout           = Rhi::DeviceCreateDescriptorSetLayout( aDevice, setLayoutDesc );
+    if ( !aState.mySetLayout ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+
+    Rhi::PushConstantRangeDesc push{};
+    push.myStages      = Rhi_ShaderStage::Compute;
+    push.myOffsetBytes = 0;
+    push.mySizeBytes   = static_cast< uint32_t >( sizeof( TracePush ) );
+
+    Rhi::PipelineLayoutDesc layoutDesc{};
+    layoutDesc.mySetLayouts     = &aState.mySetLayout;
+    layoutDesc.mySetLayoutCount = 1;
+    layoutDesc.myPushRanges     = &push;
+    layoutDesc.myPushRangeCount = 1;
+    aState.myLayout             = Rhi::DeviceCreatePipelineLayout( aDevice, layoutDesc );
+    if ( !aState.myLayout ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+
+    Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( aDevice, aDesc.mySpirvCode, aDesc.mySpirvBytes );
+    if ( !shader ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+    Rhi::ComputePipelineDesc pipeDesc{};
+    pipeDesc.myShader = shader;
+    pipeDesc.myLayout = aState.myLayout;
+    aState.myPipeline = Rhi::DeviceCreateComputePipeline( aDevice, pipeDesc );
+    Rhi::DeviceDestroyShaderModule( aDevice, shader );
+    if ( !aState.myPipeline ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+
+    Rhi::SamplerDesc samplerDesc{};
+    samplerDesc.myMagFilter = Rhi_Filter::Linear;
+    samplerDesc.myMinFilter = Rhi_Filter::Linear;
+    samplerDesc.myAddressU  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressV  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressW  = Rhi_AddressMode::ClampToEdge;
+    aState.myGBufferSampler = Rhi::DeviceCreateSampler( aDevice, samplerDesc );
+    if ( !aState.myGBufferSampler ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+
+    const uint32_t                                 frames    = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const std::array< Rhi::DescriptorPoolSize, 2 > poolSizes = { {
+        { Rhi_DescriptorType::CombinedImageSampler, frames * 7u },
+        { Rhi_DescriptorType::StorageImage, frames },
+    } };
+    Rhi::DescriptorPoolDesc                        poolDesc{};
+    poolDesc.myMaxSets       = frames;
+    poolDesc.myPoolSizes     = poolSizes.data();
+    poolDesc.myPoolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    aState.myPool            = Rhi::DeviceCreateDescriptorPool( aDevice, poolDesc );
+    if ( !aState.myPool ) {
+        DestroyPipeline( aDevice, aState );
+        return false;
+    }
+
+    aState.myPipelineReady = true;
+    return true;
+}
+
+void DestroyPipeline( Rhi_Device& aDevice, PassState& aState ) {
+    if ( aState.myPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myPipeline );
+    }
+    if ( aState.myLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myLayout );
+    }
+    if ( aState.myPool ) {
+        Rhi::DeviceDestroyDescriptorPool( aDevice, aState.myPool );
+    }
+    if ( aState.mySetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.mySetLayout );
+    }
+    if ( aState.myGBufferSampler ) {
+        Rhi::DeviceDestroySampler( aDevice, aState.myGBufferSampler );
+    }
+    aState.myPipelineReady = false;
+}
+
+void Destroy( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyPipeline( aDevice, aState );
+}
 
 void RecordTrace( Rhi_CommandList& aCmd, const GpuResources& aGpu, TraceInput& aInput ) {
     if ( aInput.myWidth == 0 || aInput.myHeight == 0 || aInput.myOutputLayout == nullptr || !Rhi::CommandListIsRecordingReady( aCmd ) ) {

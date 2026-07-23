@@ -15,7 +15,8 @@ namespace {
 
 struct BufferRecord {
     Vk_AllocatedBuffer myAlloc{};
-    bool               myOwned = true;
+    bool               myOwned  = true;
+    void*              myMapped = nullptr;
 };
 
 struct TextureRecord {
@@ -168,6 +169,10 @@ void DestroyOwnedResources( DeviceImpl* aImpl ) {
 
     for ( auto& [ id, buf ] : aImpl->myBuffers ) {
         ( void )id;
+        if ( buf.myMapped != nullptr && buf.myAlloc.myAllocation != VK_NULL_HANDLE && aImpl->myVk->myDeviceCtx.myAllocator != nullptr ) {
+            vmaUnmapMemory( aImpl->myVk->myDeviceCtx.myAllocator, buf.myAlloc.myAllocation );
+            buf.myMapped = nullptr;
+        }
         if ( buf.myOwned && buf.myAlloc.myBuffer != VK_NULL_HANDLE && aImpl->myVk->myDeviceCtx.myAllocator != nullptr ) {
             vmaDestroyBuffer( aImpl->myVk->myDeviceCtx.myAllocator, buf.myAlloc.myBuffer, buf.myAlloc.myAllocation );
         }
@@ -866,6 +871,10 @@ void DeviceDestroyBuffer( Rhi_Device& aDevice, Rhi_Buffer& aBuffer ) {
     if ( it == impl->myBuffers.end() ) {
         aBuffer.myId = 0;
         return;
+    }
+    if ( it->second.myMapped != nullptr && it->second.myAlloc.myAllocation != VK_NULL_HANDLE && impl->myVk->myDeviceCtx.myAllocator != nullptr ) {
+        vmaUnmapMemory( impl->myVk->myDeviceCtx.myAllocator, it->second.myAlloc.myAllocation );
+        it->second.myMapped = nullptr;
     }
     if ( it->second.myOwned && HasLogicalDevice( impl ) && it->second.myAlloc.myBuffer != VK_NULL_HANDLE ) {
         vmaDestroyBuffer( impl->myVk->myDeviceCtx.myAllocator, it->second.myAlloc.myBuffer, it->second.myAlloc.myAllocation );
@@ -1689,6 +1698,82 @@ void DeviceUpdateDescriptorImages( Rhi_Device& aDevice, const DescriptorImageWri
         writes[ i ].pImageInfo      = &imageInfos[ i ];
     }
     vkUpdateDescriptorSets( impl->myVk->myDeviceCtx.myDevice, aWriteCount, writes.data(), 0, nullptr );
+}
+
+VkBuffer ResolveBufferVk( DeviceImpl* impl, Rhi_Buffer aBuffer ) {
+    if ( impl == nullptr || !aBuffer ) {
+        return VK_NULL_HANDLE;
+    }
+    auto it = impl->myBuffers.find( aBuffer.myId );
+    if ( it != impl->myBuffers.end() ) {
+        return it->second.myAlloc.myBuffer;
+    }
+    return reinterpret_cast< VkBuffer >( static_cast< uintptr_t >( aBuffer.myId ) );
+}
+
+void DeviceUpdateDescriptorBuffers( Rhi_Device& aDevice, const DescriptorBufferWrite* aWrites, uint32_t aWriteCount ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aWrites == nullptr || aWriteCount == 0 ) {
+        return;
+    }
+    std::vector< VkDescriptorBufferInfo > bufferInfos( aWriteCount );
+    std::vector< VkWriteDescriptorSet >   writes( aWriteCount );
+    for ( uint32_t i = 0; i < aWriteCount; ++i ) {
+        const DescriptorBufferWrite& w     = aWrites[ i ];
+        VkDescriptorSet              set   = VK_NULL_HANDLE;
+        auto                         setIt = impl->myDescriptorSets.find( w.mySet.myId );
+        if ( setIt != impl->myDescriptorSets.end() ) {
+            set = setIt->second.first;
+        }
+        else {
+            set = reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( w.mySet.myId ) );
+        }
+        bufferInfos[ i ].buffer = ResolveBufferVk( impl, w.myBuffer );
+        bufferInfos[ i ].offset = w.myOffsetBytes;
+        bufferInfos[ i ].range  = w.myRangeBytes == 0 ? VK_WHOLE_SIZE : static_cast< VkDeviceSize >( w.myRangeBytes );
+
+        writes[ i ]                 = {};
+        writes[ i ].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[ i ].dstSet          = set;
+        writes[ i ].dstBinding      = w.myBinding;
+        writes[ i ].descriptorCount = 1;
+        writes[ i ].descriptorType  = ToVkDescriptorType( w.myType );
+        writes[ i ].pBufferInfo     = &bufferInfos[ i ];
+    }
+    vkUpdateDescriptorSets( impl->myVk->myDeviceCtx.myDevice, aWriteCount, writes.data(), 0, nullptr );
+}
+
+void* DeviceMapBuffer( Rhi_Device& aDevice, Rhi_Buffer aBuffer ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aBuffer || impl->myVk->myDeviceCtx.myAllocator == nullptr ) {
+        return nullptr;
+    }
+    auto it = impl->myBuffers.find( aBuffer.myId );
+    if ( it == impl->myBuffers.end() || !it->second.myOwned || it->second.myAlloc.myAllocation == VK_NULL_HANDLE ) {
+        return nullptr;
+    }
+    if ( it->second.myMapped != nullptr ) {
+        return it->second.myMapped;
+    }
+    void* mapped = nullptr;
+    if ( vmaMapMemory( impl->myVk->myDeviceCtx.myAllocator, it->second.myAlloc.myAllocation, &mapped ) != VK_SUCCESS ) {
+        return nullptr;
+    }
+    it->second.myMapped = mapped;
+    return mapped;
+}
+
+void DeviceUnmapBuffer( Rhi_Device& aDevice, Rhi_Buffer aBuffer ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aBuffer || impl->myVk->myDeviceCtx.myAllocator == nullptr ) {
+        return;
+    }
+    auto it = impl->myBuffers.find( aBuffer.myId );
+    if ( it == impl->myBuffers.end() || it->second.myMapped == nullptr || it->second.myAlloc.myAllocation == VK_NULL_HANDLE ) {
+        return;
+    }
+    vmaUnmapMemory( impl->myVk->myDeviceCtx.myAllocator, it->second.myAlloc.myAllocation );
+    it->second.myMapped = nullptr;
 }
 
 }  // namespace Rhi

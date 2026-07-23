@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_ShadowAoSoftPass.h"
+
 #include <array>
 
 #include "Vk_FrameLimits.h"
@@ -12,6 +14,9 @@ class Vk_Renderer;
 // Contact softening: pack linear AO (R) + screen-space sun shadow (G), bilateral blur, deferred read.
 // Independent of AO algorithm (Vk_AoPass); uses fallback 1x1 textures when AO pass is skipped.
 struct Vk_ShadowAoSoftState {
+    Gfx_ShadowAoSoftPass::PassState myGfx{};
+
+    // Non-owning Vk mirrors for descriptor allocation/updates (destroyed via Gfx PassState).
     VkPipeline            myPackPipeline       = VK_NULL_HANDLE;
     VkPipeline            myBlurPipeline       = VK_NULL_HANDLE;
     VkPipelineLayout      myPackPipelineLayout = VK_NULL_HANDLE;

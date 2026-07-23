@@ -2,18 +2,24 @@
 #include "Vk_ShadowMapPass.h"
 
 #include "../Gfx/Gfx_LightingMath.h"
+#include "../Gfx/Gfx_RenderPacket.h"
+#include "../Gfx/Gfx_ShadowMapPass.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_DescriptorPolicy.h"
+#include "Vk_FrameCmd.h"
+#include "Vk_FrameUniformUploader.h"
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 #include "Vk_VertexLayout.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
 #include <array>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 
@@ -272,6 +278,70 @@ void Init( Vk_Renderer& aCore ) {
     aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-// RecordDraw lives in Vk_ShadowMapPass_Record.cpp (Gfx_ShadowMapPass via Rhi).
+void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_PassDrawPacket& aCasterPass, bool aEmitDebugLabels ) {
+    if ( !aCore.myShadowMapState.myInitialized || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    const glm::vec3 sunDir = glm::normalize( glm::vec3( aCore.myEnvironmentData.mySunlightDirection ) );
+    if ( !Gfx_LightingMath::Gfx_ShouldCompareDirectionalShadows( aCore.myLightingSettings.myShadowsEnabled, sunDir ) ) {
+        Vk_FrameUniformUploader::UpdateLightingGlobalsFromScene( aCore, aCore.myFrameCtx.myCurrentFrame );
+        return;
+    }
+
+    const Gfx_Bounds                                   sceneBounds = aCore.GetShadowCasterBounds();
+    const Gfx_LightingMath::Gfx_DirectionalShadowSetup shadowSetup =
+        Gfx_LightingMath::Gfx_ComputeKhronosDirectionalShadowSetup( sunDir, sceneBounds, Vk_ShadowMapState::kMapSize );
+
+    Vk_ShadowMapState& state  = aCore.myShadowMapState;
+    state.myLightViewProj     = shadowSetup.myLightViewProj;
+    state.myDepthBiasConstant = shadowSetup.myDepthBiasConstant;
+    state.myDepthBiasSlope    = shadowSetup.myDepthBiasSlope;
+
+    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                              VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT );
+
+    std::vector< Gfx_ShadowMapPass::DrawItem > draws;
+    draws.reserve( aCasterPass.myDraws.size() );
+    for ( const Gfx_BatchRun& batch : aCasterPass.myBatchRuns ) {
+        for ( uint32_t drawIndex = 0; drawIndex < batch.myDrawCount; ++drawIndex ) {
+            const Gfx_DrawInstance&     draw = aCasterPass.myDraws[ batch.myFirstDrawIndex + drawIndex ];
+            const Vk_MeshResource&      mesh = aCore.mySceneGpuCtx.myResourceTables.GetMesh( draw.myMeshId );
+            Gfx_ShadowMapPass::DrawItem item{};
+            item.myVertexBuffer  = RhiVulkan::BufferAdopt( mesh.myVertexBuffer.myBuffer );
+            item.myIndexBuffer   = RhiVulkan::BufferAdopt( mesh.myIndexBuffer.myBuffer );
+            item.myIndexCount    = mesh.myIndexCount;
+            item.myDynamicOffset = draw.myInstanceDataOffset;
+            draws.push_back( item );
+        }
+    }
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    Gfx_ShadowMapPass::GpuResources gpu{};
+    gpu.myPipeline    = RhiVulkan::PipelineAdopt( state.myPipeline );
+    gpu.myLayout      = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.myObjectSet   = RhiVulkan::DescriptorSetAdopt( aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor );
+    gpu.myRenderPass  = RhiVulkan::RenderPassAdopt( state.myRenderPass );
+    gpu.myFramebuffer = RhiVulkan::FramebufferAdopt( state.myFramebuffer );
+
+    Gfx_ShadowMapPass::RecordInput input{};
+    input.myLightViewProj     = state.myLightViewProj;
+    input.myDepthBiasConstant = state.myDepthBiasConstant;
+    input.myDepthBiasSlope    = state.myDepthBiasSlope;
+    input.myDebugLabels       = aEmitDebugLabels;
+    input.myDraws             = draws.data();
+    input.myDrawCount         = static_cast< uint32_t >( draws.size() );
+    input.myDrawCallsOut      = &aCore.myFrameStats.myDrawCalls;
+
+    Gfx_ShadowMapPass::Record( frameCmd.Get(), gpu, input );
+
+    state.myDepthLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+    Vk_FrameUniformUploader::UpdateLightingGlobals( aCore, aCore.myFrameCtx.myCurrentFrame, state.myLightViewProj );
+}
 
 }  // namespace Vk_ShadowMapPass

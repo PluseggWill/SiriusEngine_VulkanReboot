@@ -322,13 +322,7 @@
     <ClCompile Include="RenderCore\Vk_PostProcessPassLayouts.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_PostProcessPass_Record.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_ShadowMapPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp">
@@ -344,9 +338,6 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_DeferredLightingPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowMapPass.cpp">

@@ -1,4 +1,4 @@
-// Module: Vk_ShadowAoSoftPass — pack raw AO + screen-space sun shadow into RG8, bilateral blur.
+// Module: Vk_ShadowAoSoftPass — thin loader + Vk mirrors over Gfx_ShadowAoSoftPass Init/Record.
 // Runs after Vk_AoPass; deferred reads soft ping via GetDeferredContactMapView().
 #include "Vk_ShadowAoSoftPass.h"
 
@@ -18,12 +18,14 @@
 
 #include <vma/vk_mem_alloc.h>
 
-#include <glm/vec4.hpp>
-
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_ShadowAoSoftPass::kMaxFramesInFlight ), "Gfx_ShadowAoSoftPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 namespace {
 
@@ -31,21 +33,43 @@ constexpr char     kPackShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoP
 constexpr char     kBlurShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoBlur.spv";
 constexpr VkFormat kSoftFormat       = VK_FORMAT_R8G8_UNORM;
 
-// Mirrors Gfx_ShadowAoSoftPass push blocks — only sizes are needed here for pipeline layout creation.
-struct ShadowAoPackPushConstants {
-    alignas( 16 ) glm::vec4 params;
-};
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
 
-static_assert( sizeof( ShadowAoPackPushConstants ) == 16, "ShadowAoPackPushConstants must match ShadowAoPack.comp push block" );
+void ClearVkMirrors( Vk_ShadowAoSoftState& aState ) {
+    aState.myPackPipeline       = VK_NULL_HANDLE;
+    aState.myBlurPipeline       = VK_NULL_HANDLE;
+    aState.myPackPipelineLayout = VK_NULL_HANDLE;
+    aState.myBlurPipelineLayout = VK_NULL_HANDLE;
+    aState.myPackSetLayout      = VK_NULL_HANDLE;
+    aState.myBlurSetLayout      = VK_NULL_HANDLE;
+    aState.myDescriptorPool     = VK_NULL_HANDLE;
+    aState.myGBufferSampler     = VK_NULL_HANDLE;
+}
 
-struct ShadowAoBlurPushConstants {
-    uint32_t axisX;
-    uint32_t axisY;
-    float    radius;
-    float    depthSigma;
-};
+void SyncVkMirrors( Vk_Renderer& aCore ) {
+    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
+    const auto&           gfx   = state.myGfx;
 
-static_assert( sizeof( ShadowAoBlurPushConstants ) == 16, "ShadowAoBlurPushConstants must match ShadowAoBlur.comp push block" );
+    state.myPackPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myPackPipeline );
+    state.myBlurPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myBlurPipeline );
+    state.myPackPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myPackLayout );
+    state.myBlurPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myBlurLayout );
+    state.myPackSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myPackSetLayout );
+    state.myBlurSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myBlurSetLayout );
+    state.myDescriptorPool     = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
+    state.myGBufferSampler     = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
+}
 
 }  // namespace
 
@@ -215,151 +239,23 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     }
 }
 
-VkPipeline CreateComputePipeline( Vk_Renderer& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
-                                  VkPushConstantRange aPushRange ) {
-    VkShaderModule computeModule = aCore.CreateShaderModule( aSpvPath );
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &aSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutInfo.pPushConstantRanges        = &aPushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &aOutLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create pipeline layout" );
-    }
-
-    const VkPipelineShaderStageCreateInfo stageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, computeModule, "main" );
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage  = stageInfo;
-    pipelineInfo.layout = aOutLayout;
-
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create compute pipeline" );
-    }
-
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
-    return pipeline;
-}
-
 void CreatePipelines( Vk_Renderer& aCore ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
+    const std::string         packSpvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kPackShaderPath );
+    const std::string         blurSpvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath );
+    const std::vector< char > packSpirv   = LoadSpirvBytes( packSpvPath );
+    const std::vector< char > blurSpirv   = LoadSpirvBytes( blurSpvPath );
 
-    const std::array< VkDescriptorSetLayoutBinding, 6 > packBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5 ),
-    };
-
-    VkDescriptorSetLayoutCreateInfo packLayoutInfo{};
-    packLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    packLayoutInfo.bindingCount = static_cast< uint32_t >( packBindings.size() );
-    packLayoutInfo.pBindings    = packBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &packLayoutInfo, nullptr, &state.myPackSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create pack descriptor set layout" );
+    Gfx_ShadowAoSoftPass::PipelineInitDesc pipeDesc{};
+    pipeDesc.myPackSpirvCode  = packSpirv.data();
+    pipeDesc.myPackSpirvBytes = packSpirv.size();
+    pipeDesc.myBlurSpirvCode  = blurSpirv.data();
+    pipeDesc.myBlurSpirvBytes = blurSpirv.size();
+    pipeDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
+    if ( !Gfx_ShadowAoSoftPass::CreatePipelines( aCore.myGfxRhiDevice, pipeDesc, aCore.myShadowAoSoftState.myGfx ) ) {
+        throw std::runtime_error( "Vk_ShadowAoSoftPass: Gfx CreatePipelines failed" );
     }
-
-    const std::array< VkDescriptorSetLayoutBinding, 3 > blurBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-    };
-
-    VkDescriptorSetLayoutCreateInfo blurLayoutInfo{};
-    blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
-    blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create blur descriptor set layout" );
-    }
-
-    VkPushConstantRange packPushRange{};
-    packPushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    packPushRange.offset     = 0;
-    packPushRange.size       = sizeof( ShadowAoPackPushConstants );
-
-    const std::string packSpvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kPackShaderPath );
-    state.myPackPipeline          = CreateComputePipeline( aCore, packSpvPath, state.myPackSetLayout, state.myPackPipelineLayout, packPushRange );
-
-    VkPushConstantRange blurPushRange{};
-    blurPushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    blurPushRange.offset     = 0;
-    blurPushRange.size       = sizeof( ShadowAoBlurPushConstants );
-
-    const std::string blurSpvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath );
-    state.myBlurPipeline          = CreateComputePipeline( aCore, blurSpvPath, state.myBlurSetLayout, state.myBlurPipelineLayout, blurPushRange );
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_LINEAR;
-    samplerInfo.minFilter               = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.compareEnable           = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create G-buffer sampler" );
-    }
-
-    std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 10 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 10 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 5;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to create descriptor pool" );
-    }
-
-    const VkDevice              device             = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkPipeline            packPipeline       = state.myPackPipeline;
-    const VkPipeline            blurPipeline       = state.myBlurPipeline;
-    const VkPipelineLayout      packPipelineLayout = state.myPackPipelineLayout;
-    const VkPipelineLayout      blurPipelineLayout = state.myBlurPipelineLayout;
-    const VkDescriptorSetLayout packSetLayout      = state.myPackSetLayout;
-    const VkDescriptorSetLayout blurSetLayout      = state.myBlurSetLayout;
-    const VkDescriptorPool      descriptorPool     = state.myDescriptorPool;
-    const VkSampler             gbufferSampler     = state.myGBufferSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
-        [ device, packPipeline, blurPipeline, packPipelineLayout, blurPipelineLayout, packSetLayout, blurSetLayout, descriptorPool, gbufferSampler ]() {
-            if ( packPipeline != VK_NULL_HANDLE ) {
-                vkDestroyPipeline( device, packPipeline, nullptr );
-            }
-            if ( blurPipeline != VK_NULL_HANDLE ) {
-                vkDestroyPipeline( device, blurPipeline, nullptr );
-            }
-            if ( packPipelineLayout != VK_NULL_HANDLE ) {
-                vkDestroyPipelineLayout( device, packPipelineLayout, nullptr );
-            }
-            if ( blurPipelineLayout != VK_NULL_HANDLE ) {
-                vkDestroyPipelineLayout( device, blurPipelineLayout, nullptr );
-            }
-            if ( packSetLayout != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorSetLayout( device, packSetLayout, nullptr );
-            }
-            if ( blurSetLayout != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorSetLayout( device, blurSetLayout, nullptr );
-            }
-            if ( descriptorPool != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-            }
-            if ( gbufferSampler != VK_NULL_HANDLE ) {
-                vkDestroySampler( device, gbufferSampler, nullptr );
-            }
-        } );
-
-    UtilLogger::Info( "PIPELINE", "Shadow/AO contact soft compute pipelines created." );
+    SyncVkMirrors( aCore );
+    UtilLogger::Info( "PIPELINE", "Shadow/AO contact soft compute pipelines created (Gfx)." );
 }
 
 void AllocateDescriptorSets( Vk_Renderer& aCore ) {
@@ -398,12 +294,16 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     DestroySoftImages( aCore );
     DestroyFallbackImages( aCore );
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_ShadowAoSoftPass::Destroy( aCore.myGfxRhiDevice, aCore.myShadowAoSoftState.myGfx );
+    }
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.myShadowAoSoftState.myPackDescriptorSets[ i ]      = VK_NULL_HANDLE;
         aCore.myShadowAoSoftState.myPackNoAoDescriptorSets[ i ]  = VK_NULL_HANDLE;
         aCore.myShadowAoSoftState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
         aCore.myShadowAoSoftState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
     }
+    ClearVkMirrors( aCore.myShadowAoSoftState );
     aCore.myShadowAoSoftState.myInitialized = false;
 }
 
@@ -423,7 +323,10 @@ void Init( Vk_Renderer& aCore ) {
     if ( aCore.myShadowAoSoftState.myInitialized ) {
         return;
     }
-    UtilLogger::Info( "FG", "Vk_ShadowAoSoftPass::Init." );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_ShadowAoSoftPass: myGfxRhiDevice required for Gfx Init" );
+    }
+    UtilLogger::Info( "FG", "Vk_ShadowAoSoftPass::Init (Gfx create)." );
     CreatePipelines( aCore );
     CreateFallbackImages( aCore );
     CreateSoftImages( aCore );
