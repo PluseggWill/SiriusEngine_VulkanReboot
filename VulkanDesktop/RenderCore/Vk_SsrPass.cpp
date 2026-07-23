@@ -1,13 +1,16 @@
 // Module: Vk_SsrPass — Hi-Z screen-space reflections (specular-ibl-stack Phase B + temporal lit HDR).
 #include "Vk_SsrPass.h"
 
+#include "../Gfx/Gfx_SsrPass.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
 #include "Vk_DepthPyramidPass.h"
+#include "Vk_FrameCmd.h"
 #include "Vk_Initializer.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 
 #include <glm/glm.hpp>
 
@@ -325,7 +328,103 @@ void Init( Vk_Renderer& aCore ) {
     aCore.mySsrState.myInitialized = true;
 }
 
-// RecordCompute / RecordHistoryUpdate live in Vk_SsrPass_Record.cpp (Gfx_SsrPass via Rhi).
+// RecordCompute / RecordHistoryUpdate via Gfx_SsrPass (Rhi + Vk_FrameCmd).
+
+void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+    Vk_SsrState& state = aCore.mySsrState;
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+
+    UpdateDescriptorSet( aCore, aFrameIndex );
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    Gfx_SsrPass::GpuResources gpu{};
+    gpu.myPipeline = RhiVulkan::PipelineAdopt( state.myComputePipeline );
+    gpu.myLayout   = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.mySet      = RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ] );
+    gpu.myOutput   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySsrOutput.Image(), state.mySsrOutput.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+
+    Rhi_ImageLayout outputLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_SsrPassDetail::gSsrLayout );
+
+    Gfx_SsrPass::TraceInput input{};
+    input.myWidth                 = extent.width;
+    input.myHeight                = extent.height;
+    input.myDebugLabels           = aCore.AreCommandDebugLabelsEnabled();
+    input.myOutputLayout          = &outputLayout;
+    input.myPush.view             = aCore.myPrimaryCamera.myView;
+    input.myPush.proj             = aCore.myPrimaryCamera.myProj;
+    input.myPush.prevViewProj     = aCore.myTemporalState.myPrevViewProj;
+    input.myPush.params           = glm::vec4( aCore.myLightingSettings.mySsrMaxDistance, aCore.myLightingSettings.mySsrMaxRoughness,
+                                     aCore.myLightingSettings.mySsrEnabled ? 1.0f : 0.0f, aCore.myLightingSettings.mySsrThickness );
+    const uint32_t hiZMaxMip      = Vk_DepthPyramidPass::GetMipLevelCount( aCore ) > 0 ? Vk_DepthPyramidPass::GetMipLevelCount( aCore ) - 1 : 0u;
+    input.myPush.trace            = glm::uvec4( aCore.myLightingSettings.mySsrMaxSteps, hiZMaxMip, 0u, 0u );
+    input.myPush.screenSize       = glm::vec2( static_cast< float >( extent.width ), static_cast< float >( extent.height ) );
+    input.myPush.historyValid     = ( aCore.myTemporalState.myHistoryValid && state.myHistoryReady ) ? 1.0f : 0.0f;
+    input.myPush.depthRejectSigma = aCore.myLightingSettings.mySsrHistoryDepthReject;
+
+    Gfx_SsrPass::RecordTrace( frameCmd.Get(), gpu, input );
+
+    Vk_SsrPassDetail::gSsrLayout = Vk_FrameCmd::ImageLayoutToVk( outputLayout );
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myOutput );
+}
+
+void RecordHistoryUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
+    Vk_SsrState& state = aCore.mySsrState;
+    if ( !state.myInitialized || !Vk_PostProcessPass::HasHybridResolve( aCore ) || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
+    if ( extent.width == 0 || extent.height == 0 ) {
+        return;
+    }
+
+    Vk_TextureResource& sceneColor = aCore.myPostProcessState.mySceneColor;
+    if ( sceneColor.Image() == VK_NULL_HANDLE ) {
+        return;
+    }
+
+    const uint32_t      writeIndex = 1u - state.myHistoryWriteIndex;
+    Vk_TextureResource& history    = state.myLitHdrHistory[ writeIndex ];
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    Gfx_SsrPass::GpuResources gpu{};
+    gpu.mySceneColor   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, sceneColor.Image(), sceneColor.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    gpu.myHistoryWrite = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, history.Image(), history.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+
+    Rhi_ImageLayout sceneLayout   = Rhi_ImageLayout::ShaderReadOnly;
+    Rhi_ImageLayout historyLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_SsrPassDetail::gHistoryLayouts[ writeIndex ] );
+
+    Gfx_SsrPass::HistoryInput input{};
+    input.myWidth         = extent.width;
+    input.myHeight        = extent.height;
+    input.mySceneLayout   = &sceneLayout;
+    input.myHistoryLayout = &historyLayout;
+
+    Gfx_SsrPass::RecordHistoryUpdate( frameCmd.Get(), gpu, input );
+
+    Vk_SsrPassDetail::gHistoryLayouts[ writeIndex ] = Vk_FrameCmd::ImageLayoutToVk( historyLayout );
+    state.myHistoryWriteIndex                       = writeIndex;
+    state.myHistoryReady                            = true;
+
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
+    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myHistoryWrite );
+}
 
 VkImageView GetOutputImageView( const Vk_Renderer& aCore ) {
     return aCore.mySsrState.mySsrOutput.ImageView();

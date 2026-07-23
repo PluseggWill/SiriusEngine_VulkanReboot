@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "../Rhi/Rhi_Handles.h"
 #include "Vk_DataStruct.h"
 #include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
@@ -23,11 +24,14 @@ struct Vk_PostProcessState {
     Vk_TextureResource myBloomPing{};
     Vk_TextureResource myBloomPong{};
 
-    VkRenderPass  myHybridRenderPass  = VK_NULL_HANDLE;
-    VkFramebuffer myHybridFramebuffer = VK_NULL_HANDLE;
-    VkSampler     mySceneSampler      = VK_NULL_HANDLE;
+    VkRenderPass    myHybridRenderPass  = VK_NULL_HANDLE;
+    VkFramebuffer   myHybridFramebuffer = VK_NULL_HANDLE;
+    Rhi_RenderPass  myRhiHybridRenderPass{};
+    Rhi_Framebuffer myRhiHybridFramebuffer{};
+    VkSampler       mySceneSampler = VK_NULL_HANDLE;
 
-    VkPipeline            myTonemapPipeline       = VK_NULL_HANDLE;
+    VkPipeline            myTonemapPipeline = VK_NULL_HANDLE;
+    Rhi_Pipeline          myRhiTonemapPipeline{};
     VkPipelineLayout      myTonemapPipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout myTonemapSetLayout      = VK_NULL_HANDLE;
 

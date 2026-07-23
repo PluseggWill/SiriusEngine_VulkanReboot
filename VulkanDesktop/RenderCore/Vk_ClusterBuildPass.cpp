@@ -1,12 +1,15 @@
 // Module: Vk_ClusterBuildPass — FG v0 clustered light list build (compute).
 #include "Vk_ClusterBuildPass.h"
 
+#include "../Gfx/Gfx_ClusterBuildPass.h"
 #include "../Gfx/Gfx_ClusterLighting.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
+#include "Vk_FrameCmd.h"
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -235,6 +238,45 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipeline( aCore );
     AllocateClusterListBuffers( aCore, true );
     aCore.myClusterBuildState.myInitialized = true;
+}
+
+void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+    Vk_ClusterBuildState& state = aCore.myClusterBuildState;
+    if ( !state.myInitialized || state.myClusterCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    static bool sDispatchLoggedOnce = false;
+
+    if ( state.myLightsMapped != nullptr ) {
+        auto* lights = static_cast< Gpu_ClusterLight* >( state.myLightsMapped );
+        WriteSunLightFromEnvironment( lights[ 0 ], aCore.myEnvironmentData );
+    }
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    Gfx_ClusterBuildPass::GpuResources gpu{};
+    gpu.myPipeline          = RhiVulkan::PipelineAdopt( state.myComputePipeline );
+    gpu.myLayout            = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.mySet               = RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ] );
+    gpu.myLightsBuffer      = RhiVulkan::BufferAdopt( state.myLightsBuffer.myBuffer );
+    gpu.myClusterListBuffer = RhiVulkan::BufferAdopt( state.myClusterListBuffers[ aFrameIndex ].myBuffer );
+
+    Gfx_ClusterBuildPass::RecordInput input{};
+    input.clusterCount = state.myClusterCount;
+    input.lightCount   = Gfx_ClusterLighting::kMaxLights;
+    input.debugLabels  = aCore.AreCommandDebugLabelsEnabled();
+
+    Gfx_ClusterBuildPass::Record( frameCmd.Get(), gpu, input );
+
+    if ( !sDispatchLoggedOnce ) {
+        UtilLogger::Info( "CLUSTER",
+                          "ClusterBuild dispatch: clusters=" + std::to_string( state.myClusterCount ) + " lights=" + std::to_string( Gfx_ClusterLighting::kMaxLights ) );
+        sDispatchLoggedOnce = true;
+    }
 }
 
 }  // namespace Vk_ClusterBuildPass

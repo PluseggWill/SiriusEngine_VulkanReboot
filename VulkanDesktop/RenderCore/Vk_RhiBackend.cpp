@@ -50,6 +50,8 @@ struct DeviceImpl {
     std::unordered_map< uint64_t, VkDescriptorPool >                       myPools;
     std::unordered_map< uint64_t, VkPipelineLayout >                       myPipelineLayouts;
     std::unordered_map< uint64_t, VkPipeline >                             myPipelines;
+    std::unordered_map< uint64_t, VkRenderPass >                           myRenderPasses;
+    std::unordered_map< uint64_t, VkFramebuffer >                          myFramebuffers;
     std::unordered_map< uint64_t, std::pair< VkDescriptorSet, uint64_t > > myDescriptorSets;  // set, poolId
 };
 
@@ -81,9 +83,27 @@ void DestroyOwnedResources( DeviceImpl* aImpl ) {
         aImpl->myPools.clear();
         aImpl->myPipelineLayouts.clear();
         aImpl->myPipelines.clear();
+        aImpl->myRenderPasses.clear();
+        aImpl->myFramebuffers.clear();
         aImpl->myDescriptorSets.clear();
         return;
     }
+
+    for ( auto& [ id, fb ] : aImpl->myFramebuffers ) {
+        ( void )id;
+        if ( fb != VK_NULL_HANDLE ) {
+            vkDestroyFramebuffer( device, fb, nullptr );
+        }
+    }
+    aImpl->myFramebuffers.clear();
+
+    for ( auto& [ id, rp ] : aImpl->myRenderPasses ) {
+        ( void )id;
+        if ( rp != VK_NULL_HANDLE ) {
+            vkDestroyRenderPass( device, rp, nullptr );
+        }
+    }
+    aImpl->myRenderPasses.clear();
 
     for ( auto& [ id, pipeline ] : aImpl->myPipelines ) {
         ( void )id;
@@ -250,6 +270,10 @@ VmaMemoryUsage ToVmaMemory( Rhi_MemoryUsage aUsage ) {
     }
 }
 
+bool IsDepthVkFormat( VkFormat aFormat ) {
+    return aFormat == VK_FORMAT_D32_SFLOAT || aFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || aFormat == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
 VkFormat ToVkFormat( Rhi_Format aFormat ) {
     switch ( aFormat ) {
     case Rhi_Format::R8_Unorm:
@@ -266,6 +290,10 @@ VkFormat ToVkFormat( Rhi_Format aFormat ) {
         return VK_FORMAT_R16G16B16A16_SFLOAT;
     case Rhi_Format::D32_Sfloat:
         return VK_FORMAT_D32_SFLOAT;
+    case Rhi_Format::D32_Sfloat_S8_Uint:
+        return VK_FORMAT_D32_SFLOAT_S8_UINT;
+    case Rhi_Format::D24_Unorm_S8_Uint:
+        return VK_FORMAT_D24_UNORM_S8_UINT;
     case Rhi_Format::Undefined:
     default:
         return VK_FORMAT_UNDEFINED;
@@ -418,14 +446,24 @@ VkDescriptorSet ResolveDescriptorSet( DeviceImpl* aDevice, Rhi_DescriptorSet aSe
     return reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
 }
 
-VkRenderPass ResolveRenderPass( DeviceImpl* aDevice, Rhi_RenderPass aPass ) {
-    ( void )aDevice;
-    return reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aPass.myId ) );
+VkRenderPass ResolveRenderPass( DeviceImpl* aDevice, Rhi_RenderPass aRenderPass ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->myRenderPasses.find( aRenderPass.myId );
+        if ( it != aDevice->myRenderPasses.end() ) {
+            return it->second;
+        }
+    }
+    return reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aRenderPass.myId ) );
 }
 
-VkFramebuffer ResolveFramebuffer( DeviceImpl* aDevice, Rhi_Framebuffer aFb ) {
-    ( void )aDevice;
-    return reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aFb.myId ) );
+VkFramebuffer ResolveFramebuffer( DeviceImpl* aDevice, Rhi_Framebuffer aFramebuffer ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->myFramebuffers.find( aFramebuffer.myId );
+        if ( it != aDevice->myFramebuffers.end() ) {
+            return it->second;
+        }
+    }
+    return reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aFramebuffer.myId ) );
 }
 
 Rhi_Device MakeDeviceHandle( DeviceImpl* aImpl ) {
@@ -546,7 +584,7 @@ void CommandListPipelineBarrier( Rhi_CommandList& aList, const ImageBarrier* aBa
         barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
         barrier.image                           = it->second.myAlloc.myImage;
-        barrier.subresourceRange.aspectMask     = ( it->second.myFormat == VK_FORMAT_D32_SFLOAT ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.aspectMask     = IsDepthVkFormat( it->second.myFormat ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel   = b.myBaseMip;
         barrier.subresourceRange.levelCount     = b.myMipCount;
         barrier.subresourceRange.baseArrayLayer = 0;
@@ -737,8 +775,9 @@ void CommandListSetDepthBias( Rhi_CommandList& aList, float aConstantFactor, flo
 
 void CommandListBeginRenderPass( Rhi_CommandList& aList, const RenderPassBeginInfo& aInfo ) {
     CommandListImpl*    impl        = AsCmd( aList );
-    const VkRenderPass  renderPass  = reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aInfo.myRenderPass.myId ) );
-    const VkFramebuffer framebuffer = reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aInfo.myFramebuffer.myId ) );
+    DeviceImpl*         device      = impl != nullptr ? impl->myDevice : nullptr;
+    const VkRenderPass  renderPass  = ResolveRenderPass( device, aInfo.myRenderPass );
+    const VkFramebuffer framebuffer = ResolveFramebuffer( device, aInfo.myFramebuffer );
     if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || renderPass == VK_NULL_HANDLE || framebuffer == VK_NULL_HANDLE || aInfo.myWidth == 0 || aInfo.myHeight == 0 ) {
         return;
     }
@@ -855,7 +894,7 @@ Rhi_Texture DeviceCreateTexture( Rhi_Device& aDevice, const TextureDesc& aDesc )
         return {};
     }
 
-    const VkImageAspectFlags aspect = ( format == VK_FORMAT_D32_SFLOAT ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    const VkImageAspectFlags aspect = IsDepthVkFormat( format ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     record.myView                   = impl->myVk->CreateImageView( record.myAlloc.myImage, format, aspect, record.myMipLevels );
     if ( record.myView == VK_NULL_HANDLE ) {
         vmaDestroyImage( impl->myVk->myDeviceCtx.myAllocator, record.myAlloc.myImage, record.myAlloc.myAllocation );
@@ -1235,6 +1274,338 @@ void DeviceDestroyPipeline( Rhi_Device& aDevice, Rhi_Pipeline& aPipeline ) {
     aPipeline.myId = 0;
 }
 
+VkSampleCountFlagBits ToVkSampleCount( uint32_t aSampleCount ) {
+    switch ( aSampleCount ) {
+    case 2:
+        return VK_SAMPLE_COUNT_2_BIT;
+    case 4:
+        return VK_SAMPLE_COUNT_4_BIT;
+    case 8:
+        return VK_SAMPLE_COUNT_8_BIT;
+    case 1:
+    default:
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+}
+
+VkAttachmentLoadOp ToVkLoadOp( Rhi_AttachmentLoadOp aOp ) {
+    switch ( aOp ) {
+    case Rhi_AttachmentLoadOp::Load:
+        return VK_ATTACHMENT_LOAD_OP_LOAD;
+    case Rhi_AttachmentLoadOp::DontCare:
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    case Rhi_AttachmentLoadOp::Clear:
+    default:
+        return VK_ATTACHMENT_LOAD_OP_CLEAR;
+    }
+}
+
+VkAttachmentStoreOp ToVkStoreOp( Rhi_AttachmentStoreOp aOp ) {
+    return aOp == Rhi_AttachmentStoreOp::DontCare ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+}
+
+VkCullModeFlags ToVkCullMode( Rhi_CullMode aMode ) {
+    switch ( aMode ) {
+    case Rhi_CullMode::Front:
+        return VK_CULL_MODE_FRONT_BIT;
+    case Rhi_CullMode::Back:
+        return VK_CULL_MODE_BACK_BIT;
+    case Rhi_CullMode::None:
+    default:
+        return VK_CULL_MODE_NONE;
+    }
+}
+
+VkCompareOp ToVkCompareOp( Rhi_CompareOp aOp ) {
+    switch ( aOp ) {
+    case Rhi_CompareOp::Never:
+        return VK_COMPARE_OP_NEVER;
+    case Rhi_CompareOp::Less:
+        return VK_COMPARE_OP_LESS;
+    case Rhi_CompareOp::Equal:
+        return VK_COMPARE_OP_EQUAL;
+    case Rhi_CompareOp::Greater:
+        return VK_COMPARE_OP_GREATER;
+    case Rhi_CompareOp::NotEqual:
+        return VK_COMPARE_OP_NOT_EQUAL;
+    case Rhi_CompareOp::GreaterOrEqual:
+        return VK_COMPARE_OP_GREATER_OR_EQUAL;
+    case Rhi_CompareOp::Always:
+        return VK_COMPARE_OP_ALWAYS;
+    case Rhi_CompareOp::LessOrEqual:
+    default:
+        return VK_COMPARE_OP_LESS_OR_EQUAL;
+    }
+}
+
+Rhi_RenderPass DeviceCreateRenderPass( Rhi_Device& aDevice, const RenderPassDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aDesc.myAttachments == nullptr || aDesc.myAttachmentCount == 0 ) {
+        return {};
+    }
+    if ( aDesc.myColorAttachmentCount > 0 && aDesc.myColorAttachmentIndices == nullptr ) {
+        return {};
+    }
+    if ( aDesc.myHasDepthStencil && aDesc.myDepthStencilAttachmentIndex >= aDesc.myAttachmentCount ) {
+        return {};
+    }
+
+    std::vector< VkAttachmentDescription > attachments( aDesc.myAttachmentCount );
+    for ( uint32_t i = 0; i < aDesc.myAttachmentCount; ++i ) {
+        const AttachmentDesc&    src = aDesc.myAttachments[ i ];
+        VkAttachmentDescription& dst = attachments[ i ];
+        dst.format                   = ToVkFormat( src.myFormat );
+        dst.samples                  = ToVkSampleCount( src.mySampleCount );
+        dst.loadOp                   = ToVkLoadOp( src.myLoadOp );
+        dst.storeOp                  = ToVkStoreOp( src.myStoreOp );
+        dst.stencilLoadOp            = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        dst.stencilStoreOp           = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        dst.initialLayout            = ToVkLayout( src.myInitialLayout );
+        dst.finalLayout              = ToVkLayout( src.myFinalLayout );
+        if ( dst.format == VK_FORMAT_UNDEFINED ) {
+            return {};
+        }
+    }
+
+    std::vector< VkAttachmentReference > colorRefs( aDesc.myColorAttachmentCount );
+    for ( uint32_t i = 0; i < aDesc.myColorAttachmentCount; ++i ) {
+        const uint32_t idx = aDesc.myColorAttachmentIndices[ i ];
+        if ( idx >= aDesc.myAttachmentCount ) {
+            return {};
+        }
+        colorRefs[ i ].attachment = idx;
+        colorRefs[ i ].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    }
+
+    VkAttachmentReference depthRef{};
+    if ( aDesc.myHasDepthStencil ) {
+        depthRef.attachment = aDesc.myDepthStencilAttachmentIndex;
+        depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount    = aDesc.myColorAttachmentCount;
+    subpass.pColorAttachments       = colorRefs.empty() ? nullptr : colorRefs.data();
+    subpass.pDepthStencilAttachment = aDesc.myHasDepthStencil ? &depthRef : nullptr;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo info{};
+    info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    info.attachmentCount = aDesc.myAttachmentCount;
+    info.pAttachments    = attachments.data();
+    info.subpassCount    = 1;
+    info.pSubpasses      = &subpass;
+    info.dependencyCount = 1;
+    info.pDependencies   = &dependency;
+
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    if ( vkCreateRenderPass( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &renderPass ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id          = impl->myNextResourceId++;
+    impl->myRenderPasses[ id ] = renderPass;
+    Rhi_RenderPass out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyRenderPass( Rhi_Device& aDevice, Rhi_RenderPass& aRenderPass ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aRenderPass.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myRenderPasses.find( aRenderPass.myId );
+    if ( it == impl->myRenderPasses.end() ) {
+        aRenderPass.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyRenderPass( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->myRenderPasses.erase( it );
+    aRenderPass.myId = 0;
+}
+
+Rhi_Framebuffer DeviceCreateFramebuffer( Rhi_Device& aDevice, const FramebufferDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aDesc.myRenderPass || aDesc.myAttachments == nullptr || aDesc.myAttachmentCount == 0 || aDesc.myWidth == 0 || aDesc.myHeight == 0 ) {
+        return {};
+    }
+    const VkRenderPass renderPass = ResolveRenderPass( impl, aDesc.myRenderPass );
+    if ( renderPass == VK_NULL_HANDLE ) {
+        return {};
+    }
+
+    std::vector< VkImageView > views( aDesc.myAttachmentCount );
+    for ( uint32_t i = 0; i < aDesc.myAttachmentCount; ++i ) {
+        auto texIt = impl->myTextures.find( aDesc.myAttachments[ i ].myId );
+        if ( texIt == impl->myTextures.end() || texIt->second.myView == VK_NULL_HANDLE ) {
+            return {};
+        }
+        views[ i ] = texIt->second.myView;
+    }
+
+    VkFramebufferCreateInfo info{};
+    info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    info.renderPass      = renderPass;
+    info.attachmentCount = aDesc.myAttachmentCount;
+    info.pAttachments    = views.data();
+    info.width           = aDesc.myWidth;
+    info.height          = aDesc.myHeight;
+    info.layers          = 1;
+
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    if ( vkCreateFramebuffer( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &framebuffer ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id          = impl->myNextResourceId++;
+    impl->myFramebuffers[ id ] = framebuffer;
+    Rhi_Framebuffer out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyFramebuffer( Rhi_Device& aDevice, Rhi_Framebuffer& aFramebuffer ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aFramebuffer.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myFramebuffers.find( aFramebuffer.myId );
+    if ( it == impl->myFramebuffers.end() ) {
+        aFramebuffer.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyFramebuffer( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->myFramebuffers.erase( it );
+    aFramebuffer.myId = 0;
+}
+
+Rhi_Pipeline DeviceCreateGraphicsPipeline( Rhi_Device& aDevice, const GraphicsPipelineDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aDesc.myVertexShader || !aDesc.myFragmentShader || !aDesc.myLayout || !aDesc.myRenderPass ) {
+        return {};
+    }
+    auto vertIt = impl->myShaders.find( aDesc.myVertexShader.myId );
+    auto fragIt = impl->myShaders.find( aDesc.myFragmentShader.myId );
+    if ( vertIt == impl->myShaders.end() || fragIt == impl->myShaders.end() ) {
+        return {};
+    }
+    const VkPipelineLayout layout     = ResolvePipelineLayout( impl, aDesc.myLayout );
+    const VkRenderPass     renderPass = ResolveRenderPass( impl, aDesc.myRenderPass );
+    if ( layout == VK_NULL_HANDLE || renderPass == VK_NULL_HANDLE ) {
+        return {};
+    }
+
+    VkPipelineShaderStageCreateInfo stages[ 2 ]{};
+    stages[ 0 ].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[ 0 ].stage  = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[ 0 ].module = vertIt->second;
+    stages[ 0 ].pName  = "main";
+    stages[ 1 ].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages[ 1 ].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[ 1 ].module = fragIt->second;
+    stages[ 1 ].pName  = "main";
+
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ( void )aDesc.myTopology;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount  = 1;
+
+    VkPipelineRasterizationStateCreateInfo raster{};
+    raster.sType           = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    raster.polygonMode     = VK_POLYGON_MODE_FILL;
+    raster.cullMode        = ToVkCullMode( aDesc.myCullMode );
+    raster.frontFace       = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    raster.lineWidth       = 1.0f;
+    raster.depthBiasEnable = aDesc.myDynamicDepthBias ? VK_TRUE : VK_FALSE;
+
+    VkPipelineMultisampleStateCreateInfo multisample{};
+    multisample.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample.rasterizationSamples = ToVkSampleCount( aDesc.mySampleCount );
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable  = aDesc.myDepthTestEnable ? VK_TRUE : VK_FALSE;
+    depthStencil.depthWriteEnable = aDesc.myDepthWriteEnable ? VK_TRUE : VK_FALSE;
+    depthStencil.depthCompareOp   = ToVkCompareOp( aDesc.myDepthCompareOp );
+
+    std::vector< VkPipelineColorBlendAttachmentState > blendAttachments( aDesc.myColorAttachmentCount == 0 ? 1u : aDesc.myColorAttachmentCount );
+    for ( auto& blend : blendAttachments ) {
+        blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        blend.blendEnable    = aDesc.myBlendEnable ? VK_TRUE : VK_FALSE;
+        if ( aDesc.myBlendEnable ) {
+            blend.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+            blend.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            blend.colorBlendOp        = VK_BLEND_OP_ADD;
+            blend.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            blend.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            blend.alphaBlendOp        = VK_BLEND_OP_ADD;
+        }
+    }
+
+    VkPipelineColorBlendStateCreateInfo colorBlend{};
+    colorBlend.sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlend.attachmentCount = static_cast< uint32_t >( blendAttachments.size() );
+    colorBlend.pAttachments    = blendAttachments.data();
+
+    std::vector< VkDynamicState > dynamicStates;
+    if ( aDesc.myDynamicViewportScissor ) {
+        dynamicStates.push_back( VK_DYNAMIC_STATE_VIEWPORT );
+        dynamicStates.push_back( VK_DYNAMIC_STATE_SCISSOR );
+    }
+    if ( aDesc.myDynamicDepthBias ) {
+        dynamicStates.push_back( VK_DYNAMIC_STATE_DEPTH_BIAS );
+    }
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast< uint32_t >( dynamicStates.size() );
+    dynamicState.pDynamicStates    = dynamicStates.empty() ? nullptr : dynamicStates.data();
+
+    VkGraphicsPipelineCreateInfo info{};
+    info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.stageCount          = 2;
+    info.pStages             = stages;
+    info.pVertexInputState   = &vertexInput;
+    info.pInputAssemblyState = &inputAssembly;
+    info.pViewportState      = &viewportState;
+    info.pRasterizationState = &raster;
+    info.pMultisampleState   = &multisample;
+    info.pDepthStencilState  = &depthStencil;
+    info.pColorBlendState    = &colorBlend;
+    info.pDynamicState       = dynamicStates.empty() ? nullptr : &dynamicState;
+    info.layout              = layout;
+    info.renderPass          = renderPass;
+    info.subpass             = aDesc.mySubpass;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    if ( vkCreateGraphicsPipelines( impl->myVk->myDeviceCtx.myDevice, impl->myVk->myDeviceCtx.myPipelineCache, 1, &info, nullptr, &pipeline ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id       = impl->myNextResourceId++;
+    impl->myPipelines[ id ] = pipeline;
+    Rhi_Pipeline out;
+    out.myId = id;
+    return out;
+}
+
 Rhi_Texture DeviceCreateTextureMipView( Rhi_Device& aDevice, Rhi_Texture aParent, uint32_t aBaseMip ) {
     DeviceImpl* impl = AsDevice( aDevice );
     if ( !HasLogicalDevice( impl ) || !aParent ) {
@@ -1252,7 +1623,7 @@ Rhi_Texture DeviceCreateTextureMipView( Rhi_Device& aDevice, Rhi_Texture aParent
     viewInfo.image                           = parentIt->second.myAlloc.myImage;
     viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format                          = parentIt->second.myFormat;
-    viewInfo.subresourceRange.aspectMask     = ( parentIt->second.myFormat == VK_FORMAT_D32_SFLOAT ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.aspectMask     = IsDepthVkFormat( parentIt->second.myFormat ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel   = aBaseMip;
     viewInfo.subresourceRange.levelCount     = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -1439,12 +1810,20 @@ VkDescriptorSet DescriptorSetGetVk( Rhi_DescriptorSet aSet ) {
     return ResolveDescriptorSet( nullptr, aSet );
 }
 
+VkRenderPass RenderPassGetVk( const Rhi_Device& aDevice, Rhi_RenderPass aRenderPass ) {
+    return ResolveRenderPass( AsDevice( aDevice ), aRenderPass );
+}
+
+VkFramebuffer FramebufferGetVk( const Rhi_Device& aDevice, Rhi_Framebuffer aFramebuffer ) {
+    return ResolveFramebuffer( AsDevice( aDevice ), aFramebuffer );
+}
+
 VkRenderPass RenderPassGetVk( Rhi_RenderPass aRenderPass ) {
-    return reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aRenderPass.myId ) );
+    return ResolveRenderPass( nullptr, aRenderPass );
 }
 
 VkFramebuffer FramebufferGetVk( Rhi_Framebuffer aFramebuffer ) {
-    return reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aFramebuffer.myId ) );
+    return ResolveFramebuffer( nullptr, aFramebuffer );
 }
 
 VkBuffer BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer ) {

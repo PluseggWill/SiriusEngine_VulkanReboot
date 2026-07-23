@@ -25,9 +25,9 @@ Goal: finish ownership so Gfx records **and** creates through Rhi; delete per-pa
 | Phase | Focus | Exit |
 |-------|--------|------|
 | **O1** | Peel FG GBuffer/hybrid Begin/End into Gfx plan executor (former E4.6f) | Smoke + G0-validation; FG no longer owns those Begin/End — **Done 2026-07-23** |
-| **O2** | Expand Rhi **create** surface: compute pipeline path + descriptor update (+ mip views); graphics RP/FB create still adopt | GfxTests + Verify-CI — **Done 2026-07-23** (compute create) |
-| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid Init already uses Rhi from RC; Gfx::Init API + other passes pending |
-| **O4** | Delete `Vk_*_Record.cpp` facades; FG/executor calls Gfx with Rhi handles + plain DTOs | Pending |
+| **O2** | Expand Rhi **create** surface: compute pipeline path + descriptor update (+ mip views); graphics RP/FB/graphics PSO | GfxTests + Verify-CI — **Done 2026-07-23** (compute + graphics create; Post hybrid/tonemap consume graphics) |
+| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid Init in Gfx (**Done**); other passes pending |
+| **O4** | Delete `Vk_*_Record.cpp` facades; FG/executor calls Gfx with Rhi handles + plain DTOs | DepthPyramid / Cluster / AO / Soft / SSR deleted; Post / Shadow / Deferred Record remain |
 | **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Pending |
 
 **Pilot order (suggested):** O1 first (unblocks clean Record scope) → O2 foundation → O3/O4 on one compute pass (e.g. DepthPyramid or AO) → fan out → O5.

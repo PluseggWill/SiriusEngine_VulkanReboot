@@ -307,13 +307,10 @@
     <ClCompile Include="RenderCore\Vk_ClusterBuildPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_ClusterBuildPass_Record.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
     <ClCompile Include="RenderCore\Vk_DepthPyramidPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_DepthPyramidPass_Record.cpp">
+    <ClCompile Include="RenderCore\Vk_FrameCmd.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="Gfx\Gfx_FramePacketValidation.cpp">
@@ -331,16 +328,10 @@
     <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
-    <ClCompile Include="RenderCore\Vk_ShadowAoSoftPass_Record.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
     <ClCompile Include="RenderCore\Vk_ShadowMapPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_SsrPass.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_SsrPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_Temporal.cpp">
@@ -350,9 +341,6 @@
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_AoPassLayouts.cpp">
-      <Filter>RenderCore</Filter>
-    </ClCompile>
-    <ClCompile Include="RenderCore\Vk_AoPass_Record.cpp">
       <Filter>RenderCore</Filter>
     </ClCompile>
     <ClCompile Include="RenderCore\Vk_DeferredLightingPass.cpp">
@@ -673,6 +661,9 @@
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FrameGraph.h">
+      <Filter>RenderCore</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderCore\Vk_FrameCmd.h">
       <Filter>RenderCore</Filter>
     </ClInclude>
     <ClInclude Include="RenderCore\Vk_FgResourceRegistry.h">

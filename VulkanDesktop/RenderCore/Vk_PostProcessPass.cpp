@@ -12,10 +12,15 @@
 #include "Vk_Initializer.h"
 #include "Vk_Pipeline.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
+
+#include "../Rhi/Rhi_Device.h"
 
 #include <array>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -118,113 +123,185 @@ void CreateBloomImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture, VkExten
 }
 
 void CreateHybridRenderPass( Vk_Renderer& aCore ) {
-    VkAttachmentDescription color{};
-    color.format         = kPostSceneColorFormat;
-    color.samples        = VK_SAMPLE_COUNT_1_BIT;
-    color.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    color.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    color.finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_PostProcessPass: myGfxRhiDevice required for hybrid render pass" );
+    }
 
-    VkAttachmentDescription depth{};
-    depth.format         = aCore.FindDepthFormat();
-    depth.samples        = aCore.mySwapchainCtx.myMSAASamples;
-    depth.loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depth.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    depth.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depth.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depth.initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depth.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    Rhi_Device& rhi          = aCore.myGfxRhiDevice;
+    uint32_t    depthSamples = 1;
+    switch ( aCore.mySwapchainCtx.myMSAASamples ) {
+    case VK_SAMPLE_COUNT_2_BIT:
+        depthSamples = 2;
+        break;
+    case VK_SAMPLE_COUNT_4_BIT:
+        depthSamples = 4;
+        break;
+    case VK_SAMPLE_COUNT_8_BIT:
+        depthSamples = 8;
+        break;
+    default:
+        depthSamples = 1;
+        break;
+    }
 
-    VkAttachmentReference colorRef{};
-    colorRef.attachment = 0;
-    colorRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    Rhi_Format depthFormat = Rhi_Format::Undefined;
+    switch ( aCore.FindDepthFormat() ) {
+    case VK_FORMAT_D32_SFLOAT:
+        depthFormat = Rhi_Format::D32_Sfloat;
+        break;
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        depthFormat = Rhi_Format::D32_Sfloat_S8_Uint;
+        break;
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+        depthFormat = Rhi_Format::D24_Unorm_S8_Uint;
+        break;
+    default:
+        throw std::runtime_error( "Vk_PostProcessPass: unsupported depth format for hybrid render pass" );
+    }
 
-    VkAttachmentReference depthRef{};
-    depthRef.attachment = 1;
-    depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    std::array< Rhi::AttachmentDesc, 2 > attachments{};
+    attachments[ 0 ].myFormat        = Rhi_Format::RGBA16_Sfloat;
+    attachments[ 0 ].myLoadOp        = Rhi_AttachmentLoadOp::Clear;
+    attachments[ 0 ].myStoreOp       = Rhi_AttachmentStoreOp::Store;
+    attachments[ 0 ].myInitialLayout = Rhi_ImageLayout::Undefined;
+    attachments[ 0 ].myFinalLayout   = Rhi_ImageLayout::ShaderReadOnly;
+    attachments[ 0 ].mySampleCount   = 1;
 
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount    = 1;
-    subpass.pColorAttachments       = &colorRef;
-    subpass.pDepthStencilAttachment = &depthRef;
+    attachments[ 1 ].myFormat        = depthFormat;
+    attachments[ 1 ].myLoadOp        = Rhi_AttachmentLoadOp::Load;
+    attachments[ 1 ].myStoreOp       = Rhi_AttachmentStoreOp::Store;
+    attachments[ 1 ].myInitialLayout = Rhi_ImageLayout::DepthStencilAttachment;
+    attachments[ 1 ].myFinalLayout   = Rhi_ImageLayout::DepthStencilAttachment;
+    attachments[ 1 ].mySampleCount   = depthSamples;
 
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass    = 0;
-    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    const uint32_t      colorIdx = 0;
+    Rhi::RenderPassDesc rpDesc{};
+    rpDesc.myAttachments                 = attachments.data();
+    rpDesc.myAttachmentCount             = static_cast< uint32_t >( attachments.size() );
+    rpDesc.myColorAttachmentIndices      = &colorIdx;
+    rpDesc.myColorAttachmentCount        = 1;
+    rpDesc.myHasDepthStencil             = true;
+    rpDesc.myDepthStencilAttachmentIndex = 1;
 
-    std::array< VkAttachmentDescription, 2 > attachments = { color, depth };
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
-    renderPassInfo.pAttachments    = attachments.data();
-    renderPassInfo.subpassCount    = 1;
-    renderPassInfo.pSubpasses      = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies   = &dependency;
-
-    UtilVulkanResult::ThrowOnFailure( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &aCore.myPostProcessState.myHybridRenderPass ),
-                                      "vkCreateRenderPass PostProcess hybrid" );
-
-    const VkDevice     device     = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkRenderPass renderPass = aCore.myPostProcessState.myHybridRenderPass;
-    aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, renderPass ]() { vkDestroyRenderPass( device, renderPass, nullptr ); } );
+    aCore.myPostProcessState.myRhiHybridRenderPass = Rhi::DeviceCreateRenderPass( rhi, rpDesc );
+    aCore.myPostProcessState.myHybridRenderPass    = RhiVulkan::RenderPassGetVk( rhi, aCore.myPostProcessState.myRhiHybridRenderPass );
+    if ( !aCore.myPostProcessState.myRhiHybridRenderPass || aCore.myPostProcessState.myHybridRenderPass == VK_NULL_HANDLE ) {
+        throw std::runtime_error( "Vk_PostProcessPass: DeviceCreateRenderPass hybrid failed" );
+    }
 }
 
 void CreateHybridFramebuffer( Vk_Renderer& aCore ) {
-    std::array< VkImageView, 2 > attachments = { aCore.myPostProcessState.mySceneColor.ImageView(), aCore.mySwapchainCtx.myDepthTexture.ImageView() };
+    if ( !aCore.myGfxRhiDevice || !aCore.myPostProcessState.myRhiHybridRenderPass ) {
+        throw std::runtime_error( "Vk_PostProcessPass: hybrid render pass required before framebuffer" );
+    }
 
-    VkFramebufferCreateInfo frameBufferInfo{};
-    frameBufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    frameBufferInfo.renderPass      = aCore.myPostProcessState.myHybridRenderPass;
-    frameBufferInfo.attachmentCount = static_cast< uint32_t >( attachments.size() );
-    frameBufferInfo.pAttachments    = attachments.data();
-    frameBufferInfo.width           = aCore.mySwapchainCtx.mySwapChainExtent.width;
-    frameBufferInfo.height          = aCore.mySwapchainCtx.mySwapChainExtent.height;
-    frameBufferInfo.layers          = 1;
+    Rhi_Device& rhi = aCore.myGfxRhiDevice;
+    Rhi_Texture colorTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myPostProcessState.mySceneColor.Image(), aCore.myPostProcessState.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
+    Rhi_Texture depthTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.mySwapchainCtx.myDepthTexture.Image(), aCore.mySwapchainCtx.myDepthTexture.ImageView(), aCore.FindDepthFormat(), 1 );
+    const std::array< Rhi_Texture, 2 > attachments = { colorTex, depthTex };
 
-    UtilVulkanResult::ThrowOnFailure( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &frameBufferInfo, nullptr, &aCore.myPostProcessState.myHybridFramebuffer ),
-                                      "vkCreateFramebuffer PostProcess hybrid" );
+    Rhi::FramebufferDesc fbDesc{};
+    fbDesc.myRenderPass      = aCore.myPostProcessState.myRhiHybridRenderPass;
+    fbDesc.myAttachments     = attachments.data();
+    fbDesc.myAttachmentCount = static_cast< uint32_t >( attachments.size() );
+    fbDesc.myWidth           = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    fbDesc.myHeight          = aCore.mySwapchainCtx.mySwapChainExtent.height;
 
-    const VkDevice      device      = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkFramebuffer framebuffer = aCore.myPostProcessState.myHybridFramebuffer;
-    aCore.myPostProcessState.myDeletionQueue.pushFunction( [ device, framebuffer ]() { vkDestroyFramebuffer( device, framebuffer, nullptr ); } );
+    aCore.myPostProcessState.myRhiHybridFramebuffer = Rhi::DeviceCreateFramebuffer( rhi, fbDesc );
+    aCore.myPostProcessState.myHybridFramebuffer    = RhiVulkan::FramebufferGetVk( rhi, aCore.myPostProcessState.myRhiHybridFramebuffer );
+    Rhi::DeviceDestroyTexture( rhi, colorTex );
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    if ( !aCore.myPostProcessState.myRhiHybridFramebuffer || aCore.myPostProcessState.myHybridFramebuffer == VK_NULL_HANDLE ) {
+        throw std::runtime_error( "Vk_PostProcessPass: DeviceCreateFramebuffer hybrid failed" );
+    }
+}
+
+std::vector< char > LoadSpirvFile( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_PostProcessPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
 }
 
 VkPipeline BuildTonemapPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
-    VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
-    VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_PostProcessPass: myGfxRhiDevice required for tonemap PSO" );
+    }
+    Rhi_Device& rhi = aCore.myGfxRhiDevice;
 
-    Vk_PipelineBuilder pipelineBuilder;
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-    pipelineBuilder.myVertexInputInfo               = VkInit::Pipeline_VertexInputStateCreateInfo();
-    pipelineBuilder.myInputAssembly                 = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport                      = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
-    pipelineBuilder.myScissor.offset                = { 0, 0 };
-    pipelineBuilder.myScissor.extent                = aCore.mySwapchainCtx.mySwapChainExtent;
-    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
-    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( aCore.mySwapchainCtx.myMSAASamples );
-    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
-    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_FALSE;
-    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                = aLayout;
-    pipelineBuilder.SetDefaultDynamicStates();
+    const std::vector< char > vertSpirv = LoadSpirvFile( aVertPath );
+    const std::vector< char > fragSpirv = LoadSpirvFile( aFragPath );
+    Rhi_ShaderModule          vert      = Rhi::DeviceCreateShaderModule( rhi, vertSpirv.data(), vertSpirv.size() );
+    Rhi_ShaderModule          frag      = Rhi::DeviceCreateShaderModule( rhi, fragSpirv.data(), fragSpirv.size() );
+    if ( !vert || !frag ) {
+        Rhi::DeviceDestroyShaderModule( rhi, vert );
+        Rhi::DeviceDestroyShaderModule( rhi, frag );
+        throw std::runtime_error( "Vk_PostProcessPass: tonemap shader module create failed" );
+    }
 
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
+    uint32_t sampleCount = 1;
+    switch ( aCore.mySwapchainCtx.myMSAASamples ) {
+    case VK_SAMPLE_COUNT_2_BIT:
+        sampleCount = 2;
+        break;
+    case VK_SAMPLE_COUNT_4_BIT:
+        sampleCount = 4;
+        break;
+    case VK_SAMPLE_COUNT_8_BIT:
+        sampleCount = 8;
+        break;
+    default:
+        sampleCount = 1;
+        break;
+    }
 
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
-    return pipeline;
+    Rhi::GraphicsPipelineDesc desc{};
+    desc.myVertexShader           = vert;
+    desc.myFragmentShader         = frag;
+    desc.myLayout                 = RhiVulkan::PipelineLayoutAdopt( aLayout );
+    desc.myRenderPass             = RhiVulkan::RenderPassAdopt( aRenderPass );
+    desc.myColorAttachmentCount   = 1;
+    desc.mySampleCount            = sampleCount;
+    desc.myCullMode               = Rhi_CullMode::None;
+    desc.myDepthTestEnable        = false;
+    desc.myDepthWriteEnable       = false;
+    desc.myBlendEnable            = false;
+    desc.myDynamicViewportScissor = true;
+
+    if ( aCore.myPostProcessState.myRhiTonemapPipeline ) {
+        Rhi::DeviceDestroyPipeline( rhi, aCore.myPostProcessState.myRhiTonemapPipeline );
+        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    aCore.myPostProcessState.myRhiTonemapPipeline = Rhi::DeviceCreateGraphicsPipeline( rhi, desc );
+    Rhi::DeviceDestroyShaderModule( rhi, vert );
+    Rhi::DeviceDestroyShaderModule( rhi, frag );
+    if ( !aCore.myPostProcessState.myRhiTonemapPipeline ) {
+        throw std::runtime_error( "Vk_PostProcessPass: DeviceCreateGraphicsPipeline tonemap failed" );
+    }
+    aCore.myPostProcessState.myTonemapPipeline = RhiVulkan::PipelineGetVk( rhi, aCore.myPostProcessState.myRhiTonemapPipeline );
+    return aCore.myPostProcessState.myTonemapPipeline;
+}
+
+void DestroyHybridResolveRhi( Vk_Renderer& aCore ) {
+    if ( !aCore.myGfxRhiDevice ) {
+        aCore.myPostProcessState.myHybridFramebuffer    = VK_NULL_HANDLE;
+        aCore.myPostProcessState.myHybridRenderPass     = VK_NULL_HANDLE;
+        aCore.myPostProcessState.myRhiHybridFramebuffer = {};
+        aCore.myPostProcessState.myRhiHybridRenderPass  = {};
+        return;
+    }
+    Rhi_Device& rhi = aCore.myGfxRhiDevice;
+    Rhi::DeviceDestroyFramebuffer( rhi, aCore.myPostProcessState.myRhiHybridFramebuffer );
+    Rhi::DeviceDestroyRenderPass( rhi, aCore.myPostProcessState.myRhiHybridRenderPass );
+    aCore.myPostProcessState.myHybridFramebuffer = VK_NULL_HANDLE;
+    aCore.myPostProcessState.myHybridRenderPass  = VK_NULL_HANDLE;
 }
 
 VkPipeline BuildComputePipeline( Vk_Renderer& aCore, VkPipelineLayout aLayout, const std::string& aShaderPath ) {
@@ -510,6 +587,7 @@ void RebuildResources( Vk_Renderer& aCore ) {
     }
 
     // Extent-scoped only (RP/FB). Sampler + descriptor pool live for pass lifetime — never flush them here.
+    DestroyHybridResolveRhi( aCore );
     aCore.myPostProcessState.myDeletionQueue.flush();
     Vk_PostProcessPassDetail::ResetImageLayouts();
 
@@ -520,8 +598,6 @@ void RebuildResources( Vk_Renderer& aCore ) {
     DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
     DestroyTexture( aCore, state.myBloomPing );
     DestroyTexture( aCore, state.myBloomPong );
-    state.myHybridRenderPass     = VK_NULL_HANDLE;
-    state.myHybridFramebuffer    = VK_NULL_HANDLE;
     state.myTaaHistoryReady      = false;
     state.myTaaHistoryWriteIndex = 0u;
 
@@ -538,7 +614,11 @@ void RebuildResources( Vk_Renderer& aCore ) {
     const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
     UtilLogger::Info( "POST", "HDR scene color: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=R16G16B16A16_SFLOAT" );
 
-    if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
+    if ( aCore.myPostProcessState.myRhiTonemapPipeline ) {
+        Rhi::DeviceDestroyPipeline( aCore.myGfxRhiDevice, aCore.myPostProcessState.myRhiTonemapPipeline );
+        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    else if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
         aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
     }
@@ -608,7 +688,11 @@ void Destroy( Vk_Renderer& aCore ) {
 
     Vk_PostProcessState& state  = aCore.myPostProcessState;
     const VkDevice       device = aCore.myRhi.myDeviceCtx.myDevice;
-    if ( state.myTonemapPipeline != VK_NULL_HANDLE ) {
+    if ( state.myRhiTonemapPipeline ) {
+        Rhi::DeviceDestroyPipeline( aCore.myGfxRhiDevice, state.myRhiTonemapPipeline );
+        state.myTonemapPipeline = VK_NULL_HANDLE;
+    }
+    else if ( state.myTonemapPipeline != VK_NULL_HANDLE ) {
         vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
         state.myTonemapPipeline = VK_NULL_HANDLE;
     }
@@ -662,15 +746,14 @@ void Destroy( Vk_Renderer& aCore ) {
     }
 
     state.myDeletionQueue.flush();
+    DestroyHybridResolveRhi( aCore );
     DestroyTexture( aCore, state.mySceneColor );
     DestroyTexture( aCore, state.myTaaResolved );
     DestroyTexture( aCore, state.myTaaHistory[ 0 ] );
     DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
     DestroyTexture( aCore, state.myBloomPing );
     DestroyTexture( aCore, state.myBloomPong );
-    state.myHybridRenderPass  = VK_NULL_HANDLE;
-    state.myHybridFramebuffer = VK_NULL_HANDLE;
-    state.myInitialized       = false;
+    state.myInitialized = false;
     Vk_PostProcessPassDetail::ResetImageLayouts();
 }
 

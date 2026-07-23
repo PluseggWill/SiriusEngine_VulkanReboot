@@ -55,6 +55,8 @@ enum class Rhi_Format : uint16_t {
     RGBA8_Unorm,
     RGBA16_Sfloat,
     D32_Sfloat,
+    D32_Sfloat_S8_Uint,
+    D24_Unorm_S8_Uint,
 };
 
 enum class Rhi_ImageLayout : uint8_t {
@@ -123,3 +125,13 @@ enum class Rhi_Filter : uint8_t { Nearest = 0, Linear };
 enum class Rhi_AddressMode : uint8_t { Repeat = 0, MirroredRepeat, ClampToEdge, ClampToBorder };
 
 enum class Rhi_MipmapMode : uint8_t { Nearest = 0, Linear };
+
+enum class Rhi_AttachmentLoadOp : uint8_t { Load = 0, Clear, DontCare };
+
+enum class Rhi_AttachmentStoreOp : uint8_t { Store = 0, DontCare };
+
+enum class Rhi_CullMode : uint8_t { None = 0, Front, Back };
+
+enum class Rhi_CompareOp : uint8_t { Never = 0, Less, Equal, LessOrEqual, Greater, NotEqual, GreaterOrEqual, Always };
+
+enum class Rhi_PrimitiveTopology : uint8_t { TriangleList = 0 };

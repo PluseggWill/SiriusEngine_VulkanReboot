@@ -5,12 +5,15 @@
 #include "Vk_AoPassInternal.h"
 
 #include "../Gfx/Gfx_AoMethod.h"
+#include "../Gfx/Gfx_AoPass.h"
 #include "../Gfx/Gfx_AoSettings.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 
+#include "Vk_FrameCmd.h"
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 
 #include <glm/glm.hpp>
 
@@ -627,6 +630,121 @@ void NoteRawAoLayout( VkImageLayout aLayout ) {
 
 VkImageLayout GetRawAoLayout() {
     return Vk_AoPassDetail::gAoRawLayout;
+}
+
+namespace {
+
+    Rhi_ImageLayout AoToRhiLayout( VkImageLayout aLayout ) {
+        return Vk_FrameCmd::ImageLayoutFromVk( aLayout );
+    }
+
+    VkImageLayout AoToVkLayout( Rhi_ImageLayout aLayout ) {
+        return Vk_FrameCmd::ImageLayoutToVk( aLayout );
+    }
+
+    void PrepareTemporalDescriptorsThunk( void* aUser, uint32_t aFrameIndex ) {
+        UpdateTemporalDescriptorSet( *static_cast< Vk_Renderer* >( aUser ), aFrameIndex );
+    }
+
+    Gfx_AoPass::GpuResources BuildAoGpuResources( Vk_Renderer& aCore, Rhi_Device& aRhiDevice, uint32_t aFrameIndex ) {
+        Vk_AoState&              state = aCore.myAoState;
+        Gfx_AoPass::GpuResources gpu{};
+
+        gpu.myClassicPipeline  = RhiVulkan::PipelineAdopt( state.myClassicPipeline );
+        gpu.myHbaoPipeline     = RhiVulkan::PipelineAdopt( state.myHbaoPipeline );
+        gpu.myGtaoPipeline     = RhiVulkan::PipelineAdopt( state.myGtaoPipeline );
+        gpu.myUpsamplePipeline = RhiVulkan::PipelineAdopt( state.myUpsamplePipeline );
+        gpu.myBlurPipeline     = RhiVulkan::PipelineAdopt( state.myBlurPipeline );
+        gpu.myTemporalPipeline = RhiVulkan::PipelineAdopt( state.myTemporalPipeline );
+
+        gpu.myClassicLayout  = RhiVulkan::PipelineLayoutAdopt( state.myClassicPipelineLayout );
+        gpu.myHalfResLayout  = RhiVulkan::PipelineLayoutAdopt( state.myHalfResPipelineLayout );
+        gpu.myUpsampleLayout = RhiVulkan::PipelineLayoutAdopt( state.myUpsamplePipelineLayout );
+        gpu.myBlurLayout     = RhiVulkan::PipelineLayoutAdopt( state.myBlurPipelineLayout );
+        gpu.myTemporalLayout = RhiVulkan::PipelineLayoutAdopt( state.myTemporalPipelineLayout );
+
+        gpu.myClassicSet   = RhiVulkan::DescriptorSetAdopt( state.myClassicDescriptorSets[ aFrameIndex ] );
+        gpu.myHalfResSet   = RhiVulkan::DescriptorSetAdopt( state.myHalfResDescriptorSets[ aFrameIndex ] );
+        gpu.myUpsampleSet  = RhiVulkan::DescriptorSetAdopt( state.myUpsampleDescriptorSets[ aFrameIndex ] );
+        gpu.myBlurHorizSet = RhiVulkan::DescriptorSetAdopt( state.myBlurHorizDescriptorSets[ aFrameIndex ] );
+        gpu.myBlurVertSet  = RhiVulkan::DescriptorSetAdopt( state.myBlurVertDescriptorSets[ aFrameIndex ] );
+        gpu.myTemporalSet  = RhiVulkan::DescriptorSetAdopt( state.myTemporalDescriptorSets[ aFrameIndex ] );
+
+        gpu.myAoRaw           = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoRaw.Image(), state.myAoRaw.ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myAoHalf          = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHalf.Image(), state.myAoHalf.ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myBentNormalHalf  = RhiVulkan::TextureAdopt( aRhiDevice, state.myBentNormalHalf.Image(), state.myBentNormalHalf.ImageView(), VK_FORMAT_R8G8_UNORM, 1 );
+        gpu.myAoBlur          = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoBlur.Image(), state.myAoBlur.ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myAoHistory0      = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHistory[ 0 ].Image(), state.myAoHistory[ 0 ].ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myAoHistory1      = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHistory[ 1 ].Image(), state.myAoHistory[ 1 ].ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myGBufferNormal   = RhiVulkan::TextureAdopt( aRhiDevice, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(),
+                                                         VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+        gpu.myGBufferWorldPos = RhiVulkan::TextureAdopt( aRhiDevice, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(),
+                                                         VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+        return gpu;
+    }
+
+    void ReleaseAdoptedAoTextures( Rhi_Device& aRhiDevice, Gfx_AoPass::GpuResources& aGpu ) {
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoRaw );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHalf );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myBentNormalHalf );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoBlur );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHistory0 );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHistory1 );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myGBufferNormal );
+        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myGBufferWorldPos );
+    }
+
+}  // namespace
+
+void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
+    Vk_AoState& state = aCore.myAoState;
+    if ( !state.myInitialized || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
+        return;
+    }
+
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    if ( width == 0 || height == 0 ) {
+        return;
+    }
+
+    Vk_FrameCmd::Scope frameCmd = Vk_FrameCmd::Bind( aCore, aCommandBuffer );
+    if ( !frameCmd ) {
+        return;
+    }
+
+    Gfx_AoPass::GpuResources gpu = BuildAoGpuResources( aCore, aCore.myGfxRhiDevice, aFrameIndex );
+
+    Gfx_AoPass::LayoutState layouts{};
+    layouts.myAoRaw    = AoToRhiLayout( Vk_AoPassDetail::gAoRawLayout );
+    layouts.myAoHalf   = AoToRhiLayout( Vk_AoPassDetail::gAoHalfLayout );
+    layouts.myBentHalf = AoToRhiLayout( Vk_AoPassDetail::gBentHalfLayout );
+    layouts.myAoBlur   = AoToRhiLayout( Vk_AoPassDetail::gAoBlurLayout );
+
+    Gfx_AoPass::RecordInput input{};
+    input.mySettings                   = aCore.myAoSettings;
+    input.myView                       = aCore.myPrimaryCamera.myView;
+    input.myProj                       = aCore.myPrimaryCamera.myProj;
+    input.myWidth                      = width;
+    input.myHeight                     = height;
+    input.myFrameIndex                 = aFrameIndex;
+    input.myDebugLabels                = aCore.AreCommandDebugLabelsEnabled();
+    input.myContactSoftActive          = aCore.myAoSettings.myContactSoftEnabled && aCore.myShadowAoSoftState.myInitialized;
+    input.mySharedTemporalHistoryValid = aCore.myTemporalState.myHistoryValid;
+    input.myTemporalReadIndex          = &state.myTemporalReadIndex;
+    input.myTemporalHistoryReady       = &state.myTemporalHistoryReady;
+    input.myLayouts                    = &layouts;
+    input.myPrepareTemporalDescriptors = &PrepareTemporalDescriptorsThunk;
+    input.myPrepareTemporalUser        = &aCore;
+
+    Gfx_AoPass::Record( frameCmd.Get(), gpu, input );
+
+    Vk_AoPassDetail::gAoRawLayout    = AoToVkLayout( layouts.myAoRaw );
+    Vk_AoPassDetail::gAoHalfLayout   = AoToVkLayout( layouts.myAoHalf );
+    Vk_AoPassDetail::gBentHalfLayout = AoToVkLayout( layouts.myBentHalf );
+    Vk_AoPassDetail::gAoBlurLayout   = AoToVkLayout( layouts.myAoBlur );
+
+    ReleaseAdoptedAoTextures( aCore.myGfxRhiDevice, gpu );
 }
 
 }  // namespace Vk_AoPass

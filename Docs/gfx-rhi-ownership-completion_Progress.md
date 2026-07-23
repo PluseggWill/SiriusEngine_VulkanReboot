@@ -3,6 +3,13 @@
 **Plan:** [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md)  
 **Started:** 2026-07-23
 
+## 2026-07-23 — O3 DepthPyramid Init + O4 Record peel + graphics create
+- **DepthPyramid Init in Gfx:** `Gfx_DepthPyramidPass::{CreatePipeline,CreateOrRecreateImage,Destroy*}`; RC thin SPIR-V load + Vk mirrors for SSR/deferred.
+- **Deleted Record facades:** DepthPyramid, ClusterBuild, AO, Soft, SSR — FG/pass TUs call Gfx via `Vk_FrameCmd`.
+- **Rhi graphics create:** `DeviceCreateRenderPass` / `Framebuffer` / `GraphicsPipeline`; Post hybrid RP/FB + tonemap PSO use them.
+- **Still pending:** Post/Shadow/Deferred Record peel; more Init moves (O3/O5).
+- **Verification:** `Verify-CI` PASSED; `Verify-Smoke` PASSED; sponza `--validation` exit 0 (known benign noise only if present).
+
 ## 2026-07-23 — kickoff
 - **Files:** Progress created; README Active now → this WIP
 - **Next:** O1 FG Begin/End peel; O2 Rhi create surface; O3/O4 pilot then fan-out

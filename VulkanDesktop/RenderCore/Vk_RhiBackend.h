@@ -40,8 +40,10 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] VkPipeline            PipelineGetVk( Rhi_Pipeline aPipeline );            // adopt-only fallback
 [[nodiscard]] VkPipelineLayout      PipelineLayoutGetVk( Rhi_PipelineLayout aLayout );  // adopt-only fallback
 [[nodiscard]] VkDescriptorSet       DescriptorSetGetVk( Rhi_DescriptorSet aSet );       // adopt-only fallback
-[[nodiscard]] VkRenderPass          RenderPassGetVk( Rhi_RenderPass aRenderPass );
-[[nodiscard]] VkFramebuffer         FramebufferGetVk( Rhi_Framebuffer aFramebuffer );
+[[nodiscard]] VkRenderPass          RenderPassGetVk( const Rhi_Device& aDevice, Rhi_RenderPass aRenderPass );
+[[nodiscard]] VkFramebuffer         FramebufferGetVk( const Rhi_Device& aDevice, Rhi_Framebuffer aFramebuffer );
+[[nodiscard]] VkRenderPass          RenderPassGetVk( Rhi_RenderPass aRenderPass );     // adopt-only fallback
+[[nodiscard]] VkFramebuffer         FramebufferGetVk( Rhi_Framebuffer aFramebuffer );  // adopt-only fallback
 [[nodiscard]] VkBuffer              BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer );
 [[nodiscard]] VkImage               TextureGetVkImage( const Rhi_Device& aDevice, Rhi_Texture aTexture );
 [[nodiscard]] VkImageView           TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture );

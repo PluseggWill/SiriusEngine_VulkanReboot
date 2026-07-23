@@ -751,6 +751,34 @@ void TestRhiComputeCreateSurface() {
     Rhi::DeviceDestroy( device );
 }
 
+void TestRhiGraphicsCreateSurface() {
+    Rhi_Device device = Rhi::DeviceCreateHeadless( false );
+    Expect( static_cast< bool >( device ), "Rhi graphics surface: headless device" );
+    Expect( !Rhi::DeviceHasLogicalDevice( device ), "Rhi graphics surface: no logical device" );
+
+    Rhi::AttachmentDesc colorAtt{};
+    colorAtt.myFormat            = Rhi_Format::RGBA16_Sfloat;
+    colorAtt.myFinalLayout       = Rhi_ImageLayout::ShaderReadOnly;
+    const uint32_t      colorIdx = 0;
+    Rhi::RenderPassDesc rpDesc{};
+    rpDesc.myAttachments            = &colorAtt;
+    rpDesc.myAttachmentCount        = 1;
+    rpDesc.myColorAttachmentIndices = &colorIdx;
+    rpDesc.myColorAttachmentCount   = 1;
+    Expect( !static_cast< bool >( Rhi::DeviceCreateRenderPass( device, rpDesc ) ), "CreateRenderPass fails closed" );
+
+    Rhi::FramebufferDesc fbDesc{};
+    Expect( !static_cast< bool >( Rhi::DeviceCreateFramebuffer( device, fbDesc ) ), "CreateFramebuffer fails closed" );
+
+    Rhi::GraphicsPipelineDesc gfxDesc{};
+    Expect( !static_cast< bool >( Rhi::DeviceCreateGraphicsPipeline( device, gfxDesc ) ), "CreateGraphicsPipeline fails closed" );
+
+    Expect( Rhi_CullMode::None != Rhi_CullMode::Back, "CullMode enum available" );
+    Expect( Rhi_AttachmentLoadOp::Clear != Rhi_AttachmentLoadOp::Load, "AttachmentLoadOp enum available" );
+
+    Rhi::DeviceDestroy( device );
+}
+
 void TestRhiGraphicsRecordingSurface() {
     // E4.6a: graphics recording APIs must compile and no-op safely without a bound Vk command buffer.
     Rhi_Device      device = Rhi::DeviceCreateHeadless( false );
@@ -842,6 +870,7 @@ int main() {
     TestRhiDeviceHeadlessConstruct();
     TestRhiOpaqueDeviceAndCommandList();
     TestRhiComputeCreateSurface();
+    TestRhiGraphicsCreateSurface();
     TestRhiGraphicsRecordingSurface();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();

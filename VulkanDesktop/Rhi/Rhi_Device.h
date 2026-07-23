@@ -123,6 +123,60 @@ struct ComputePipelineDesc {
 [[nodiscard]] Rhi_Pipeline DeviceCreateComputePipeline( Rhi_Device& aDevice, const ComputePipelineDesc& aDesc );
 void                       DeviceDestroyPipeline( Rhi_Device& aDevice, Rhi_Pipeline& aPipeline );
 
+// --- Graphics create (RP / FB / graphics PSO) ---
+
+struct AttachmentDesc {
+    Rhi_Format            myFormat        = Rhi_Format::RGBA8_Unorm;
+    Rhi_AttachmentLoadOp  myLoadOp        = Rhi_AttachmentLoadOp::Clear;
+    Rhi_AttachmentStoreOp myStoreOp       = Rhi_AttachmentStoreOp::Store;
+    Rhi_ImageLayout       myInitialLayout = Rhi_ImageLayout::Undefined;
+    Rhi_ImageLayout       myFinalLayout   = Rhi_ImageLayout::ColorAttachment;
+    uint32_t              mySampleCount   = 1;
+};
+
+struct RenderPassDesc {
+    const AttachmentDesc* myAttachments                 = nullptr;
+    uint32_t              myAttachmentCount             = 0;
+    const uint32_t*       myColorAttachmentIndices      = nullptr;
+    uint32_t              myColorAttachmentCount        = 0;
+    bool                  myHasDepthStencil             = false;
+    uint32_t              myDepthStencilAttachmentIndex = 0;
+};
+
+[[nodiscard]] Rhi_RenderPass DeviceCreateRenderPass( Rhi_Device& aDevice, const RenderPassDesc& aDesc );
+void                         DeviceDestroyRenderPass( Rhi_Device& aDevice, Rhi_RenderPass& aRenderPass );
+
+struct FramebufferDesc {
+    Rhi_RenderPass     myRenderPass{};
+    const Rhi_Texture* myAttachments     = nullptr;
+    uint32_t           myAttachmentCount = 0;
+    uint32_t           myWidth           = 0;
+    uint32_t           myHeight          = 0;
+};
+
+[[nodiscard]] Rhi_Framebuffer DeviceCreateFramebuffer( Rhi_Device& aDevice, const FramebufferDesc& aDesc );
+void                          DeviceDestroyFramebuffer( Rhi_Device& aDevice, Rhi_Framebuffer& aFramebuffer );
+
+struct GraphicsPipelineDesc {
+    Rhi_ShaderModule      myVertexShader{};
+    Rhi_ShaderModule      myFragmentShader{};
+    Rhi_PipelineLayout    myLayout{};
+    Rhi_RenderPass        myRenderPass{};
+    uint32_t              mySubpass                = 0;
+    uint32_t              myColorAttachmentCount   = 1;
+    uint32_t              mySampleCount            = 1;
+    Rhi_CullMode          myCullMode               = Rhi_CullMode::None;
+    Rhi_PrimitiveTopology myTopology               = Rhi_PrimitiveTopology::TriangleList;
+    bool                  myDepthTestEnable        = false;
+    bool                  myDepthWriteEnable       = false;
+    Rhi_CompareOp         myDepthCompareOp         = Rhi_CompareOp::LessOrEqual;
+    bool                  myBlendEnable            = false;
+    bool                  myDynamicViewportScissor = true;
+    bool                  myDynamicDepthBias       = false;
+};
+
+[[nodiscard]] Rhi_Pipeline DeviceCreateGraphicsPipeline( Rhi_Device& aDevice, const GraphicsPipelineDesc& aDesc );
+
 // Single-mip view of an existing texture (owns the view; does not own the image).
 [[nodiscard]] Rhi_Texture DeviceCreateTextureMipView( Rhi_Device& aDevice, Rhi_Texture aParent, uint32_t aBaseMip );
 
