@@ -7,7 +7,6 @@
 
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameCmd.h"
-#include "Vk_Initializer.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
@@ -68,6 +67,10 @@ void SyncVkMirrors( Vk_Renderer& aCore ) {
     state.myLitHdrHistory[ 0 ].ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myHistory0 );
     state.myLitHdrHistory[ 1 ].Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myHistory1 );
     state.myLitHdrHistory[ 1 ].ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myHistory1 );
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        state.myDescriptorSets[ i ] = RhiVulkan::DescriptorSetGetVk( rhi, gfx.mySets[ i ] );
+    }
 }
 
 bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
@@ -94,54 +97,39 @@ bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
     return true;
 }
 
-void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t /*aFrameIndex*/ ) {
     Vk_SsrState& state = aCore.mySsrState;
+    Rhi_Device&  rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.mySetsAllocated || !state.myGfx.myImagesReady ) {
+        return;
+    }
 
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), aCore.FindDepthFormat(), 1 );
+    Rhi_Texture normalTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture worldPosTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture albedoTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myAlbedo.Image(), aCore.myGBufferState.myAlbedo.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
 
-    VkDescriptorImageInfo normalInfo{};
-    normalInfo.sampler     = state.myGBufferSampler;
-    normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
-    normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const uint32_t readIndex   = state.myHistoryWriteIndex;
+    Rhi_Texture    historyRead = ( readIndex == 0 ) ? state.myGfx.myHistory0 : state.myGfx.myHistory1;
 
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Gfx_SsrPass::DescriptorUpdateDesc desc{};
+    desc.myFramesInFlight  = MAX_FRAMES_IN_FLIGHT;
+    desc.myGBufferDepth    = depthTex;
+    desc.myGBufferNormal   = normalTex;
+    desc.myGBufferWorldPos = worldPosTex;
+    desc.myGBufferAlbedo   = albedoTex;
+    desc.myHistoryRead     = historyRead;
+    desc.myHiZ             = aCore.myDepthPyramidState.myGfx.myPyramid;
+    desc.myHiZSampler      = aCore.myDepthPyramidState.myGfx.myPyramidSampler;
+    Gfx_SsrPass::UpdateDescriptors( rhi, desc, state.myGfx );
 
-    VkDescriptorImageInfo historyInfo{};
-    historyInfo.sampler      = state.myGBufferSampler;
-    const uint32_t readIndex = state.myHistoryWriteIndex;
-    historyInfo.imageView    = state.myLitHdrHistory[ readIndex ].ImageView();
-    historyInfo.imageLayout  = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo hiZInfo{};
-    hiZInfo.sampler     = aCore.myDepthPyramidState.myPyramidSampler;
-    hiZInfo.imageView   = aCore.myDepthPyramidState.myPyramid.ImageView();
-    hiZInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo albedoInfo{};
-    albedoInfo.sampler     = state.myGBufferSampler;
-    albedoInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
-    albedoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo ssrOutInfo{};
-    ssrOutInfo.imageView   = state.mySsrOutput.ImageView();
-    ssrOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 7 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 3, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 4, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 5, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &ssrOutInfo, 6, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    Rhi::DeviceDestroyTexture( rhi, normalTex );
+    Rhi::DeviceDestroyTexture( rhi, worldPosTex );
+    Rhi::DeviceDestroyTexture( rhi, albedoTex );
+    SyncVkMirrors( aCore );
 }
 
 void CreatePipeline( Vk_Renderer& aCore ) {
@@ -157,21 +145,6 @@ void CreatePipeline( Vk_Renderer& aCore ) {
     }
     SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE", "SSR compute pipeline created (Gfx)." );
-}
-
-void AllocateDescriptorSets( Vk_Renderer& aCore ) {
-    Vk_SsrState& state = aCore.mySsrState;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = state.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_SsrPass: failed to allocate descriptor set" );
-        }
-        UpdateDescriptorSetImpl( aCore, i );
-    }
 }
 
 }  // namespace
@@ -237,7 +210,7 @@ void Init( Vk_Renderer& aCore ) {
     }
     aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
-    AllocateDescriptorSets( aCore );
+    UpdateDescriptorSetImpl( aCore, 0 );
     aCore.mySsrState.myInitialized = true;
 }
 

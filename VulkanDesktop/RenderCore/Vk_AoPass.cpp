@@ -11,7 +11,6 @@
 #include "../Util/Util_Logger.h"
 
 #include "Vk_FrameCmd.h"
-#include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 
@@ -231,158 +230,54 @@ struct AoTemporalPushConstants {
 
 static_assert( sizeof( AoTemporalPushConstants ) == 16, "AoTemporalPushConstants must match AoTemporal.comp push block" );
 
-void UpdateClassicDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     Vk_AoState& state = aCore.myAoState;
+    Rhi_Device& rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.mySetsAllocated || !state.myGfx.myImagesReady ) {
+        return;
+    }
 
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), aCore.FindDepthFormat(), 1 );
+    Rhi_Texture normalTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture worldPosTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture motionTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myMotionVector.Image(), aCore.myGBufferState.myMotionVector.ImageView(), VK_FORMAT_R16G16_SFLOAT, 1 );
 
-    VkDescriptorImageInfo normalInfo{};
-    normalInfo.sampler     = state.myGBufferSampler;
-    normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
-    normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Gfx_AoPass::DescriptorUpdateDesc desc{};
+    desc.myFramesInFlight    = MAX_FRAMES_IN_FLIGHT;
+    desc.myGBufferDepth      = depthTex;
+    desc.myGBufferNormal     = normalTex;
+    desc.myGBufferWorldPos   = worldPosTex;
+    desc.myMotionVector      = motionTex;
+    desc.myTemporalReadIndex = state.myTemporalReadIndex;
+    Gfx_AoPass::UpdateDescriptors( rhi, desc, state.myGfx );
 
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo aoOutInfo{};
-    aoOutInfo.imageView   = state.myAoRaw.ImageView();
-    aoOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 4 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myClassicDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoOutInfo, 3, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateHalfResDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_AoState& state = aCore.myAoState;
-
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo normalInfo{};
-    normalInfo.sampler     = state.myGBufferSampler;
-    normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
-    normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo aoHalfInfo{};
-    aoHalfInfo.imageView   = state.myAoHalf.ImageView();
-    aoHalfInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorImageInfo bentHalfInfo{};
-    bentHalfInfo.imageView   = state.myBentNormalHalf.ImageView();
-    bentHalfInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 5 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoHalfInfo, 3, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myHalfResDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &bentHalfInfo, 4, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateUpsampleDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_AoState& state = aCore.myAoState;
-
-    VkDescriptorImageInfo halfInfo{};
-    halfInfo.sampler     = state.myGBufferSampler;
-    halfInfo.imageView   = state.myAoHalf.ImageView();
-    halfInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo aoOutInfo{};
-    aoOutInfo.imageView   = state.myAoRaw.ImageView();
-    aoOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 3 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myUpsampleDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &halfInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myUpsampleDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myUpsampleDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &aoOutInfo, 2, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
-    VkDescriptorImageInfo srcInfo{};
-    srcInfo.imageView   = aSrcView;
-    srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorImageInfo dstInfo{};
-    dstInfo.imageView   = aDstView;
-    dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 2 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    Rhi::DeviceDestroyTexture( rhi, normalTex );
+    Rhi::DeviceDestroyTexture( rhi, worldPosTex );
+    Rhi::DeviceDestroyTexture( rhi, motionTex );
+    SyncVkMirrors( aCore );
 }
 
 void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_AoState& state = aCore.myAoState;
-
-    const uint32_t readIndex  = state.myTemporalReadIndex % 2u;
-    const uint32_t writeIndex = ( readIndex + 1u ) % 2u;
-
-    VkDescriptorImageInfo mvInfo{};
-    mvInfo.sampler     = state.myGBufferSampler;
-    mvInfo.imageView   = aCore.myGBufferState.myMotionVector.ImageView();
-    mvInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo currentAoInfo{};
-    currentAoInfo.sampler     = state.myGBufferSampler;
-    currentAoInfo.imageView   = state.myAoRaw.ImageView();
-    currentAoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo historyInfo{};
-    historyInfo.sampler     = state.myGBufferSampler;
-    historyInfo.imageView   = state.myAoHistory[ readIndex ].ImageView();
-    historyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo outInfo{};
-    outInfo.imageView   = state.myAoHistory[ writeIndex ].ImageView();
-    outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 4 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &mvInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &currentAoInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTemporalDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outInfo, 3, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
-    Vk_AoState& state = aCore.myAoState;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        UpdateClassicDescriptorSet( aCore, i );
-        UpdateHalfResDescriptorSet( aCore, i );
-        UpdateUpsampleDescriptorSet( aCore, i );
-        UpdateBlurDescriptorSet( aCore, i, state.myBlurHorizDescriptorSets[ i ], state.myAoRaw.ImageView(), state.myAoBlur.ImageView() );
-        UpdateBlurDescriptorSet( aCore, i, state.myBlurVertDescriptorSets[ i ], state.myAoBlur.ImageView(), state.myAoRaw.ImageView() );
-        UpdateTemporalDescriptorSet( aCore, i );
+    Rhi_Device& rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.mySetsAllocated ) {
+        return;
     }
+
+    Rhi_Texture motionTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myMotionVector.Image(), aCore.myGBufferState.myMotionVector.ImageView(), VK_FORMAT_R16G16_SFLOAT, 1 );
+
+    Gfx_AoPass::DescriptorUpdateDesc desc{};
+    desc.myMotionVector      = motionTex;
+    desc.myTemporalReadIndex = state.myTemporalReadIndex;
+    Gfx_AoPass::UpdateTemporalDescriptors( rhi, desc, state.myGfx, aFrameIndex );
+
+    Rhi::DeviceDestroyTexture( rhi, motionTex );
+    SyncVkMirrors( aCore );
 }
 
 }  // namespace

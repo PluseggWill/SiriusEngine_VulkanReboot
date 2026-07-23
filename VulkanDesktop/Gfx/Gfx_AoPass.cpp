@@ -570,6 +570,75 @@ void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
     DestroyAoImagesOnly( aDevice, aState );
 }
 
+void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState ) {
+    if ( !aState.mySetsAllocated || !aState.myImagesReady ) {
+        return;
+    }
+    if ( !aDesc.myGBufferDepth || !aDesc.myGBufferNormal || !aDesc.myGBufferWorldPos ) {
+        return;
+    }
+
+    const uint32_t frames = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        const std::array< Rhi::DescriptorImageWrite, 4 > classic = { {
+            { aState.myClassicSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myClassicSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferNormal, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myClassicSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferWorldPos, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myClassicSets[ i ], 3, Rhi_DescriptorType::StorageImage, {}, aState.myAoRaw, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, classic.data(), static_cast< uint32_t >( classic.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 5 > halfRes = { {
+            { aState.myHalfResSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myHalfResSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferNormal, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myHalfResSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferWorldPos, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myHalfResSets[ i ], 3, Rhi_DescriptorType::StorageImage, {}, aState.myAoHalf, Rhi_ImageLayout::General },
+            { aState.myHalfResSets[ i ], 4, Rhi_DescriptorType::StorageImage, {}, aState.myBentNormalHalf, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, halfRes.data(), static_cast< uint32_t >( halfRes.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 3 > upsample = { {
+            { aState.myUpsampleSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aState.myAoHalf, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myUpsampleSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myUpsampleSets[ i ], 2, Rhi_DescriptorType::StorageImage, {}, aState.myAoRaw, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, upsample.data(), static_cast< uint32_t >( upsample.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 2 > blurH = { {
+            { aState.myBlurHorizSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.myAoRaw, Rhi_ImageLayout::General },
+            { aState.myBlurHorizSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.myAoBlur, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurH.data(), static_cast< uint32_t >( blurH.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 2 > blurV = { {
+            { aState.myBlurVertSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.myAoBlur, Rhi_ImageLayout::General },
+            { aState.myBlurVertSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.myAoRaw, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurV.data(), static_cast< uint32_t >( blurV.size() ) );
+
+        UpdateTemporalDescriptors( aDevice, aDesc, aState, i );
+    }
+}
+
+void UpdateTemporalDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState, uint32_t aFrameIndex ) {
+    if ( !aState.mySetsAllocated || !aState.myImagesReady || !aDesc.myMotionVector || aFrameIndex >= kMaxFramesInFlight ) {
+        return;
+    }
+
+    const uint32_t    readIndex    = aDesc.myTemporalReadIndex % 2u;
+    const uint32_t    writeIndex   = ( readIndex + 1u ) % 2u;
+    const Rhi_Texture historyRead  = ( readIndex == 0 ) ? aState.myAoHistory0 : aState.myAoHistory1;
+    const Rhi_Texture historyWrite = ( writeIndex == 0 ) ? aState.myAoHistory0 : aState.myAoHistory1;
+
+    const std::array< Rhi::DescriptorImageWrite, 4 > temporal = { {
+        { aState.myTemporalSets[ aFrameIndex ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myMotionVector, Rhi_ImageLayout::ShaderReadOnly },
+        { aState.myTemporalSets[ aFrameIndex ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aState.myAoRaw, Rhi_ImageLayout::ShaderReadOnly },
+        { aState.myTemporalSets[ aFrameIndex ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, historyRead, Rhi_ImageLayout::ShaderReadOnly },
+        { aState.myTemporalSets[ aFrameIndex ], 3, Rhi_DescriptorType::StorageImage, {}, historyWrite, Rhi_ImageLayout::General },
+    } };
+    Rhi::DeviceUpdateDescriptorImages( aDevice, temporal.data(), static_cast< uint32_t >( temporal.size() ) );
+}
+
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState ) {
     DestroyImages( aDevice, aState );
 

@@ -28,7 +28,7 @@ Goal: finish ownership so Gfx records **and** creates through Rhi; delete per-pa
 | **O2** | Expand Rhi **create** surface: compute + graphics RP/FB/PSO + buffer descriptor update/map | GfxTests + Verify-CI — **Done 2026-07-23** |
 | **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid/ClusterBuild **full**; AO/Soft/SSR **pipeline+images**; ShadowMap **resources**; Deferred/DDGI/Post **PSO create**; descriptor writes + Post layouts/images still RC |
 | **O4** | Delete `Vk_*_Record.cpp` facades; FG/executor calls Gfx with Rhi handles + plain DTOs | **Done 2026-07-23** — all Record TUs deleted (Post/Shadow/Deferred+DDGI included) |
-| **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Soft descriptors in Gfx; AO/SSR/Post descriptor writes + Post layouts/images still RC |
+| **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Soft/SSR/AO descriptors in Gfx; Post descriptor writes + layouts/images still RC |
 
 **Pilot order (suggested):** O1 first (unblocks clean Record scope) → O2 foundation → O3/O4 on one compute pass (e.g. DepthPyramid or AO) → fan out → O5.
 

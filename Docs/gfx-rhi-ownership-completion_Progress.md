@@ -3,6 +3,13 @@
 **Plan:** [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md)  
 **Started:** 2026-07-23
 
+## 2026-07-23 — O5 SSR + AO descriptor updates → Gfx
+- **Gfx_SsrPass:** allocate sets in `CreatePipeline`; `UpdateDescriptors` (GBuffer/HiZ/history/output).
+- **Gfx_AoPass:** `UpdateDescriptors` + `UpdateTemporalDescriptors` (classic/half/upsample/blur/temporal).
+- **RC:** cross-pass adopt + SyncVkMirrors only; no `vkUpdateDescriptorSets` for Soft/SSR/AO.
+- **Still pending:** Post descriptor writes + layouts/images; thinner shell retirement.
+- **Verification:** `Verify-CI` PASSED; `Verify-Smoke` PASSED.
+
 ## 2026-07-23 — O5 Soft descriptor alloc/update → Gfx
 - **Gfx_ShadowAoSoftPass:** allocate pack/blur sets in `CreatePipelines`; `UpdateDescriptors` via `DeviceUpdateDescriptorImages/Buffers`.
 - **RC:** SPIR-V load + SyncVkMirrors + cross-pass adopt (GBuffer/AO/Shadow/lighting); no `vkUpdateDescriptorSets` / `vkAllocateDescriptorSets`.

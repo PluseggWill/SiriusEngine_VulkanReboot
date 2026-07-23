@@ -129,8 +129,20 @@ struct ImageInitDesc {
     uint32_t myFramesInFlight = kMaxFramesInFlight;
 };
 
+struct DescriptorUpdateDesc {
+    uint32_t    myFramesInFlight = kMaxFramesInFlight;
+    Rhi_Texture myGBufferDepth{};
+    Rhi_Texture myGBufferNormal{};
+    Rhi_Texture myGBufferWorldPos{};
+    Rhi_Texture myMotionVector{};  // temporal only
+    uint32_t    myTemporalReadIndex = 0;
+};
+
 [[nodiscard]] bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
 [[nodiscard]] bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState );
+
+void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState );
+void UpdateTemporalDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState, uint32_t aFrameIndex );
 
 void DestroyImages( Rhi_Device& aDevice, PassState& aState );
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState );

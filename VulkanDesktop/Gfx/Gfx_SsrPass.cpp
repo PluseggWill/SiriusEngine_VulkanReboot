@@ -105,12 +105,26 @@ bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassSta
         return false;
     }
 
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        aState.mySets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.mySetLayout );
+        if ( !aState.mySets[ i ] ) {
+            DestroyPipeline( aDevice, aState );
+            return false;
+        }
+    }
+    aState.mySetsAllocated = true;
+
     aState.myPipelineReady = true;
     return true;
 }
 
 void DestroyPipeline( Rhi_Device& aDevice, PassState& aState ) {
     DestroyImages( aDevice, aState );
+
+    for ( auto& set : aState.mySets ) {
+        set = {};
+    }
+    aState.mySetsAllocated = false;
 
     if ( aState.myPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myPipeline );
@@ -189,6 +203,30 @@ bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, Pa
 
 void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
     DestroySsrImagesOnly( aDevice, aState );
+}
+
+void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState ) {
+    if ( !aState.mySetsAllocated || !aState.myImagesReady ) {
+        return;
+    }
+    if ( !aDesc.myGBufferDepth || !aDesc.myGBufferNormal || !aDesc.myGBufferWorldPos || !aDesc.myGBufferAlbedo || !aDesc.myHistoryRead || !aDesc.myHiZ
+         || !aDesc.myHiZSampler ) {
+        return;
+    }
+
+    const uint32_t frames = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        const std::array< Rhi::DescriptorImageWrite, 7 > writes = { {
+            { aState.mySets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.mySets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferNormal, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.mySets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferWorldPos, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.mySets[ i ], 3, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myHistoryRead, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.mySets[ i ], 4, Rhi_DescriptorType::CombinedImageSampler, aDesc.myHiZSampler, aDesc.myHiZ, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.mySets[ i ], 5, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferAlbedo, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.mySets[ i ], 6, Rhi_DescriptorType::StorageImage, {}, aState.mySsrOutput, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, writes.data(), static_cast< uint32_t >( writes.size() ) );
+    }
 }
 
 void Destroy( Rhi_Device& aDevice, PassState& aState ) {
