@@ -166,6 +166,9 @@
     <ClCompile Include="Gfx\Gfx_DepthPyramidPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
+    <ClCompile Include="Gfx\Gfx_HybridDeferredPass.cpp">
+      <Filter>Gfx</Filter>
+    </ClCompile>
     <ClCompile Include="Gfx\Gfx_DeferredLightingPass.cpp">
       <Filter>Gfx</Filter>
     </ClCompile>
@@ -685,6 +688,9 @@
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DepthPyramidPass.h">
+      <Filter>Gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="Gfx\Gfx_HybridDeferredPass.h">
       <Filter>Gfx</Filter>
     </ClInclude>
     <ClInclude Include="Gfx\Gfx_DeferredLightingPass.h">

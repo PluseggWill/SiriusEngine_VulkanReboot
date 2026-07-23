@@ -7,10 +7,7 @@ void Record( Rhi_CommandList& aCmd, const GpuResources& aGpu, const RecordInput&
         return;
     }
 
-    Rhi::ClearValue clear{};
-    clear.myType    = Rhi_ClearValueType::DepthStencil;
-    clear.myDepth   = 0.0f;
-    clear.myStencil = 0;
+    const Rhi::ClearValue clear = Rhi::MakeClearDepthStencil( 0.0f, 0 );
 
     Rhi::RenderPassBeginInfo begin{};
     begin.myRenderPass  = aGpu.myRenderPass;

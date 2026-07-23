@@ -41,13 +41,14 @@ Gfx_DepthPyramidPass::GpuResources BuildGpuResources( Vk_Renderer& aCore, Rhi_De
     Vk_DepthPyramidState&              state = aCore.myDepthPyramidState;
     Gfx_DepthPyramidPass::GpuResources gpu{};
 
-    gpu.myPipeline      = RhiVulkan::PipelineAdopt( state.myComputePipeline );
-    gpu.myLayout        = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.myPipeline      = state.myRhiPipeline ? state.myRhiPipeline : RhiVulkan::PipelineAdopt( state.myComputePipeline );
+    gpu.myLayout        = state.myRhiLayout ? state.myRhiLayout : RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
     gpu.myMipLevelCount = state.myMipLevelCount;
     gpu.myPyramid       = RhiVulkan::TextureAdopt( aRhiDevice, state.myPyramid.Image(), state.myPyramid.ImageView(), VK_FORMAT_R32_SFLOAT, state.myMipLevelCount );
 
     for ( uint32_t mip = 0; mip < state.myMipLevelCount && mip < Gfx_DepthPyramidPass::kMaxMipLevels; ++mip ) {
-        gpu.myMipSets[ mip ] = RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ][ mip ] );
+        gpu.myMipSets[ mip ] =
+            state.myRhiSets[ aFrameIndex ][ mip ] ? state.myRhiSets[ aFrameIndex ][ mip ] : RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ][ mip ] );
     }
     return gpu;
 }

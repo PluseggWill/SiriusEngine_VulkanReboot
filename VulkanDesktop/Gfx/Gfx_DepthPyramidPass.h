@@ -7,8 +7,8 @@
 #include <array>
 #include <cstdint>
 
-// Module: Gfx_DepthPyramidPass — Hi-Z mip build orchestration via Rhi (no vulkan.h).
-// Pipeline/descriptor/texture creation remains in RenderCore Vk_DepthPyramidPass until later E4.
+// Module: Gfx_DepthPyramidPass — Hi-Z min-depth mip build via Rhi (SSR / debug; not occlusion cull).
+// mip0 = full-res G-buffer depth copy; subsequent mips = 2×2 min reduce.
 
 namespace Gfx_DepthPyramidPass {
 

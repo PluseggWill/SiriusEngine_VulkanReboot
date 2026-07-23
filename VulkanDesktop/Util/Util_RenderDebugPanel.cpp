@@ -21,6 +21,9 @@ void BuildContents( const Util_EngineConfig& aConfig, State& aState, Gpu_Environ
         if ( ImGui::SliderInt( "Hi-Z mip", &hiZMip, 0, 7 ) ) {
             aState.myHiZDebugMip = static_cast< uint32_t >( std::clamp( hiZMip, 0, 7 ) );
         }
+        if ( ImGui::IsItemHovered() ) {
+            ImGui::SetTooltip( "Min-depth pyramid used by SSR (not occlusion culling). mip0 = full-res depth." );
+        }
     }
 
     ImGui::Checkbox( "Skip opaque pass", &aState.mySkipOpaquePass );

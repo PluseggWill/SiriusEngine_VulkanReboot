@@ -235,10 +235,10 @@ void RecordTonemap( Rhi_CommandList& aCmd, const TonemapGpu& aGpu, TonemapInput&
         *aInput.mySceneLayout = Rhi_ImageLayout::ShaderReadOnly;
     }
 
-    Rhi::ClearValue clears[ 2 ]{};
-    clears[ 0 ].myType  = Rhi_ClearValueType::Color;
-    clears[ 1 ].myType  = Rhi_ClearValueType::DepthStencil;
-    clears[ 1 ].myDepth = 1.0f;
+    const Rhi::ClearValue clears[ 2 ] = {
+        Rhi::MakeClearColor( 0.0f, 0.0f, 0.0f, 1.0f ),
+        Rhi::MakeClearDepthStencil( 1.0f, 0 ),
+    };
 
     Rhi::RenderPassBeginInfo begin{};
     begin.myRenderPass  = aGpu.myRenderPass;

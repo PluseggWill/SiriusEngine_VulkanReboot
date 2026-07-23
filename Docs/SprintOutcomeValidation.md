@@ -16,9 +16,9 @@ Close-out runbook for **active** sprints. Queue: [`Active-Plan.md`](Active-Plan.
 | Sprint | Theme | Status |
 |--------|--------|--------|
 | S0–S8, G4, P0–P4 | Lighting + FG + RHI-E4 | **Shipped** |
-| **WIP** | Specular IBL closeout | Active |
-| **S9** | Temporal / TAA (**G5**) | Next |
-| **S10** | Content pipeline (**G3** + rich scenes) | Open |
+| **S9 / G5** | Temporal / TAA | **Shipped** |
+| **gfx-rhi-ownership** | Retire facades + Init→Gfx (O1–O5) | **Queue #1** |
+| **S10** | Content pipeline (**G3** + rich scenes) | After ownership preferred |
 | **S11** | GPU particles | Open |
 | **S12** | Water | Open |
 | **S13** | CSM shadows | Open |
@@ -28,7 +28,7 @@ Close-out runbook for **active** sprints. Queue: [`Active-Plan.md`](Active-Plan.
 | **S17–S18** | Meshlets → mesh shader / GPU mesh | After G3 |
 | **S19** | Materials + decals | Open |
 | **S20** | Volumetrics + cinematic | After G5 |
-| **S21** | Lab + RHI | Parallel |
+| **S21** | Lab + RHI (ownership pulled out) | Parallel |
 | **P-Sim / P-Slice** | Simulation / slice | Parallel |
 
 **Dev scene:** `sponza.json` until S10; then imported rich scene. **CI smoke:** `stress.json`.
@@ -103,6 +103,13 @@ Close-out runbook for **active** sprints. Queue: [`Active-Plan.md`](Active-Plan.
 ## S20 (volumetrics + cinematic)
 
 - Fog/shafts/DOF/MB/grading toggles · MB uses S9 MVs
+
+<a id="validation-gfx-rhi-ownership"></a>
+## gfx-rhi-ownership (queue #1)
+
+- O1: FG no longer owns GBuffer/hybrid Begin/End · smoke + G0-validation
+- O2: Rhi create surface covered by GfxTests + Verify-CI
+- O3–O5: no HybridDeferred `Vk_*_Record`; pass Init not in `Vk_*Pass.cpp`; Architecture migration note current
 
 <a id="validation-s21"></a>
 ## S21 (lab + RHI)

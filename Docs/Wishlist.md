@@ -5,7 +5,7 @@
 
 **Shipped:** S0–S8, G4, RHI-E4 → `[Archived-Plan.md](Archived-Plan.md)`
 
-**Principle:** **S10 content pipeline early** → complex test scenes; then VFX/env (particles → water → terrain → hair); then scale/geometry. Sim / slice stay **parallel**.
+**Principle:** **Gfx/Rhi ownership completion first** (Active-Plan #1) → then **S10** content pipeline → complex test scenes; then VFX/env (particles → water → terrain → hair); then scale/geometry. Sim / slice stay **parallel**.
 
 ---
 
@@ -13,7 +13,7 @@
 | Sprint              | Theme                        | Deps                               | Status                                  |
 | ------------------- | ---------------------------- | ---------------------------------- | --------------------------------------- |
 | **S9**              | Temporal (MV + TAA)          | —                                  | **Done → G5** ✓                         |
-| **S10**             | **Content pipeline**         | —                                  | Open → **G3** *(early for rich scenes)* |
+| **S10**             | **Content pipeline**         | After ownership epic preferred     | Open → **G3** *(after queue #1)*        |
 | **S11**             | **GPU particles**            | Depth + FG ✓; S10 scenes preferred | Open                                    |
 | **S12**             | **Water**                    | Transparent + SSR ✓; S9 preferred  | Open                                    |
 | **S13**             | Cascaded shadows             | S5 ✓                               | Open                                    |
@@ -24,7 +24,7 @@
 | **S18**             | Mesh shader + GPU mesh       | S17                                | Deferred                                |
 | **S19**             | Materials + decals           | G-buffer ✓                         | Open                                    |
 | **S20**             | Volumetrics + cinematic post | S7 ✓, **G5**                       | Open                                    |
-| **S21**             | Render lab + RHI             | —                                  | Parallel                                |
+| **S21**             | Render lab + RHI             | Ownership epic pulled to Active #1 | Parallel lab / WSI                      |
 | **P-Sim / P-Slice** | Simulation / slice           | **G2** ✓                           | Parallel                                |
 | **Backlog**         | Unscheduled                  | —                                  | Parking                                 |
 ---
@@ -216,14 +216,14 @@
 
 ## S21 — Render lab + RHI WSI *(parallel)*
 
-**Plan:** `[vulkan-rhi-hardening-epic_Plan.md](vulkan-rhi-hardening-epic_Plan.md)` · pass ownership migration: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md)
+**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) · Records done: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md)
+
+**Promoted to Active-Plan #1** (not staged here): FG Begin/End peel · Rhi create · Init→Gfx · delete `Vk_*_Record` / pass Init — see [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md).
 
 - [ ] Presets; GPU timestamps; benchmark runbook; screenshots; FG transient RT pool.
 - [ ] Bindless layout codegen; troubleshooting; licenses.
 - [ ] **RHI-D1–D3** WSI path.
 - [ ] MSAA vs TAA matrix; SSR follow-ups; pipeline_binary research.
-- [x] **Opaque `Rhi/` + Gfx_*Pass migration** (E0–E5 closed 2026-07-22; Init/`Vk_*_Record` facades + FG Begin/End peel remain).
-- [ ] **FG hybrid/GBuffer Begin/End peel** (former E4.6f) into Gfx plan executor.
 
 ---
 

@@ -23,7 +23,8 @@ struct TextureRecord {
     VkImageView       myView      = VK_NULL_HANDLE;
     VkFormat          myFormat    = VK_FORMAT_UNDEFINED;
     uint32_t          myMipLevels = 1;
-    bool              myOwned     = true;  // false when TextureAdopt
+    bool              myOwned     = true;  // owns image (+ view when owned create)
+    bool              myOwnsView  = true;  // destroy view on DeviceDestroyTexture
 };
 
 struct DeviceImpl;
@@ -34,16 +35,22 @@ struct CommandListImpl {
 };
 
 struct DeviceImpl {
-    Vk_RhiDevice*                                  myVk       = nullptr;
-    bool                                           myOwnsVk   = false;
-    int                                            myRefCount = 1;
-    std::vector< CommandListImpl* >                myCommandLists;
-    PFN_vkCmdBeginDebugUtilsLabelEXT               myCmdBeginLabel  = nullptr;
-    PFN_vkCmdEndDebugUtilsLabelEXT                 myCmdEndLabel    = nullptr;
-    uint64_t                                       myNextResourceId = 1;
-    std::unordered_map< uint64_t, BufferRecord >   myBuffers;
-    std::unordered_map< uint64_t, TextureRecord >  myTextures;
-    std::unordered_map< uint64_t, VkShaderModule > myShaders;
+    Vk_RhiDevice*                                                          myVk       = nullptr;
+    bool                                                                   myOwnsVk   = false;
+    int                                                                    myRefCount = 1;
+    std::vector< CommandListImpl* >                                        myCommandLists;
+    PFN_vkCmdBeginDebugUtilsLabelEXT                                       myCmdBeginLabel  = nullptr;
+    PFN_vkCmdEndDebugUtilsLabelEXT                                         myCmdEndLabel    = nullptr;
+    uint64_t                                                               myNextResourceId = 1;
+    std::unordered_map< uint64_t, BufferRecord >                           myBuffers;
+    std::unordered_map< uint64_t, TextureRecord >                          myTextures;
+    std::unordered_map< uint64_t, VkShaderModule >                         myShaders;
+    std::unordered_map< uint64_t, VkSampler >                              mySamplers;
+    std::unordered_map< uint64_t, VkDescriptorSetLayout >                  mySetLayouts;
+    std::unordered_map< uint64_t, VkDescriptorPool >                       myPools;
+    std::unordered_map< uint64_t, VkPipelineLayout >                       myPipelineLayouts;
+    std::unordered_map< uint64_t, VkPipeline >                             myPipelines;
+    std::unordered_map< uint64_t, std::pair< VkDescriptorSet, uint64_t > > myDescriptorSets;  // set, poolId
 };
 
 DeviceImpl* AsDevice( const Rhi_Device& aDevice ) {
@@ -69,8 +76,56 @@ void DestroyOwnedResources( DeviceImpl* aImpl ) {
         aImpl->myBuffers.clear();
         aImpl->myTextures.clear();
         aImpl->myShaders.clear();
+        aImpl->mySamplers.clear();
+        aImpl->mySetLayouts.clear();
+        aImpl->myPools.clear();
+        aImpl->myPipelineLayouts.clear();
+        aImpl->myPipelines.clear();
+        aImpl->myDescriptorSets.clear();
         return;
     }
+
+    for ( auto& [ id, pipeline ] : aImpl->myPipelines ) {
+        ( void )id;
+        if ( pipeline != VK_NULL_HANDLE ) {
+            vkDestroyPipeline( device, pipeline, nullptr );
+        }
+    }
+    aImpl->myPipelines.clear();
+
+    for ( auto& [ id, layout ] : aImpl->myPipelineLayouts ) {
+        ( void )id;
+        if ( layout != VK_NULL_HANDLE ) {
+            vkDestroyPipelineLayout( device, layout, nullptr );
+        }
+    }
+    aImpl->myPipelineLayouts.clear();
+
+    aImpl->myDescriptorSets.clear();  // pool owns set memory
+
+    for ( auto& [ id, pool ] : aImpl->myPools ) {
+        ( void )id;
+        if ( pool != VK_NULL_HANDLE ) {
+            vkDestroyDescriptorPool( device, pool, nullptr );
+        }
+    }
+    aImpl->myPools.clear();
+
+    for ( auto& [ id, layout ] : aImpl->mySetLayouts ) {
+        ( void )id;
+        if ( layout != VK_NULL_HANDLE ) {
+            vkDestroyDescriptorSetLayout( device, layout, nullptr );
+        }
+    }
+    aImpl->mySetLayouts.clear();
+
+    for ( auto& [ id, sampler ] : aImpl->mySamplers ) {
+        ( void )id;
+        if ( sampler != VK_NULL_HANDLE ) {
+            vkDestroySampler( device, sampler, nullptr );
+        }
+    }
+    aImpl->mySamplers.clear();
 
     for ( auto& [ id, shader ] : aImpl->myShaders ) {
         ( void )id;
@@ -82,7 +137,7 @@ void DestroyOwnedResources( DeviceImpl* aImpl ) {
 
     for ( auto& [ id, tex ] : aImpl->myTextures ) {
         ( void )id;
-        if ( tex.myView != VK_NULL_HANDLE && tex.myOwned ) {
+        if ( tex.myView != VK_NULL_HANDLE && tex.myOwnsView ) {
             vkDestroyImageView( device, tex.myView, nullptr );
         }
         if ( tex.myOwned && tex.myAlloc.myImage != VK_NULL_HANDLE && aImpl->myVk->myDeviceCtx.myAllocator != nullptr ) {
@@ -225,6 +280,8 @@ VkImageLayout ToVkLayout( Rhi_ImageLayout aLayout ) {
         return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     case Rhi_ImageLayout::DepthStencilAttachment:
         return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    case Rhi_ImageLayout::DepthStencilReadOnly:
+        return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     case Rhi_ImageLayout::ShaderReadOnly:
         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     case Rhi_ImageLayout::TransferSrc:
@@ -329,6 +386,46 @@ VkPipelineBindPoint ToVkBindPoint( Rhi_PipelineBindPoint aBindPoint ) {
 
 bool HasLogicalDevice( const DeviceImpl* aImpl ) {
     return aImpl != nullptr && aImpl->myVk != nullptr && aImpl->myVk->myDeviceCtx.myDevice != VK_NULL_HANDLE;
+}
+
+VkPipeline ResolvePipeline( DeviceImpl* aDevice, Rhi_Pipeline aPipeline ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->myPipelines.find( aPipeline.myId );
+        if ( it != aDevice->myPipelines.end() ) {
+            return it->second;
+        }
+    }
+    return reinterpret_cast< VkPipeline >( static_cast< uintptr_t >( aPipeline.myId ) );
+}
+
+VkPipelineLayout ResolvePipelineLayout( DeviceImpl* aDevice, Rhi_PipelineLayout aLayout ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->myPipelineLayouts.find( aLayout.myId );
+        if ( it != aDevice->myPipelineLayouts.end() ) {
+            return it->second;
+        }
+    }
+    return reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
+}
+
+VkDescriptorSet ResolveDescriptorSet( DeviceImpl* aDevice, Rhi_DescriptorSet aSet ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->myDescriptorSets.find( aSet.myId );
+        if ( it != aDevice->myDescriptorSets.end() ) {
+            return it->second.first;
+        }
+    }
+    return reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
+}
+
+VkRenderPass ResolveRenderPass( DeviceImpl* aDevice, Rhi_RenderPass aPass ) {
+    ( void )aDevice;
+    return reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( aPass.myId ) );
+}
+
+VkFramebuffer ResolveFramebuffer( DeviceImpl* aDevice, Rhi_Framebuffer aFb ) {
+    ( void )aDevice;
+    return reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( aFb.myId ) );
 }
 
 Rhi_Device MakeDeviceHandle( DeviceImpl* aImpl ) {
@@ -518,7 +615,7 @@ void CommandListMemoryBarrier( Rhi_CommandList& aList, const MemoryBarrierDesc& 
 
 void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_Pipeline aPipeline ) {
     CommandListImpl* impl = AsCmd( aList );
-    VkPipeline       pipe = reinterpret_cast< VkPipeline >( static_cast< uintptr_t >( aPipeline.myId ) );
+    VkPipeline       pipe = ResolvePipeline( impl != nullptr ? impl->myDevice : nullptr, aPipeline );
     if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || pipe == VK_NULL_HANDLE ) {
         return;
     }
@@ -528,8 +625,9 @@ void CommandListBindPipeline( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBin
 void CommandListBindDescriptorSet( Rhi_CommandList& aList, Rhi_PipelineBindPoint aBindPoint, Rhi_PipelineLayout aLayout, uint32_t aSetIndex, Rhi_DescriptorSet aSet,
                                    const uint32_t* aDynamicOffsets, uint32_t aDynamicOffsetCount ) {
     CommandListImpl* impl   = AsCmd( aList );
-    VkPipelineLayout layout = reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
-    VkDescriptorSet  set    = reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
+    DeviceImpl*      device = impl != nullptr ? impl->myDevice : nullptr;
+    VkPipelineLayout layout = ResolvePipelineLayout( device, aLayout );
+    VkDescriptorSet  set    = ResolveDescriptorSet( device, aSet );
     if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || set == VK_NULL_HANDLE ) {
         return;
     }
@@ -541,7 +639,7 @@ void CommandListBindDescriptorSet( Rhi_CommandList& aList, Rhi_PipelineBindPoint
 
 void CommandListPushConstants( Rhi_CommandList& aList, Rhi_PipelineLayout aLayout, Rhi_ShaderStage aStages, uint32_t aOffsetBytes, uint32_t aSizeBytes, const void* aData ) {
     CommandListImpl* impl   = AsCmd( aList );
-    VkPipelineLayout layout = reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
+    VkPipelineLayout layout = ResolvePipelineLayout( impl != nullptr ? impl->myDevice : nullptr, aLayout );
     if ( impl == nullptr || impl->myCmd == VK_NULL_HANDLE || layout == VK_NULL_HANDLE || aData == nullptr || aSizeBytes == 0 ) {
         return;
     }
@@ -781,11 +879,11 @@ void DeviceDestroyTexture( Rhi_Device& aDevice, Rhi_Texture& aTexture ) {
         aTexture.myId = 0;
         return;
     }
-    if ( it->second.myOwned && HasLogicalDevice( impl ) ) {
-        if ( it->second.myView != VK_NULL_HANDLE ) {
+    if ( HasLogicalDevice( impl ) ) {
+        if ( it->second.myOwnsView && it->second.myView != VK_NULL_HANDLE ) {
             vkDestroyImageView( impl->myVk->myDeviceCtx.myDevice, it->second.myView, nullptr );
         }
-        if ( it->second.myAlloc.myImage != VK_NULL_HANDLE ) {
+        if ( it->second.myOwned && it->second.myAlloc.myImage != VK_NULL_HANDLE ) {
             vmaDestroyImage( impl->myVk->myDeviceCtx.myAllocator, it->second.myAlloc.myImage, it->second.myAlloc.myAllocation );
         }
     }
@@ -825,6 +923,401 @@ void DeviceDestroyShaderModule( Rhi_Device& aDevice, Rhi_ShaderModule& aModule )
     }
     impl->myShaders.erase( it );
     aModule.myId = 0;
+}
+
+VkFilter ToVkFilter( Rhi_Filter aFilter ) {
+    return aFilter == Rhi_Filter::Linear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+}
+
+VkSamplerMipmapMode ToVkMipmapMode( Rhi_MipmapMode aMode ) {
+    return aMode == Rhi_MipmapMode::Linear ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+}
+
+VkSamplerAddressMode ToVkAddressMode( Rhi_AddressMode aMode ) {
+    switch ( aMode ) {
+    case Rhi_AddressMode::Repeat:
+        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case Rhi_AddressMode::MirroredRepeat:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case Rhi_AddressMode::ClampToBorder:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    case Rhi_AddressMode::ClampToEdge:
+    default:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    }
+}
+
+VkDescriptorType ToVkDescriptorType( Rhi_DescriptorType aType ) {
+    switch ( aType ) {
+    case Rhi_DescriptorType::Sampler:
+        return VK_DESCRIPTOR_TYPE_SAMPLER;
+    case Rhi_DescriptorType::SampledImage:
+        return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    case Rhi_DescriptorType::StorageImage:
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case Rhi_DescriptorType::UniformBuffer:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case Rhi_DescriptorType::StorageBuffer:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case Rhi_DescriptorType::CombinedImageSampler:
+    default:
+        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
+}
+
+Rhi_Sampler DeviceCreateSampler( Rhi_Device& aDevice, const SamplerDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) ) {
+        return {};
+    }
+    VkSamplerCreateInfo info{};
+    info.sType         = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    info.magFilter     = ToVkFilter( aDesc.myMagFilter );
+    info.minFilter     = ToVkFilter( aDesc.myMinFilter );
+    info.mipmapMode    = ToVkMipmapMode( aDesc.myMipmapMode );
+    info.addressModeU  = ToVkAddressMode( aDesc.myAddressU );
+    info.addressModeV  = ToVkAddressMode( aDesc.myAddressV );
+    info.addressModeW  = ToVkAddressMode( aDesc.myAddressW );
+    info.maxLod        = aDesc.myMaxLod;
+    info.compareEnable = aDesc.myCompareEnable ? VK_TRUE : VK_FALSE;
+    VkSampler sampler  = VK_NULL_HANDLE;
+    if ( vkCreateSampler( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &sampler ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id      = impl->myNextResourceId++;
+    impl->mySamplers[ id ] = sampler;
+    Rhi_Sampler out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroySampler( Rhi_Device& aDevice, Rhi_Sampler& aSampler ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aSampler.myId == 0 ) {
+        return;
+    }
+    auto it = impl->mySamplers.find( aSampler.myId );
+    if ( it == impl->mySamplers.end() ) {
+        aSampler.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroySampler( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->mySamplers.erase( it );
+    aSampler.myId = 0;
+}
+
+Rhi_DescriptorSetLayout DeviceCreateDescriptorSetLayout( Rhi_Device& aDevice, const DescriptorSetLayoutDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aDesc.myBindings == nullptr || aDesc.myBindingCount == 0 ) {
+        return {};
+    }
+    std::vector< VkDescriptorSetLayoutBinding > bindings( aDesc.myBindingCount );
+    for ( uint32_t i = 0; i < aDesc.myBindingCount; ++i ) {
+        bindings[ i ].binding         = aDesc.myBindings[ i ].myBinding;
+        bindings[ i ].descriptorType  = ToVkDescriptorType( aDesc.myBindings[ i ].myType );
+        bindings[ i ].descriptorCount = aDesc.myBindings[ i ].myCount == 0 ? 1u : aDesc.myBindings[ i ].myCount;
+        bindings[ i ].stageFlags      = ToVkShaderStages( aDesc.myBindings[ i ].myStages );
+    }
+    VkDescriptorSetLayoutCreateInfo info{};
+    info.sType                   = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    info.bindingCount            = aDesc.myBindingCount;
+    info.pBindings               = bindings.data();
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    if ( vkCreateDescriptorSetLayout( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &layout ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id        = impl->myNextResourceId++;
+    impl->mySetLayouts[ id ] = layout;
+    Rhi_DescriptorSetLayout out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyDescriptorSetLayout( Rhi_Device& aDevice, Rhi_DescriptorSetLayout& aLayout ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aLayout.myId == 0 ) {
+        return;
+    }
+    auto it = impl->mySetLayouts.find( aLayout.myId );
+    if ( it == impl->mySetLayouts.end() ) {
+        aLayout.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorSetLayout( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->mySetLayouts.erase( it );
+    aLayout.myId = 0;
+}
+
+Rhi_DescriptorPool DeviceCreateDescriptorPool( Rhi_Device& aDevice, const DescriptorPoolDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aDesc.myMaxSets == 0 || aDesc.myPoolSizes == nullptr || aDesc.myPoolSizeCount == 0 ) {
+        return {};
+    }
+    std::vector< VkDescriptorPoolSize > sizes( aDesc.myPoolSizeCount );
+    for ( uint32_t i = 0; i < aDesc.myPoolSizeCount; ++i ) {
+        sizes[ i ].type            = ToVkDescriptorType( aDesc.myPoolSizes[ i ].myType );
+        sizes[ i ].descriptorCount = aDesc.myPoolSizes[ i ].myCount;
+    }
+    VkDescriptorPoolCreateInfo info{};
+    info.sType            = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    info.maxSets          = aDesc.myMaxSets;
+    info.poolSizeCount    = aDesc.myPoolSizeCount;
+    info.pPoolSizes       = sizes.data();
+    VkDescriptorPool pool = VK_NULL_HANDLE;
+    if ( vkCreateDescriptorPool( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &pool ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id   = impl->myNextResourceId++;
+    impl->myPools[ id ] = pool;
+    Rhi_DescriptorPool out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyDescriptorPool( Rhi_Device& aDevice, Rhi_DescriptorPool& aPool ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aPool.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myPools.find( aPool.myId );
+    if ( it == impl->myPools.end() ) {
+        aPool.myId = 0;
+        return;
+    }
+    // Drop sets allocated from this pool only.
+    for ( auto setIt = impl->myDescriptorSets.begin(); setIt != impl->myDescriptorSets.end(); ) {
+        if ( setIt->second.second == aPool.myId ) {
+            setIt = impl->myDescriptorSets.erase( setIt );
+        }
+        else {
+            ++setIt;
+        }
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyDescriptorPool( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->myPools.erase( it );
+    aPool.myId = 0;
+}
+
+Rhi_DescriptorSet DeviceAllocateDescriptorSet( Rhi_Device& aDevice, Rhi_DescriptorPool aPool, Rhi_DescriptorSetLayout aLayout ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aPool || !aLayout ) {
+        return {};
+    }
+    auto poolIt = impl->myPools.find( aPool.myId );
+    auto layIt  = impl->mySetLayouts.find( aLayout.myId );
+    if ( poolIt == impl->myPools.end() || layIt == impl->mySetLayouts.end() ) {
+        return {};
+    }
+    VkDescriptorSetAllocateInfo info{};
+    info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    info.descriptorPool     = poolIt->second;
+    info.descriptorSetCount = 1;
+    info.pSetLayouts        = &layIt->second;
+    VkDescriptorSet set     = VK_NULL_HANDLE;
+    if ( vkAllocateDescriptorSets( impl->myVk->myDeviceCtx.myDevice, &info, &set ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id            = impl->myNextResourceId++;
+    impl->myDescriptorSets[ id ] = { set, aPool.myId };
+    Rhi_DescriptorSet out;
+    out.myId = id;
+    return out;
+}
+
+Rhi_PipelineLayout DeviceCreatePipelineLayout( Rhi_Device& aDevice, const PipelineLayoutDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) ) {
+        return {};
+    }
+    std::vector< VkDescriptorSetLayout > setLayouts;
+    setLayouts.reserve( aDesc.mySetLayoutCount );
+    for ( uint32_t i = 0; i < aDesc.mySetLayoutCount; ++i ) {
+        auto it = impl->mySetLayouts.find( aDesc.mySetLayouts[ i ].myId );
+        if ( it == impl->mySetLayouts.end() ) {
+            return {};
+        }
+        setLayouts.push_back( it->second );
+    }
+    std::vector< VkPushConstantRange > pushes;
+    pushes.reserve( aDesc.myPushRangeCount );
+    for ( uint32_t i = 0; i < aDesc.myPushRangeCount; ++i ) {
+        VkPushConstantRange range{};
+        range.stageFlags = ToVkShaderStages( aDesc.myPushRanges[ i ].myStages );
+        range.offset     = aDesc.myPushRanges[ i ].myOffsetBytes;
+        range.size       = aDesc.myPushRanges[ i ].mySizeBytes;
+        pushes.push_back( range );
+    }
+    VkPipelineLayoutCreateInfo info{};
+    info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    info.setLayoutCount         = static_cast< uint32_t >( setLayouts.size() );
+    info.pSetLayouts            = setLayouts.empty() ? nullptr : setLayouts.data();
+    info.pushConstantRangeCount = static_cast< uint32_t >( pushes.size() );
+    info.pPushConstantRanges    = pushes.empty() ? nullptr : pushes.data();
+    VkPipelineLayout layout     = VK_NULL_HANDLE;
+    if ( vkCreatePipelineLayout( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &layout ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id             = impl->myNextResourceId++;
+    impl->myPipelineLayouts[ id ] = layout;
+    Rhi_PipelineLayout out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyPipelineLayout( Rhi_Device& aDevice, Rhi_PipelineLayout& aLayout ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aLayout.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myPipelineLayouts.find( aLayout.myId );
+    if ( it == impl->myPipelineLayouts.end() ) {
+        aLayout.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyPipelineLayout( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->myPipelineLayouts.erase( it );
+    aLayout.myId = 0;
+}
+
+Rhi_Pipeline DeviceCreateComputePipeline( Rhi_Device& aDevice, const ComputePipelineDesc& aDesc ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aDesc.myShader || !aDesc.myLayout ) {
+        return {};
+    }
+    auto shaderIt = impl->myShaders.find( aDesc.myShader.myId );
+    auto layoutIt = impl->myPipelineLayouts.find( aDesc.myLayout.myId );
+    if ( shaderIt == impl->myShaders.end() || layoutIt == impl->myPipelineLayouts.end() ) {
+        return {};
+    }
+    VkPipelineShaderStageCreateInfo stage{};
+    stage.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    stage.module = shaderIt->second;
+    stage.pName  = aDesc.myEntry != nullptr ? aDesc.myEntry : "main";
+
+    VkComputePipelineCreateInfo info{};
+    info.sType          = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    info.stage          = stage;
+    info.layout         = layoutIt->second;
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    if ( vkCreateComputePipelines( impl->myVk->myDeviceCtx.myDevice, impl->myVk->myDeviceCtx.myPipelineCache, 1, &info, nullptr, &pipeline ) != VK_SUCCESS ) {
+        return {};
+    }
+    const uint64_t id       = impl->myNextResourceId++;
+    impl->myPipelines[ id ] = pipeline;
+    Rhi_Pipeline out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceDestroyPipeline( Rhi_Device& aDevice, Rhi_Pipeline& aPipeline ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr || aPipeline.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myPipelines.find( aPipeline.myId );
+    if ( it == impl->myPipelines.end() ) {
+        aPipeline.myId = 0;
+        return;
+    }
+    if ( HasLogicalDevice( impl ) && it->second != VK_NULL_HANDLE ) {
+        vkDestroyPipeline( impl->myVk->myDeviceCtx.myDevice, it->second, nullptr );
+    }
+    impl->myPipelines.erase( it );
+    aPipeline.myId = 0;
+}
+
+Rhi_Texture DeviceCreateTextureMipView( Rhi_Device& aDevice, Rhi_Texture aParent, uint32_t aBaseMip ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || !aParent ) {
+        return {};
+    }
+    auto parentIt = impl->myTextures.find( aParent.myId );
+    if ( parentIt == impl->myTextures.end() || parentIt->second.myAlloc.myImage == VK_NULL_HANDLE ) {
+        return {};
+    }
+    if ( aBaseMip >= parentIt->second.myMipLevels ) {
+        return {};
+    }
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image                           = parentIt->second.myAlloc.myImage;
+    viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format                          = parentIt->second.myFormat;
+    viewInfo.subresourceRange.aspectMask     = ( parentIt->second.myFormat == VK_FORMAT_D32_SFLOAT ) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel   = aBaseMip;
+    viewInfo.subresourceRange.levelCount     = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount     = 1;
+    VkImageView view                         = VK_NULL_HANDLE;
+    if ( vkCreateImageView( impl->myVk->myDeviceCtx.myDevice, &viewInfo, nullptr, &view ) != VK_SUCCESS ) {
+        return {};
+    }
+    TextureRecord record{};
+    record.myAlloc              = parentIt->second.myAlloc;
+    record.myAlloc.myAllocation = VK_NULL_HANDLE;  // not owning allocation
+    record.myView               = view;
+    record.myFormat             = parentIt->second.myFormat;
+    record.myMipLevels          = 1;
+    record.myOwned              = false;
+    record.myOwnsView           = true;
+    const uint64_t id           = impl->myNextResourceId++;
+    impl->myTextures[ id ]      = record;
+    Rhi_Texture out;
+    out.myId = id;
+    return out;
+}
+
+void DeviceUpdateDescriptorImages( Rhi_Device& aDevice, const DescriptorImageWrite* aWrites, uint32_t aWriteCount ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aWrites == nullptr || aWriteCount == 0 ) {
+        return;
+    }
+    std::vector< VkDescriptorImageInfo > imageInfos( aWriteCount );
+    std::vector< VkWriteDescriptorSet >  writes( aWriteCount );
+    for ( uint32_t i = 0; i < aWriteCount; ++i ) {
+        const DescriptorImageWrite& w     = aWrites[ i ];
+        VkDescriptorSet             set   = VK_NULL_HANDLE;
+        auto                        setIt = impl->myDescriptorSets.find( w.mySet.myId );
+        if ( setIt != impl->myDescriptorSets.end() ) {
+            set = setIt->second.first;
+        }
+        else {
+            set = reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( w.mySet.myId ) );
+        }
+        VkSampler sampler = VK_NULL_HANDLE;
+        if ( w.mySampler ) {
+            auto sampIt = impl->mySamplers.find( w.mySampler.myId );
+            if ( sampIt != impl->mySamplers.end() ) {
+                sampler = sampIt->second;
+            }
+        }
+        VkImageView view  = VK_NULL_HANDLE;
+        auto        texIt = impl->myTextures.find( w.myTexture.myId );
+        if ( texIt != impl->myTextures.end() ) {
+            view = texIt->second.myView;
+        }
+        imageInfos[ i ].sampler     = sampler;
+        imageInfos[ i ].imageView   = view;
+        imageInfos[ i ].imageLayout = ToVkLayout( w.myLayout );
+
+        writes[ i ]                 = {};
+        writes[ i ].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[ i ].dstSet          = set;
+        writes[ i ].dstBinding      = w.myBinding;
+        writes[ i ].descriptorCount = 1;
+        writes[ i ].descriptorType  = ToVkDescriptorType( w.myType );
+        writes[ i ].pImageInfo      = &imageInfos[ i ];
+    }
+    vkUpdateDescriptorSets( impl->myVk->myDeviceCtx.myDevice, aWriteCount, writes.data(), 0, nullptr );
 }
 
 }  // namespace Rhi
@@ -908,6 +1401,7 @@ Rhi_Texture TextureAdopt( const Rhi_Device& aDevice, VkImage aImage, VkImageView
     record.myFormat             = aFormat;
     record.myMipLevels          = aMipLevels == 0 ? 1u : aMipLevels;
     record.myOwned              = false;
+    record.myOwnsView           = false;
     const uint64_t id           = impl->myNextResourceId++;
     impl->myTextures[ id ]      = record;
     Rhi_Texture texture;
@@ -921,16 +1415,28 @@ Rhi_Buffer BufferAdopt( VkBuffer aBuffer ) {
     return out;
 }
 
+VkPipeline PipelineGetVk( const Rhi_Device& aDevice, Rhi_Pipeline aPipeline ) {
+    return ResolvePipeline( AsDevice( aDevice ), aPipeline );
+}
+
+VkPipelineLayout PipelineLayoutGetVk( const Rhi_Device& aDevice, Rhi_PipelineLayout aLayout ) {
+    return ResolvePipelineLayout( AsDevice( aDevice ), aLayout );
+}
+
+VkDescriptorSet DescriptorSetGetVk( const Rhi_Device& aDevice, Rhi_DescriptorSet aSet ) {
+    return ResolveDescriptorSet( AsDevice( aDevice ), aSet );
+}
+
 VkPipeline PipelineGetVk( Rhi_Pipeline aPipeline ) {
-    return reinterpret_cast< VkPipeline >( static_cast< uintptr_t >( aPipeline.myId ) );
+    return ResolvePipeline( nullptr, aPipeline );
 }
 
 VkPipelineLayout PipelineLayoutGetVk( Rhi_PipelineLayout aLayout ) {
-    return reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
+    return ResolvePipelineLayout( nullptr, aLayout );
 }
 
 VkDescriptorSet DescriptorSetGetVk( Rhi_DescriptorSet aSet ) {
-    return reinterpret_cast< VkDescriptorSet >( static_cast< uintptr_t >( aSet.myId ) );
+    return ResolveDescriptorSet( nullptr, aSet );
 }
 
 VkRenderPass RenderPassGetVk( Rhi_RenderPass aRenderPass ) {
@@ -960,7 +1466,10 @@ VkImage TextureGetVkImage( const Rhi_Device& aDevice, Rhi_Texture aTexture ) {
         return VK_NULL_HANDLE;
     }
     auto it = impl->myTextures.find( aTexture.myId );
-    return it != impl->myTextures.end() ? it->second.myAlloc.myImage : VK_NULL_HANDLE;
+    if ( it == impl->myTextures.end() ) {
+        return VK_NULL_HANDLE;
+    }
+    return it->second.myAlloc.myImage;
 }
 
 VkImageView TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture ) {
@@ -969,7 +1478,46 @@ VkImageView TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture ) 
         return VK_NULL_HANDLE;
     }
     auto it = impl->myTextures.find( aTexture.myId );
-    return it != impl->myTextures.end() ? it->second.myView : VK_NULL_HANDLE;
+    if ( it == impl->myTextures.end() ) {
+        return VK_NULL_HANDLE;
+    }
+    return it->second.myView;
+}
+
+VkSampler SamplerGetVk( const Rhi_Device& aDevice, Rhi_Sampler aSampler ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr ) {
+        return VK_NULL_HANDLE;
+    }
+    auto it = impl->mySamplers.find( aSampler.myId );
+    if ( it == impl->mySamplers.end() ) {
+        return VK_NULL_HANDLE;
+    }
+    return it->second;
+}
+
+VkDescriptorSetLayout DescriptorSetLayoutGetVk( const Rhi_Device& aDevice, Rhi_DescriptorSetLayout aLayout ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr ) {
+        return VK_NULL_HANDLE;
+    }
+    auto it = impl->mySetLayouts.find( aLayout.myId );
+    if ( it == impl->mySetLayouts.end() ) {
+        return VK_NULL_HANDLE;
+    }
+    return it->second;
+}
+
+VkDescriptorPool DescriptorPoolGetVk( const Rhi_Device& aDevice, Rhi_DescriptorPool aPool ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( impl == nullptr ) {
+        return VK_NULL_HANDLE;
+    }
+    auto it = impl->myPools.find( aPool.myId );
+    if ( it == impl->myPools.end() ) {
+        return VK_NULL_HANDLE;
+    }
+    return it->second;
 }
 
 }  // namespace RhiVulkan

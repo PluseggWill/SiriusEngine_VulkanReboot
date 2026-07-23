@@ -34,13 +34,19 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] Rhi_Texture TextureAdopt( const Rhi_Device& aDevice, VkImage aImage, VkImageView aView, VkFormat aFormat, uint32_t aMipLevels );
 [[nodiscard]] Rhi_Buffer  BufferAdopt( VkBuffer aBuffer );
 
-[[nodiscard]] VkPipeline       PipelineGetVk( Rhi_Pipeline aPipeline );
-[[nodiscard]] VkPipelineLayout PipelineLayoutGetVk( Rhi_PipelineLayout aLayout );
-[[nodiscard]] VkDescriptorSet  DescriptorSetGetVk( Rhi_DescriptorSet aSet );
-[[nodiscard]] VkRenderPass     RenderPassGetVk( Rhi_RenderPass aRenderPass );
-[[nodiscard]] VkFramebuffer    FramebufferGetVk( Rhi_Framebuffer aFramebuffer );
-[[nodiscard]] VkBuffer         BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer );
-[[nodiscard]] VkImage          TextureGetVkImage( const Rhi_Device& aDevice, Rhi_Texture aTexture );
-[[nodiscard]] VkImageView      TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture );
+[[nodiscard]] VkPipeline            PipelineGetVk( const Rhi_Device& aDevice, Rhi_Pipeline aPipeline );
+[[nodiscard]] VkPipelineLayout      PipelineLayoutGetVk( const Rhi_Device& aDevice, Rhi_PipelineLayout aLayout );
+[[nodiscard]] VkDescriptorSet       DescriptorSetGetVk( const Rhi_Device& aDevice, Rhi_DescriptorSet aSet );
+[[nodiscard]] VkPipeline            PipelineGetVk( Rhi_Pipeline aPipeline );            // adopt-only fallback
+[[nodiscard]] VkPipelineLayout      PipelineLayoutGetVk( Rhi_PipelineLayout aLayout );  // adopt-only fallback
+[[nodiscard]] VkDescriptorSet       DescriptorSetGetVk( Rhi_DescriptorSet aSet );       // adopt-only fallback
+[[nodiscard]] VkRenderPass          RenderPassGetVk( Rhi_RenderPass aRenderPass );
+[[nodiscard]] VkFramebuffer         FramebufferGetVk( Rhi_Framebuffer aFramebuffer );
+[[nodiscard]] VkBuffer              BufferGetVk( const Rhi_Device& aDevice, Rhi_Buffer aBuffer );
+[[nodiscard]] VkImage               TextureGetVkImage( const Rhi_Device& aDevice, Rhi_Texture aTexture );
+[[nodiscard]] VkImageView           TextureGetVkView( const Rhi_Device& aDevice, Rhi_Texture aTexture );
+[[nodiscard]] VkSampler             SamplerGetVk( const Rhi_Device& aDevice, Rhi_Sampler aSampler );
+[[nodiscard]] VkDescriptorSetLayout DescriptorSetLayoutGetVk( const Rhi_Device& aDevice, Rhi_DescriptorSetLayout aLayout );
+[[nodiscard]] VkDescriptorPool      DescriptorPoolGetVk( const Rhi_Device& aDevice, Rhi_DescriptorPool aPool );
 
 }  // namespace RhiVulkan

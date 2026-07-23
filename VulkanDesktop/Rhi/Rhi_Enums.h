@@ -62,6 +62,7 @@ enum class Rhi_ImageLayout : uint8_t {
     General,
     ColorAttachment,
     DepthStencilAttachment,
+    DepthStencilReadOnly,
     ShaderReadOnly,
     TransferSrc,
     TransferDst,
@@ -107,3 +108,18 @@ enum class Rhi_Access : uint32_t {
 inline Rhi_Access operator|( Rhi_Access a, Rhi_Access b ) {
     return static_cast< Rhi_Access >( static_cast< uint32_t >( a ) | static_cast< uint32_t >( b ) );
 }
+
+enum class Rhi_DescriptorType : uint8_t {
+    Sampler = 0,
+    CombinedImageSampler,
+    SampledImage,
+    StorageImage,
+    UniformBuffer,
+    StorageBuffer,
+};
+
+enum class Rhi_Filter : uint8_t { Nearest = 0, Linear };
+
+enum class Rhi_AddressMode : uint8_t { Repeat = 0, MirroredRepeat, ClampToEdge, ClampToBorder };
+
+enum class Rhi_MipmapMode : uint8_t { Nearest = 0, Linear };

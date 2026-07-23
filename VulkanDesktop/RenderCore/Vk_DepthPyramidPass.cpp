@@ -5,16 +5,19 @@
 
 static_assert( kHiZMaxMipLevels == Gfx_DepthPyramidPass::kMaxMipLevels, "Hi-Z mip cap must match Gfx_DepthPyramidPass" );
 
+#include "../Rhi/Rhi_Device.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
-
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
+#include "Vk_RhiBackend.h"
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -38,6 +41,18 @@ struct DepthPyramidPushConstants {
 
 static_assert( sizeof( DepthPyramidPushConstants ) == 16, "DepthPyramidPushConstants must match DepthPyramid.comp push block" );
 
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_DepthPyramidPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
+
 VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFormat, uint32_t aBaseMip ) {
     VkImageViewCreateInfo viewInfo         = VkInit::ImageViewCreateInfo( aFormat, aImage, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
     viewInfo.subresourceRange.baseMipLevel = aBaseMip;
@@ -50,10 +65,49 @@ VkImageView CreateMipImageView( Vk_Renderer& aCore, VkImage aImage, VkFormat aFo
     return imageView;
 }
 
+void DestroyRhiPipelineObjects( Vk_Renderer& aCore ) {
+    Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi ) {
+        return;
+    }
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
+            state.myRhiSets[ i ][ mip ]        = {};
+            state.myDescriptorSets[ i ][ mip ] = VK_NULL_HANDLE;
+        }
+    }
+    Rhi::DeviceDestroyPipeline( rhi, state.myRhiPipeline );
+    Rhi::DeviceDestroyPipelineLayout( rhi, state.myRhiLayout );
+    Rhi::DeviceDestroyDescriptorPool( rhi, state.myRhiPool );
+    Rhi::DeviceDestroyDescriptorSetLayout( rhi, state.myRhiSetLayout );
+    Rhi::DeviceDestroySampler( rhi, state.myRhiDepthSampler );
+    Rhi::DeviceDestroySampler( rhi, state.myRhiPyramidSampler );
+    state.myComputePipeline     = VK_NULL_HANDLE;
+    state.myPipelineLayout      = VK_NULL_HANDLE;
+    state.myDescriptorSetLayout = VK_NULL_HANDLE;
+    state.myDescriptorPool      = VK_NULL_HANDLE;
+    state.myDepthSampler        = VK_NULL_HANDLE;
+    state.myPyramidSampler      = VK_NULL_HANDLE;
+}
+
 void DestroyPyramidImage( Vk_Renderer& aCore ) {
     Vk_DepthPyramidState& state     = aCore.myDepthPyramidState;
     const VkDevice        device    = aCore.myRhi.myDeviceCtx.myDevice;
     const VmaAllocator    allocator = aCore.myRhi.myDeviceCtx.myAllocator;
+
+    // Sample view is a full mip-chain view, distinct from per-mip storage views.
+    VkImageView sampleView      = state.myPyramid.ImageView();
+    bool        sampleIsMipView = false;
+    for ( VkImageView& view : state.myMipViews ) {
+        if ( view != VK_NULL_HANDLE && view == sampleView ) {
+            sampleIsMipView = true;
+        }
+    }
+    if ( sampleView != VK_NULL_HANDLE && !sampleIsMipView ) {
+        vkDestroyImageView( device, sampleView, nullptr );
+    }
+    state.myPyramid.ImageView() = VK_NULL_HANDLE;
 
     for ( VkImageView& view : state.myMipViews ) {
         if ( view != VK_NULL_HANDLE ) {
@@ -61,8 +115,6 @@ void DestroyPyramidImage( Vk_Renderer& aCore ) {
             view = VK_NULL_HANDLE;
         }
     }
-
-    state.myPyramid.ImageView() = VK_NULL_HANDLE;
 
     if ( state.myPyramid.Image() != VK_NULL_HANDLE ) {
         vmaDestroyImage( allocator, state.myPyramid.Image(), state.myPyramid.Allocation() );
@@ -75,26 +127,37 @@ void DestroyPyramidImage( Vk_Renderer& aCore ) {
 
 void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, uint32_t aDstMip, uint32_t aSrcMip ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
 
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myDepthSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), VK_FORMAT_D32_SFLOAT, 1 );
+    Rhi_Texture srcTex   = RhiVulkan::TextureAdopt( rhi, state.myPyramid.Image(), state.myMipViews[ aSrcMip ], kPyramidFormat, 1 );
+    Rhi_Texture dstTex   = RhiVulkan::TextureAdopt( rhi, state.myPyramid.Image(), state.myMipViews[ aDstMip ], kPyramidFormat, 1 );
 
-    VkDescriptorImageInfo srcInfo{};
-    srcInfo.imageView   = state.myMipViews[ aSrcMip ];
-    srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    std::array< Rhi::DescriptorImageWrite, 3 > writes{};
+    writes[ 0 ].mySet     = state.myRhiSets[ aFrameIndex ][ aDstMip ];
+    writes[ 0 ].myBinding = 0;
+    writes[ 0 ].myType    = Rhi_DescriptorType::CombinedImageSampler;
+    writes[ 0 ].mySampler = state.myRhiDepthSampler;
+    writes[ 0 ].myTexture = depthTex;
+    writes[ 0 ].myLayout  = Rhi_ImageLayout::DepthStencilReadOnly;
 
-    VkDescriptorImageInfo dstInfo{};
-    dstInfo.imageView   = state.myMipViews[ aDstMip ];
-    dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    writes[ 1 ].mySet     = state.myRhiSets[ aFrameIndex ][ aDstMip ];
+    writes[ 1 ].myBinding = 1;
+    writes[ 1 ].myType    = Rhi_DescriptorType::StorageImage;
+    writes[ 1 ].myTexture = srcTex;
+    writes[ 1 ].myLayout  = Rhi_ImageLayout::General;
 
-    std::array< VkWriteDescriptorSet, 3 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ][ aDstMip ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 2, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    writes[ 2 ].mySet     = state.myRhiSets[ aFrameIndex ][ aDstMip ];
+    writes[ 2 ].myBinding = 2;
+    writes[ 2 ].myType    = Rhi_DescriptorType::StorageImage;
+    writes[ 2 ].myTexture = dstTex;
+    writes[ 2 ].myLayout  = Rhi_ImageLayout::General;
+
+    Rhi::DeviceUpdateDescriptorImages( rhi, writes.data(), static_cast< uint32_t >( writes.size() ) );
+
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    Rhi::DeviceDestroyTexture( rhi, srcTex );
+    Rhi::DeviceDestroyTexture( rhi, dstTex );
 }
 
 void CreatePyramidImage( Vk_Renderer& aCore ) {
@@ -116,23 +179,29 @@ void CreatePyramidImage( Vk_Renderer& aCore ) {
     for ( uint32_t mip = 0; mip < state.myMipLevelCount; ++mip ) {
         state.myMipViews[ mip ] = CreateMipImageView( aCore, state.myPyramid.Image(), kPyramidFormat, mip );
     }
-    state.myPyramid.ImageView() = state.myMipViews[ 0 ];
 
-    UtilLogger::Info( "HIZ", "Depth pyramid: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " mips=" + std::to_string( state.myMipLevelCount ) );
+    // Full mip-chain view for SSR / deferred debug (textureLod). Per-mip views stay for storage writes.
+    VkImageViewCreateInfo sampleViewInfo = VkInit::ImageViewCreateInfo( kPyramidFormat, state.myPyramid.Image(), VK_IMAGE_ASPECT_COLOR_BIT, state.myMipLevelCount );
+    VkImageView           sampleView     = VK_NULL_HANDLE;
+    if ( vkCreateImageView( aCore.myRhi.myDeviceCtx.myDevice, &sampleViewInfo, nullptr, &sampleView ) != VK_SUCCESS ) {
+        throw std::runtime_error( "Vk_DepthPyramidPass: failed to create sample mip-chain view" );
+    }
+    state.myPyramid.ImageView() = sampleView;
+
+    UtilLogger::Info( "HIZ", "Depth pyramid: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " mips=" + std::to_string( state.myMipLevelCount )
+                                 + " (mip0=full-res copy)" );
 }
 
 void AllocateDescriptorSets( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
 
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
             if ( aAllocateDescriptors ) {
-                VkDescriptorSetAllocateInfo allocInfo{};
-                allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-                allocInfo.descriptorPool     = state.myDescriptorPool;
-                allocInfo.descriptorSetCount = 1;
-                allocInfo.pSetLayouts        = &state.myDescriptorSetLayout;
-                if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ][ mip ] ) != VK_SUCCESS ) {
+                state.myRhiSets[ i ][ mip ]        = Rhi::DeviceAllocateDescriptorSet( rhi, state.myRhiPool, state.myRhiSetLayout );
+                state.myDescriptorSets[ i ][ mip ] = RhiVulkan::DescriptorSetGetVk( rhi, state.myRhiSets[ i ][ mip ] );
+                if ( !state.myRhiSets[ i ][ mip ] ) {
                     throw std::runtime_error( "Vk_DepthPyramidPass: failed to allocate descriptor set" );
                 }
             }
@@ -145,120 +214,100 @@ void AllocateDescriptorSets( Vk_Renderer& aCore, bool aAllocateDescriptors ) {
 }
 
 void CreatePipeline( Vk_Renderer& aCore ) {
-    Vk_DepthPyramidState& state         = aCore.myDepthPyramidState;
-    const std::string     spvPath       = UtilLoader::ResolvePath( aCore.EngineConfig(), kDepthPyramidShaderPath );
-    VkShaderModule        computeModule = aCore.CreateShaderModule( spvPath );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_DepthPyramidPass: myGfxRhiDevice required for Rhi create" );
+    }
 
-    const std::array< VkDescriptorSetLayoutBinding, 3 > bindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-    };
+    Vk_DepthPyramidState&     state   = aCore.myDepthPyramidState;
+    Rhi_Device&               rhi     = aCore.myGfxRhiDevice;
+    const std::string         spvPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDepthPyramidShaderPath );
+    const std::vector< char > spirv   = LoadSpirvBytes( spvPath );
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
-    layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myDescriptorSetLayout ) != VK_SUCCESS ) {
+    Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( rhi, spirv.data(), spirv.size() );
+    if ( !shader ) {
+        throw std::runtime_error( "Vk_DepthPyramidPass: failed to create shader module" );
+    }
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 3 > bindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           setLayoutDesc{};
+    setLayoutDesc.myBindings     = bindings.data();
+    setLayoutDesc.myBindingCount = static_cast< uint32_t >( bindings.size() );
+    state.myRhiSetLayout         = Rhi::DeviceCreateDescriptorSetLayout( rhi, setLayoutDesc );
+    if ( !state.myRhiSetLayout ) {
+        Rhi::DeviceDestroyShaderModule( rhi, shader );
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create descriptor set layout" );
     }
 
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = sizeof( DepthPyramidPushConstants );
+    Rhi::PushConstantRangeDesc push{};
+    push.myStages      = Rhi_ShaderStage::Compute;
+    push.myOffsetBytes = 0;
+    push.mySizeBytes   = sizeof( DepthPyramidPushConstants );
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &state.myDescriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
+    Rhi::PipelineLayoutDesc layoutDesc{};
+    layoutDesc.mySetLayouts     = &state.myRhiSetLayout;
+    layoutDesc.mySetLayoutCount = 1;
+    layoutDesc.myPushRanges     = &push;
+    layoutDesc.myPushRangeCount = 1;
+    state.myRhiLayout           = Rhi::DeviceCreatePipelineLayout( rhi, layoutDesc );
+    if ( !state.myRhiLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( rhi, state.myRhiSetLayout );
+        Rhi::DeviceDestroyShaderModule( rhi, shader );
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create pipeline layout" );
     }
 
-    const VkPipelineShaderStageCreateInfo stageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, computeModule, "main" );
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage  = stageInfo;
-    pipelineInfo.layout = state.myPipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &state.myComputePipeline )
-         != VK_SUCCESS ) {
+    Rhi::ComputePipelineDesc pipeDesc{};
+    pipeDesc.myShader   = shader;
+    pipeDesc.myLayout   = state.myRhiLayout;
+    state.myRhiPipeline = Rhi::DeviceCreateComputePipeline( rhi, pipeDesc );
+    Rhi::DeviceDestroyShaderModule( rhi, shader );
+    if ( !state.myRhiPipeline ) {
+        Rhi::DeviceDestroyPipelineLayout( rhi, state.myRhiLayout );
+        Rhi::DeviceDestroyDescriptorSetLayout( rhi, state.myRhiSetLayout );
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create compute pipeline" );
     }
 
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
+    Rhi::SamplerDesc depthSamplerDesc{};
+    depthSamplerDesc.myMagFilter = Rhi_Filter::Nearest;
+    depthSamplerDesc.myMinFilter = Rhi_Filter::Nearest;
+    state.myRhiDepthSampler      = Rhi::DeviceCreateSampler( rhi, depthSamplerDesc );
 
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_NEAREST;
-    samplerInfo.minFilter               = VK_FILTER_NEAREST;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.compareEnable           = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DepthPyramidPass: failed to create depth sampler" );
+    Rhi::SamplerDesc pyramidSamplerDesc{};
+    pyramidSamplerDesc.myMagFilter  = Rhi_Filter::Nearest;
+    pyramidSamplerDesc.myMinFilter  = Rhi_Filter::Nearest;
+    pyramidSamplerDesc.myMipmapMode = Rhi_MipmapMode::Nearest;
+    pyramidSamplerDesc.myMaxLod     = static_cast< float >( kHiZMaxMipLevels );
+    state.myRhiPyramidSampler       = Rhi::DeviceCreateSampler( rhi, pyramidSamplerDesc );
+    if ( !state.myRhiDepthSampler || !state.myRhiPyramidSampler ) {
+        DestroyRhiPipelineObjects( aCore );
+        throw std::runtime_error( "Vk_DepthPyramidPass: failed to create samplers" );
     }
 
-    VkSamplerCreateInfo pyramidSamplerInfo{};
-    pyramidSamplerInfo.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    pyramidSamplerInfo.magFilter    = VK_FILTER_NEAREST;
-    pyramidSamplerInfo.minFilter    = VK_FILTER_NEAREST;
-    pyramidSamplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    pyramidSamplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    pyramidSamplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    pyramidSamplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    pyramidSamplerInfo.maxLod       = static_cast< float >( kHiZMaxMipLevels );
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &pyramidSamplerInfo, nullptr, &state.myPyramidSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DepthPyramidPass: failed to create pyramid sampler" );
-    }
-
-    std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels * 2 },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
+    const std::array< Rhi::DescriptorPoolSize, 2 > poolSizes = { {
+        { Rhi_DescriptorType::CombinedImageSampler, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels },
+        { Rhi_DescriptorType::StorageImage, MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels * 2 },
+    } };
+    Rhi::DescriptorPoolDesc                        poolDesc{};
+    poolDesc.myMaxSets       = MAX_FRAMES_IN_FLIGHT * kHiZMaxMipLevels;
+    poolDesc.myPoolSizes     = poolSizes.data();
+    poolDesc.myPoolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    state.myRhiPool          = Rhi::DeviceCreateDescriptorPool( rhi, poolDesc );
+    if ( !state.myRhiPool ) {
+        DestroyRhiPipelineObjects( aCore );
         throw std::runtime_error( "Vk_DepthPyramidPass: failed to create descriptor pool" );
     }
 
-    const VkDevice              device          = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkPipeline            computePipeline = state.myComputePipeline;
-    const VkPipelineLayout      pipelineLayout  = state.myPipelineLayout;
-    const VkDescriptorSetLayout setLayout       = state.myDescriptorSetLayout;
-    const VkDescriptorPool      descriptorPool  = state.myDescriptorPool;
-    const VkSampler             depthSampler    = state.myDepthSampler;
-    const VkSampler             pyramidSampler  = state.myPyramidSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, computePipeline, pipelineLayout, setLayout, descriptorPool, depthSampler, pyramidSampler ]() {
-        if ( computePipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, computePipeline, nullptr );
-        }
-        if ( pipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
-        }
-        if ( setLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, setLayout, nullptr );
-        }
-        if ( descriptorPool != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-        }
-        if ( depthSampler != VK_NULL_HANDLE ) {
-            vkDestroySampler( device, depthSampler, nullptr );
-        }
-        if ( pyramidSampler != VK_NULL_HANDLE ) {
-            vkDestroySampler( device, pyramidSampler, nullptr );
-        }
-    } );
+    state.myComputePipeline     = RhiVulkan::PipelineGetVk( rhi, state.myRhiPipeline );
+    state.myPipelineLayout      = RhiVulkan::PipelineLayoutGetVk( rhi, state.myRhiLayout );
+    state.myDescriptorSetLayout = RhiVulkan::DescriptorSetLayoutGetVk( rhi, state.myRhiSetLayout );
+    state.myDescriptorPool      = RhiVulkan::DescriptorPoolGetVk( rhi, state.myRhiPool );
+    state.myDepthSampler        = RhiVulkan::SamplerGetVk( rhi, state.myRhiDepthSampler );
+    state.myPyramidSampler      = RhiVulkan::SamplerGetVk( rhi, state.myRhiPyramidSampler );
 
-    UtilLogger::Info( "PIPELINE", "DepthPyramid compute pipeline created." );
+    UtilLogger::Info( "PIPELINE", "DepthPyramid compute pipeline created (Rhi)." );
 }
 
 }  // namespace
@@ -273,11 +322,7 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     DestroyPyramidImage( aCore );
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
-            aCore.myDepthPyramidState.myDescriptorSets[ i ][ mip ] = VK_NULL_HANDLE;
-        }
-    }
+    DestroyRhiPipelineObjects( aCore );
     aCore.myDepthPyramidState.myInitialized = false;
 }
 
@@ -297,7 +342,7 @@ void Init( Vk_Renderer& aCore ) {
     if ( aCore.myDepthPyramidState.myInitialized ) {
         return;
     }
-    UtilLogger::Info( "FG", "Vk_DepthPyramidPass::Init." );
+    UtilLogger::Info( "FG", "Vk_DepthPyramidPass::Init (Rhi create)." );
     CreatePipeline( aCore );
     CreatePyramidImage( aCore );
     AllocateDescriptorSets( aCore, true );

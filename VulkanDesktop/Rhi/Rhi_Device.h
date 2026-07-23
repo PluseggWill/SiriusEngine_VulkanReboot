@@ -50,4 +50,91 @@ void                      DeviceDestroyTexture( Rhi_Device& aDevice, Rhi_Texture
 [[nodiscard]] Rhi_ShaderModule DeviceCreateShaderModule( Rhi_Device& aDevice, const void* aSpirvCode, size_t aSpirvBytes );
 void                           DeviceDestroyShaderModule( Rhi_Device& aDevice, Rhi_ShaderModule& aModule );
 
+// --- Samplers / descriptors / compute pipelines (requires logical device) ---
+
+struct SamplerDesc {
+    Rhi_Filter      myMagFilter     = Rhi_Filter::Nearest;
+    Rhi_Filter      myMinFilter     = Rhi_Filter::Nearest;
+    Rhi_MipmapMode  myMipmapMode    = Rhi_MipmapMode::Nearest;
+    Rhi_AddressMode myAddressU      = Rhi_AddressMode::ClampToEdge;
+    Rhi_AddressMode myAddressV      = Rhi_AddressMode::ClampToEdge;
+    Rhi_AddressMode myAddressW      = Rhi_AddressMode::ClampToEdge;
+    float           myMaxLod        = 1000.0f;
+    bool            myCompareEnable = false;
+};
+
+[[nodiscard]] Rhi_Sampler DeviceCreateSampler( Rhi_Device& aDevice, const SamplerDesc& aDesc );
+void                      DeviceDestroySampler( Rhi_Device& aDevice, Rhi_Sampler& aSampler );
+
+struct DescriptorSetLayoutBinding {
+    uint32_t           myBinding = 0;
+    Rhi_DescriptorType myType    = Rhi_DescriptorType::CombinedImageSampler;
+    uint32_t           myCount   = 1;
+    Rhi_ShaderStage    myStages  = Rhi_ShaderStage::Compute;
+};
+
+struct DescriptorSetLayoutDesc {
+    const DescriptorSetLayoutBinding* myBindings     = nullptr;
+    uint32_t                          myBindingCount = 0;
+};
+
+[[nodiscard]] Rhi_DescriptorSetLayout DeviceCreateDescriptorSetLayout( Rhi_Device& aDevice, const DescriptorSetLayoutDesc& aDesc );
+void                                  DeviceDestroyDescriptorSetLayout( Rhi_Device& aDevice, Rhi_DescriptorSetLayout& aLayout );
+
+struct DescriptorPoolSize {
+    Rhi_DescriptorType myType  = Rhi_DescriptorType::CombinedImageSampler;
+    uint32_t           myCount = 0;
+};
+
+struct DescriptorPoolDesc {
+    uint32_t                  myMaxSets       = 0;
+    const DescriptorPoolSize* myPoolSizes     = nullptr;
+    uint32_t                  myPoolSizeCount = 0;
+};
+
+[[nodiscard]] Rhi_DescriptorPool DeviceCreateDescriptorPool( Rhi_Device& aDevice, const DescriptorPoolDesc& aDesc );
+void                             DeviceDestroyDescriptorPool( Rhi_Device& aDevice, Rhi_DescriptorPool& aPool );
+
+// Allocated sets are freed when the pool is destroyed.
+[[nodiscard]] Rhi_DescriptorSet DeviceAllocateDescriptorSet( Rhi_Device& aDevice, Rhi_DescriptorPool aPool, Rhi_DescriptorSetLayout aLayout );
+
+struct PushConstantRangeDesc {
+    Rhi_ShaderStage myStages      = Rhi_ShaderStage::Compute;
+    uint32_t        myOffsetBytes = 0;
+    uint32_t        mySizeBytes   = 0;
+};
+
+struct PipelineLayoutDesc {
+    const Rhi_DescriptorSetLayout* mySetLayouts     = nullptr;
+    uint32_t                       mySetLayoutCount = 0;
+    const PushConstantRangeDesc*   myPushRanges     = nullptr;
+    uint32_t                       myPushRangeCount = 0;
+};
+
+[[nodiscard]] Rhi_PipelineLayout DeviceCreatePipelineLayout( Rhi_Device& aDevice, const PipelineLayoutDesc& aDesc );
+void                             DeviceDestroyPipelineLayout( Rhi_Device& aDevice, Rhi_PipelineLayout& aLayout );
+
+struct ComputePipelineDesc {
+    Rhi_ShaderModule   myShader{};
+    Rhi_PipelineLayout myLayout{};
+    const char*        myEntry = "main";
+};
+
+[[nodiscard]] Rhi_Pipeline DeviceCreateComputePipeline( Rhi_Device& aDevice, const ComputePipelineDesc& aDesc );
+void                       DeviceDestroyPipeline( Rhi_Device& aDevice, Rhi_Pipeline& aPipeline );
+
+// Single-mip view of an existing texture (owns the view; does not own the image).
+[[nodiscard]] Rhi_Texture DeviceCreateTextureMipView( Rhi_Device& aDevice, Rhi_Texture aParent, uint32_t aBaseMip );
+
+struct DescriptorImageWrite {
+    Rhi_DescriptorSet  mySet{};
+    uint32_t           myBinding = 0;
+    Rhi_DescriptorType myType    = Rhi_DescriptorType::CombinedImageSampler;
+    Rhi_Sampler        mySampler{};
+    Rhi_Texture        myTexture{};
+    Rhi_ImageLayout    myLayout = Rhi_ImageLayout::General;
+};
+
+void DeviceUpdateDescriptorImages( Rhi_Device& aDevice, const DescriptorImageWrite* aWrites, uint32_t aWriteCount );
+
 }  // namespace Rhi

@@ -97,10 +97,13 @@ vec4 applyDebugView(vec4 aLitColor, vec3 aWorldNormal, float aDepth, vec3 aWorld
     if (viewMode == kDebugViewAo) {
         return vec4(vec3(aAo), 1.0);
     }
-    if (viewMode == kDebugViewHiZ) {
-        const uint mip = min(pc.grid.w, 7u);
-        const float hiZ = textureLod(hiZPyramid, aUV, float(mip)).r;
-        return vec4(vec3(hiZ), 1.0);
+    if ( viewMode == kDebugViewHiZ ) {
+        // Sample full mip chain (requires multi-level image view). Remap ZO depth for visibility.
+        const int  levels = textureQueryLevels( hiZPyramid );
+        const uint mip    = min( pc.grid.w, uint( max( levels - 1, 0 ) ) );
+        const float hiZ   = textureLod( hiZPyramid, aUV, float( mip ) ).r;
+        const float vis   = pow( clamp( 1.0 - hiZ, 0.0, 1.0 ), 0.45 );
+        return vec4( vec3( vis ), 1.0 );
     }
     if (viewMode == kDebugViewDdgi) {
         return aLitColor;

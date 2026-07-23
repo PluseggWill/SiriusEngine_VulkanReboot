@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "../Gfx/Gfx_AoSettings.h"
+#include "../Rhi/Rhi_Handles.h"
 #include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
 
@@ -13,8 +14,18 @@ class Vk_Renderer;
 
 constexpr uint32_t kHiZMaxMipLevels = 8u;
 
-// Hi-Z min-depth pyramid (R32_SFLOAT mip chain) built from G-buffer depth.
+// Hi-Z min-depth pyramid (R32_SFLOAT mip chain) from G-buffer depth.
+// Used by SSR Hi-Z march + deferred Hi-Z debug. Not GPU occlusion culling (Wishlist S16).
 struct Vk_DepthPyramidState {
+    // Rhi-owned (create via myGfxRhiDevice); Vk mirrors below for SSR/deferred consumers.
+    Rhi_Pipeline                                                                          myRhiPipeline{};
+    Rhi_PipelineLayout                                                                    myRhiLayout{};
+    Rhi_DescriptorSetLayout                                                               myRhiSetLayout{};
+    Rhi_DescriptorPool                                                                    myRhiPool{};
+    Rhi_Sampler                                                                           myRhiDepthSampler{};
+    Rhi_Sampler                                                                           myRhiPyramidSampler{};
+    std::array< std::array< Rhi_DescriptorSet, kHiZMaxMipLevels >, MAX_FRAMES_IN_FLIGHT > myRhiSets{};
+
     VkPipeline            myComputePipeline     = VK_NULL_HANDLE;
     VkPipelineLayout      myPipelineLayout      = VK_NULL_HANDLE;
     VkDescriptorSetLayout myDescriptorSetLayout = VK_NULL_HANDLE;

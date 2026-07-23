@@ -5,7 +5,7 @@
 
 Done → Archived-Plan stub; no `[x]` here.
 
-**Pivot (2026-07):** Render-first. **S10 content pipeline early** so later VFX/env sprints dogfood **complex imported scenes**. Then particles → water → CSM → terrain → hair → scale/geometry.
+**Pivot (2026-07):** Render-first. **Next: finish Gfx/Rhi ownership** (retire `Vk_*_Record` + pass Init) before resuming **S10** content pipeline. Then particles → water → CSM → terrain → hair → scale/geometry.
 
 ---
 
@@ -13,18 +13,19 @@ Done → Archived-Plan stub; no `[x]` here.
 
 | # | Sprint | Focus | Blocked by | Unlocks |
 |---|--------|--------|------------|---------|
-| **1** | **S10** | **Content pipeline** (MeshImport + hot reload) | — | **G3**; rich test scenes for S11+ |
-| **2** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
-| **3** | **S12** | **Water** | Transparent ✓, SSR ✓; S9 ✓ | Reflections / refraction |
-| **4** | **S13** | Cascaded shadows | S5 ✓ | Outdoor; **S14** terrain |
-| **5** | **S14** | **Terrain** | S13 CSM preferred | Large outdoor scenes |
-| **6** | **S15** | **Hair / fur** | G-buffer ✓; S9 ✓ | Strand/card look; early aniso |
-| **7** | **S16** | Occlusion cull + compaction | S6 Hi-Z ✓, S3 cull ✓ | Dense scenes |
-| **8** | **S17** | Meshlets | **G3** | S18 |
-| **9** | **S18** | Mesh shader + GPU mesh | S17 | Full GPU-driven path |
-| **10** | **S19** | Advanced materials + decals | G-buffer ✓ | Clearcoat / transmission / decals |
-| **11** | **S20** | Volumetrics + cinematic post | S7 ✓, **G5** ✓ | Mood / DOF / MB |
-| — | **S21** | Render lab + RHI WSI *(parallel)* | — | Measurement / WSI |
+| **1** | **gfx-rhi-ownership** | FG Begin/End peel → Rhi create → Init→Gfx → delete facades/`Vk_*Pass` Init | gfx-rhi E0–E5 ✓ | Clean Gfx ownership; unblocks lab peel debt |
+| **2** | **S10** | **Content pipeline** (MeshImport + hot reload) | — *(after #1 preferred)* | **G3**; rich test scenes for S11+ |
+| **3** | **S11** | **GPU particles** | Depth + FG ✓ | Soft FX / emitters |
+| **4** | **S12** | **Water** | Transparent ✓, SSR ✓; S9 ✓ | Reflections / refraction |
+| **5** | **S13** | Cascaded shadows | S5 ✓ | Outdoor; **S14** terrain |
+| **6** | **S14** | **Terrain** | S13 CSM preferred | Large outdoor scenes |
+| **7** | **S15** | **Hair / fur** | G-buffer ✓; S9 ✓ | Strand/card look; early aniso |
+| **8** | **S16** | Occlusion cull + compaction | S6 Hi-Z ✓, S3 cull ✓ | Dense scenes |
+| **9** | **S17** | Meshlets | **G3** | S18 |
+| **10** | **S18** | Mesh shader + GPU mesh | S17 | Full GPU-driven path |
+| **11** | **S19** | Advanced materials + decals | G-buffer ✓ | Clearcoat / transmission / decals |
+| **12** | **S20** | Volumetrics + cinematic post | S7 ✓, **G5** ✓ | Mood / DOF / MB |
+| — | **S21** | Render lab + RHI WSI *(parallel; ownership epic pulled out)* | — | Measurement / WSI |
 | — | **P-Sim** | Physics / anim / AI *(parallel)* | **G2** ✓ | Slice interactivity |
 
 **Default benchmark:** `Data/Scenes/sponza.json` until S10 close; then `Data/Scenes/bistro_interior.json` (+ `Config/engine.bistro.json`). **CI smoke:** `stress.json` (unchanged).
@@ -48,8 +49,10 @@ flowchart TB
   S18[S18 Mesh shader + GPU mesh]
   S19[S19 Materials + decals]
   S20[S20 Volumetrics + cinematic]
+  Own[gfx-rhi-ownership]
   S21[S21 Lab + RHI]
 
+  Own -->|preferred before| S10
   S9done --> S12
   S9done --> S15
   S9done --> S20
@@ -69,9 +72,9 @@ flowchart TB
   S13 -.-> S20
 ```
 
-**Why S10 early:** MeshImport + material hot reload unlocks complex glTF scenes before particles/water/terrain/hair dogfood. Meshlets still wait on **G3** (S17).
+**Why ownership #1 now:** Finish Gfx/Rhi so HybridDeferred does not keep permanent `Vk_*_Record` / Init dual ownership; then resume S10 for rich scenes. Meshlets still wait on **G3** (S17).
 
-**Parallel OK:** S11 ∥ S13 after S10; S16 ∥ S15; S21 ∥ anything; P-Sim ∥ anything.
+**Parallel OK:** S11 ∥ S13 after S10; S16 ∥ S15; S21 lab ∥ anything (ownership epic is **queue #1**, not “later maint”); P-Sim ∥ anything.
 
 ---
 
@@ -79,9 +82,16 @@ flowchart TB
 
 | Epic | Focus | Plan | Blocks S10? |
 |------|--------|------|-------------|
+| **gfx-rhi-ownership-completion** | O1 FG Begin/End · O2 Rhi create · O3 Init→Gfx · O4 delete `Vk_*_Record` · O5 retire `Vk_*Pass` Init | [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md) | **Yes — preferred before S10** |
 | ~~**gfx-rhi-pass-migration**~~ | Opaque `Rhi/` + Gfx Records via Rhi | [`Archived/plans/gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) | — closed 2026-07-22 |
 
-**Follow-up (S21 maint):** peel `Vk_FrameGraph` GBuffer/hybrid Begin/End into Gfx (former E4.6f).
+**Open `[ ]` (ownership epic):**
+
+- [x] **O1** — Peel `Vk_FrameGraph` GBuffer/hybrid Begin/End into Gfx (former E4.6f)
+- [x] **O2** — Rhi create surface (pipeline / image / RP-FB / descriptor update) *(compute path + descriptor image update; graphics RP/FB create still adopt)*
+- [ ] **O3** — Move pass Init into `Gfx_*Pass` via Rhi *(DepthPyramid Init uses Rhi from RC; Gfx Init API still pending)*
+- [ ] **O4** — Delete `Vk_*_Record.cpp` facades on HybridDeferred path
+- [ ] **O5** — Retire empty/`Init`-only `Vk_*Pass.cpp` shells + Architecture migration note
 
 ## Gates
 

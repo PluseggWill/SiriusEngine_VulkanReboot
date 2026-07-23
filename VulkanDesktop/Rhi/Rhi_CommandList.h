@@ -94,6 +94,24 @@ struct ClearValue {
     uint32_t           myStencil = 0;
 };
 
+[[nodiscard]] inline ClearValue MakeClearColor( float aR, float aG, float aB, float aA ) {
+    ClearValue value{};
+    value.myType       = Rhi_ClearValueType::Color;
+    value.myColor[ 0 ] = aR;
+    value.myColor[ 1 ] = aG;
+    value.myColor[ 2 ] = aB;
+    value.myColor[ 3 ] = aA;
+    return value;
+}
+
+[[nodiscard]] inline ClearValue MakeClearDepthStencil( float aDepth = 1.0f, uint32_t aStencil = 0 ) {
+    ClearValue value{};
+    value.myType    = Rhi_ClearValueType::DepthStencil;
+    value.myDepth   = aDepth;
+    value.myStencil = aStencil;
+    return value;
+}
+
 struct RenderPassBeginInfo {
     Rhi_RenderPass    myRenderPass{};
     Rhi_Framebuffer   myFramebuffer{};

@@ -125,3 +125,19 @@ struct Rhi_Framebuffer {
         return myId != 0;
     }
 };
+
+struct Rhi_DescriptorSetLayout {
+    uint64_t myId = 0;
+
+    explicit operator bool() const {
+        return myId != 0;
+    }
+};
+
+struct Rhi_DescriptorPool {
+    uint64_t myId = 0;
+
+    explicit operator bool() const {
+        return myId != 0;
+    }
+};

@@ -67,10 +67,11 @@ void Record( Rhi_CommandList& aCmd, const GpuResources& aGpu, RecordInput& aInpu
     for ( uint32_t dstMip = 0; dstMip < aGpu.myMipLevelCount; ++dstMip ) {
         const bool     isFirstMip = ( dstMip == 0 );
         const uint32_t srcMip     = dstMip > 0 ? dstMip - 1 : 0;
-        const uint32_t srcWidth   = isFirstMip ? aInput.myWidth : std::max( 1u, aInput.myWidth >> dstMip );
-        const uint32_t srcHeight  = isFirstMip ? aInput.myHeight : std::max( 1u, aInput.myHeight >> dstMip );
-        const uint32_t dstWidth   = std::max( 1u, srcWidth >> 1 );
-        const uint32_t dstHeight  = std::max( 1u, srcHeight >> 1 );
+        // mip0 = full-res copy; later mips reduce previous mip (src size = extent of srcMip).
+        const uint32_t srcWidth  = isFirstMip ? aInput.myWidth : std::max( 1u, aInput.myWidth >> srcMip );
+        const uint32_t srcHeight = isFirstMip ? aInput.myHeight : std::max( 1u, aInput.myHeight >> srcMip );
+        const uint32_t dstWidth  = isFirstMip ? aInput.myWidth : std::max( 1u, aInput.myWidth >> dstMip );
+        const uint32_t dstHeight = isFirstMip ? aInput.myHeight : std::max( 1u, aInput.myHeight >> dstMip );
 
         Rhi::CommandListBindDescriptorSet( aCmd, Rhi_PipelineBindPoint::Compute, aGpu.myLayout, 0, aGpu.myMipSets[ dstMip ] );
 
@@ -95,7 +96,7 @@ void Record( Rhi_CommandList& aCmd, const GpuResources& aGpu, RecordInput& aInpu
     }
 
     BarrierPyramid( aCmd, aGpu.myPyramid, Rhi_ImageLayout::General, Rhi_ImageLayout::ShaderReadOnly, Rhi_Access::ShaderWrite, Rhi_Access::ShaderRead,
-                    Rhi_PipelineStage::ComputeShader, Rhi_PipelineStage::FragmentShader, 0, aGpu.myMipLevelCount );
+                    Rhi_PipelineStage::ComputeShader, Rhi_PipelineStage::FragmentShader | Rhi_PipelineStage::ComputeShader, 0, aGpu.myMipLevelCount );
     *aInput.myPyramidLayout = Rhi_ImageLayout::ShaderReadOnly;
 }
 

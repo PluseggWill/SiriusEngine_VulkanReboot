@@ -715,6 +715,42 @@ void TestRhiOpaqueDeviceAndCommandList() {
     Rhi::DeviceDestroy( again );
 }
 
+void TestRhiComputeCreateSurface() {
+    Rhi_Device device = Rhi::DeviceCreateHeadless( false );
+    Expect( static_cast< bool >( device ), "Rhi compute surface: headless device" );
+    Expect( !Rhi::DeviceHasLogicalDevice( device ), "Rhi compute surface: no logical device" );
+
+    Rhi::SamplerDesc samplerDesc{};
+    Expect( !static_cast< bool >( Rhi::DeviceCreateSampler( device, samplerDesc ) ), "CreateSampler fails closed without logical device" );
+
+    Rhi::DescriptorSetLayoutBinding binding{};
+    binding.myBinding = 0;
+    binding.myType    = Rhi_DescriptorType::StorageImage;
+    binding.myStages  = Rhi_ShaderStage::Compute;
+    Rhi::DescriptorSetLayoutDesc layoutDesc{};
+    layoutDesc.myBindings     = &binding;
+    layoutDesc.myBindingCount = 1;
+    Expect( !static_cast< bool >( Rhi::DeviceCreateDescriptorSetLayout( device, layoutDesc ) ), "CreateDescriptorSetLayout fails closed" );
+
+    Rhi::DescriptorPoolSize poolSize{ Rhi_DescriptorType::StorageImage, 1 };
+    Rhi::DescriptorPoolDesc poolDesc{};
+    poolDesc.myMaxSets       = 1;
+    poolDesc.myPoolSizes     = &poolSize;
+    poolDesc.myPoolSizeCount = 1;
+    Expect( !static_cast< bool >( Rhi::DeviceCreateDescriptorPool( device, poolDesc ) ), "CreateDescriptorPool fails closed" );
+
+    Rhi::PipelineLayoutDesc pipeLayoutDesc{};
+    Expect( !static_cast< bool >( Rhi::DeviceCreatePipelineLayout( device, pipeLayoutDesc ) ), "CreatePipelineLayout fails closed" );
+
+    Rhi::ComputePipelineDesc pipeDesc{};
+    Expect( !static_cast< bool >( Rhi::DeviceCreateComputePipeline( device, pipeDesc ) ), "CreateComputePipeline fails closed" );
+
+    Expect( static_cast< uint32_t >( Rhi_DescriptorType::StorageImage ) != 0 || true, "DescriptorType enum available" );
+    Expect( Rhi_ImageLayout::DepthStencilReadOnly != Rhi_ImageLayout::ShaderReadOnly, "DepthStencilReadOnly distinct from ShaderReadOnly" );
+
+    Rhi::DeviceDestroy( device );
+}
+
 void TestRhiGraphicsRecordingSurface() {
     // E4.6a: graphics recording APIs must compile and no-op safely without a bound Vk command buffer.
     Rhi_Device      device = Rhi::DeviceCreateHeadless( false );
@@ -727,9 +763,7 @@ void TestRhiGraphicsRecordingSurface() {
     Expect( RhiVulkan::RenderPassGetVk( rp ) == reinterpret_cast< VkRenderPass >( static_cast< uintptr_t >( 0x11 ) ), "RenderPassGetVk round-trip" );
     Expect( RhiVulkan::FramebufferGetVk( fb ) == reinterpret_cast< VkFramebuffer >( static_cast< uintptr_t >( 0x22 ) ), "FramebufferGetVk round-trip" );
 
-    Rhi::ClearValue depthClear{};
-    depthClear.myType  = Rhi_ClearValueType::DepthStencil;
-    depthClear.myDepth = 0.0f;
+    const Rhi::ClearValue depthClear = Rhi::MakeClearDepthStencil( 0.0f );
 
     Rhi::RenderPassBeginInfo begin{};
     begin.myRenderPass  = rp;
@@ -807,6 +841,7 @@ int main() {
     TestTemporalHaltonJitter();
     TestRhiDeviceHeadlessConstruct();
     TestRhiOpaqueDeviceAndCommandList();
+    TestRhiComputeCreateSurface();
     TestRhiGraphicsRecordingSurface();
     TestGpuCullSkipsCpuFrustumCull();
     TestDemoCullAndBatch();

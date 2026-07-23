@@ -1,38 +1,43 @@
 #version 450
 
-// Hi-Z min-depth pyramid: mip0 copies G-buffer depth; mip N+1 reduces 2x2 min from mip N.
+// Hi-Z min-depth pyramid for SSR / debug (not GPU occlusion cull — that is S16).
+// mip0 = full-res copy of G-buffer depth; mip N+1 = 2x2 min reduction of mip N.
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PushConstants {
     uint mipLevel;
-    uint isFirstMip; // 1 = sample gbuffer depth, 0 = read previous pyramid mip
-    uvec2 srcSize;
+    uint isFirstMip; // 1 = copy gbuffer depth into mip0, 0 = reduce previous mip
+    uvec2 srcSize;   // source texel size (gbuffer or previous mip)
 } pc;
 
 layout(set = 0, binding = 0) uniform sampler2D gbufferDepth;
 layout(set = 0, binding = 1, r32f) uniform readonly image2D srcPyramidMip;
 layout(set = 0, binding = 2, r32f) uniform writeonly image2D dstPyramidMip;
 
-float loadSrcDepth(ivec2 aCoord) {
-    const ivec2 clamped = clamp(aCoord, ivec2(0), ivec2(pc.srcSize) - ivec2(1));
-    if (pc.isFirstMip != 0u) {
-        return texelFetch(gbufferDepth, clamped, 0).r;
-    }
-    return imageLoad(srcPyramidMip, clamped).r;
-}
-
 void main() {
-    const uvec2 dstSize = max(uvec2(1u), pc.srcSize >> 1u);
     const uvec2 gid = gl_GlobalInvocationID.xy;
+
+    if (pc.isFirstMip != 0u) {
+        // Full-res copy into mip0 (matches Vulkan mip0 extent = screen size).
+        if (gid.x >= pc.srcSize.x || gid.y >= pc.srcSize.y) {
+            return;
+        }
+        const float depth = texelFetch(gbufferDepth, ivec2(gid), 0).r;
+        imageStore(dstPyramidMip, ivec2(gid), vec4(depth, 0.0, 0.0, 0.0));
+        return;
+    }
+
+    const uvec2 dstSize = max(uvec2(1u), pc.srcSize >> 1u);
     if (gid.x >= dstSize.x || gid.y >= dstSize.y) {
         return;
     }
 
     const uvec2 srcBase = gid * 2u;
-    const float d00 = loadSrcDepth(ivec2(srcBase));
-    const float d10 = loadSrcDepth(ivec2(srcBase + uvec2(1u, 0u)));
-    const float d01 = loadSrcDepth(ivec2(srcBase + uvec2(0u, 1u)));
-    const float d11 = loadSrcDepth(ivec2(srcBase + uvec2(1u, 1u)));
+    const ivec2 maxCoord = ivec2(pc.srcSize) - ivec2(1);
+    const float d00 = imageLoad(srcPyramidMip, clamp(ivec2(srcBase), ivec2(0), maxCoord)).r;
+    const float d10 = imageLoad(srcPyramidMip, clamp(ivec2(srcBase + uvec2(1u, 0u)), ivec2(0), maxCoord)).r;
+    const float d01 = imageLoad(srcPyramidMip, clamp(ivec2(srcBase + uvec2(0u, 1u)), ivec2(0), maxCoord)).r;
+    const float d11 = imageLoad(srcPyramidMip, clamp(ivec2(srcBase + uvec2(1u, 1u)), ivec2(0), maxCoord)).r;
 
     const float minDepth = min(min(d00, d10), min(d01, d11));
     imageStore(dstPyramidMip, ivec2(gid), vec4(minDepth, 0.0, 0.0, 0.0));
