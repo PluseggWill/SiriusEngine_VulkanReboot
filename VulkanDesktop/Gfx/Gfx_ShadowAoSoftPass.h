@@ -5,6 +5,7 @@
 #include "../Rhi/Rhi_Enums.h"
 #include "../Rhi/Rhi_Handles.h"
 
+#include <array>
 #include <cstdint>
 
 namespace Gfx_ShadowAoSoftPass {
@@ -38,25 +39,30 @@ struct RecordInput {
 };
 
 struct PassState {
-    Rhi_Pipeline            myPackPipeline{};
-    Rhi_PipelineLayout      myPackLayout{};
-    Rhi_Pipeline            myBlurPipeline{};
-    Rhi_PipelineLayout      myBlurLayout{};
-    Rhi_DescriptorSetLayout myPackSetLayout{};
-    Rhi_DescriptorSetLayout myBlurSetLayout{};
-    Rhi_DescriptorPool      myPool{};
-    Rhi_Sampler             myGBufferSampler{};
-    Rhi_Texture             mySoftPing{};
-    Rhi_Texture             mySoftPong{};
-    Rhi_Texture             myFallbackAo{};
-    Rhi_Texture             myFallbackContact{};
-    Rhi_ImageLayout         mySoftPingLayout = Rhi_ImageLayout::Undefined;
-    Rhi_ImageLayout         mySoftPongLayout = Rhi_ImageLayout::Undefined;
-    uint32_t                myWidth          = 0;
-    uint32_t                myHeight         = 0;
-    bool                    myFallbackReady  = false;
-    bool                    myImagesReady    = false;
-    bool                    myPipelineReady  = false;
+    Rhi_Pipeline                                        myPackPipeline{};
+    Rhi_PipelineLayout                                  myPackLayout{};
+    Rhi_Pipeline                                        myBlurPipeline{};
+    Rhi_PipelineLayout                                  myBlurLayout{};
+    Rhi_DescriptorSetLayout                             myPackSetLayout{};
+    Rhi_DescriptorSetLayout                             myBlurSetLayout{};
+    Rhi_DescriptorPool                                  myPool{};
+    Rhi_Sampler                                         myGBufferSampler{};
+    std::array< Rhi_DescriptorSet, kMaxFramesInFlight > myPackSets{};
+    std::array< Rhi_DescriptorSet, kMaxFramesInFlight > myPackNoAoSets{};
+    std::array< Rhi_DescriptorSet, kMaxFramesInFlight > myBlurHorizSets{};
+    std::array< Rhi_DescriptorSet, kMaxFramesInFlight > myBlurVertSets{};
+    Rhi_Texture                                         mySoftPing{};
+    Rhi_Texture                                         mySoftPong{};
+    Rhi_Texture                                         myFallbackAo{};
+    Rhi_Texture                                         myFallbackContact{};
+    Rhi_ImageLayout                                     mySoftPingLayout = Rhi_ImageLayout::Undefined;
+    Rhi_ImageLayout                                     mySoftPongLayout = Rhi_ImageLayout::Undefined;
+    uint32_t                                            myWidth          = 0;
+    uint32_t                                            myHeight         = 0;
+    bool                                                myFallbackReady  = false;
+    bool                                                myImagesReady    = false;
+    bool                                                myPipelineReady  = false;
+    bool                                                mySetsAllocated  = false;
 };
 
 struct PipelineInitDesc {
@@ -73,9 +79,23 @@ struct ImageInitDesc {
     bool     myCreateFallback = true;
 };
 
+struct DescriptorUpdateDesc {
+    uint32_t    myFramesInFlight = kMaxFramesInFlight;
+    Rhi_Texture myGBufferDepth{};
+    Rhi_Texture myGBufferWorldPos{};
+    Rhi_Texture myAoRaw{};  // optional; pack-with-AO uses this when set
+    Rhi_Texture myShadowDepth{};
+    Rhi_Sampler myShadowCompareSampler{};
+    Rhi_Buffer  myLightingGlobals{};
+    uint64_t    myLightingGlobalsStride = 0;
+    uint64_t    myLightingGlobalsRange  = 0;
+};
+
 [[nodiscard]] bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
 
 [[nodiscard]] bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState );
+
+void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState );
 
 void DestroyImages( Rhi_Device& aDevice, PassState& aState );
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState );

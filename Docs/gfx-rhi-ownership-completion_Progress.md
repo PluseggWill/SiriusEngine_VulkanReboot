@@ -3,6 +3,13 @@
 **Plan:** [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md)  
 **Started:** 2026-07-23
 
+## 2026-07-23 — O5 Soft descriptor alloc/update → Gfx
+- **Gfx_ShadowAoSoftPass:** allocate pack/blur sets in `CreatePipelines`; `UpdateDescriptors` via `DeviceUpdateDescriptorImages/Buffers`.
+- **RC:** SPIR-V load + SyncVkMirrors + cross-pass adopt (GBuffer/AO/Shadow/lighting); no `vkUpdateDescriptorSets` / `vkAllocateDescriptorSets`.
+- **Rhi:** `DeviceUpdateDescriptorImages` resolves adopted samplers (pointer-id fallback).
+- **Still pending:** AO/SSR/Post descriptor writes; Post layouts/images; retire thinner shells.
+- **Verification:** `Verify-CI` PASSED; `Verify-Smoke` PASSED.
+
 ## 2026-07-23 — O3 Init fan-out + Rhi correctness
 - **Init→Gfx:** AO CreatePipelines + images; Soft/SSR CreateOrRecreateImages; Post bloom/TAA compute PSOs; ShadowMap CreateResources; Deferred+DDGI CreatePipeline.
 - **Rhi fixes:** `DeviceCreateComputePipeline` uses `ResolvePipelineLayout` (adopted layouts); standard Gfx vertex attrs location/binding order; `DeviceUploadTexture2D` returns bool; Clear destroys ShadowMap+Rhi before VMA allocator flush.

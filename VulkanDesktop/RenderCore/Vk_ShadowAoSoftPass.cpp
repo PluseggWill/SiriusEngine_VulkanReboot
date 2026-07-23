@@ -79,6 +79,13 @@ void SyncVkMirrors( Vk_Renderer& aCore ) {
     state.myFallbackAo.ImageView()      = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackAo );
     state.myFallbackContact.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myFallbackContact );
     state.myFallbackContact.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackContact );
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        state.myPackDescriptorSets[ i ]      = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myPackSets[ i ] );
+        state.myPackNoAoDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myPackNoAoSets[ i ] );
+        state.myBlurHorizDescriptorSets[ i ] = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurHorizSets[ i ] );
+        state.myBlurVertDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurVertSets[ i ] );
+    }
 }
 
 bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
@@ -105,86 +112,40 @@ bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
     return true;
 }
 
-}  // namespace
-
-namespace {
-
-void UpdatePackDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aRawAoView ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo rawAoInfo{};
-    rawAoInfo.sampler     = state.myGBufferSampler;
-    rawAoInfo.imageView   = aRawAoView;
-    rawAoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo shadowInfo{};
-    shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
-    shadowInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
-    shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkDescriptorBufferInfo lightingGlobalsInfo{};
-    lightingGlobalsInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
-    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * aFrameIndex;
-    lightingGlobalsInfo.range  = sizeof( Gpu_LightingGlobals );
-
-    VkDescriptorImageInfo softOutInfo{};
-    softOutInfo.imageView   = state.mySoftPing.ImageView();
-    softOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 6 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &rawAoInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowInfo, 3, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightingGlobalsInfo, 4, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &softOutInfo, 5, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aSrcView, VkImageView aDstView ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    ( void )aFrameIndex;
-
-    VkDescriptorImageInfo srcInfo{};
-    srcInfo.imageView   = aSrcView;
-    srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorImageInfo dstInfo{};
-    dstInfo.imageView   = aDstView;
-    dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    std::array< VkWriteDescriptorSet, 3 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( aSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 2, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
 void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        UpdatePackDescriptorSet( aCore, i, state.myPackDescriptorSets[ i ], Vk_AoPass::GetRawAoImageView( aCore ) );
-        UpdatePackDescriptorSet( aCore, i, state.myPackNoAoDescriptorSets[ i ], state.myFallbackAo.ImageView() );
-        UpdateBlurDescriptorSet( aCore, i, state.myBlurHorizDescriptorSets[ i ], state.mySoftPing.ImageView(), state.mySoftPong.ImageView() );
-        UpdateBlurDescriptorSet( aCore, i, state.myBlurVertDescriptorSets[ i ], state.mySoftPong.ImageView(), state.mySoftPing.ImageView() );
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.mySetsAllocated ) {
+        return;
     }
+
+    // Temporary adopts for cross-pass resources (non-owning).
+    Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), aCore.FindDepthFormat(), 1 );
+    Rhi_Texture worldPosTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture aoRawTex{};
+    if ( aCore.myAoState.myGfx.myAoRaw ) {
+        aoRawTex = aCore.myAoState.myGfx.myAoRaw;
+    }
+    Rhi_Texture shadowDepth = aCore.myShadowMapState.myGfx.myDepth;
+    Rhi_Sampler shadowCmp   = aCore.myShadowMapState.myGfx.myCompareSampler;
+    Rhi_Buffer  lightingBuf = RhiVulkan::BufferAdopt( aCore.myLightingGlobalsBuffer.myBuffer );
+
+    Gfx_ShadowAoSoftPass::DescriptorUpdateDesc desc{};
+    desc.myFramesInFlight        = MAX_FRAMES_IN_FLIGHT;
+    desc.myGBufferDepth          = depthTex;
+    desc.myGBufferWorldPos       = worldPosTex;
+    desc.myAoRaw                 = aoRawTex;
+    desc.myShadowDepth           = shadowDepth;
+    desc.myShadowCompareSampler  = shadowCmp;
+    desc.myLightingGlobals       = lightingBuf;
+    desc.myLightingGlobalsStride = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) );
+    desc.myLightingGlobalsRange  = sizeof( Gpu_LightingGlobals );
+    Gfx_ShadowAoSoftPass::UpdateDescriptors( rhi, desc, state.myGfx );
+
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    Rhi::DeviceDestroyTexture( rhi, worldPosTex );
+    SyncVkMirrors( aCore );
 }
 
 void CreatePipelines( Vk_Renderer& aCore ) {
@@ -204,29 +165,6 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     }
     SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE", "Shadow/AO contact soft compute pipelines created (Gfx)." );
-}
-
-void AllocateDescriptorSets( Vk_Renderer& aCore ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = state.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-
-        allocInfo.pSetLayouts = &state.myPackSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myPackDescriptorSets[ i ] ),
-                                          "Vk_ShadowAoSoftPass: pack descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myPackNoAoDescriptorSets[ i ] ),
-                                          "Vk_ShadowAoSoftPass: pack (no SSAO) descriptor set alloc" );
-
-        allocInfo.pSetLayouts = &state.myBlurSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ),
-                                          "Vk_ShadowAoSoftPass: blur H descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ),
-                                          "Vk_ShadowAoSoftPass: blur V descriptor set alloc" );
-    }
-    UpdateAllDescriptorSets( aCore );
 }
 
 }  // namespace
@@ -282,7 +220,7 @@ void Init( Vk_Renderer& aCore ) {
         ClearVkMirrors( aCore.myShadowAoSoftState );
         throw std::runtime_error( "Vk_ShadowAoSoftPass: Gfx CreateOrRecreateImages failed" );
     }
-    AllocateDescriptorSets( aCore );
+    UpdateAllDescriptorSets( aCore );
     aCore.myShadowAoSoftState.myInitialized = true;
 }
 

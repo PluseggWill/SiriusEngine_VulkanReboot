@@ -180,12 +180,38 @@ bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassSt
         return false;
     }
 
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        aState.myPackSets[ i ]      = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myPackSetLayout );
+        aState.myPackNoAoSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myPackSetLayout );
+        aState.myBlurHorizSets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+        aState.myBlurVertSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+        if ( !aState.myPackSets[ i ] || !aState.myPackNoAoSets[ i ] || !aState.myBlurHorizSets[ i ] || !aState.myBlurVertSets[ i ] ) {
+            DestroyPipelines( aDevice, aState );
+            return false;
+        }
+    }
+    aState.mySetsAllocated = true;
+
     aState.myPipelineReady = true;
     return true;
 }
 
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState ) {
     DestroyImages( aDevice, aState );
+
+    for ( auto& set : aState.myPackSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myPackNoAoSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurHorizSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurVertSets ) {
+        set = {};
+    }
+    aState.mySetsAllocated = false;
 
     if ( aState.myPackPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myPackPipeline );
@@ -307,6 +333,64 @@ bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, Pa
 void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
     DestroySoftImagesOnly( aDevice, aState );
     DestroyFallbackImagesOnly( aDevice, aState );
+}
+
+void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState ) {
+    if ( !aState.mySetsAllocated || !aState.myImagesReady || !aState.myFallbackReady ) {
+        return;
+    }
+    if ( !aDesc.myGBufferDepth || !aDesc.myGBufferWorldPos || !aDesc.myShadowDepth || !aDesc.myShadowCompareSampler || !aDesc.myLightingGlobals
+         || aDesc.myLightingGlobalsRange == 0 ) {
+        return;
+    }
+
+    const uint32_t    frames    = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const Rhi_Texture aoForPack = aDesc.myAoRaw ? aDesc.myAoRaw : aState.myFallbackAo;
+
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        const std::array< Rhi::DescriptorImageWrite, 5 > packImages = { {
+            { aState.myPackSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myPackSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferWorldPos, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myPackSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aoForPack, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myPackSets[ i ], 3, Rhi_DescriptorType::CombinedImageSampler, aDesc.myShadowCompareSampler, aDesc.myShadowDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myPackSets[ i ], 5, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPing, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, packImages.data(), static_cast< uint32_t >( packImages.size() ) );
+
+        const Rhi::DescriptorBufferWrite packBuf{
+            aState.myPackSets[ i ], 4, Rhi_DescriptorType::UniformBuffer, aDesc.myLightingGlobals, aDesc.myLightingGlobalsStride * i, aDesc.myLightingGlobalsRange
+        };
+        Rhi::DeviceUpdateDescriptorBuffers( aDevice, &packBuf, 1 );
+
+        const std::array< Rhi::DescriptorImageWrite, 5 > packNoAoImages = { {
+            { aState.myPackNoAoSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myPackNoAoSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferWorldPos, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myPackNoAoSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aState.myFallbackAo, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myPackNoAoSets[ i ], 3, Rhi_DescriptorType::CombinedImageSampler, aDesc.myShadowCompareSampler, aDesc.myShadowDepth,
+              Rhi_ImageLayout::DepthStencilReadOnly },
+            { aState.myPackNoAoSets[ i ], 5, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPing, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, packNoAoImages.data(), static_cast< uint32_t >( packNoAoImages.size() ) );
+
+        const Rhi::DescriptorBufferWrite packNoAoBuf{ aState.myPackNoAoSets[ i ],        4,
+                                                      Rhi_DescriptorType::UniformBuffer, aDesc.myLightingGlobals,
+                                                      aDesc.myLightingGlobalsStride * i, aDesc.myLightingGlobalsRange };
+        Rhi::DeviceUpdateDescriptorBuffers( aDevice, &packNoAoBuf, 1 );
+
+        const std::array< Rhi::DescriptorImageWrite, 3 > blurH = { {
+            { aState.myBlurHorizSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPing, Rhi_ImageLayout::General },
+            { aState.myBlurHorizSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPong, Rhi_ImageLayout::General },
+            { aState.myBlurHorizSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurH.data(), static_cast< uint32_t >( blurH.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 3 > blurV = { {
+            { aState.myBlurVertSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPong, Rhi_ImageLayout::General },
+            { aState.myBlurVertSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.mySoftPing, Rhi_ImageLayout::General },
+            { aState.myBlurVertSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurV.data(), static_cast< uint32_t >( blurV.size() ) );
+    }
 }
 
 void Destroy( Rhi_Device& aDevice, PassState& aState ) {

@@ -1766,6 +1766,9 @@ void DeviceUpdateDescriptorImages( Rhi_Device& aDevice, const DescriptorImageWri
             if ( sampIt != impl->mySamplers.end() ) {
                 sampler = sampIt->second;
             }
+            else {
+                sampler = reinterpret_cast< VkSampler >( static_cast< uintptr_t >( w.mySampler.myId ) );
+            }
         }
         VkImageView view  = VK_NULL_HANDLE;
         auto        texIt = impl->myTextures.find( w.myTexture.myId );
