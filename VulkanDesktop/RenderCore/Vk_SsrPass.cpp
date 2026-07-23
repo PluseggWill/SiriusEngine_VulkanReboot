@@ -29,8 +29,7 @@ std::array< VkImageLayout, 2 > gHistoryLayouts{ VK_IMAGE_LAYOUT_UNDEFINED, VK_IM
 
 namespace {
 
-constexpr char     kSsrShaderPath[] = "VulkanDesktop/Shader_Generated/SsrTrace.spv";
-constexpr VkFormat kSsrFormat       = VK_FORMAT_R16G16B16A16_SFLOAT;
+constexpr char kSsrShaderPath[] = "VulkanDesktop/Shader_Generated/SsrTrace.spv";
 
 std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     std::ifstream file( aPath, std::ios::ate | std::ios::binary );
@@ -62,71 +61,37 @@ void SyncVkMirrors( Vk_Renderer& aCore ) {
     state.myDescriptorSetLayout = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.mySetLayout );
     state.myDescriptorPool      = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
     state.myGBufferSampler      = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
+
+    state.mySsrOutput.Image()              = RhiVulkan::TextureGetVkImage( rhi, gfx.mySsrOutput );
+    state.mySsrOutput.ImageView()          = RhiVulkan::TextureGetVkView( rhi, gfx.mySsrOutput );
+    state.myLitHdrHistory[ 0 ].Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myHistory0 );
+    state.myLitHdrHistory[ 0 ].ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myHistory0 );
+    state.myLitHdrHistory[ 1 ].Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myHistory1 );
+    state.myLitHdrHistory[ 1 ].ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myHistory1 );
 }
 
-void DestroySsrImage( Vk_Renderer& aCore ) {
-    const VkDevice      device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator  allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    Vk_TextureResource& texture   = aCore.mySsrState.mySsrOutput;
+bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
+    Vk_SsrState& state = aCore.mySsrState;
+    Rhi_Device&  rhi   = aCore.myGfxRhiDevice;
 
-    if ( texture.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( device, texture.ImageView(), nullptr );
-        texture.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( texture.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( allocator, texture.Image(), texture.Allocation() );
-        texture.AllocImage() = {};
-    }
-    Vk_SsrPassDetail::gSsrLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-}
-
-void DestroySsrImages( Vk_Renderer& aCore ) {
-    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    for ( Vk_TextureResource& history : aCore.mySsrState.myLitHdrHistory ) {
-        if ( history.ImageView() != VK_NULL_HANDLE ) {
-            vkDestroyImageView( device, history.ImageView(), nullptr );
-            history.ImageView() = VK_NULL_HANDLE;
-        }
-        if ( history.Image() != VK_NULL_HANDLE ) {
-            vmaDestroyImage( allocator, history.Image(), history.Allocation() );
-            history.AllocImage() = {};
-        }
-    }
-    Vk_SsrPassDetail::gHistoryLayouts = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
-}
-
-void CreateHistoryImages( Vk_Renderer& aCore ) {
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    if ( width == 0 || height == 0 ) {
+        return false;
     }
 
-    for ( uint32_t i = 0; i < 2; ++i ) {
-        Vk_TextureResource& history = aCore.mySsrState.myLitHdrHistory[ i ];
-        aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                           VK_SAMPLE_COUNT_1_BIT, history.AllocImage() );
-        history.ImageView() = aCore.CreateImageView( history.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-        // First-frame SSR samples history as SHADER_READ_ONLY before RecordHistoryUpdate has written it.
-        aCore.TransitionImageLayout( history.Image(), kSsrFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-        Vk_SsrPassDetail::gHistoryLayouts[ i ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Gfx_SsrPass::ImageInitDesc imageDesc{};
+    imageDesc.myWidth  = width;
+    imageDesc.myHeight = height;
+    if ( !Gfx_SsrPass::CreateOrRecreateImages( rhi, imageDesc, state.myGfx ) ) {
+        return false;
     }
 
-    UtilLogger::Info( "SSR", "lit HDR history ping-pong: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) );
-}
-
-void CreateSsrImage( Vk_Renderer& aCore ) {
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
-    }
-
-    Vk_TextureResource& texture = aCore.mySsrState.mySsrOutput;
-    aCore.CreateImage( extent, kSsrFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, texture.AllocImage() );
-    texture.ImageView() = aCore.CreateImageView( texture.Image(), kSsrFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-
-    UtilLogger::Info( "SSR", "target: " + std::to_string( extent.width ) + "x" + std::to_string( extent.height ) + " format=RGBA16F" );
+    SyncVkMirrors( aCore );
+    Vk_SsrPassDetail::gHistoryLayouts[ 0 ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Vk_SsrPassDetail::gHistoryLayouts[ 1 ] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    UtilLogger::Info( "SSR", "target + lit HDR history: " + std::to_string( width ) + "x" + std::to_string( height ) + " format=RGBA16F (Gfx)" );
+    return true;
 }
 
 void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
@@ -148,8 +113,7 @@ void UpdateDescriptorSetImpl( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo historyInfo{};
-    historyInfo.sampler = state.myGBufferSampler;
-    // Read buffer written at end of previous frame (RecordHistoryUpdate).
+    historyInfo.sampler      = state.myGBufferSampler;
     const uint32_t readIndex = state.myHistoryWriteIndex;
     historyInfo.imageView    = state.myLitHdrHistory[ readIndex ].ImageView();
     historyInfo.imageLayout  = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -225,11 +189,11 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroySsrImage( aCore );
-    DestroySsrImages( aCore );
     if ( aCore.myGfxRhiDevice ) {
         Gfx_SsrPass::Destroy( aCore.myGfxRhiDevice, aCore.mySsrState.myGfx );
     }
+    Vk_SsrPassDetail::gSsrLayout         = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_SsrPassDetail::gHistoryLayouts    = { VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_UNDEFINED };
     aCore.mySsrState.myDescriptorSets    = {};
     aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
@@ -244,10 +208,10 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroySsrImage( aCore );
-    DestroySsrImages( aCore );
-    CreateSsrImage( aCore );
-    CreateHistoryImages( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        throw std::runtime_error( "Vk_SsrPass: recreate images failed" );
+    }
+    Vk_SsrPassDetail::gSsrLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
     aCore.mySsrState.myHistoryReady = false;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         UpdateDescriptorSetImpl( aCore, i );
@@ -266,8 +230,11 @@ void Init( Vk_Renderer& aCore ) {
     }
     UtilLogger::Info( "FG", "Vk_SsrPass::Init (Gfx create)." );
     CreatePipeline( aCore );
-    CreateSsrImage( aCore );
-    CreateHistoryImages( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        Gfx_SsrPass::Destroy( aCore.myGfxRhiDevice, aCore.mySsrState.myGfx );
+        ClearVkMirrors( aCore.mySsrState );
+        throw std::runtime_error( "Vk_SsrPass: Gfx CreateOrRecreateImages failed" );
+    }
     aCore.mySsrState.myHistoryReady      = false;
     aCore.mySsrState.myHistoryWriteIndex = 0u;
     AllocateDescriptorSets( aCore );

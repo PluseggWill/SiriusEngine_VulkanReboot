@@ -25,11 +25,12 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] VkCommandBuffer CommandListGetVk( const Rhi_CommandList& aList );
 
 // Non-owning adopt helpers for gradual pass migration (Gfx still uses Rhi types).
-[[nodiscard]] Rhi_Pipeline       PipelineAdopt( VkPipeline aPipeline );
-[[nodiscard]] Rhi_PipelineLayout PipelineLayoutAdopt( VkPipelineLayout aLayout );
-[[nodiscard]] Rhi_DescriptorSet  DescriptorSetAdopt( VkDescriptorSet aSet );
-[[nodiscard]] Rhi_RenderPass     RenderPassAdopt( VkRenderPass aRenderPass );
-[[nodiscard]] Rhi_Framebuffer    FramebufferAdopt( VkFramebuffer aFramebuffer );
+[[nodiscard]] Rhi_Pipeline            PipelineAdopt( VkPipeline aPipeline );
+[[nodiscard]] Rhi_PipelineLayout      PipelineLayoutAdopt( VkPipelineLayout aLayout );
+[[nodiscard]] Rhi_DescriptorSet       DescriptorSetAdopt( VkDescriptorSet aSet );
+[[nodiscard]] Rhi_DescriptorSetLayout DescriptorSetLayoutAdopt( VkDescriptorSetLayout aLayout );
+[[nodiscard]] Rhi_RenderPass          RenderPassAdopt( VkRenderPass aRenderPass );
+[[nodiscard]] Rhi_Framebuffer         FramebufferAdopt( VkFramebuffer aFramebuffer );
 // Registers a non-owned image/view on aDevice so barriers / TextureGetVk* work.
 [[nodiscard]] Rhi_Texture TextureAdopt( const Rhi_Device& aDevice, VkImage aImage, VkImageView aView, VkFormat aFormat, uint32_t aMipLevels );
 [[nodiscard]] Rhi_Buffer  BufferAdopt( VkBuffer aBuffer );

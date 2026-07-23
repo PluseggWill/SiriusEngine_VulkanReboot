@@ -1,5 +1,61 @@
 #include "Gfx_PostProcessPass.h"
 
+#include "../Rhi/Rhi_Device.h"
+
+namespace {
+
+bool CreateOneCompute( Rhi_Device& aDevice, const void* aSpirv, size_t aBytes, Rhi_PipelineLayout aLayout, Rhi_Pipeline& aOut ) {
+    if ( aSpirv == nullptr || aBytes == 0 || !aLayout ) {
+        return false;
+    }
+    Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( aDevice, aSpirv, aBytes );
+    if ( !shader ) {
+        return false;
+    }
+    Rhi::ComputePipelineDesc desc{};
+    desc.myShader = shader;
+    desc.myLayout = aLayout;
+    aOut          = Rhi::DeviceCreateComputePipeline( aDevice, desc );
+    Rhi::DeviceDestroyShaderModule( aDevice, shader );
+    return static_cast< bool >( aOut );
+}
+
+}  // namespace
+
+namespace Gfx_PostProcessPass {
+
+bool CreateComputePipelines( Rhi_Device& aDevice, const ComputePipelinesInitDesc& aDesc, ComputePassState& aState ) {
+    if ( aState.myPipelinesReady ) {
+        return true;
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) ) {
+        return false;
+    }
+    if ( !CreateOneCompute( aDevice, aDesc.myThresholdSpirv, aDesc.myThresholdSpirvBytes, aDesc.myThresholdLayout, aState.myThresholdPipeline )
+         || !CreateOneCompute( aDevice, aDesc.myBlurSpirv, aDesc.myBlurSpirvBytes, aDesc.myBlurLayout, aState.myBlurPipeline )
+         || !CreateOneCompute( aDevice, aDesc.myTaaSpirv, aDesc.myTaaSpirvBytes, aDesc.myTaaLayout, aState.myTaaPipeline ) ) {
+        DestroyComputePipelines( aDevice, aState );
+        return false;
+    }
+    aState.myPipelinesReady = true;
+    return true;
+}
+
+void DestroyComputePipelines( Rhi_Device& aDevice, ComputePassState& aState ) {
+    if ( aState.myThresholdPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myThresholdPipeline );
+    }
+    if ( aState.myBlurPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myBlurPipeline );
+    }
+    if ( aState.myTaaPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myTaaPipeline );
+    }
+    aState.myPipelinesReady = false;
+}
+
+}  // namespace Gfx_PostProcessPass
+
 namespace {
 
 void Barrier( Rhi_CommandList& aCmd, Rhi_Texture aTex, Rhi_ImageLayout aOld, Rhi_ImageLayout aNew, Rhi_Access aSrcAccess, Rhi_Access aDstAccess, Rhi_PipelineStage aSrcStage,

@@ -133,6 +133,11 @@ void Vk_Renderer::Clear() {
 
     ShutdownImGui();
 
+    // Device-lifetime Gfx resources (ShadowMap Init in InitRenderDevice) must free VMA
+    // allocations before the allocator is destroyed via myDeletionQueue.
+    Vk_ShadowMapPass::Destroy( *this );
+    Rhi::DeviceDestroy( myGfxRhiDevice );
+
     mySwapchainCtx.mySwapChainDeletionQueue.flush();
     mySceneGpuCtx.mySceneDeletionQueue.flush();
     myRhi.myDeviceCtx.myDeletionQueue.flush();
@@ -143,8 +148,6 @@ void Vk_Renderer::Clear() {
 
     // Persist pipeline cache blob while device is still valid.
     Vk_DevicePipelineCache::Destroy( *this );
-
-    Rhi::DeviceDestroy( myGfxRhiDevice );
 
     vkDestroyDevice( myRhi.myDeviceCtx.myDevice, nullptr );
 

@@ -98,6 +98,7 @@
     <ClCompile Include="RenderCore\Vk_RhiBackend.cpp" />
     <ClCompile Include="RenderCore\Vk_ResourceContext.cpp" />
     <ClCompile Include="RenderCore\Vk_Initializer.cpp" />
+    <ClCompile Include="RenderCore\Vk_VertexLayout.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawBatch.cpp" />
     <ClCompile Include="Gfx\Gfx_DrawTemplate.cpp" />
     <ClCompile Include="Gfx\Gfx_EntityGpuRecord.cpp" />

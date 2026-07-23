@@ -49,6 +49,7 @@ inline Rhi_ImageUsage operator|( Rhi_ImageUsage a, Rhi_ImageUsage b ) {
 enum class Rhi_Format : uint16_t {
     Undefined = 0,
     R8_Unorm,
+    RG8_Unorm,
     R16_Sfloat,
     R32_Sfloat,
     RG16_Sfloat,

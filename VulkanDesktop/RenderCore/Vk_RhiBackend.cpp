@@ -1,5 +1,6 @@
 #include "Vk_RhiBackend.h"
 
+#include "../Gfx/Gfx_Vertex.h"
 #include "../Rhi/Rhi_CommandList.h"
 #include "../Rhi/Rhi_Device.h"
 #include "../Rhi/Rhi_Enums.h"
@@ -8,6 +9,8 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include <cstddef>
+#include <cstring>
 #include <unordered_map>
 #include <vector>
 
@@ -283,6 +286,8 @@ VkFormat ToVkFormat( Rhi_Format aFormat ) {
     switch ( aFormat ) {
     case Rhi_Format::R8_Unorm:
         return VK_FORMAT_R8_UNORM;
+    case Rhi_Format::RG8_Unorm:
+        return VK_FORMAT_R8G8_UNORM;
     case Rhi_Format::R16_Sfloat:
         return VK_FORMAT_R16_SFLOAT;
     case Rhi_Format::R32_Sfloat:
@@ -302,6 +307,28 @@ VkFormat ToVkFormat( Rhi_Format aFormat ) {
     case Rhi_Format::Undefined:
     default:
         return VK_FORMAT_UNDEFINED;
+    }
+}
+
+VkCompareOp ToVkCompareOp( Rhi_CompareOp aOp ) {
+    switch ( aOp ) {
+    case Rhi_CompareOp::Never:
+        return VK_COMPARE_OP_NEVER;
+    case Rhi_CompareOp::Less:
+        return VK_COMPARE_OP_LESS;
+    case Rhi_CompareOp::Equal:
+        return VK_COMPARE_OP_EQUAL;
+    case Rhi_CompareOp::Greater:
+        return VK_COMPARE_OP_GREATER;
+    case Rhi_CompareOp::NotEqual:
+        return VK_COMPARE_OP_NOT_EQUAL;
+    case Rhi_CompareOp::GreaterOrEqual:
+        return VK_COMPARE_OP_GREATER_OR_EQUAL;
+    case Rhi_CompareOp::Always:
+        return VK_COMPARE_OP_ALWAYS;
+    case Rhi_CompareOp::LessOrEqual:
+    default:
+        return VK_COMPARE_OP_LESS_OR_EQUAL;
     }
 }
 
@@ -439,6 +466,16 @@ VkPipelineLayout ResolvePipelineLayout( DeviceImpl* aDevice, Rhi_PipelineLayout 
         }
     }
     return reinterpret_cast< VkPipelineLayout >( static_cast< uintptr_t >( aLayout.myId ) );
+}
+
+VkDescriptorSetLayout ResolveDescriptorSetLayout( DeviceImpl* aDevice, Rhi_DescriptorSetLayout aLayout ) {
+    if ( aDevice != nullptr ) {
+        auto it = aDevice->mySetLayouts.find( aLayout.myId );
+        if ( it != aDevice->mySetLayouts.end() ) {
+            return it->second;
+        }
+    }
+    return reinterpret_cast< VkDescriptorSetLayout >( static_cast< uintptr_t >( aLayout.myId ) );
 }
 
 VkDescriptorSet ResolveDescriptorSet( DeviceImpl* aDevice, Rhi_DescriptorSet aSet ) {
@@ -939,6 +976,53 @@ void DeviceDestroyTexture( Rhi_Device& aDevice, Rhi_Texture& aTexture ) {
     aTexture.myId = 0;
 }
 
+void DeviceTransitionTextureLayout( Rhi_Device& aDevice, Rhi_Texture aTexture, Rhi_ImageLayout aOldLayout, Rhi_ImageLayout aNewLayout ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aTexture.myId == 0 ) {
+        return;
+    }
+    auto it = impl->myTextures.find( aTexture.myId );
+    if ( it == impl->myTextures.end() || it->second.myAlloc.myImage == VK_NULL_HANDLE ) {
+        return;
+    }
+    impl->myVk->TransitionImageLayout( it->second.myAlloc.myImage, it->second.myFormat, ToVkLayout( aOldLayout ), ToVkLayout( aNewLayout ), it->second.myMipLevels );
+}
+
+bool DeviceUploadTexture2D( Rhi_Device& aDevice, Rhi_Texture aTexture, const void* aPixels, size_t aByteCount, uint32_t aWidth, uint32_t aHeight ) {
+    DeviceImpl* impl = AsDevice( aDevice );
+    if ( !HasLogicalDevice( impl ) || aTexture.myId == 0 || aPixels == nullptr || aByteCount == 0 || aWidth == 0 || aHeight == 0 ) {
+        return false;
+    }
+    auto it = impl->myTextures.find( aTexture.myId );
+    if ( it == impl->myTextures.end() || it->second.myAlloc.myImage == VK_NULL_HANDLE ) {
+        return false;
+    }
+
+    Rhi::BufferDesc stagingDesc{};
+    stagingDesc.mySizeBytes = aByteCount;
+    stagingDesc.myUsage     = Rhi_BufferUsage::TransferSrc;
+    stagingDesc.myMemory    = Rhi_MemoryUsage::CpuToGpu;
+    Rhi_Buffer staging      = DeviceCreateBuffer( aDevice, stagingDesc );
+    if ( !staging ) {
+        return false;
+    }
+    void* mapped = DeviceMapBuffer( aDevice, staging );
+    if ( mapped == nullptr ) {
+        DeviceDestroyBuffer( aDevice, staging );
+        return false;
+    }
+    std::memcpy( mapped, aPixels, aByteCount );
+    DeviceUnmapBuffer( aDevice, staging );
+
+    const VkImage  image  = it->second.myAlloc.myImage;
+    const VkFormat format = it->second.myFormat;
+    impl->myVk->TransitionImageLayout( image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, it->second.myMipLevels );
+    impl->myVk->CopyBufferToImage( RhiVulkan::BufferGetVk( aDevice, staging ), image, aWidth, aHeight );
+    impl->myVk->TransitionImageLayout( image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, it->second.myMipLevels );
+    DeviceDestroyBuffer( aDevice, staging );
+    return true;
+}
+
 Rhi_ShaderModule DeviceCreateShaderModule( Rhi_Device& aDevice, const void* aSpirvCode, size_t aSpirvBytes ) {
     DeviceImpl* impl = AsDevice( aDevice );
     if ( !HasLogicalDevice( impl ) || aSpirvCode == nullptr || aSpirvBytes == 0 || ( aSpirvBytes % 4 ) != 0 ) {
@@ -1028,7 +1112,10 @@ Rhi_Sampler DeviceCreateSampler( Rhi_Device& aDevice, const SamplerDesc& aDesc )
     info.addressModeW  = ToVkAddressMode( aDesc.myAddressW );
     info.maxLod        = aDesc.myMaxLod;
     info.compareEnable = aDesc.myCompareEnable ? VK_TRUE : VK_FALSE;
-    VkSampler sampler  = VK_NULL_HANDLE;
+    if ( aDesc.myCompareEnable ) {
+        info.compareOp = ToVkCompareOp( aDesc.myCompareOp );
+    }
+    VkSampler sampler = VK_NULL_HANDLE;
     if ( vkCreateSampler( impl->myVk->myDeviceCtx.myDevice, &info, nullptr, &sampler ) != VK_SUCCESS ) {
         return {};
     }
@@ -1158,15 +1245,18 @@ Rhi_DescriptorSet DeviceAllocateDescriptorSet( Rhi_Device& aDevice, Rhi_Descript
         return {};
     }
     auto poolIt = impl->myPools.find( aPool.myId );
-    auto layIt  = impl->mySetLayouts.find( aLayout.myId );
-    if ( poolIt == impl->myPools.end() || layIt == impl->mySetLayouts.end() ) {
+    if ( poolIt == impl->myPools.end() ) {
+        return {};
+    }
+    const VkDescriptorSetLayout vkLayout = ResolveDescriptorSetLayout( impl, aLayout );
+    if ( vkLayout == VK_NULL_HANDLE ) {
         return {};
     }
     VkDescriptorSetAllocateInfo info{};
     info.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     info.descriptorPool     = poolIt->second;
     info.descriptorSetCount = 1;
-    info.pSetLayouts        = &layIt->second;
+    info.pSetLayouts        = &vkLayout;
     VkDescriptorSet set     = VK_NULL_HANDLE;
     if ( vkAllocateDescriptorSets( impl->myVk->myDeviceCtx.myDevice, &info, &set ) != VK_SUCCESS ) {
         return {};
@@ -1186,11 +1276,11 @@ Rhi_PipelineLayout DeviceCreatePipelineLayout( Rhi_Device& aDevice, const Pipeli
     std::vector< VkDescriptorSetLayout > setLayouts;
     setLayouts.reserve( aDesc.mySetLayoutCount );
     for ( uint32_t i = 0; i < aDesc.mySetLayoutCount; ++i ) {
-        auto it = impl->mySetLayouts.find( aDesc.mySetLayouts[ i ].myId );
-        if ( it == impl->mySetLayouts.end() ) {
+        const VkDescriptorSetLayout vkLayout = ResolveDescriptorSetLayout( impl, aDesc.mySetLayouts[ i ] );
+        if ( vkLayout == VK_NULL_HANDLE ) {
             return {};
         }
-        setLayouts.push_back( it->second );
+        setLayouts.push_back( vkLayout );
     }
     std::vector< VkPushConstantRange > pushes;
     pushes.reserve( aDesc.myPushRangeCount );
@@ -1241,8 +1331,11 @@ Rhi_Pipeline DeviceCreateComputePipeline( Rhi_Device& aDevice, const ComputePipe
         return {};
     }
     auto shaderIt = impl->myShaders.find( aDesc.myShader.myId );
-    auto layoutIt = impl->myPipelineLayouts.find( aDesc.myLayout.myId );
-    if ( shaderIt == impl->myShaders.end() || layoutIt == impl->myPipelineLayouts.end() ) {
+    if ( shaderIt == impl->myShaders.end() ) {
+        return {};
+    }
+    const VkPipelineLayout layout = ResolvePipelineLayout( impl, aDesc.myLayout );
+    if ( layout == VK_NULL_HANDLE ) {
         return {};
     }
     VkPipelineShaderStageCreateInfo stage{};
@@ -1254,7 +1347,7 @@ Rhi_Pipeline DeviceCreateComputePipeline( Rhi_Device& aDevice, const ComputePipe
     VkComputePipelineCreateInfo info{};
     info.sType          = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     info.stage          = stage;
-    info.layout         = layoutIt->second;
+    info.layout         = layout;
     VkPipeline pipeline = VK_NULL_HANDLE;
     if ( vkCreateComputePipelines( impl->myVk->myDeviceCtx.myDevice, impl->myVk->myDeviceCtx.myPipelineCache, 1, &info, nullptr, &pipeline ) != VK_SUCCESS ) {
         return {};
@@ -1322,28 +1415,6 @@ VkCullModeFlags ToVkCullMode( Rhi_CullMode aMode ) {
     case Rhi_CullMode::None:
     default:
         return VK_CULL_MODE_NONE;
-    }
-}
-
-VkCompareOp ToVkCompareOp( Rhi_CompareOp aOp ) {
-    switch ( aOp ) {
-    case Rhi_CompareOp::Never:
-        return VK_COMPARE_OP_NEVER;
-    case Rhi_CompareOp::Less:
-        return VK_COMPARE_OP_LESS;
-    case Rhi_CompareOp::Equal:
-        return VK_COMPARE_OP_EQUAL;
-    case Rhi_CompareOp::Greater:
-        return VK_COMPARE_OP_GREATER;
-    case Rhi_CompareOp::NotEqual:
-        return VK_COMPARE_OP_NOT_EQUAL;
-    case Rhi_CompareOp::GreaterOrEqual:
-        return VK_COMPARE_OP_GREATER_OR_EQUAL;
-    case Rhi_CompareOp::Always:
-        return VK_COMPARE_OP_ALWAYS;
-    case Rhi_CompareOp::LessOrEqual:
-    default:
-        return VK_COMPARE_OP_LESS_OR_EQUAL;
     }
 }
 
@@ -1527,6 +1598,22 @@ Rhi_Pipeline DeviceCreateGraphicsPipeline( Rhi_Device& aDevice, const GraphicsPi
 
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    VkVertexInputBindingDescription                    gfxBinding{};
+    std::array< VkVertexInputAttributeDescription, 4 > gfxAttributes{};
+    if ( aDesc.myStandardGfxVertexInput ) {
+        gfxBinding.binding   = 0;
+        gfxBinding.stride    = sizeof( Gfx_Vertex );
+        gfxBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        // VkVertexInputAttributeDescription: location, binding, format, offset
+        gfxAttributes[ 0 ]                          = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast< uint32_t >( offsetof( Gfx_Vertex, pos ) ) };
+        gfxAttributes[ 1 ]                          = { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast< uint32_t >( offsetof( Gfx_Vertex, color ) ) };
+        gfxAttributes[ 2 ]                          = { 2, 0, VK_FORMAT_R32G32_SFLOAT, static_cast< uint32_t >( offsetof( Gfx_Vertex, texCoord ) ) };
+        gfxAttributes[ 3 ]                          = { 3, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast< uint32_t >( offsetof( Gfx_Vertex, normal ) ) };
+        vertexInput.vertexBindingDescriptionCount   = 1;
+        vertexInput.pVertexBindingDescriptions      = &gfxBinding;
+        vertexInput.vertexAttributeDescriptionCount = static_cast< uint32_t >( gfxAttributes.size() );
+        vertexInput.pVertexAttributeDescriptions    = gfxAttributes.data();
+    }
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1833,6 +1920,12 @@ Rhi_DescriptorSet DescriptorSetAdopt( VkDescriptorSet aSet ) {
     return out;
 }
 
+Rhi_DescriptorSetLayout DescriptorSetLayoutAdopt( VkDescriptorSetLayout aLayout ) {
+    Rhi_DescriptorSetLayout out;
+    out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aLayout ) );
+    return out;
+}
+
 Rhi_RenderPass RenderPassAdopt( VkRenderPass aRenderPass ) {
     Rhi_RenderPass out;
     out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aRenderPass ) );
@@ -1962,14 +2055,13 @@ VkSampler SamplerGetVk( const Rhi_Device& aDevice, Rhi_Sampler aSampler ) {
 
 VkDescriptorSetLayout DescriptorSetLayoutGetVk( const Rhi_Device& aDevice, Rhi_DescriptorSetLayout aLayout ) {
     DeviceImpl* impl = AsDevice( aDevice );
-    if ( impl == nullptr ) {
-        return VK_NULL_HANDLE;
+    if ( impl != nullptr ) {
+        auto it = impl->mySetLayouts.find( aLayout.myId );
+        if ( it != impl->mySetLayouts.end() ) {
+            return it->second;
+        }
     }
-    auto it = impl->mySetLayouts.find( aLayout.myId );
-    if ( it == impl->mySetLayouts.end() ) {
-        return VK_NULL_HANDLE;
-    }
-    return it->second;
+    return reinterpret_cast< VkDescriptorSetLayout >( static_cast< uintptr_t >( aLayout.myId ) );
 }
 
 VkDescriptorPool DescriptorPoolGetVk( const Rhi_Device& aDevice, Rhi_DescriptorPool aPool ) {

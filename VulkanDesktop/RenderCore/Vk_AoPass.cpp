@@ -19,19 +19,170 @@
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_AoPass::kMaxFramesInFlight ), "Gfx_AoPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 namespace {
 
-constexpr char     kClassicShaderPath[]  = "VulkanDesktop/Shader_Generated/Ssao.spv";
-constexpr char     kHbaoShaderPath[]     = "VulkanDesktop/Shader_Generated/HbaoPlus.spv";
-constexpr char     kGtaoShaderPath[]     = "VulkanDesktop/Shader_Generated/Gtao.spv";
-constexpr char     kUpsampleShaderPath[] = "VulkanDesktop/Shader_Generated/AoUpsample.spv";
-constexpr char     kBlurShaderPath[]     = "VulkanDesktop/Shader_Generated/SsaoBlur.spv";
-constexpr char     kTemporalShaderPath[] = "VulkanDesktop/Shader_Generated/AoTemporal.spv";
-constexpr VkFormat kAoFormat             = VK_FORMAT_R8_UNORM;
-constexpr VkFormat kBentNormalFormat     = VK_FORMAT_R8G8_UNORM;
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_AoPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
+
+constexpr char kClassicShaderPath[]  = "VulkanDesktop/Shader_Generated/Ssao.spv";
+constexpr char kHbaoShaderPath[]     = "VulkanDesktop/Shader_Generated/HbaoPlus.spv";
+constexpr char kGtaoShaderPath[]     = "VulkanDesktop/Shader_Generated/Gtao.spv";
+constexpr char kUpsampleShaderPath[] = "VulkanDesktop/Shader_Generated/AoUpsample.spv";
+constexpr char kBlurShaderPath[]     = "VulkanDesktop/Shader_Generated/SsaoBlur.spv";
+constexpr char kTemporalShaderPath[] = "VulkanDesktop/Shader_Generated/AoTemporal.spv";
+
+VkExtent2D HalfExtent( uint32_t aWidth, uint32_t aHeight ) {
+    return { std::max( 1u, ( aWidth + 1u ) / 2u ), std::max( 1u, ( aHeight + 1u ) / 2u ) };
+}
+
+void ClearVkMirrors( Vk_AoState& aState ) {
+    aState.myClassicPipeline        = VK_NULL_HANDLE;
+    aState.myHbaoPipeline           = VK_NULL_HANDLE;
+    aState.myGtaoPipeline           = VK_NULL_HANDLE;
+    aState.myUpsamplePipeline       = VK_NULL_HANDLE;
+    aState.myBlurPipeline           = VK_NULL_HANDLE;
+    aState.myTemporalPipeline       = VK_NULL_HANDLE;
+    aState.myClassicPipelineLayout  = VK_NULL_HANDLE;
+    aState.myHalfResPipelineLayout  = VK_NULL_HANDLE;
+    aState.myUpsamplePipelineLayout = VK_NULL_HANDLE;
+    aState.myBlurPipelineLayout     = VK_NULL_HANDLE;
+    aState.myTemporalPipelineLayout = VK_NULL_HANDLE;
+    aState.myClassicSetLayout       = VK_NULL_HANDLE;
+    aState.myHalfResSetLayout       = VK_NULL_HANDLE;
+    aState.myUpsampleSetLayout      = VK_NULL_HANDLE;
+    aState.myBlurSetLayout          = VK_NULL_HANDLE;
+    aState.myTemporalSetLayout      = VK_NULL_HANDLE;
+    aState.myDescriptorPool         = VK_NULL_HANDLE;
+    aState.myGBufferSampler         = VK_NULL_HANDLE;
+    aState.myAoRaw                  = {};
+    aState.myAoHalf                 = {};
+    aState.myBentNormalHalf         = {};
+    aState.myAoBlur                 = {};
+    aState.myAoHistory[ 0 ]         = {};
+    aState.myAoHistory[ 1 ]         = {};
+}
+
+void SyncTextureMirror( Rhi_Device& aRhi, Rhi_Texture aTexture, Vk_TextureResource& aOut ) {
+    aOut.Image()     = RhiVulkan::TextureGetVkImage( aRhi, aTexture );
+    aOut.ImageView() = RhiVulkan::TextureGetVkView( aRhi, aTexture );
+}
+
+void SyncVkMirrors( Vk_Renderer& aCore ) {
+    Vk_AoState& state = aCore.myAoState;
+    Rhi_Device& rhi   = aCore.myGfxRhiDevice;
+    const auto& gfx   = state.myGfx;
+
+    state.myClassicPipeline        = RhiVulkan::PipelineGetVk( rhi, gfx.myClassicPipeline );
+    state.myHbaoPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myHbaoPipeline );
+    state.myGtaoPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myGtaoPipeline );
+    state.myUpsamplePipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myUpsamplePipeline );
+    state.myBlurPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myBlurPipeline );
+    state.myTemporalPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myTemporalPipeline );
+    state.myClassicPipelineLayout  = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myClassicLayout );
+    state.myHalfResPipelineLayout  = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myHalfResLayout );
+    state.myUpsamplePipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myUpsampleLayout );
+    state.myBlurPipelineLayout     = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myBlurLayout );
+    state.myTemporalPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myTemporalLayout );
+    state.myClassicSetLayout       = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myClassicSetLayout );
+    state.myHalfResSetLayout       = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myHalfResSetLayout );
+    state.myUpsampleSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myUpsampleSetLayout );
+    state.myBlurSetLayout          = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myBlurSetLayout );
+    state.myTemporalSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myTemporalSetLayout );
+    state.myDescriptorPool         = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
+    state.myGBufferSampler         = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        state.myClassicDescriptorSets[ i ]   = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myClassicSets[ i ] );
+        state.myHalfResDescriptorSets[ i ]   = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myHalfResSets[ i ] );
+        state.myUpsampleDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myUpsampleSets[ i ] );
+        state.myBlurHorizDescriptorSets[ i ] = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurHorizSets[ i ] );
+        state.myBlurVertDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurVertSets[ i ] );
+        state.myTemporalDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myTemporalSets[ i ] );
+    }
+
+    SyncTextureMirror( rhi, gfx.myAoRaw, state.myAoRaw );
+    SyncTextureMirror( rhi, gfx.myAoHalf, state.myAoHalf );
+    SyncTextureMirror( rhi, gfx.myBentNormalHalf, state.myBentNormalHalf );
+    SyncTextureMirror( rhi, gfx.myAoBlur, state.myAoBlur );
+    SyncTextureMirror( rhi, gfx.myAoHistory0, state.myAoHistory[ 0 ] );
+    SyncTextureMirror( rhi, gfx.myAoHistory1, state.myAoHistory[ 1 ] );
+}
+
+bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
+    Vk_AoState& state = aCore.myAoState;
+    Rhi_Device& rhi   = aCore.myGfxRhiDevice;
+
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    if ( width == 0 || height == 0 ) {
+        return false;
+    }
+
+    Gfx_AoPass::ImageInitDesc imageDesc{};
+    imageDesc.myWidth          = width;
+    imageDesc.myHeight         = height;
+    imageDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
+    if ( !Gfx_AoPass::CreateOrRecreateImages( rhi, imageDesc, state.myGfx ) ) {
+        return false;
+    }
+
+    SyncVkMirrors( aCore );
+    Vk_AoPassDetail::gBentHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    UtilLogger::Info( "AO", "targets: full=" + std::to_string( width ) + "x" + std::to_string( height ) + " half=" + std::to_string( HalfExtent( width, height ).width ) + "x"
+                                + std::to_string( HalfExtent( width, height ).height ) + " format=R8_UNORM (Gfx)" );
+    return true;
+}
+
+void CreatePipelines( Vk_Renderer& aCore ) {
+    const std::string         classicSpv    = UtilLoader::ResolvePath( aCore.EngineConfig(), kClassicShaderPath );
+    const std::string         hbaoSpv       = UtilLoader::ResolvePath( aCore.EngineConfig(), kHbaoShaderPath );
+    const std::string         gtaoSpv       = UtilLoader::ResolvePath( aCore.EngineConfig(), kGtaoShaderPath );
+    const std::string         upsampleSpv   = UtilLoader::ResolvePath( aCore.EngineConfig(), kUpsampleShaderPath );
+    const std::string         blurSpv       = UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath );
+    const std::string         temporalSpv   = UtilLoader::ResolvePath( aCore.EngineConfig(), kTemporalShaderPath );
+    const std::vector< char > classicBytes  = LoadSpirvBytes( classicSpv );
+    const std::vector< char > hbaoBytes     = LoadSpirvBytes( hbaoSpv );
+    const std::vector< char > gtaoBytes     = LoadSpirvBytes( gtaoSpv );
+    const std::vector< char > upsampleBytes = LoadSpirvBytes( upsampleSpv );
+    const std::vector< char > blurBytes     = LoadSpirvBytes( blurSpv );
+    const std::vector< char > temporalBytes = LoadSpirvBytes( temporalSpv );
+
+    Gfx_AoPass::PipelineInitDesc pipeDesc{};
+    pipeDesc.myClassicSpirvCode   = classicBytes.data();
+    pipeDesc.myClassicSpirvBytes  = classicBytes.size();
+    pipeDesc.myHbaoSpirvCode      = hbaoBytes.data();
+    pipeDesc.myHbaoSpirvBytes     = hbaoBytes.size();
+    pipeDesc.myGtaoSpirvCode      = gtaoBytes.data();
+    pipeDesc.myGtaoSpirvBytes     = gtaoBytes.size();
+    pipeDesc.myUpsampleSpirvCode  = upsampleBytes.data();
+    pipeDesc.myUpsampleSpirvBytes = upsampleBytes.size();
+    pipeDesc.myBlurSpirvCode      = blurBytes.data();
+    pipeDesc.myBlurSpirvBytes     = blurBytes.size();
+    pipeDesc.myTemporalSpirvCode  = temporalBytes.data();
+    pipeDesc.myTemporalSpirvBytes = temporalBytes.size();
+    pipeDesc.myFramesInFlight     = MAX_FRAMES_IN_FLIGHT;
+    if ( !Gfx_AoPass::CreatePipelines( aCore.myGfxRhiDevice, pipeDesc, aCore.myAoState.myGfx ) ) {
+        throw std::runtime_error( "Vk_AoPass: Gfx CreatePipelines failed" );
+    }
+    SyncVkMirrors( aCore );
+    UtilLogger::Info( "PIPELINE", "AO compute pipelines created (Classic SSAO, HBAO+, GTAO, upsample, blur) — Gfx." );
+}
 
 struct ClassicAoPushConstants {
     alignas( 16 ) glm::mat4 view;
@@ -79,62 +230,6 @@ struct AoTemporalPushConstants {
 };
 
 static_assert( sizeof( AoTemporalPushConstants ) == 16, "AoTemporalPushConstants must match AoTemporal.comp push block" );
-
-VkExtent2D HalfExtent( uint32_t aWidth, uint32_t aHeight ) {
-    return { std::max( 1u, ( aWidth + 1u ) / 2u ), std::max( 1u, ( aHeight + 1u ) / 2u ) };
-}
-
-void DestroyAoTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
-    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( device, aTexture.ImageView(), nullptr );
-        aTexture.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( aTexture.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( allocator, aTexture.Image(), aTexture.Allocation() );
-        aTexture.AllocImage() = {};
-    }
-}
-
-void DestroyAoImages( Vk_Renderer& aCore ) {
-    DestroyAoTexture( aCore, aCore.myAoState.myAoRaw );
-    DestroyAoTexture( aCore, aCore.myAoState.myAoHalf );
-    DestroyAoTexture( aCore, aCore.myAoState.myBentNormalHalf );
-    DestroyAoTexture( aCore, aCore.myAoState.myAoBlur );
-    DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 0 ] );
-    DestroyAoTexture( aCore, aCore.myAoState.myAoHistory[ 1 ] );
-    Vk_AoPassDetail::ResetImageLayouts();
-}
-
-void CreateAoImage( Vk_Renderer& aCore, VkExtent2D aExtent, Vk_TextureResource& aTexture ) {
-    if ( aExtent.width == 0 || aExtent.height == 0 ) {
-        return;
-    }
-
-    aCore.CreateImage( aExtent, kAoFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
-    aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kAoFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-}
-
-void CreateAoImages( Vk_Renderer& aCore ) {
-    const VkExtent2D full = aCore.mySwapchainCtx.mySwapChainExtent;
-    CreateAoImage( aCore, full, aCore.myAoState.myAoRaw );
-    CreateAoImage( aCore, full, aCore.myAoState.myAoBlur );
-    CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 0 ] );
-    CreateAoImage( aCore, full, aCore.myAoState.myAoHistory[ 1 ] );
-    CreateAoImage( aCore, HalfExtent( full.width, full.height ), aCore.myAoState.myAoHalf );
-    aCore.CreateImage( HalfExtent( full.width, full.height ), kBentNormalFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myAoState.myBentNormalHalf.AllocImage() );
-    aCore.myAoState.myBentNormalHalf.ImageView() = aCore.CreateImageView( aCore.myAoState.myBentNormalHalf.Image(), kBentNormalFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-    // Classic SSAO may never write bent normals; deferred still samples binding 18 as SHADER_READ_ONLY.
-    aCore.TransitionImageLayout( aCore.myAoState.myBentNormalHalf.Image(), kBentNormalFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-    Vk_AoPassDetail::gBentHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    UtilLogger::Info( "AO", "targets: full=" + std::to_string( full.width ) + "x" + std::to_string( full.height )
-                                + " half=" + std::to_string( HalfExtent( full.width, full.height ).width ) + "x"
-                                + std::to_string( HalfExtent( full.width, full.height ).height ) + " format=R8_UNORM" );
-}
 
 void UpdateClassicDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_AoState& state = aCore.myAoState;
@@ -290,274 +385,6 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     }
 }
 
-VkPipelineLayout CreateComputePipelineLayout( Vk_Renderer& aCore, VkDescriptorSetLayout aSetLayout, VkPushConstantRange aPushRange ) {
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &aSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutInfo.pPushConstantRanges        = &aPushRange;
-
-    VkPipelineLayout layout = VK_NULL_HANDLE;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &layout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create pipeline layout" );
-    }
-    return layout;
-}
-
-VkPipeline CreateComputePipelineWithLayout( Vk_Renderer& aCore, const std::string& aSpvPath, VkPipelineLayout aLayout ) {
-    VkShaderModule computeModule = aCore.CreateShaderModule( aSpvPath );
-
-    const VkPipelineShaderStageCreateInfo stageInfo = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, computeModule, "main" );
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage  = stageInfo;
-    pipelineInfo.layout = aLayout;
-
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create compute pipeline" );
-    }
-
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, computeModule, nullptr );
-    return pipeline;
-}
-
-VkPipeline CreateComputePipeline( Vk_Renderer& aCore, const std::string& aSpvPath, VkDescriptorSetLayout aSetLayout, VkPipelineLayout& aOutLayout,
-                                  VkPushConstantRange aPushRange ) {
-    aOutLayout = CreateComputePipelineLayout( aCore, aSetLayout, aPushRange );
-    return CreateComputePipelineWithLayout( aCore, aSpvPath, aOutLayout );
-}
-
-void CreatePipelines( Vk_Renderer& aCore ) {
-    Vk_AoState& state = aCore.myAoState;
-
-    const std::array< VkDescriptorSetLayoutBinding, 4 > classicBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-    };
-    VkDescriptorSetLayoutCreateInfo classicLayoutInfo{};
-    classicLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    classicLayoutInfo.bindingCount = static_cast< uint32_t >( classicBindings.size() );
-    classicLayoutInfo.pBindings    = classicBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &classicLayoutInfo, nullptr, &state.myClassicSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create classic AO descriptor set layout" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 5 > halfResBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4 ),
-    };
-    VkDescriptorSetLayoutCreateInfo halfResLayoutInfo{};
-    halfResLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    halfResLayoutInfo.bindingCount = static_cast< uint32_t >( halfResBindings.size() );
-    halfResLayoutInfo.pBindings    = halfResBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &halfResLayoutInfo, nullptr, &state.myHalfResSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create half-res AO descriptor set layout" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 3 > upsampleBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-    };
-    VkDescriptorSetLayoutCreateInfo upsampleLayoutInfo{};
-    upsampleLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    upsampleLayoutInfo.bindingCount = static_cast< uint32_t >( upsampleBindings.size() );
-    upsampleLayoutInfo.pBindings    = upsampleBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &upsampleLayoutInfo, nullptr, &state.myUpsampleSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create AO upsample descriptor set layout" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 2 > blurBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-    };
-    VkDescriptorSetLayoutCreateInfo blurLayoutInfo{};
-    blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
-    blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBlurSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create blur descriptor set layout" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 4 > temporalBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-    };
-    VkDescriptorSetLayoutCreateInfo temporalLayoutInfo{};
-    temporalLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    temporalLayoutInfo.bindingCount = static_cast< uint32_t >( temporalBindings.size() );
-    temporalLayoutInfo.pBindings    = temporalBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &temporalLayoutInfo, nullptr, &state.myTemporalSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create temporal AO descriptor set layout" );
-    }
-
-    VkPushConstantRange classicPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( ClassicAoPushConstants ) };
-    state.myClassicPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kClassicShaderPath ), state.myClassicSetLayout,
-                                                     state.myClassicPipelineLayout, classicPushRange );
-
-    VkPushConstantRange halfResPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( HalfResAoPushConstants ) };
-    state.myHalfResPipelineLayout = CreateComputePipelineLayout( aCore, state.myHalfResSetLayout, halfResPushRange );
-    state.myHbaoPipeline          = CreateComputePipelineWithLayout( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kHbaoShaderPath ), state.myHalfResPipelineLayout );
-    state.myGtaoPipeline          = CreateComputePipelineWithLayout( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kGtaoShaderPath ), state.myHalfResPipelineLayout );
-
-    VkPushConstantRange upsamplePushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoUpsamplePushConstants ) };
-    state.myUpsamplePipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kUpsampleShaderPath ), state.myUpsampleSetLayout,
-                                                      state.myUpsamplePipelineLayout, upsamplePushRange );
-
-    VkPushConstantRange blurPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoBlurPushConstants ) };
-    state.myBlurPipeline =
-        CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kBlurShaderPath ), state.myBlurSetLayout, state.myBlurPipelineLayout, blurPushRange );
-
-    VkPushConstantRange temporalPushRange{ VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof( AoTemporalPushConstants ) };
-    state.myTemporalPipeline = CreateComputePipeline( aCore, UtilLoader::ResolvePath( aCore.EngineConfig(), kTemporalShaderPath ), state.myTemporalSetLayout,
-                                                      state.myTemporalPipelineLayout, temporalPushRange );
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_LINEAR;
-    samplerInfo.minFilter               = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.compareEnable           = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create G-buffer sampler" );
-    }
-
-    std::array< VkDescriptorPoolSize, 2 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 11 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 11 },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT * 6;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_AoPass: failed to create descriptor pool" );
-    }
-
-    const VkDevice              device                 = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkPipeline            classicPipeline        = state.myClassicPipeline;
-    const VkPipeline            hbaoPipeline           = state.myHbaoPipeline;
-    const VkPipeline            gtaoPipeline           = state.myGtaoPipeline;
-    const VkPipeline            upsamplePipeline       = state.myUpsamplePipeline;
-    const VkPipeline            blurPipeline           = state.myBlurPipeline;
-    const VkPipeline            temporalPipeline       = state.myTemporalPipeline;
-    const VkPipelineLayout      classicPipelineLayout  = state.myClassicPipelineLayout;
-    const VkPipelineLayout      halfResPipelineLayout  = state.myHalfResPipelineLayout;
-    const VkPipelineLayout      upsamplePipelineLayout = state.myUpsamplePipelineLayout;
-    const VkPipelineLayout      blurPipelineLayout     = state.myBlurPipelineLayout;
-    const VkPipelineLayout      temporalPipelineLayout = state.myTemporalPipelineLayout;
-    const VkDescriptorSetLayout classicSetLayout       = state.myClassicSetLayout;
-    const VkDescriptorSetLayout halfResSetLayout       = state.myHalfResSetLayout;
-    const VkDescriptorSetLayout upsampleSetLayout      = state.myUpsampleSetLayout;
-    const VkDescriptorSetLayout blurSetLayout          = state.myBlurSetLayout;
-    const VkDescriptorSetLayout temporalSetLayout      = state.myTemporalSetLayout;
-    const VkDescriptorPool      descriptorPool         = state.myDescriptorPool;
-    const VkSampler             gbufferSampler         = state.myGBufferSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, classicPipeline, hbaoPipeline, gtaoPipeline, upsamplePipeline, blurPipeline, temporalPipeline,
-                                                            classicPipelineLayout, halfResPipelineLayout, upsamplePipelineLayout, blurPipelineLayout, temporalPipelineLayout,
-                                                            classicSetLayout, halfResSetLayout, upsampleSetLayout, blurSetLayout, temporalSetLayout, descriptorPool,
-                                                            gbufferSampler ]() {
-        auto destroyPipe = [ device ]( VkPipeline p ) {
-            if ( p != VK_NULL_HANDLE ) {
-                vkDestroyPipeline( device, p, nullptr );
-            }
-        };
-        destroyPipe( classicPipeline );
-        destroyPipe( hbaoPipeline );
-        destroyPipe( gtaoPipeline );
-        destroyPipe( upsamplePipeline );
-        destroyPipe( blurPipeline );
-        destroyPipe( temporalPipeline );
-        if ( classicPipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, classicPipelineLayout, nullptr );
-        }
-        if ( halfResPipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, halfResPipelineLayout, nullptr );
-        }
-        if ( upsamplePipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, upsamplePipelineLayout, nullptr );
-        }
-        if ( blurPipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, blurPipelineLayout, nullptr );
-        }
-        if ( temporalPipelineLayout != VK_NULL_HANDLE ) {
-            vkDestroyPipelineLayout( device, temporalPipelineLayout, nullptr );
-        }
-        if ( classicSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, classicSetLayout, nullptr );
-        }
-        if ( halfResSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, halfResSetLayout, nullptr );
-        }
-        if ( upsampleSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, upsampleSetLayout, nullptr );
-        }
-        if ( blurSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, blurSetLayout, nullptr );
-        }
-        if ( temporalSetLayout != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorSetLayout( device, temporalSetLayout, nullptr );
-        }
-        if ( descriptorPool != VK_NULL_HANDLE ) {
-            vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-        }
-        if ( gbufferSampler != VK_NULL_HANDLE ) {
-            vkDestroySampler( device, gbufferSampler, nullptr );
-        }
-    } );
-
-    UtilLogger::Info( "PIPELINE", "AO compute pipelines created (Classic SSAO, HBAO+, GTAO, upsample, blur)." );
-}
-
-void AllocateDescriptorSets( Vk_Renderer& aCore ) {
-    Vk_AoState& state = aCore.myAoState;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = state.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-
-        allocInfo.pSetLayouts = &state.myClassicSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myClassicDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate classic AO descriptor set" );
-        }
-        allocInfo.pSetLayouts = &state.myHalfResSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myHalfResDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate half-res AO descriptor set" );
-        }
-        allocInfo.pSetLayouts = &state.myUpsampleSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myUpsampleDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate AO upsample descriptor set" );
-        }
-        allocInfo.pSetLayouts = &state.myBlurSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurHorizDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate horizontal blur descriptor set" );
-        }
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBlurVertDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate vertical blur descriptor set" );
-        }
-        allocInfo.pSetLayouts = &state.myTemporalSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTemporalDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_AoPass: failed to allocate temporal AO descriptor set" );
-        }
-    }
-    UpdateAllDescriptorSets( aCore );
-}
-
 }  // namespace
 
 namespace Vk_AoPass {
@@ -569,7 +396,10 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroyAoImages( aCore );
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_AoPass::Destroy( aCore.myGfxRhiDevice, aCore.myAoState.myGfx );
+    }
+    ClearVkMirrors( aCore.myAoState );
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.myAoState.myClassicDescriptorSets[ i ]   = VK_NULL_HANDLE;
         aCore.myAoState.myHalfResDescriptorSets[ i ]   = VK_NULL_HANDLE;
@@ -584,14 +414,16 @@ void Destroy( Vk_Renderer& aCore ) {
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
-    if ( !aCore.myAoState.myInitialized ) {
+    if ( !aCore.myAoState.myInitialized || !aCore.myGfxRhiDevice ) {
         return;
     }
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroyAoImages( aCore );
-    CreateAoImages( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        throw std::runtime_error( "Vk_AoPass: recreate images failed" );
+    }
+    Vk_AoPassDetail::ResetImageLayouts();
     aCore.myAoState.myTemporalReadIndex    = 0u;
     aCore.myAoState.myTemporalHistoryReady = false;
     UpdateAllDescriptorSets( aCore );
@@ -601,10 +433,17 @@ void Init( Vk_Renderer& aCore ) {
     if ( aCore.myAoState.myInitialized ) {
         return;
     }
-    UtilLogger::Info( "FG", "Vk_AoPass::Init." );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_AoPass: myGfxRhiDevice required for Gfx Init" );
+    }
+    UtilLogger::Info( "FG", "Vk_AoPass::Init (Gfx create)." );
     CreatePipelines( aCore );
-    CreateAoImages( aCore );
-    AllocateDescriptorSets( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        Gfx_AoPass::Destroy( aCore.myGfxRhiDevice, aCore.myAoState.myGfx );
+        ClearVkMirrors( aCore.myAoState );
+        throw std::runtime_error( "Vk_AoPass: Gfx CreateOrRecreateImages failed" );
+    }
+    UpdateAllDescriptorSets( aCore );
     aCore.myAoState.myTemporalReadIndex    = 0u;
     aCore.myAoState.myTemporalHistoryReady = false;
     aCore.myAoState.myInitialized          = true;

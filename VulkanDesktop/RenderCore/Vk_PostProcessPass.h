@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "../Gfx/Gfx_PostProcessPass.h"
 #include "../Rhi/Rhi_Handles.h"
 #include "Vk_DataStruct.h"
 #include "Vk_FrameLimits.h"
@@ -23,6 +24,8 @@ struct Vk_PostProcessState {
     bool               myTaaHistoryReady = false;
     Vk_TextureResource myBloomPing{};
     Vk_TextureResource myBloomPong{};
+
+    Gfx_PostProcessPass::ComputePassState myComputeGfx{};
 
     VkRenderPass    myHybridRenderPass  = VK_NULL_HANDLE;
     VkFramebuffer   myHybridFramebuffer = VK_NULL_HANDLE;

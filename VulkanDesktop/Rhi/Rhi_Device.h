@@ -47,6 +47,12 @@ struct TextureDesc {
 [[nodiscard]] Rhi_Texture DeviceCreateTexture( Rhi_Device& aDevice, const TextureDesc& aDesc );
 void                      DeviceDestroyTexture( Rhi_Device& aDevice, Rhi_Texture& aTexture );
 
+// One-shot layout transition (uses transfer queue path on the wrapped device).
+void DeviceTransitionTextureLayout( Rhi_Device& aDevice, Rhi_Texture aTexture, Rhi_ImageLayout aOldLayout, Rhi_ImageLayout aNewLayout );
+
+// Staging upload for small 2D textures; leaves image in ShaderReadOnly.
+[[nodiscard]] bool DeviceUploadTexture2D( Rhi_Device& aDevice, Rhi_Texture aTexture, const void* aPixels, size_t aByteCount, uint32_t aWidth, uint32_t aHeight );
+
 [[nodiscard]] Rhi_ShaderModule DeviceCreateShaderModule( Rhi_Device& aDevice, const void* aSpirvCode, size_t aSpirvBytes );
 void                           DeviceDestroyShaderModule( Rhi_Device& aDevice, Rhi_ShaderModule& aModule );
 
@@ -61,6 +67,7 @@ struct SamplerDesc {
     Rhi_AddressMode myAddressW      = Rhi_AddressMode::ClampToEdge;
     float           myMaxLod        = 1000.0f;
     bool            myCompareEnable = false;
+    Rhi_CompareOp   myCompareOp     = Rhi_CompareOp::GreaterOrEqual;
 };
 
 [[nodiscard]] Rhi_Sampler DeviceCreateSampler( Rhi_Device& aDevice, const SamplerDesc& aDesc );
@@ -173,6 +180,7 @@ struct GraphicsPipelineDesc {
     bool                  myBlendEnable            = false;
     bool                  myDynamicViewportScissor = true;
     bool                  myDynamicDepthBias       = false;
+    bool                  myStandardGfxVertexInput = false;
 };
 
 [[nodiscard]] Rhi_Pipeline DeviceCreateGraphicsPipeline( Rhi_Device& aDevice, const GraphicsPipelineDesc& aDesc );

@@ -307,22 +307,6 @@ void DestroyHybridResolveRhi( Vk_Renderer& aCore ) {
     aCore.myPostProcessState.myHybridRenderPass  = VK_NULL_HANDLE;
 }
 
-VkPipeline BuildComputePipeline( Vk_Renderer& aCore, VkPipelineLayout aLayout, const std::string& aShaderPath ) {
-    VkShaderModule module = aCore.CreateShaderModule( aShaderPath );
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage  = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, module, "main" );
-    pipelineInfo.layout = aLayout;
-
-    VkPipeline pipeline = VK_NULL_HANDLE;
-    UtilVulkanResult::ThrowOnFailure(
-        vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &pipelineInfo, nullptr, &pipeline ),
-        "vkCreateComputePipelines PostProcess" );
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, module, nullptr );
-    return pipeline;
-}
-
 void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_PostProcessState&    state = aCore.myPostProcessState;
     const Gfx_PostSettings& post  = aCore.myPostSettings;
@@ -413,6 +397,47 @@ void UpdateBloomBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, boo
         VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
     };
     vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+}
+
+void SyncComputePipelineMirrors( Vk_Renderer& aCore ) {
+    Vk_PostProcessState& state     = aCore.myPostProcessState;
+    Rhi_Device&          rhi       = aCore.myGfxRhiDevice;
+    state.myBloomThresholdPipeline = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myThresholdPipeline );
+    state.myBloomBlurPipeline      = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myBlurPipeline );
+    state.myTaaResolvePipeline     = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myTaaPipeline );
+}
+
+bool CreateGfxComputePipelines( Vk_Renderer& aCore ) {
+    if ( !aCore.myGfxRhiDevice ) {
+        return false;
+    }
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    if ( state.myBloomThresholdPipelineLayout == VK_NULL_HANDLE || state.myBloomBlurPipelineLayout == VK_NULL_HANDLE || state.myTaaResolvePipelineLayout == VK_NULL_HANDLE ) {
+        return false;
+    }
+
+    const std::vector< char > thresholdSpv = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv ) );
+    const std::vector< char > blurSpv      = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv ) );
+    const std::vector< char > taaSpv       = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv ) );
+
+    Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, state.myComputeGfx );
+
+    Gfx_PostProcessPass::ComputePipelinesInitDesc desc{};
+    desc.myThresholdSpirv      = thresholdSpv.data();
+    desc.myThresholdSpirvBytes = thresholdSpv.size();
+    desc.myBlurSpirv           = blurSpv.data();
+    desc.myBlurSpirvBytes      = blurSpv.size();
+    desc.myTaaSpirv            = taaSpv.data();
+    desc.myTaaSpirvBytes       = taaSpv.size();
+    desc.myThresholdLayout     = RhiVulkan::PipelineLayoutAdopt( state.myBloomThresholdPipelineLayout );
+    desc.myBlurLayout          = RhiVulkan::PipelineLayoutAdopt( state.myBloomBlurPipelineLayout );
+    desc.myTaaLayout           = RhiVulkan::PipelineLayoutAdopt( state.myTaaResolvePipelineLayout );
+    if ( !Gfx_PostProcessPass::CreateComputePipelines( aCore.myGfxRhiDevice, desc, state.myComputeGfx ) ) {
+        return false;
+    }
+
+    SyncComputePipelineMirrors( aCore );
+    return true;
 }
 
 void CreatePipelineResources( Vk_Renderer& aCore ) {
@@ -625,17 +650,11 @@ void RebuildResources( Vk_Renderer& aCore ) {
         vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
         aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
     }
-    if ( aCore.myPostProcessState.myTaaResolvePipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTaaResolvePipeline, nullptr );
-        aCore.myPostProcessState.myTaaResolvePipeline = VK_NULL_HANDLE;
-    }
-    if ( aCore.myPostProcessState.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomThresholdPipeline, nullptr );
+    if ( aCore.myGfxRhiDevice && ( aCore.myPostProcessState.myTaaResolvePipeline != VK_NULL_HANDLE || aCore.myPostProcessState.myComputeGfx.myPipelinesReady ) ) {
+        Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, aCore.myPostProcessState.myComputeGfx );
+        aCore.myPostProcessState.myTaaResolvePipeline     = VK_NULL_HANDLE;
         aCore.myPostProcessState.myBloomThresholdPipeline = VK_NULL_HANDLE;
-    }
-    if ( aCore.myPostProcessState.myBloomBlurPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myBloomBlurPipeline, nullptr );
-        aCore.myPostProcessState.myBloomBlurPipeline = VK_NULL_HANDLE;
+        aCore.myPostProcessState.myBloomBlurPipeline      = VK_NULL_HANDLE;
     }
 
     // Descriptor sets are allocated in CreatePipelineResources; skip until pool exists (Init order).
@@ -656,16 +675,9 @@ void RebuildResources( Vk_Renderer& aCore ) {
             BuildTonemapPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, aCore.myPostProcessState.myTonemapPipelineLayout, tonemapVertPath, tonemapFragPath );
     }
     if ( aCore.myPostProcessState.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
-        const std::string thresholdPath                   = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv );
-        aCore.myPostProcessState.myBloomThresholdPipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myBloomThresholdPipelineLayout, thresholdPath );
-    }
-    if ( aCore.myPostProcessState.myBloomBlurPipelineLayout != VK_NULL_HANDLE ) {
-        const std::string blurPath                   = UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv );
-        aCore.myPostProcessState.myBloomBlurPipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myBloomBlurPipelineLayout, blurPath );
-    }
-    if ( aCore.myPostProcessState.myTaaResolvePipelineLayout != VK_NULL_HANDLE ) {
-        const std::string taaPath                     = UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv );
-        aCore.myPostProcessState.myTaaResolvePipeline = BuildComputePipeline( aCore, aCore.myPostProcessState.myTaaResolvePipelineLayout, taaPath );
+        if ( !CreateGfxComputePipelines( aCore ) ) {
+            throw std::runtime_error( "Vk_PostProcessPass: Gfx compute pipeline create failed" );
+        }
     }
 }
 
@@ -804,17 +816,11 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
         state.myTonemapPipeline = VK_NULL_HANDLE;
     }
-    if ( state.myTaaResolvePipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( device, state.myTaaResolvePipeline, nullptr );
-        state.myTaaResolvePipeline = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomThresholdPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( device, state.myBloomThresholdPipeline, nullptr );
+    if ( aCore.myGfxRhiDevice && ( state.myTaaResolvePipeline != VK_NULL_HANDLE || state.myComputeGfx.myPipelinesReady ) ) {
+        Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, state.myComputeGfx );
+        state.myTaaResolvePipeline     = VK_NULL_HANDLE;
         state.myBloomThresholdPipeline = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomBlurPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( device, state.myBloomBlurPipeline, nullptr );
-        state.myBloomBlurPipeline = VK_NULL_HANDLE;
+        state.myBloomBlurPipeline      = VK_NULL_HANDLE;
     }
     if ( state.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
         vkDestroyPipelineLayout( device, state.myTonemapPipelineLayout, nullptr );

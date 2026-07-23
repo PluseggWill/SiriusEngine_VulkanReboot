@@ -185,6 +185,8 @@ bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassSt
 }
 
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyImages( aDevice, aState );
+
     if ( aState.myPackPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myPackPipeline );
     }
@@ -210,6 +212,101 @@ void DestroyPipelines( Rhi_Device& aDevice, PassState& aState ) {
         Rhi::DeviceDestroySampler( aDevice, aState.myGBufferSampler );
     }
     aState.myPipelineReady = false;
+}
+
+namespace {
+
+    void DestroySoftImagesOnly( Rhi_Device& aDevice, Gfx_ShadowAoSoftPass::PassState& aState ) {
+        Rhi::DeviceDestroyTexture( aDevice, aState.mySoftPing );
+        Rhi::DeviceDestroyTexture( aDevice, aState.mySoftPong );
+        aState.myWidth          = 0;
+        aState.myHeight         = 0;
+        aState.myImagesReady    = false;
+        aState.mySoftPingLayout = Rhi_ImageLayout::Undefined;
+        aState.mySoftPongLayout = Rhi_ImageLayout::Undefined;
+    }
+
+    void DestroyFallbackImagesOnly( Rhi_Device& aDevice, Gfx_ShadowAoSoftPass::PassState& aState ) {
+        Rhi::DeviceDestroyTexture( aDevice, aState.myFallbackAo );
+        Rhi::DeviceDestroyTexture( aDevice, aState.myFallbackContact );
+        aState.myFallbackReady = false;
+    }
+
+    Rhi_Texture CreateSoftStorageTexture( Rhi_Device& aDevice, uint32_t aWidth, uint32_t aHeight ) {
+        Rhi::TextureDesc desc{};
+        desc.myWidth  = aWidth;
+        desc.myHeight = aHeight;
+        desc.myFormat = Rhi_Format::RG8_Unorm;
+        desc.myUsage  = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage;
+        desc.myMemory = Rhi_MemoryUsage::GpuOnly;
+        return Rhi::DeviceCreateTexture( aDevice, desc );
+    }
+
+}  // namespace
+
+bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState ) {
+    if ( !aState.myPipelineReady ) {
+        return false;
+    }
+
+    if ( aDesc.myCreateFallback && !aState.myFallbackReady ) {
+        Rhi::TextureDesc fallbackDesc{};
+        fallbackDesc.myWidth  = 1;
+        fallbackDesc.myHeight = 1;
+        fallbackDesc.myMemory = Rhi_MemoryUsage::GpuOnly;
+
+        fallbackDesc.myFormat = Rhi_Format::R8_Unorm;
+        fallbackDesc.myUsage  = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage | Rhi_ImageUsage::TransferDst;
+        aState.myFallbackAo   = Rhi::DeviceCreateTexture( aDevice, fallbackDesc );
+
+        fallbackDesc.myFormat    = Rhi_Format::RG8_Unorm;
+        aState.myFallbackContact = Rhi::DeviceCreateTexture( aDevice, fallbackDesc );
+
+        if ( !aState.myFallbackAo || !aState.myFallbackContact ) {
+            DestroyFallbackImagesOnly( aDevice, aState );
+            return false;
+        }
+
+        const uint8_t aoWhite[]      = { 255u };
+        const uint8_t contactWhite[] = { 255u, 255u };
+        if ( !Rhi::DeviceUploadTexture2D( aDevice, aState.myFallbackAo, aoWhite, sizeof( aoWhite ), 1, 1 )
+             || !Rhi::DeviceUploadTexture2D( aDevice, aState.myFallbackContact, contactWhite, sizeof( contactWhite ), 1, 1 ) ) {
+            DestroyFallbackImagesOnly( aDevice, aState );
+            return false;
+        }
+        aState.myFallbackReady = true;
+    }
+
+    if ( aDesc.myWidth == 0 || aDesc.myHeight == 0 ) {
+        return aState.myFallbackReady || !aDesc.myCreateFallback;
+    }
+
+    if ( aState.myImagesReady && aState.myWidth == aDesc.myWidth && aState.myHeight == aDesc.myHeight ) {
+        return true;
+    }
+
+    DestroySoftImagesOnly( aDevice, aState );
+
+    aState.mySoftPing = CreateSoftStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight );
+    aState.mySoftPong = CreateSoftStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight );
+    if ( !aState.mySoftPing || !aState.mySoftPong ) {
+        DestroySoftImagesOnly( aDevice, aState );
+        return false;
+    }
+
+    Rhi::DeviceTransitionTextureLayout( aDevice, aState.mySoftPing, Rhi_ImageLayout::Undefined, Rhi_ImageLayout::ShaderReadOnly );
+    Rhi::DeviceTransitionTextureLayout( aDevice, aState.mySoftPong, Rhi_ImageLayout::Undefined, Rhi_ImageLayout::ShaderReadOnly );
+    aState.mySoftPingLayout = Rhi_ImageLayout::ShaderReadOnly;
+    aState.mySoftPongLayout = Rhi_ImageLayout::ShaderReadOnly;
+    aState.myWidth          = aDesc.myWidth;
+    aState.myHeight         = aDesc.myHeight;
+    aState.myImagesReady    = true;
+    return true;
+}
+
+void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
+    DestroySoftImagesOnly( aDevice, aState );
+    DestroyFallbackImagesOnly( aDevice, aState );
 }
 
 void Destroy( Rhi_Device& aDevice, PassState& aState ) {

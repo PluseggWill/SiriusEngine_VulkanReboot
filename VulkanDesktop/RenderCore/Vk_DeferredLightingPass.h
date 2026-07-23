@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../Gfx/Gfx_DdgiPass.h"
+#include "../Gfx/Gfx_DeferredLightingPass.h"
+
 #include <array>
 #include <glm/vec3.hpp>
 
@@ -11,6 +14,9 @@ using VkCommandBuffer = VkCommandBuffer_T*;
 class Vk_Renderer;
 
 struct Vk_DeferredLightingState {
+    Gfx_DeferredLightingPass::PassState myDeferredGfx{};
+    Gfx_DdgiPass::PassState             myDdgiGfx{};
+
     VkPipeline            myPipeline                      = VK_NULL_HANDLE;
     VkPipelineLayout      myPipelineLayout                = VK_NULL_HANDLE;
     VkDescriptorSetLayout mySetLayout                     = VK_NULL_HANDLE;

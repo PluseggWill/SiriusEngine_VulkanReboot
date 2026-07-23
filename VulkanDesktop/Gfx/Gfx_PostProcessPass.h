@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Rhi/Rhi_Enums.h"
 #include "../Rhi/Rhi_Handles.h"
 
@@ -91,5 +92,27 @@ struct TonemapInput {
 void RecordBloom( Rhi_CommandList& aCmd, const BloomGpu& aGpu, BloomInput& aInput );
 void RecordTaa( Rhi_CommandList& aCmd, const TaaGpu& aGpu, TaaInput& aInput );
 void RecordTonemap( Rhi_CommandList& aCmd, const TonemapGpu& aGpu, TonemapInput& aInput );
+
+struct ComputePassState {
+    Rhi_Pipeline myThresholdPipeline{};
+    Rhi_Pipeline myBlurPipeline{};
+    Rhi_Pipeline myTaaPipeline{};
+    bool         myPipelinesReady = false;
+};
+
+struct ComputePipelinesInitDesc {
+    const void*        myThresholdSpirv      = nullptr;
+    size_t             myThresholdSpirvBytes = 0;
+    const void*        myBlurSpirv           = nullptr;
+    size_t             myBlurSpirvBytes      = 0;
+    const void*        myTaaSpirv            = nullptr;
+    size_t             myTaaSpirvBytes       = 0;
+    Rhi_PipelineLayout myThresholdLayout{};
+    Rhi_PipelineLayout myBlurLayout{};
+    Rhi_PipelineLayout myTaaLayout{};
+};
+
+[[nodiscard]] bool CreateComputePipelines( Rhi_Device& aDevice, const ComputePipelinesInitDesc& aDesc, ComputePassState& aState );
+void               DestroyComputePipelines( Rhi_Device& aDevice, ComputePassState& aState );
 
 }  // namespace Gfx_PostProcessPass

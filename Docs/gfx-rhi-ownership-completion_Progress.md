@@ -3,6 +3,20 @@
 **Plan:** [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md)  
 **Started:** 2026-07-23
 
+## 2026-07-23 — O3 Init fan-out + Rhi correctness
+- **Init→Gfx:** AO CreatePipelines + images; Soft/SSR CreateOrRecreateImages; Post bloom/TAA compute PSOs; ShadowMap CreateResources; Deferred+DDGI CreatePipeline.
+- **Rhi fixes:** `DeviceCreateComputePipeline` uses `ResolvePipelineLayout` (adopted layouts); standard Gfx vertex attrs location/binding order; `DeviceUploadTexture2D` returns bool; Clear destroys ShadowMap+Rhi before VMA allocator flush.
+- **Bugbot:** Soft fallback upload must succeed; deferred hybrid PSO sample count fixed to 1.
+- **Still pending:** descriptor writes mostly RC; Post/Deferred layout+image shells; O5 retire empty `Vk_*Pass` shells.
+- **Verification:** `Verify-CI` PASSED; `Verify-Smoke` PASSED; sponza `--validation` exit 0 (known `enabledLayerCount` only).
+
+## 2026-07-23 — O3 AO + Soft/SSR images Init in Gfx
+- **Gfx_AoPass:** `PassState`, `CreatePipelines` (6 compute PSOs, 5 set layouts, pool, sampler, 3×6 descriptor sets), `CreateOrRecreateImages` (R8/RG8 storage targets).
+- **Gfx_ShadowAoSoftPass / Gfx_SsrPass:** `CreateOrRecreateImages` (RG8 ping-pong + R8/RG8 1×1 fallbacks; SSR RGBA16F output + history).
+- **Rhi:** `RG8_Unorm`, `DeviceTransitionTextureLayout`, `DeviceUploadTexture2D`.
+- **RC (unchanged role):** `vkUpdateDescriptorSets` for GBuffer/shadow/lighting/HiZ/temporal; Vk texture mirrors via `SyncVkMirrors`.
+- **Verification:** `Verify-CI` PASSED.
+
 ## 2026-07-23 — O4 complete + O3 fan-out (Cluster/Soft/SSR)
 - **O4:** Deleted remaining `Vk_*_Record.cpp` (Post, ShadowMap, Deferred+DDGI); all FG records via pass TU + `Vk_FrameCmd`.
 - **O3:** ClusterBuild full Init in Gfx (buffers + map + descriptor buffer writes); Soft/SSR **CreatePipeline** in Gfx (images/descriptor writes still RC).

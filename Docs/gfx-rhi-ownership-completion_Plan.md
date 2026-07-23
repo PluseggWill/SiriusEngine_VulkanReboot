@@ -26,7 +26,7 @@ Goal: finish ownership so Gfx records **and** creates through Rhi; delete per-pa
 |-------|--------|------|
 | **O1** | Peel FG GBuffer/hybrid Begin/End into Gfx plan executor (former E4.6f) | Smoke + G0-validation; FG no longer owns those Begin/End — **Done 2026-07-23** |
 | **O2** | Expand Rhi **create** surface: compute + graphics RP/FB/PSO + buffer descriptor update/map | GfxTests + Verify-CI — **Done 2026-07-23** |
-| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid **full**; ClusterBuild **full**; Soft/SSR **pipeline**; AO/Post/Shadow/Deferred Init pending |
+| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid/ClusterBuild **full**; AO/Soft/SSR **pipeline+images**; ShadowMap **resources**; Deferred/DDGI/Post **PSO create**; descriptor writes + Post layouts/images still RC |
 | **O4** | Delete `Vk_*_Record.cpp` facades; FG/executor calls Gfx with Rhi handles + plain DTOs | **Done 2026-07-23** — all Record TUs deleted (Post/Shadow/Deferred+DDGI included) |
 | **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Pending (RC still hosts image create + descriptor writes for Soft/SSR/AO/…) |
 

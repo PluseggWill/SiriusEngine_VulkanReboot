@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_AoPass.h"
+
 #include <array>
 
 #include <glm/mat4x4.hpp>
@@ -16,12 +18,10 @@ class Vk_Renderer;
 
 // Screen-space ambient occlusion — pluggable algorithms (Classic SSAO, HBAO+, GTAO).
 
-// Contract: myAoRaw (R8 full-res, linear) is consumed by ShadowAoSoft and/or deferred resolve.
-
-// Half-res methods (HBAO+, GTAO) write myAoHalf then reuse myUpsamplePipeline → myAoRaw.
-
 struct Vk_AoState {
+    Gfx_AoPass::PassState myGfx{};
 
+    // Non-owning Vk mirrors (lifetime owned by Gfx PassState).
     VkPipeline myClassicPipeline = VK_NULL_HANDLE;
 
     VkPipeline myHbaoPipeline = VK_NULL_HANDLE;
@@ -52,15 +52,15 @@ struct Vk_AoState {
 
     VkSampler myGBufferSampler = VK_NULL_HANDLE;
 
-    Vk_TextureResource myAoRaw{};  // full-res R8 — deferred / contact-soft input
+    Vk_TextureResource myAoRaw{};
 
-    Vk_TextureResource myAoHalf{};  // half-res R8 — HBAO+ / GTAO intermediate
+    Vk_TextureResource myAoHalf{};
 
-    Vk_TextureResource myBentNormalHalf{};  // half-res RG8 octahedral bent normal (GTAO only; deferred binding 18)
+    Vk_TextureResource myBentNormalHalf{};
 
-    Vk_TextureResource myAoBlur{};  // classic SSAO separable blur ping-pong
+    Vk_TextureResource myAoBlur{};
 
-    Vk_TextureResource myAoHistory[ 2 ]{};  // temporal AO history ping-pong
+    Vk_TextureResource myAoHistory[ 2 ]{};
 
     std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myClassicDescriptorSets{};
 
@@ -80,9 +80,8 @@ struct Vk_AoState {
 
     VkDescriptorSetLayout myTemporalSetLayout = VK_NULL_HANDLE;
 
-    uint32_t myTemporalReadIndex = 0u;
-    // Pass-local: at least one temporal write into history ping-pong (AND with Vk_TemporalState::myHistoryValid).
-    bool myTemporalHistoryReady = false;
+    uint32_t myTemporalReadIndex    = 0u;
+    bool     myTemporalHistoryReady = false;
 
     bool myInitialized = false;
 };

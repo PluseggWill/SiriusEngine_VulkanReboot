@@ -9,15 +9,12 @@
 #include "Vk_DescriptorPolicy.h"
 #include "Vk_FrameCmd.h"
 #include "Vk_FrameUniformUploader.h"
-#include "Vk_Initializer.h"
-#include "Vk_Pipeline.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
-#include "Vk_VertexLayout.h"
 
-#include <glm/gtc/type_ptr.hpp>
+#include "../Rhi/Rhi_Enums.h"
 
-#include <array>
+#include <fstream>
 #include <stdexcept>
 #include <vector>
 
@@ -26,169 +23,75 @@ namespace {
 constexpr char kShadowVertSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapVert.spv";
 constexpr char kShadowFragSpv[] = "VulkanDesktop/Shader_Generated/ShadowMapFrag.spv";
 
-// Shadow push-constant block — must match ShadowMap.vert layout.
-struct ShadowPushConstants {
-    alignas( 16 ) glm::mat4 myLightViewProj;
-};
+Rhi_Format MapDepthFormat( VkFormat aFormat ) {
+    switch ( aFormat ) {
+    case VK_FORMAT_D32_SFLOAT:
+        return Rhi_Format::D32_Sfloat;
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        return Rhi_Format::D32_Sfloat_S8_Uint;
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+        return Rhi_Format::D24_Unorm_S8_Uint;
+    default:
+        return Rhi_Format::Undefined;
+    }
+}
 
-static_assert( sizeof( ShadowPushConstants ) == 64, "ShadowPushConstants must match ShadowMap.vert push block" );
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_ShadowMapPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
+
+void SyncVkMirrors( Vk_Renderer& aCore ) {
+    Vk_ShadowMapState& state = aCore.myShadowMapState;
+    Rhi_Device&        rhi   = aCore.myGfxRhiDevice;
+    const auto&        gfx   = state.myGfx;
+
+    state.myDepth             = {};
+    state.myDepth.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myDepth );
+    state.myDepth.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myDepth );
+    state.myRenderPass        = RhiVulkan::RenderPassGetVk( rhi, gfx.myRenderPass );
+    state.myFramebuffer       = RhiVulkan::FramebufferGetVk( rhi, gfx.myFramebuffer );
+    state.myPipeline          = RhiVulkan::PipelineGetVk( rhi, gfx.myPipeline );
+    state.myPipelineLayout    = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myLayout );
+    state.myCompareSampler    = RhiVulkan::SamplerGetVk( rhi, gfx.myCompareSampler );
+    state.myDepthReadSampler  = RhiVulkan::SamplerGetVk( rhi, gfx.myDepthReadSampler );
+}
 
 void CreateShadowResources( Vk_Renderer& aCore ) {
-    Vk_ShadowMapState& state       = aCore.myShadowMapState;
-    const VkFormat     depthFormat = aCore.FindDepthFormat();
-
-    const VkExtent2D extent{ Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
-    aCore.CreateImage( extent, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, state.myDepth.AllocImage() );
-    state.myDepth.ImageView() = aCore.CreateImageView( state.myDepth.Image(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
-
-    VkAttachmentDescription depthAttachment{};
-    depthAttachment.format         = depthFormat;
-    depthAttachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference depthRef{};
-    depthRef.attachment = 0;
-    depthRef.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.pDepthStencilAttachment = &depthRef;
-
-    VkSubpassDependency dependency{};
-    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass    = 0;
-    dependency.srcStageMask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency.dstStageMask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo renderPassInfo{};
-    renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments    = &depthAttachment;
-    renderPassInfo.subpassCount    = 1;
-    renderPassInfo.pSubpasses      = &subpass;
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies   = &dependency;
-    if ( vkCreateRenderPass( aCore.myRhi.myDeviceCtx.myDevice, &renderPassInfo, nullptr, &state.myRenderPass ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowMapPass: failed to create render pass" );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_ShadowMapPass: myGfxRhiDevice required for Gfx Init" );
     }
 
-    VkFramebufferCreateInfo framebufferInfo{};
-    framebufferInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebufferInfo.renderPass      = state.myRenderPass;
-    framebufferInfo.attachmentCount = 1;
-    framebufferInfo.pAttachments    = &state.myDepth.ImageView();
-    framebufferInfo.width           = Vk_ShadowMapState::kMapSize;
-    framebufferInfo.height          = Vk_ShadowMapState::kMapSize;
-    framebufferInfo.layers          = 1;
-    if ( vkCreateFramebuffer( aCore.myRhi.myDeviceCtx.myDevice, &framebufferInfo, nullptr, &state.myFramebuffer ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowMapPass: failed to create framebuffer" );
+    const Rhi_Format depthFormat = MapDepthFormat( aCore.FindDepthFormat() );
+    if ( depthFormat == Rhi_Format::Undefined ) {
+        throw std::runtime_error( "Vk_ShadowMapPass: unsupported depth format" );
     }
 
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = sizeof( ShadowPushConstants );
+    const std::string         vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kShadowVertSpv );
+    const std::string         fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kShadowFragSpv );
+    const std::vector< char > vertSpv  = LoadSpirvBytes( vertPath );
+    const std::vector< char > fragSpv  = LoadSpirvBytes( fragPath );
 
-    VkPipelineLayoutCreateInfo layoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    layoutInfo.setLayoutCount             = 1;
-    layoutInfo.pSetLayouts                = &aCore.mySceneGpuCtx.myObjectSetLayout;
-    layoutInfo.pushConstantRangeCount     = 1;
-    layoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowMapPass: failed to create pipeline layout" );
+    Gfx_ShadowMapPass::ResourcesInitDesc desc{};
+    desc.myDepthFormat     = depthFormat;
+    desc.myObjectSetLayout = RhiVulkan::DescriptorSetLayoutAdopt( aCore.mySceneGpuCtx.myObjectSetLayout );
+    desc.myVertSpirv       = vertSpv.data();
+    desc.myVertSpirvBytes  = vertSpv.size();
+    desc.myFragSpirv       = fragSpv.data();
+    desc.myFragSpirvBytes  = fragSpv.size();
+
+    if ( !Gfx_ShadowMapPass::CreateResources( aCore.myGfxRhiDevice, desc, aCore.myShadowMapState.myGfx ) ) {
+        throw std::runtime_error( "Vk_ShadowMapPass: Gfx CreateResources failed" );
     }
 
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter        = VK_FILTER_LINEAR;
-    samplerInfo.minFilter        = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeV     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.addressModeW     = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    samplerInfo.borderColor      = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
-    samplerInfo.compareEnable    = VK_TRUE;
-    samplerInfo.compareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
-    samplerInfo.anisotropyEnable = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myCompareSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowMapPass: failed to create compare sampler" );
-    }
-
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.magFilter     = VK_FILTER_NEAREST;
-    samplerInfo.minFilter     = VK_FILTER_NEAREST;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myDepthReadSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_ShadowMapPass: failed to create depth read sampler" );
-    }
-
-    const std::string vertPath   = UtilLoader::ResolvePath( aCore.EngineConfig(), kShadowVertSpv );
-    const std::string fragPath   = UtilLoader::ResolvePath( aCore.EngineConfig(), kShadowFragSpv );
-    VkShaderModule    vertModule = aCore.CreateShaderModule( vertPath );
-    VkShaderModule    fragModule = aCore.CreateShaderModule( fragPath );
-
-    Vk_PipelineBuilder pipelineBuilder;
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo      = VkInit::Pipeline_VertexInputStateCreateInfo();
-    auto                                 bindingDescription   = Vk_GetGfxVertexBindingDescription();
-    auto                                 attributeDescription = Vk_GetGfxVertexAttributeDescriptions();
-    vertexInputInfo.vertexBindingDescriptionCount             = 1;
-    vertexInputInfo.pVertexBindingDescriptions                = &bindingDescription;
-    vertexInputInfo.vertexAttributeDescriptionCount           = static_cast< uint32_t >( attributeDescription.size() );
-    vertexInputInfo.pVertexAttributeDescriptions              = attributeDescription.data();
-    pipelineBuilder.myVertexInputInfo                         = vertexInputInfo;
-    pipelineBuilder.myInputAssembly                           = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport                                = VkInit::ViewportCreateInfo( { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize } );
-    pipelineBuilder.myScissor.offset                          = { 0, 0 };
-    pipelineBuilder.myScissor.extent                          = { Vk_ShadowMapState::kMapSize, Vk_ShadowMapState::kMapSize };
-    // BACK cull: front-face depth (closest to light). FRONT cull stores back faces and causes light leak.
-    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT );
-    pipelineBuilder.myRasterizer.depthBiasEnable    = VK_TRUE;
-    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
-    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_TRUE;
-    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_TRUE;
-    pipelineBuilder.myDepthStencil.depthCompareOp   = VK_COMPARE_OP_GREATER;
-    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                = state.myPipelineLayout;
-    pipelineBuilder.SetDynamicStates( { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_DEPTH_BIAS } );
-    state.myPipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, state.myRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
-    UtilLogger::Info( "PIPELINE", "ShadowMap directional pass created." );
-
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
-
-    const VkDevice         device           = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator     allocator        = aCore.myRhi.myDeviceCtx.myAllocator;
-    const VkRenderPass     renderPass       = state.myRenderPass;
-    const VkFramebuffer    framebuffer      = state.myFramebuffer;
-    const VkPipeline       pipeline         = state.myPipeline;
-    const VkPipelineLayout layout           = state.myPipelineLayout;
-    const VkSampler        compareSampler   = state.myCompareSampler;
-    const VkSampler        depthReadSampler = state.myDepthReadSampler;
-    const VkImageView      depthView        = state.myDepth.ImageView();
-    const VkImage          depthImage       = state.myDepth.Image();
-    const VmaAllocation    depthAlloc       = state.myDepth.Allocation();
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
-        [ device, allocator, renderPass, framebuffer, pipeline, layout, compareSampler, depthReadSampler, depthView, depthImage, depthAlloc ]() {
-            vkDestroySampler( device, depthReadSampler, nullptr );
-            vkDestroySampler( device, compareSampler, nullptr );
-            vkDestroyPipeline( device, pipeline, nullptr );
-            vkDestroyPipelineLayout( device, layout, nullptr );
-            vkDestroyFramebuffer( device, framebuffer, nullptr );
-            vkDestroyRenderPass( device, renderPass, nullptr );
-            vkDestroyImageView( device, depthView, nullptr );
-            vmaDestroyImage( allocator, depthImage, depthAlloc );
-        } );
-
+    SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE",
                       "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x" + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
 }
@@ -232,8 +135,24 @@ void CmdTransitionShadowDepth( Vk_ShadowMapState& aState, VkCommandBuffer aComma
 namespace Vk_ShadowMapPass {
 
 void Destroy( Vk_Renderer& aCore ) {
-    aCore.myShadowMapState.myInitialized = false;
-    aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if ( !aCore.myShadowMapState.myInitialized ) {
+        return;
+    }
+    if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
+        vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
+    }
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_ShadowMapPass::DestroyResources( aCore.myGfxRhiDevice, aCore.myShadowMapState.myGfx );
+    }
+    aCore.myShadowMapState.myDepth            = {};
+    aCore.myShadowMapState.myRenderPass       = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myFramebuffer      = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myPipeline         = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myPipelineLayout   = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myCompareSampler   = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myDepthReadSampler = VK_NULL_HANDLE;
+    aCore.myShadowMapState.myInitialized      = false;
+    aCore.myShadowMapState.myDepthLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {

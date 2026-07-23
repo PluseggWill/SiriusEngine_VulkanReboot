@@ -9,6 +9,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 
+#include <array>
 #include <cstdint>
 
 namespace Gfx_SsrPass {
@@ -52,12 +53,20 @@ struct HistoryInput {
 };
 
 struct PassState {
-    Rhi_Pipeline            myPipeline{};
-    Rhi_PipelineLayout      myLayout{};
-    Rhi_DescriptorSetLayout mySetLayout{};
-    Rhi_DescriptorPool      myPool{};
-    Rhi_Sampler             myGBufferSampler{};
-    bool                    myPipelineReady = false;
+    Rhi_Pipeline                     myPipeline{};
+    Rhi_PipelineLayout               myLayout{};
+    Rhi_DescriptorSetLayout          mySetLayout{};
+    Rhi_DescriptorPool               myPool{};
+    Rhi_Sampler                      myGBufferSampler{};
+    Rhi_Texture                      mySsrOutput{};
+    Rhi_Texture                      myHistory0{};
+    Rhi_Texture                      myHistory1{};
+    Rhi_ImageLayout                  mySsrLayout = Rhi_ImageLayout::Undefined;
+    std::array< Rhi_ImageLayout, 2 > myHistoryLayouts{ Rhi_ImageLayout::Undefined, Rhi_ImageLayout::Undefined };
+    uint32_t                         myWidth         = 0;
+    uint32_t                         myHeight        = 0;
+    bool                             myPipelineReady = false;
+    bool                             myImagesReady   = false;
 };
 
 struct PipelineInitDesc {
@@ -66,8 +75,16 @@ struct PipelineInitDesc {
     uint32_t    myFramesInFlight = kMaxFramesInFlight;
 };
 
+struct ImageInitDesc {
+    uint32_t myWidth  = 0;
+    uint32_t myHeight = 0;
+};
+
 [[nodiscard]] bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
 
+[[nodiscard]] bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState );
+
+void DestroyImages( Rhi_Device& aDevice, PassState& aState );
 void DestroyPipeline( Rhi_Device& aDevice, PassState& aState );
 void Destroy( Rhi_Device& aDevice, PassState& aState );
 

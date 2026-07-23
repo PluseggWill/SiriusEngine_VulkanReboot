@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Gfx/Gfx_ShadowMapPass.h"
+
 #include "Vk_Types.h"
 
 #include <glm/glm.hpp>
@@ -9,6 +11,8 @@ class Vk_Renderer;
 struct Gfx_PassDrawPacket;
 
 struct Vk_ShadowMapState {
+
+    Gfx_ShadowMapPass::PassState myGfx{};
 
     bool myInitialized = false;
 

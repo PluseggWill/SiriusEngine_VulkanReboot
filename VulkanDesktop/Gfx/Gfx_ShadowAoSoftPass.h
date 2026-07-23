@@ -46,7 +46,17 @@ struct PassState {
     Rhi_DescriptorSetLayout myBlurSetLayout{};
     Rhi_DescriptorPool      myPool{};
     Rhi_Sampler             myGBufferSampler{};
-    bool                    myPipelineReady = false;
+    Rhi_Texture             mySoftPing{};
+    Rhi_Texture             mySoftPong{};
+    Rhi_Texture             myFallbackAo{};
+    Rhi_Texture             myFallbackContact{};
+    Rhi_ImageLayout         mySoftPingLayout = Rhi_ImageLayout::Undefined;
+    Rhi_ImageLayout         mySoftPongLayout = Rhi_ImageLayout::Undefined;
+    uint32_t                myWidth          = 0;
+    uint32_t                myHeight         = 0;
+    bool                    myFallbackReady  = false;
+    bool                    myImagesReady    = false;
+    bool                    myPipelineReady  = false;
 };
 
 struct PipelineInitDesc {
@@ -57,8 +67,17 @@ struct PipelineInitDesc {
     uint32_t    myFramesInFlight = kMaxFramesInFlight;
 };
 
+struct ImageInitDesc {
+    uint32_t myWidth          = 0;
+    uint32_t myHeight         = 0;
+    bool     myCreateFallback = true;
+};
+
 [[nodiscard]] bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
 
+[[nodiscard]] bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState );
+
+void DestroyImages( Rhi_Device& aDevice, PassState& aState );
 void DestroyPipelines( Rhi_Device& aDevice, PassState& aState );
 void Destroy( Rhi_Device& aDevice, PassState& aState );
 

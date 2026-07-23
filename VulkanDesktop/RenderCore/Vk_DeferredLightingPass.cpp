@@ -14,7 +14,6 @@
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameCmd.h"
 #include "Vk_Initializer.h"
-#include "Vk_Pipeline.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
@@ -27,8 +26,10 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -36,34 +37,65 @@ constexpr char kDeferredVertSpv[]    = "VulkanDesktop/Shader_Generated/DeferredL
 constexpr char kDeferredFragSpv[]    = "VulkanDesktop/Shader_Generated/DeferredLightingFrag.spv";
 constexpr char kDdgiProbeUpdateSpv[] = "VulkanDesktop/Shader_Generated/DdgiProbeUpdate.spv";
 
-VkPipeline BuildFullscreenPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
-    VkShaderModule vertModule = aCore.CreateShaderModule( aVertPath );
-    VkShaderModule fragModule = aCore.CreateShaderModule( aFragPath );
+std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
+    std::ifstream file( aPath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: failed to open shader " + aPath );
+    }
+    const size_t        fileSize = static_cast< size_t >( file.tellg() );
+    std::vector< char > buffer( fileSize );
+    file.seekg( 0 );
+    file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
+    return buffer;
+}
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo = VkInit::Pipeline_VertexInputStateCreateInfo();
-    Vk_PipelineBuilder                   pipelineBuilder;
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_VERTEX_BIT, vertModule, "main" ) );
-    pipelineBuilder.myShaderStages.push_back( VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_FRAGMENT_BIT, fragModule, "main" ) );
-    pipelineBuilder.myVertexInputInfo = vertexInputInfo;
-    pipelineBuilder.myInputAssembly   = VkInit::Pipeline_InputAssemblyCreateInfo( VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST );
-    pipelineBuilder.myViewport        = VkInit::ViewportCreateInfo( aCore.mySwapchainCtx.mySwapChainExtent );
-    pipelineBuilder.myScissor.offset  = { 0, 0 };
-    pipelineBuilder.myScissor.extent  = aCore.mySwapchainCtx.mySwapChainExtent;
-    // Fullscreen triangle (DeferredLighting.vert): clip-space winding can back-face cull with default BACK cull.
-    pipelineBuilder.myRasterizer                    = VkInit::Pipeline_RasterizationCreateInfo( VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE );
-    pipelineBuilder.myMultisampling                 = VkInit::Pipeline_MultisampleCreateInfo( VK_SAMPLE_COUNT_1_BIT );
-    pipelineBuilder.myDepthStencil                  = VkInit::Pipeline_DepthStencilCreateInfo();
-    pipelineBuilder.myDepthStencil.depthWriteEnable = VK_FALSE;
-    pipelineBuilder.myDepthStencil.depthTestEnable  = VK_FALSE;
-    pipelineBuilder.myColorBlendAttachment          = VkInit::Pipeline_ColorBlendAttachment( VK_FALSE );
-    pipelineBuilder.myPipelineLayout                = aLayout;
-    pipelineBuilder.SetDefaultDynamicStates();
+void SyncPipelineMirrors( Vk_Renderer& aCore ) {
+    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
+    state.myPipeline                = RhiVulkan::PipelineGetVk( rhi, state.myDeferredGfx.myPipeline );
+    state.myDdgiProbeUpdatePipeline = RhiVulkan::PipelineGetVk( rhi, state.myDdgiGfx.myPipeline );
+}
 
-    VkPipeline pipeline = pipelineBuilder.BuildPipeline( aCore.myRhi.myDeviceCtx.myDevice, aRenderPass, aCore.myRhi.myDeviceCtx.myPipelineCache, nullptr );
+bool CreateGfxPipelines( Vk_Renderer& aCore ) {
+    if ( !aCore.myGfxRhiDevice || !aCore.myPostProcessState.myRhiHybridRenderPass ) {
+        return false;
+    }
+    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
 
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, vertModule, nullptr );
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, fragModule, nullptr );
-    return pipeline;
+    const std::string         vertPath     = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
+    const std::string         fragPath     = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
+    const std::vector< char > deferredVert = LoadSpirvBytes( vertPath );
+    const std::vector< char > deferredFrag = LoadSpirvBytes( fragPath );
+
+    Gfx_DeferredLightingPass::DestroyPipeline( rhi, state.myDeferredGfx );
+    Gfx_DeferredLightingPass::PipelineInitDesc deferredDesc{};
+    deferredDesc.myVertSpirv      = deferredVert.data();
+    deferredDesc.myVertSpirvBytes = deferredVert.size();
+    deferredDesc.myFragSpirv      = deferredFrag.data();
+    deferredDesc.myFragSpirvBytes = deferredFrag.size();
+    deferredDesc.myLayout         = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    deferredDesc.myRenderPass     = aCore.myPostProcessState.myRhiHybridRenderPass;
+    deferredDesc.mySampleCount    = 1;  // hybrid resolve color attachment is single-sample
+    if ( !Gfx_DeferredLightingPass::CreatePipeline( rhi, deferredDesc, state.myDeferredGfx ) ) {
+        return false;
+    }
+
+    const std::string         ddgiPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDdgiProbeUpdateSpv );
+    const std::vector< char > ddgiSpv  = LoadSpirvBytes( ddgiPath );
+
+    Gfx_DdgiPass::DestroyPipeline( rhi, state.myDdgiGfx );
+    Gfx_DdgiPass::PipelineInitDesc ddgiDesc{};
+    ddgiDesc.mySpirvCode  = ddgiSpv.data();
+    ddgiDesc.mySpirvBytes = ddgiSpv.size();
+    ddgiDesc.myLayout     = RhiVulkan::PipelineLayoutAdopt( state.myDdgiProbeUpdatePipelineLayout );
+    if ( !Gfx_DdgiPass::CreatePipeline( rhi, ddgiDesc, state.myDdgiGfx ) ) {
+        Gfx_DeferredLightingPass::DestroyPipeline( rhi, state.myDeferredGfx );
+        return false;
+    }
+
+    SyncPipelineMirrors( aCore );
+    return true;
 }
 
 void DestroyDdgiAtlas( Vk_Renderer& aCore ) {
@@ -367,18 +399,6 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe pipeline layout" );
     }
 
-    VkShaderModule              ddgiModule = aCore.CreateShaderModule( UtilLoader::ResolvePath( aCore.EngineConfig(), kDdgiProbeUpdateSpv ) );
-    VkComputePipelineCreateInfo ddgiPipelineInfo{};
-    ddgiPipelineInfo.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    ddgiPipelineInfo.stage  = VkInit::Pipeline_ShaderStageCreateInfo( VK_SHADER_STAGE_COMPUTE_BIT, ddgiModule, "main" );
-    ddgiPipelineInfo.layout = state.myDdgiProbeUpdatePipelineLayout;
-    if ( vkCreateComputePipelines( aCore.myRhi.myDeviceCtx.myDevice, aCore.myRhi.myDeviceCtx.myPipelineCache, 1, &ddgiPipelineInfo, nullptr, &state.myDdgiProbeUpdatePipeline )
-         != VK_SUCCESS ) {
-        vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, ddgiModule, nullptr );
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe update pipeline" );
-    }
-    vkDestroyShaderModule( aCore.myRhi.myDeviceCtx.myDevice, ddgiModule, nullptr );
-
     std::array< VkDescriptorPoolSize, 2 > ddgiPoolSizes = {
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 2 },
         VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 2 },
@@ -424,9 +444,9 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
-    const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
-    const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
-    state.myPipeline           = BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, state.myPipelineLayout, vertPath, fragPath );
+    if ( !CreateGfxPipelines( aCore ) ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: Gfx pipeline create failed" );
+    }
 
     // DDGI atlases are owned by DestroyDdgiAtlas (called from Destroy / RecreateForExtent), not this queue —
     // capturing atlas handles here would double-free after resize and previously leaked the irradiance atlas.
@@ -557,14 +577,10 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
-        VkDevice device = aCore.myRhi.myDeviceCtx.myDevice;
-        if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, aCore.myDeferredLightingState.myPipeline, nullptr );
-        }
-        // Destroy DDGI compute here (not only via device deletion queue) so UnloadScene cannot leak it.
-        if ( aCore.myDeferredLightingState.myDdgiProbeUpdatePipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( device, aCore.myDeferredLightingState.myDdgiProbeUpdatePipeline, nullptr );
-        }
+    }
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_DeferredLightingPass::DestroyPipeline( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDeferredGfx );
+        Gfx_DdgiPass::DestroyPipeline( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDdgiGfx );
     }
     DestroyDdgiAtlas( aCore );
     aCore.myDeferredLightingState.myDescriptorSets                = {};
@@ -584,10 +600,6 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     }
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
-        if ( aCore.myDeferredLightingState.myPipeline != VK_NULL_HANDLE ) {
-            vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myDeferredLightingState.myPipeline, nullptr );
-            aCore.myDeferredLightingState.myPipeline = VK_NULL_HANDLE;
-        }
     }
 
     DestroyDdgiAtlas( aCore );
@@ -620,10 +632,9 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
         vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
     }
 
-    const std::string vertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredVertSpv );
-    const std::string fragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kDeferredFragSpv );
-    aCore.myDeferredLightingState.myPipeline =
-        BuildFullscreenPipeline( aCore, aCore.myPostProcessState.myHybridRenderPass, aCore.myDeferredLightingState.myPipelineLayout, vertPath, fragPath );
+    if ( !CreateGfxPipelines( aCore ) ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: Gfx pipeline recreate failed" );
+    }
 }
 
 void Init( Vk_Renderer& aCore ) {
@@ -636,6 +647,9 @@ void Init( Vk_Renderer& aCore ) {
     if ( !aCore.myGBufferState.myInitialized || !aCore.myClusterBuildState.myInitialized || !aCore.myAoState.myInitialized || !aCore.myDepthPyramidState.myInitialized
          || !aCore.mySsrState.myInitialized || !aCore.myPostProcessState.myInitialized ) {
         throw std::runtime_error( "Vk_DeferredLightingPass::Init requires GBuffer, ClusterBuild, DepthPyramid, SSR, SSAO, and PostProcess" );
+    }
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass::Init requires myGfxRhiDevice" );
     }
     UtilLogger::Info( "FG", "Vk_DeferredLightingPass::Init." );
     CreatePipelineResources( aCore );

@@ -304,7 +304,357 @@ void TransitionRawForDeferred( Rhi_CommandList& aCmd, Rhi_Texture aRaw, Gfx_AoPa
     aLayouts.myAoRaw = Rhi_ImageLayout::ShaderReadOnly;
 }
 
+bool CreateComputePipeline( Rhi_Device& aDevice, const void* aSpirv, size_t aSpirvBytes, Rhi_DescriptorSetLayout aSetLayout, size_t aPushBytes, Rhi_PipelineLayout& aOutLayout,
+                            Rhi_Pipeline& aOutPipeline ) {
+    Rhi::PushConstantRangeDesc push{};
+    push.myStages      = Rhi_ShaderStage::Compute;
+    push.myOffsetBytes = 0;
+    push.mySizeBytes   = static_cast< uint32_t >( aPushBytes );
+
+    Rhi::PipelineLayoutDesc layoutDesc{};
+    layoutDesc.mySetLayouts     = &aSetLayout;
+    layoutDesc.mySetLayoutCount = 1;
+    layoutDesc.myPushRanges     = &push;
+    layoutDesc.myPushRangeCount = 1;
+    aOutLayout                  = Rhi::DeviceCreatePipelineLayout( aDevice, layoutDesc );
+    if ( !aOutLayout ) {
+        return false;
+    }
+
+    Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( aDevice, aSpirv, aSpirvBytes );
+    if ( !shader ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aOutLayout );
+        aOutLayout = {};
+        return false;
+    }
+    Rhi::ComputePipelineDesc pipeDesc{};
+    pipeDesc.myShader = shader;
+    pipeDesc.myLayout = aOutLayout;
+    aOutPipeline      = Rhi::DeviceCreateComputePipeline( aDevice, pipeDesc );
+    Rhi::DeviceDestroyShaderModule( aDevice, shader );
+    if ( !aOutPipeline ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aOutLayout );
+        aOutLayout = {};
+        return false;
+    }
+    return true;
+}
+
+Rhi_Texture CreateAoStorageTexture( Rhi_Device& aDevice, uint32_t aWidth, uint32_t aHeight, Rhi_Format aFormat ) {
+    Rhi::TextureDesc desc{};
+    desc.myWidth  = aWidth;
+    desc.myHeight = aHeight;
+    desc.myFormat = aFormat;
+    desc.myUsage  = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage;
+    desc.myMemory = Rhi_MemoryUsage::GpuOnly;
+    return Rhi::DeviceCreateTexture( aDevice, desc );
+}
+
+void DestroyAoImagesOnly( Rhi_Device& aDevice, Gfx_AoPass::PassState& aState ) {
+    Rhi::DeviceDestroyTexture( aDevice, aState.myAoRaw );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myAoHalf );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myBentNormalHalf );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myAoBlur );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myAoHistory0 );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myAoHistory1 );
+    aState.myWidth       = 0;
+    aState.myHeight      = 0;
+    aState.myImagesReady = false;
+}
+
 }  // namespace
+
+namespace Gfx_AoPass {
+
+bool CreatePipelines( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState ) {
+    if ( aState.myPipelineReady ) {
+        return true;
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || aDesc.myClassicSpirvCode == nullptr || aDesc.myClassicSpirvBytes == 0 || aDesc.myHbaoSpirvCode == nullptr
+         || aDesc.myHbaoSpirvBytes == 0 || aDesc.myGtaoSpirvCode == nullptr || aDesc.myGtaoSpirvBytes == 0 || aDesc.myUpsampleSpirvCode == nullptr
+         || aDesc.myUpsampleSpirvBytes == 0 || aDesc.myBlurSpirvCode == nullptr || aDesc.myBlurSpirvBytes == 0 || aDesc.myTemporalSpirvCode == nullptr
+         || aDesc.myTemporalSpirvBytes == 0 ) {
+        return false;
+    }
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 4 > classicBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 3, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           classicLayoutDesc{};
+    classicLayoutDesc.myBindings     = classicBindings.data();
+    classicLayoutDesc.myBindingCount = static_cast< uint32_t >( classicBindings.size() );
+    aState.myClassicSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, classicLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 5 > halfResBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 3, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+        { 4, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           halfResLayoutDesc{};
+    halfResLayoutDesc.myBindings     = halfResBindings.data();
+    halfResLayoutDesc.myBindingCount = static_cast< uint32_t >( halfResBindings.size() );
+    aState.myHalfResSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, halfResLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 3 > upsampleBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           upsampleLayoutDesc{};
+    upsampleLayoutDesc.myBindings     = upsampleBindings.data();
+    upsampleLayoutDesc.myBindingCount = static_cast< uint32_t >( upsampleBindings.size() );
+    aState.myUpsampleSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, upsampleLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 2 > blurBindings = { {
+        { 0, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           blurLayoutDesc{};
+    blurLayoutDesc.myBindings     = blurBindings.data();
+    blurLayoutDesc.myBindingCount = static_cast< uint32_t >( blurBindings.size() );
+    aState.myBlurSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, blurLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 4 > temporalBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 3, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           temporalLayoutDesc{};
+    temporalLayoutDesc.myBindings     = temporalBindings.data();
+    temporalLayoutDesc.myBindingCount = static_cast< uint32_t >( temporalBindings.size() );
+    aState.myTemporalSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, temporalLayoutDesc );
+
+    if ( !aState.myClassicSetLayout || !aState.myHalfResSetLayout || !aState.myUpsampleSetLayout || !aState.myBlurSetLayout || !aState.myTemporalSetLayout ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    if ( !CreateComputePipeline( aDevice, aDesc.myClassicSpirvCode, aDesc.myClassicSpirvBytes, aState.myClassicSetLayout, sizeof( ClassicAoPushConstants ),
+                                 aState.myClassicLayout, aState.myClassicPipeline ) ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    Rhi::PushConstantRangeDesc halfPush{};
+    halfPush.myStages      = Rhi_ShaderStage::Compute;
+    halfPush.myOffsetBytes = 0;
+    halfPush.mySizeBytes   = static_cast< uint32_t >( sizeof( HalfResAoPushConstants ) );
+    Rhi::PipelineLayoutDesc halfLayoutDesc{};
+    halfLayoutDesc.mySetLayouts     = &aState.myHalfResSetLayout;
+    halfLayoutDesc.mySetLayoutCount = 1;
+    halfLayoutDesc.myPushRanges     = &halfPush;
+    halfLayoutDesc.myPushRangeCount = 1;
+    aState.myHalfResLayout          = Rhi::DeviceCreatePipelineLayout( aDevice, halfLayoutDesc );
+    if ( !aState.myHalfResLayout ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    auto createWithLayout = [ & ]( const void* spirv, size_t bytes, Rhi_Pipeline& outPipe ) -> bool {
+        Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( aDevice, spirv, bytes );
+        if ( !shader ) {
+            return false;
+        }
+        Rhi::ComputePipelineDesc pipeDesc{};
+        pipeDesc.myShader = shader;
+        pipeDesc.myLayout = aState.myHalfResLayout;
+        outPipe           = Rhi::DeviceCreateComputePipeline( aDevice, pipeDesc );
+        Rhi::DeviceDestroyShaderModule( aDevice, shader );
+        return static_cast< bool >( outPipe );
+    };
+
+    if ( !createWithLayout( aDesc.myHbaoSpirvCode, aDesc.myHbaoSpirvBytes, aState.myHbaoPipeline )
+         || !createWithLayout( aDesc.myGtaoSpirvCode, aDesc.myGtaoSpirvBytes, aState.myGtaoPipeline ) ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    if ( !CreateComputePipeline( aDevice, aDesc.myUpsampleSpirvCode, aDesc.myUpsampleSpirvBytes, aState.myUpsampleSetLayout, sizeof( AoUpsamplePushConstants ),
+                                 aState.myUpsampleLayout, aState.myUpsamplePipeline )
+         || !CreateComputePipeline( aDevice, aDesc.myBlurSpirvCode, aDesc.myBlurSpirvBytes, aState.myBlurSetLayout, sizeof( AoBlurPushConstants ), aState.myBlurLayout,
+                                    aState.myBlurPipeline )
+         || !CreateComputePipeline( aDevice, aDesc.myTemporalSpirvCode, aDesc.myTemporalSpirvBytes, aState.myTemporalSetLayout, sizeof( AoTemporalPushConstants ),
+                                    aState.myTemporalLayout, aState.myTemporalPipeline ) ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    Rhi::SamplerDesc samplerDesc{};
+    samplerDesc.myMagFilter = Rhi_Filter::Linear;
+    samplerDesc.myMinFilter = Rhi_Filter::Linear;
+    samplerDesc.myAddressU  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressV  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressW  = Rhi_AddressMode::ClampToEdge;
+    aState.myGBufferSampler = Rhi::DeviceCreateSampler( aDevice, samplerDesc );
+    if ( !aState.myGBufferSampler ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    const uint32_t                                 frames    = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const std::array< Rhi::DescriptorPoolSize, 2 > poolSizes = { {
+        { Rhi_DescriptorType::CombinedImageSampler, frames * 11u },
+        { Rhi_DescriptorType::StorageImage, frames * 11u },
+    } };
+    Rhi::DescriptorPoolDesc                        poolDesc{};
+    poolDesc.myMaxSets       = frames * 6u;
+    poolDesc.myPoolSizes     = poolSizes.data();
+    poolDesc.myPoolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    aState.myPool            = Rhi::DeviceCreateDescriptorPool( aDevice, poolDesc );
+    if ( !aState.myPool ) {
+        DestroyPipelines( aDevice, aState );
+        return false;
+    }
+
+    if ( !aState.mySetsAllocated ) {
+        for ( uint32_t i = 0; i < frames && i < kMaxFramesInFlight; ++i ) {
+            aState.myClassicSets[ i ]   = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myClassicSetLayout );
+            aState.myHalfResSets[ i ]   = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myHalfResSetLayout );
+            aState.myUpsampleSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myUpsampleSetLayout );
+            aState.myBlurHorizSets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+            aState.myBlurVertSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+            aState.myTemporalSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myTemporalSetLayout );
+            if ( !aState.myClassicSets[ i ] || !aState.myHalfResSets[ i ] || !aState.myUpsampleSets[ i ] || !aState.myBlurHorizSets[ i ] || !aState.myBlurVertSets[ i ]
+                 || !aState.myTemporalSets[ i ] ) {
+                DestroyPipelines( aDevice, aState );
+                return false;
+            }
+        }
+        aState.mySetsAllocated = true;
+    }
+
+    aState.myPipelineReady = true;
+    return true;
+}
+
+bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState ) {
+    if ( !aState.myPipelineReady || aDesc.myWidth == 0 || aDesc.myHeight == 0 ) {
+        return false;
+    }
+    if ( aState.myImagesReady && aState.myWidth == aDesc.myWidth && aState.myHeight == aDesc.myHeight ) {
+        return true;
+    }
+
+    DestroyAoImagesOnly( aDevice, aState );
+
+    const uint32_t halfW = HalfDim( aDesc.myWidth );
+    const uint32_t halfH = HalfDim( aDesc.myHeight );
+
+    aState.myAoRaw          = CreateAoStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight, Rhi_Format::R8_Unorm );
+    aState.myAoBlur         = CreateAoStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight, Rhi_Format::R8_Unorm );
+    aState.myAoHistory0     = CreateAoStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight, Rhi_Format::R8_Unorm );
+    aState.myAoHistory1     = CreateAoStorageTexture( aDevice, aDesc.myWidth, aDesc.myHeight, Rhi_Format::R8_Unorm );
+    aState.myAoHalf         = CreateAoStorageTexture( aDevice, halfW, halfH, Rhi_Format::R8_Unorm );
+    aState.myBentNormalHalf = CreateAoStorageTexture( aDevice, halfW, halfH, Rhi_Format::RG8_Unorm );
+
+    if ( !aState.myAoRaw || !aState.myAoBlur || !aState.myAoHistory0 || !aState.myAoHistory1 || !aState.myAoHalf || !aState.myBentNormalHalf ) {
+        DestroyAoImagesOnly( aDevice, aState );
+        return false;
+    }
+
+    Rhi::DeviceTransitionTextureLayout( aDevice, aState.myBentNormalHalf, Rhi_ImageLayout::Undefined, Rhi_ImageLayout::ShaderReadOnly );
+
+    aState.myWidth       = aDesc.myWidth;
+    aState.myHeight      = aDesc.myHeight;
+    aState.myImagesReady = true;
+    return true;
+}
+
+void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyAoImagesOnly( aDevice, aState );
+}
+
+void DestroyPipelines( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyImages( aDevice, aState );
+
+    for ( auto& set : aState.myClassicSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myHalfResSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myUpsampleSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurHorizSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurVertSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myTemporalSets ) {
+        set = {};
+    }
+    aState.mySetsAllocated = false;
+
+    if ( aState.myClassicPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myClassicPipeline );
+    }
+    if ( aState.myHbaoPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myHbaoPipeline );
+    }
+    if ( aState.myGtaoPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myGtaoPipeline );
+    }
+    if ( aState.myUpsamplePipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myUpsamplePipeline );
+    }
+    if ( aState.myBlurPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myBlurPipeline );
+    }
+    if ( aState.myTemporalPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myTemporalPipeline );
+    }
+    if ( aState.myClassicLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myClassicLayout );
+    }
+    if ( aState.myHalfResLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myHalfResLayout );
+    }
+    if ( aState.myUpsampleLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myUpsampleLayout );
+    }
+    if ( aState.myBlurLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myBlurLayout );
+    }
+    if ( aState.myTemporalLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myTemporalLayout );
+    }
+    if ( aState.myPool ) {
+        Rhi::DeviceDestroyDescriptorPool( aDevice, aState.myPool );
+    }
+    if ( aState.myClassicSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myClassicSetLayout );
+    }
+    if ( aState.myHalfResSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myHalfResSetLayout );
+    }
+    if ( aState.myUpsampleSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myUpsampleSetLayout );
+    }
+    if ( aState.myBlurSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myBlurSetLayout );
+    }
+    if ( aState.myTemporalSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myTemporalSetLayout );
+    }
+    if ( aState.myGBufferSampler ) {
+        Rhi::DeviceDestroySampler( aDevice, aState.myGBufferSampler );
+    }
+    aState.myPipelineReady = false;
+}
+
+void Destroy( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyPipelines( aDevice, aState );
+}
+
+}  // namespace Gfx_AoPass
 
 namespace Gfx_AoPass {
 

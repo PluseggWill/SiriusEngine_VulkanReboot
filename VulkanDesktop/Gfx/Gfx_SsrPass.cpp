@@ -110,6 +110,8 @@ bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassSta
 }
 
 void DestroyPipeline( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyImages( aDevice, aState );
+
     if ( aState.myPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myPipeline );
     }
@@ -126,6 +128,67 @@ void DestroyPipeline( Rhi_Device& aDevice, PassState& aState ) {
         Rhi::DeviceDestroySampler( aDevice, aState.myGBufferSampler );
     }
     aState.myPipelineReady = false;
+}
+
+namespace {
+
+    void DestroySsrImagesOnly( Rhi_Device& aDevice, Gfx_SsrPass::PassState& aState ) {
+        Rhi::DeviceDestroyTexture( aDevice, aState.mySsrOutput );
+        Rhi::DeviceDestroyTexture( aDevice, aState.myHistory0 );
+        Rhi::DeviceDestroyTexture( aDevice, aState.myHistory1 );
+        aState.myWidth          = 0;
+        aState.myHeight         = 0;
+        aState.myImagesReady    = false;
+        aState.mySsrLayout      = Rhi_ImageLayout::Undefined;
+        aState.myHistoryLayouts = { Rhi_ImageLayout::Undefined, Rhi_ImageLayout::Undefined };
+    }
+
+}  // namespace
+
+bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState ) {
+    if ( !aState.myPipelineReady || aDesc.myWidth == 0 || aDesc.myHeight == 0 ) {
+        return false;
+    }
+    if ( aState.myImagesReady && aState.myWidth == aDesc.myWidth && aState.myHeight == aDesc.myHeight ) {
+        return true;
+    }
+
+    DestroySsrImagesOnly( aDevice, aState );
+
+    Rhi::TextureDesc outDesc{};
+    outDesc.myWidth    = aDesc.myWidth;
+    outDesc.myHeight   = aDesc.myHeight;
+    outDesc.myFormat   = Rhi_Format::RGBA16_Sfloat;
+    outDesc.myUsage    = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage;
+    outDesc.myMemory   = Rhi_MemoryUsage::GpuOnly;
+    aState.mySsrOutput = Rhi::DeviceCreateTexture( aDevice, outDesc );
+
+    Rhi::TextureDesc histDesc{};
+    histDesc.myWidth  = aDesc.myWidth;
+    histDesc.myHeight = aDesc.myHeight;
+    histDesc.myFormat = Rhi_Format::RGBA16_Sfloat;
+    histDesc.myUsage  = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::TransferDst;
+    histDesc.myMemory = Rhi_MemoryUsage::GpuOnly;
+    aState.myHistory0 = Rhi::DeviceCreateTexture( aDevice, histDesc );
+    aState.myHistory1 = Rhi::DeviceCreateTexture( aDevice, histDesc );
+
+    if ( !aState.mySsrOutput || !aState.myHistory0 || !aState.myHistory1 ) {
+        DestroySsrImagesOnly( aDevice, aState );
+        return false;
+    }
+
+    Rhi::DeviceTransitionTextureLayout( aDevice, aState.myHistory0, Rhi_ImageLayout::Undefined, Rhi_ImageLayout::ShaderReadOnly );
+    Rhi::DeviceTransitionTextureLayout( aDevice, aState.myHistory1, Rhi_ImageLayout::Undefined, Rhi_ImageLayout::ShaderReadOnly );
+    aState.myHistoryLayouts[ 0 ] = Rhi_ImageLayout::ShaderReadOnly;
+    aState.myHistoryLayouts[ 1 ] = Rhi_ImageLayout::ShaderReadOnly;
+    aState.myWidth               = aDesc.myWidth;
+    aState.myHeight              = aDesc.myHeight;
+    aState.myImagesReady         = true;
+    return true;
+}
+
+void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
+    DestroySsrImagesOnly( aDevice, aState );
 }
 
 void Destroy( Rhi_Device& aDevice, PassState& aState ) {

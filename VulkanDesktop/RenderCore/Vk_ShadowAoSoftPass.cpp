@@ -16,10 +16,7 @@
 #include "Vk_RhiBackend.h"
 #include "Vk_ShadowMapPass.h"
 
-#include <vma/vk_mem_alloc.h>
-
 #include <array>
-#include <cstring>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -27,11 +24,15 @@
 
 static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_ShadowAoSoftPass::kMaxFramesInFlight ), "Gfx_ShadowAoSoftPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
+namespace Vk_ShadowAoSoftPassDetail {
+VkImageLayout gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+VkImageLayout gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+}  // namespace Vk_ShadowAoSoftPassDetail
+
 namespace {
 
-constexpr char     kPackShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoPack.spv";
-constexpr char     kBlurShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoBlur.spv";
-constexpr VkFormat kSoftFormat       = VK_FORMAT_R8G8_UNORM;
+constexpr char kPackShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoPack.spv";
+constexpr char kBlurShaderPath[] = "VulkanDesktop/Shader_Generated/ShadowAoBlur.spv";
 
 std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     std::ifstream file( aPath, std::ios::ate | std::ios::binary );
@@ -69,97 +70,44 @@ void SyncVkMirrors( Vk_Renderer& aCore ) {
     state.myBlurSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myBlurSetLayout );
     state.myDescriptorPool     = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
     state.myGBufferSampler     = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
+
+    state.mySoftPing.Image()            = RhiVulkan::TextureGetVkImage( rhi, gfx.mySoftPing );
+    state.mySoftPing.ImageView()        = RhiVulkan::TextureGetVkView( rhi, gfx.mySoftPing );
+    state.mySoftPong.Image()            = RhiVulkan::TextureGetVkImage( rhi, gfx.mySoftPong );
+    state.mySoftPong.ImageView()        = RhiVulkan::TextureGetVkView( rhi, gfx.mySoftPong );
+    state.myFallbackAo.Image()          = RhiVulkan::TextureGetVkImage( rhi, gfx.myFallbackAo );
+    state.myFallbackAo.ImageView()      = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackAo );
+    state.myFallbackContact.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myFallbackContact );
+    state.myFallbackContact.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackContact );
+}
+
+bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
+    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
+    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
+
+    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
+
+    Gfx_ShadowAoSoftPass::ImageInitDesc imageDesc{};
+    imageDesc.myWidth          = width;
+    imageDesc.myHeight         = height;
+    imageDesc.myCreateFallback = true;
+    if ( !Gfx_ShadowAoSoftPass::CreateOrRecreateImages( rhi, imageDesc, state.myGfx ) ) {
+        return false;
+    }
+
+    SyncVkMirrors( aCore );
+    if ( state.myGfx.myImagesReady ) {
+        Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        UtilLogger::Info( "SHADOW-AO-SOFT", "contact soft targets: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=RG8_UNORM (Gfx)" );
+    }
+    return true;
 }
 
 }  // namespace
 
-namespace Vk_ShadowAoSoftPassDetail {
-VkImageLayout gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-VkImageLayout gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-}  // namespace Vk_ShadowAoSoftPassDetail
-
 namespace {
-
-void DestroySoftTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
-    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( device, aTexture.ImageView(), nullptr );
-        aTexture.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( aTexture.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( allocator, aTexture.Image(), aTexture.Allocation() );
-        aTexture.AllocImage() = {};
-    }
-}
-
-void DestroySoftImages( Vk_Renderer& aCore ) {
-    DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPing );
-    DestroySoftTexture( aCore, aCore.myShadowAoSoftState.mySoftPong );
-    Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-}
-
-void DestroyFallbackImages( Vk_Renderer& aCore ) {
-    DestroySoftTexture( aCore, aCore.myShadowAoSoftState.myFallbackAo );
-    DestroySoftTexture( aCore, aCore.myShadowAoSoftState.myFallbackContact );
-}
-
-void CreateFallbackImages( Vk_Renderer& aCore ) {
-    Vk_ShadowAoSoftState&     state    = aCore.myShadowAoSoftState;
-    const Vk_ResourceContext& resource = aCore.GetResourceContext();
-    const VkExtent2D          one{ 1, 1 };
-
-    auto uploadIdentity1x1 = [ & ]( VkFormat aFormat, const uint8_t* aBytes, size_t aByteCount, Vk_TextureResource& aOut ) {
-        aCore.CreateImage( one, aFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-                           VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aOut.AllocImage() );
-        aOut.ImageView() = aCore.CreateImageView( aOut.Image(), aFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-
-        Vk_AllocatedBuffer staging{};
-        resource.CreateBuffer( aByteCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, staging, true );
-        void* mapped = nullptr;
-        if ( vmaMapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation, &mapped ) != VK_SUCCESS || mapped == nullptr ) {
-            throw std::runtime_error( "Vk_ShadowAoSoftPass: failed to map fallback staging buffer" );
-        }
-        std::memcpy( mapped, aBytes, aByteCount );
-        vmaUnmapMemory( aCore.myRhi.myDeviceCtx.myAllocator, staging.myAllocation );
-
-        resource.TransitionImageLayout( aOut.Image(), aFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1 );
-        resource.CopyBufferToImage( staging.myBuffer, aOut.Image(), 1, 1 );
-        resource.TransitionImageLayout( aOut.Image(), aFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-        resource.DestroyStagingBuffer( staging );
-    };
-
-    const uint8_t aoWhite[]      = { 255u };
-    const uint8_t contactWhite[] = { 255u, 255u };
-    uploadIdentity1x1( VK_FORMAT_R8_UNORM, aoWhite, sizeof( aoWhite ), state.myFallbackAo );
-    uploadIdentity1x1( kSoftFormat, contactWhite, sizeof( contactWhite ), state.myFallbackContact );
-}
-
-void CreateSoftImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
-    }
-
-    aCore.CreateImage( extent, kSoftFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
-    aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kSoftFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-}
-
-void CreateSoftImages( Vk_Renderer& aCore ) {
-    CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPing );
-    CreateSoftImage( aCore, aCore.myShadowAoSoftState.mySoftPong );
-    // Deferred may bind SoftPing as SHADER_READ_ONLY before the first Soft dispatch (or if Soft is skipped).
-    aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPing.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-    aCore.TransitionImageLayout( aCore.myShadowAoSoftState.mySoftPong.Image(), kSoftFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
-    Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
-    const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
-    UtilLogger::Info( "SHADOW-AO-SOFT", "contact soft targets: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=RG8_UNORM" );
-}
 
 void UpdatePackDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, VkDescriptorSet aSet, VkImageView aRawAoView ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
@@ -292,11 +240,11 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroySoftImages( aCore );
-    DestroyFallbackImages( aCore );
     if ( aCore.myGfxRhiDevice ) {
         Gfx_ShadowAoSoftPass::Destroy( aCore.myGfxRhiDevice, aCore.myShadowAoSoftState.myGfx );
     }
+    Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
         aCore.myShadowAoSoftState.myPackDescriptorSets[ i ]      = VK_NULL_HANDLE;
         aCore.myShadowAoSoftState.myPackNoAoDescriptorSets[ i ]  = VK_NULL_HANDLE;
@@ -314,8 +262,9 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice != VK_NULL_HANDLE ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
-    DestroySoftImages( aCore );
-    CreateSoftImages( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        throw std::runtime_error( "Vk_ShadowAoSoftPass: recreate images failed" );
+    }
     UpdateAllDescriptorSets( aCore );
 }
 
@@ -328,8 +277,11 @@ void Init( Vk_Renderer& aCore ) {
     }
     UtilLogger::Info( "FG", "Vk_ShadowAoSoftPass::Init (Gfx create)." );
     CreatePipelines( aCore );
-    CreateFallbackImages( aCore );
-    CreateSoftImages( aCore );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        Gfx_ShadowAoSoftPass::Destroy( aCore.myGfxRhiDevice, aCore.myShadowAoSoftState.myGfx );
+        ClearVkMirrors( aCore.myShadowAoSoftState );
+        throw std::runtime_error( "Vk_ShadowAoSoftPass: Gfx CreateOrRecreateImages failed" );
+    }
     AllocateDescriptorSets( aCore );
     aCore.myShadowAoSoftState.myInitialized = true;
 }

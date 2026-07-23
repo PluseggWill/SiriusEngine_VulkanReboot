@@ -19,6 +19,39 @@ void BarrierAtlas( Rhi_CommandList& aCmd, Rhi_Texture aTex, Rhi_ImageLayout aOld
 
 namespace Gfx_DdgiPass {
 
+bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState ) {
+    if ( aState.myPipelineReady && aState.myPipeline ) {
+        return true;
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || aDesc.mySpirvCode == nullptr || aDesc.mySpirvBytes == 0 || !aDesc.myLayout ) {
+        return false;
+    }
+
+    Rhi_ShaderModule shader = Rhi::DeviceCreateShaderModule( aDevice, aDesc.mySpirvCode, aDesc.mySpirvBytes );
+    if ( !shader ) {
+        return false;
+    }
+
+    Rhi::ComputePipelineDesc pipeDesc{};
+    pipeDesc.myShader = shader;
+    pipeDesc.myLayout = aDesc.myLayout;
+    aState.myPipeline = Rhi::DeviceCreateComputePipeline( aDevice, pipeDesc );
+    Rhi::DeviceDestroyShaderModule( aDevice, shader );
+    if ( !aState.myPipeline ) {
+        return false;
+    }
+
+    aState.myPipelineReady = true;
+    return true;
+}
+
+void DestroyPipeline( Rhi_Device& aDevice, PassState& aState ) {
+    if ( aState.myPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myPipeline );
+    }
+    aState.myPipelineReady = false;
+}
+
 void RecordProbeUpdate( Rhi_CommandList& aCmd, const GpuResources& aGpu, const RecordInput& aInput ) {
     if ( aInput.myAtlasWidth == 0 || aInput.myAtlasHeight == 0 || !Rhi::CommandListIsRecordingReady( aCmd ) ) {
         return;

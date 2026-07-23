@@ -1,10 +1,12 @@
 #pragma once
 
 #include "../Rhi/Rhi_CommandList.h"
+#include "../Rhi/Rhi_Device.h"
 #include "../Rhi/Rhi_Handles.h"
 
 #include <glm/vec4.hpp>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace Gfx_DdgiPass {
@@ -34,6 +36,20 @@ struct RecordInput {
     uint32_t  myAtlasHeight = 0;
     bool      myDebugLabels = false;
 };
+
+struct PassState {
+    Rhi_Pipeline myPipeline{};
+    bool         myPipelineReady = false;
+};
+
+struct PipelineInitDesc {
+    const void*        mySpirvCode  = nullptr;
+    size_t             mySpirvBytes = 0;
+    Rhi_PipelineLayout myLayout{};
+};
+
+[[nodiscard]] bool CreatePipeline( Rhi_Device& aDevice, const PipelineInitDesc& aDesc, PassState& aState );
+void               DestroyPipeline( Rhi_Device& aDevice, PassState& aState );
 
 void RecordProbeUpdate( Rhi_CommandList& aCmd, const GpuResources& aGpu, const RecordInput& aInput );
 
