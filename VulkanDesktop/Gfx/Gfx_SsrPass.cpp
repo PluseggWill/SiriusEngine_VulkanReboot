@@ -215,7 +215,12 @@ void UpdateDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, 
     }
 
     const uint32_t frames = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
-    for ( uint32_t i = 0; i < frames; ++i ) {
+    const uint32_t begin  = ( aDesc.myFrameIndex == 0xffffffffu ) ? 0u : aDesc.myFrameIndex;
+    const uint32_t end    = ( aDesc.myFrameIndex == 0xffffffffu ) ? frames : ( aDesc.myFrameIndex + 1u );
+    if ( begin >= frames || begin >= end ) {
+        return;
+    }
+    for ( uint32_t i = begin; i < end && i < frames; ++i ) {
         const std::array< Rhi::DescriptorImageWrite, 7 > writes = { {
             { aState.mySets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferDepth, Rhi_ImageLayout::DepthStencilReadOnly },
             { aState.mySets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.myGBufferSampler, aDesc.myGBufferNormal, Rhi_ImageLayout::ShaderReadOnly },

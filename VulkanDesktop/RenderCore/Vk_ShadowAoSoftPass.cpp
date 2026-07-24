@@ -1,5 +1,4 @@
-// Module: Vk_ShadowAoSoftPass — thin loader + Vk mirrors over Gfx_ShadowAoSoftPass Init/Record.
-// Runs after Vk_AoPass; deferred reads soft ping via GetDeferredContactMapView().
+// Module: Vk_ShadowAoSoftPass — SPIR-V load + Init/Record orchestration over Gfx_ShadowAoSoftPass.
 #include "Vk_ShadowAoSoftPass.h"
 
 #include "../Gfx/Gfx_AoSettings.h"
@@ -11,7 +10,7 @@
 
 #include "Vk_AoPass.h"
 #include "Vk_FrameCmd.h"
-#include "Vk_Initializer.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 #include "Vk_ShadowMapPass.h"
@@ -46,48 +45,6 @@ std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     return buffer;
 }
 
-void ClearVkMirrors( Vk_ShadowAoSoftState& aState ) {
-    aState.myPackPipeline       = VK_NULL_HANDLE;
-    aState.myBlurPipeline       = VK_NULL_HANDLE;
-    aState.myPackPipelineLayout = VK_NULL_HANDLE;
-    aState.myBlurPipelineLayout = VK_NULL_HANDLE;
-    aState.myPackSetLayout      = VK_NULL_HANDLE;
-    aState.myBlurSetLayout      = VK_NULL_HANDLE;
-    aState.myDescriptorPool     = VK_NULL_HANDLE;
-    aState.myGBufferSampler     = VK_NULL_HANDLE;
-}
-
-void SyncVkMirrors( Vk_Renderer& aCore ) {
-    Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
-    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
-    const auto&           gfx   = state.myGfx;
-
-    state.myPackPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myPackPipeline );
-    state.myBlurPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myBlurPipeline );
-    state.myPackPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myPackLayout );
-    state.myBlurPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myBlurLayout );
-    state.myPackSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myPackSetLayout );
-    state.myBlurSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myBlurSetLayout );
-    state.myDescriptorPool     = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
-    state.myGBufferSampler     = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
-
-    state.mySoftPing.Image()            = RhiVulkan::TextureGetVkImage( rhi, gfx.mySoftPing );
-    state.mySoftPing.ImageView()        = RhiVulkan::TextureGetVkView( rhi, gfx.mySoftPing );
-    state.mySoftPong.Image()            = RhiVulkan::TextureGetVkImage( rhi, gfx.mySoftPong );
-    state.mySoftPong.ImageView()        = RhiVulkan::TextureGetVkView( rhi, gfx.mySoftPong );
-    state.myFallbackAo.Image()          = RhiVulkan::TextureGetVkImage( rhi, gfx.myFallbackAo );
-    state.myFallbackAo.ImageView()      = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackAo );
-    state.myFallbackContact.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myFallbackContact );
-    state.myFallbackContact.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myFallbackContact );
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        state.myPackDescriptorSets[ i ]      = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myPackSets[ i ] );
-        state.myPackNoAoDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myPackNoAoSets[ i ] );
-        state.myBlurHorizDescriptorSets[ i ] = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurHorizSets[ i ] );
-        state.myBlurVertDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurVertSets[ i ] );
-    }
-}
-
 bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
     Vk_ShadowAoSoftState& state = aCore.myShadowAoSoftState;
     Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
@@ -103,7 +60,6 @@ bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
         return false;
     }
 
-    SyncVkMirrors( aCore );
     if ( state.myGfx.myImagesReady ) {
         Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -119,7 +75,6 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
         return;
     }
 
-    // Temporary adopts for cross-pass resources (non-owning).
     Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), aCore.FindDepthFormat(), 1 );
     Rhi_Texture worldPosTex =
         RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
@@ -145,7 +100,6 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
 
     Rhi::DeviceDestroyTexture( rhi, depthTex );
     Rhi::DeviceDestroyTexture( rhi, worldPosTex );
-    SyncVkMirrors( aCore );
 }
 
 void CreatePipelines( Vk_Renderer& aCore ) {
@@ -163,7 +117,6 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     if ( !Gfx_ShadowAoSoftPass::CreatePipelines( aCore.myGfxRhiDevice, pipeDesc, aCore.myShadowAoSoftState.myGfx ) ) {
         throw std::runtime_error( "Vk_ShadowAoSoftPass: Gfx CreatePipelines failed" );
     }
-    SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE", "Shadow/AO contact soft compute pipelines created (Gfx)." );
 }
 
@@ -183,14 +136,7 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     Vk_ShadowAoSoftPassDetail::gSoftPingLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     Vk_ShadowAoSoftPassDetail::gSoftPongLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        aCore.myShadowAoSoftState.myPackDescriptorSets[ i ]      = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myPackNoAoDescriptorSets[ i ]  = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
-        aCore.myShadowAoSoftState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
-    }
-    ClearVkMirrors( aCore.myShadowAoSoftState );
-    aCore.myShadowAoSoftState.myInitialized = false;
+    aCore.myShadowAoSoftState.myInitialized    = false;
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -217,7 +163,6 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipelines( aCore );
     if ( !CreateOrRefreshImages( aCore ) ) {
         Gfx_ShadowAoSoftPass::Destroy( aCore.myGfxRhiDevice, aCore.myShadowAoSoftState.myGfx );
-        ClearVkMirrors( aCore.myShadowAoSoftState );
         throw std::runtime_error( "Vk_ShadowAoSoftPass: Gfx CreateOrRecreateImages failed" );
     }
     UpdateAllDescriptorSets( aCore );
@@ -250,19 +195,19 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         return;
     }
 
-    const bool            useAoRaw  = aAoPassRan && aoSettings.myEnabled;
-    const VkDescriptorSet packSetVk = useAoRaw ? state.myPackDescriptorSets[ aFrameIndex ] : state.myPackNoAoDescriptorSets[ aFrameIndex ];
+    const bool  useAoRaw = aAoPassRan && aoSettings.myEnabled;
+    const auto& gfx      = state.myGfx;
 
     Gfx_ShadowAoSoftPass::GpuResources gpu{};
-    gpu.myPackPipeline    = RhiVulkan::PipelineAdopt( state.myPackPipeline );
-    gpu.myBlurPipeline    = RhiVulkan::PipelineAdopt( state.myBlurPipeline );
-    gpu.myPackLayout      = RhiVulkan::PipelineLayoutAdopt( state.myPackPipelineLayout );
-    gpu.myBlurLayout      = RhiVulkan::PipelineLayoutAdopt( state.myBlurPipelineLayout );
-    gpu.myPackSet         = RhiVulkan::DescriptorSetAdopt( packSetVk );
-    gpu.myBlurHorizSet    = RhiVulkan::DescriptorSetAdopt( state.myBlurHorizDescriptorSets[ aFrameIndex ] );
-    gpu.myBlurVertSet     = RhiVulkan::DescriptorSetAdopt( state.myBlurVertDescriptorSets[ aFrameIndex ] );
-    gpu.mySoftPing        = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySoftPing.Image(), state.mySoftPing.ImageView(), VK_FORMAT_R8G8_UNORM, 1 );
-    gpu.mySoftPong        = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySoftPong.Image(), state.mySoftPong.ImageView(), VK_FORMAT_R8G8_UNORM, 1 );
+    gpu.myPackPipeline    = gfx.myPackPipeline;
+    gpu.myBlurPipeline    = gfx.myBlurPipeline;
+    gpu.myPackLayout      = gfx.myPackLayout;
+    gpu.myBlurLayout      = gfx.myBlurLayout;
+    gpu.myPackSet         = useAoRaw ? gfx.myPackSets[ aFrameIndex ] : gfx.myPackNoAoSets[ aFrameIndex ];
+    gpu.myBlurHorizSet    = gfx.myBlurHorizSets[ aFrameIndex ];
+    gpu.myBlurVertSet     = gfx.myBlurVertSets[ aFrameIndex ];
+    gpu.mySoftPing        = gfx.mySoftPing;
+    gpu.mySoftPong        = gfx.mySoftPong;
     gpu.myGBufferWorldPos = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(),
                                                      VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
 
@@ -270,7 +215,7 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     Rhi_ImageLayout pongLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_ShadowAoSoftPassDetail::gSoftPongLayout );
     Rhi_ImageLayout aoRawLayout{};
     if ( useAoRaw ) {
-        gpu.myAoRaw = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, aCore.myAoState.myAoRaw.Image(), aCore.myAoState.myAoRaw.ImageView(), VK_FORMAT_R8_UNORM, 1 );
+        gpu.myAoRaw = aCore.myAoState.myGfx.myAoRaw;
         aoRawLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_AoPass::GetRawAoLayout() );
     }
 
@@ -291,28 +236,9 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
     Vk_ShadowAoSoftPassDetail::gSoftPongLayout = Vk_FrameCmd::ImageLayoutToVk( pongLayout );
     if ( useAoRaw ) {
         Vk_AoPass::NoteRawAoLayout( Vk_FrameCmd::ImageLayoutToVk( aoRawLayout ) );
-        Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myAoRaw );
     }
 
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySoftPing );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySoftPong );
     Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myGBufferWorldPos );
-}
-
-VkImageView GetDeferredContactMapView( const Vk_Renderer& aCore ) {
-    const Gfx_AoSettings&       aoSettings = aCore.myAoSettings;
-    const Vk_ShadowAoSoftState& softState  = aCore.myShadowAoSoftState;
-
-    if ( aoSettings.myContactSoftEnabled && softState.myInitialized ) {
-        return softState.mySoftPing.ImageView();
-    }
-    if ( aoSettings.myEnabled && aCore.myAoState.myInitialized ) {
-        return Vk_AoPass::GetRawAoImageView( aCore );
-    }
-    if ( softState.myInitialized ) {
-        return softState.myFallbackContact.ImageView();
-    }
-    return VK_NULL_HANDLE;
 }
 
 }  // namespace Vk_ShadowAoSoftPass

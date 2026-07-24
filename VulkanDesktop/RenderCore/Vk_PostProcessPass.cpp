@@ -8,11 +8,8 @@
 #include "../Util/Util_EngineConfig.h"
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
-#include "../Util/Util_VulkanResult.h"
-
 #include "Vk_FrameCmd.h"
-#include "Vk_Initializer.h"
-#include "Vk_Pipeline.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 
@@ -27,102 +24,75 @@
 
 namespace {
 
-constexpr char     kTonemapVertSpv[]    = "VulkanDesktop/Shader_Generated/TonemapVert.spv";
-constexpr char     kTonemapFragSpv[]    = "VulkanDesktop/Shader_Generated/TonemapFrag.spv";
-constexpr char     kBloomThresholdSpv[] = "VulkanDesktop/Shader_Generated/BloomThreshold.spv";
-constexpr char     kBloomBlurSpv[]      = "VulkanDesktop/Shader_Generated/BloomBlur.spv";
-constexpr char     kTaaResolveSpv[]     = "VulkanDesktop/Shader_Generated/TaaResolve.spv";
-constexpr VkFormat kBloomFormat         = VK_FORMAT_R16G16B16A16_SFLOAT;
-
-struct TonemapPushConstants {
-    float    exposure;
-    float    bloomIntensity;
-    uint32_t tonemapEnabled;
-    uint32_t bloomEnabled;
-    uint32_t tonemapMode;
-};
-
-static_assert( sizeof( TonemapPushConstants ) == 20, "TonemapPushConstants must match Tonemap.frag push block" );
-
-struct BloomThresholdPushConstants {
-    float threshold;
-    float pad0;
-    float pad1;
-    float pad2;
-};
-
-static_assert( sizeof( BloomThresholdPushConstants ) == 16, "BloomThresholdPushConstants must match BloomThreshold.comp push block" );
-
-struct BloomBlurPushConstants {
-    uint32_t axisX;
-    uint32_t axisY;
-};
-
-static_assert( sizeof( BloomBlurPushConstants ) == 8, "BloomBlurPushConstants must match BloomBlur.comp push block" );
-
-struct TaaResolvePushConstants {
-    float historyBlend;
-    float historyValid;
-    float varianceGamma;
-    float sharpen;
-};
-static_assert( sizeof( TaaResolvePushConstants ) == 16, "TaaResolvePushConstants must match TaaResolve.comp push block" );
-
-void DestroyTexture( Vk_Renderer& aCore, Vk_TextureResource& aTexture ) {
-    const VkDevice     device    = aCore.myRhi.myDeviceCtx.myDevice;
-    const VmaAllocator allocator = aCore.myRhi.myDeviceCtx.myAllocator;
-    if ( aTexture.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( device, aTexture.ImageView(), nullptr );
-        aTexture.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( aTexture.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( allocator, aTexture.Image(), aTexture.Allocation() );
-        aTexture.AllocImage() = {};
-    }
-}
+constexpr char kTonemapVertSpv[]    = "VulkanDesktop/Shader_Generated/TonemapVert.spv";
+constexpr char kTonemapFragSpv[]    = "VulkanDesktop/Shader_Generated/TonemapFrag.spv";
+constexpr char kBloomThresholdSpv[] = "VulkanDesktop/Shader_Generated/BloomThreshold.spv";
+constexpr char kBloomBlurSpv[]      = "VulkanDesktop/Shader_Generated/BloomBlur.spv";
+constexpr char kTaaResolveSpv[]     = "VulkanDesktop/Shader_Generated/TaaResolve.spv";
 
 VkExtent2D BloomExtent( const VkExtent2D& aFullExtent ) {
     return { std::max( 1u, aFullExtent.width / 2 ), std::max( 1u, aFullExtent.height / 2 ) };
 }
 
-void CreateSceneColorImage( Vk_Renderer& aCore ) {
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
-        return;
+bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
+    if ( !aCore.myGfxRhiDevice ) {
+        return false;
     }
-    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
-                       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.mySceneColor.AllocImage() );
-    aCore.myPostProcessState.mySceneColor.ImageView() =
-        aCore.CreateImageView( aCore.myPostProcessState.mySceneColor.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+
+    Gfx_PostProcessPass::ImageInitDesc imageDesc{};
+    imageDesc.myWidth  = aCore.mySwapchainCtx.mySwapChainExtent.width;
+    imageDesc.myHeight = aCore.mySwapchainCtx.mySwapChainExtent.height;
+    if ( !Gfx_PostProcessPass::CreateOrRecreateImages( aCore.myGfxRhiDevice, imageDesc, state.myGfx ) ) {
+        return false;
+    }
+    return state.myGfx.myImagesReady;
 }
 
-void CreateTaaImages( Vk_Renderer& aCore ) {
-    const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
-    if ( extent.width == 0 || extent.height == 0 ) {
+void UpdateComputeDescriptors( Vk_Renderer& aCore, uint32_t aFrameIndex = 0xffffffffu ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    Rhi_Device&          rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.mySetsAllocated || !state.myGfx.myImagesReady ) {
         return;
     }
-    // Resolved: compute write + tonemap sample + history copy src.
-    aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                       VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.myTaaResolved.AllocImage() );
-    aCore.myPostProcessState.myTaaResolved.ImageView() =
-        aCore.CreateImageView( aCore.myPostProcessState.myTaaResolved.Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
 
-    for ( uint32_t i = 0; i < 2; ++i ) {
-        // History: sample + copy dst (and src if ping-pong ever blits history).
-        aCore.CreateImage( extent, kPostSceneColorFormat, VK_IMAGE_TILING_OPTIMAL,
-                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                           VMA_MEMORY_USAGE_GPU_ONLY, 1, VK_SAMPLE_COUNT_1_BIT, aCore.myPostProcessState.myTaaHistory[ i ].AllocImage() );
-        aCore.myPostProcessState.myTaaHistory[ i ].ImageView() =
-            aCore.CreateImageView( aCore.myPostProcessState.myTaaHistory[ i ].Image(), kPostSceneColorFormat, VK_IMAGE_ASPECT_COLOR_BIT );
-    }
-    aCore.myPostProcessState.myTaaHistoryWriteIndex = 0u;
+    Rhi_Texture motion =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myMotionVector.Image(), aCore.myGBufferState.myMotionVector.ImageView(), VK_FORMAT_R16G16_SFLOAT, 1 );
+
+    Gfx_PostProcessPass::DescriptorUpdateDesc desc{};
+    desc.myFramesInFlight      = MAX_FRAMES_IN_FLIGHT;
+    desc.myTaaHistoryReadIndex = 1u - state.myGfx.myTaaHistoryWriteIndex;
+    desc.myFrameIndex          = aFrameIndex;
+    desc.myMotionVector        = motion;
+    Gfx_PostProcessPass::UpdateComputeDescriptors( rhi, desc, state.myGfx );
+    Rhi::DeviceDestroyTexture( rhi, motion );
 }
 
-void CreateBloomImage( Vk_Renderer& aCore, Vk_TextureResource& aTexture, VkExtent2D aExtent ) {
-    aCore.CreateImage( aExtent, kBloomFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, aTexture.AllocImage() );
-    aTexture.ImageView() = aCore.CreateImageView( aTexture.Image(), kBloomFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+void UpdateTonemapDescriptors( Vk_Renderer& aCore, uint32_t aFrameIndex = 0xffffffffu ) {
+    Vk_PostProcessState& state = aCore.myPostProcessState;
+    Rhi_Device&          rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myGfx.myTonemapReady || !state.myGfx.myImagesReady ) {
+        return;
+    }
+
+    Gfx_PostProcessPass::TonemapDescriptorUpdateDesc desc{};
+    desc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
+    desc.myFrameIndex     = aFrameIndex;
+    desc.myUseTaaResolved = aCore.myPostSettings.myTaaEnabled && static_cast< bool >( state.myGfx.myTaaResolved );
+    Gfx_PostProcessPass::UpdateTonemapDescriptors( rhi, desc, state.myGfx );
+}
+
+uint32_t SwapchainSampleCount( const Vk_Renderer& aCore ) {
+    switch ( aCore.mySwapchainCtx.myMSAASamples ) {
+    case VK_SAMPLE_COUNT_2_BIT:
+        return 2;
+    case VK_SAMPLE_COUNT_4_BIT:
+        return 4;
+    case VK_SAMPLE_COUNT_8_BIT:
+        return 8;
+    default:
+        return 1;
+    }
 }
 
 void CreateHybridRenderPass( Vk_Renderer& aCore ) {
@@ -194,13 +164,12 @@ void CreateHybridRenderPass( Vk_Renderer& aCore ) {
 }
 
 void CreateHybridFramebuffer( Vk_Renderer& aCore ) {
-    if ( !aCore.myGfxRhiDevice || !aCore.myPostProcessState.myRhiHybridRenderPass ) {
-        throw std::runtime_error( "Vk_PostProcessPass: hybrid render pass required before framebuffer" );
+    if ( !aCore.myGfxRhiDevice || !aCore.myPostProcessState.myRhiHybridRenderPass || !aCore.myPostProcessState.myGfx.mySceneColor ) {
+        throw std::runtime_error( "Vk_PostProcessPass: hybrid render pass + Gfx scene color required before framebuffer" );
     }
 
-    Rhi_Device& rhi = aCore.myGfxRhiDevice;
-    Rhi_Texture colorTex =
-        RhiVulkan::TextureAdopt( rhi, aCore.myPostProcessState.mySceneColor.Image(), aCore.myPostProcessState.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
+    Rhi_Device& rhi      = aCore.myGfxRhiDevice;
+    Rhi_Texture colorTex = aCore.myPostProcessState.myGfx.mySceneColor;
     Rhi_Texture depthTex =
         RhiVulkan::TextureAdopt( rhi, aCore.mySwapchainCtx.myDepthTexture.Image(), aCore.mySwapchainCtx.myDepthTexture.ImageView(), aCore.FindDepthFormat(), 1 );
     const std::array< Rhi_Texture, 2 > attachments = { colorTex, depthTex };
@@ -214,7 +183,6 @@ void CreateHybridFramebuffer( Vk_Renderer& aCore ) {
 
     aCore.myPostProcessState.myRhiHybridFramebuffer = Rhi::DeviceCreateFramebuffer( rhi, fbDesc );
     aCore.myPostProcessState.myHybridFramebuffer    = RhiVulkan::FramebufferGetVk( rhi, aCore.myPostProcessState.myRhiHybridFramebuffer );
-    Rhi::DeviceDestroyTexture( rhi, colorTex );
     Rhi::DeviceDestroyTexture( rhi, depthTex );
     if ( !aCore.myPostProcessState.myRhiHybridFramebuffer || aCore.myPostProcessState.myHybridFramebuffer == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_PostProcessPass: DeviceCreateFramebuffer hybrid failed" );
@@ -233,65 +201,6 @@ std::vector< char > LoadSpirvFile( const std::string& aPath ) {
     return buffer;
 }
 
-VkPipeline BuildTonemapPipeline( Vk_Renderer& aCore, VkRenderPass aRenderPass, VkPipelineLayout aLayout, const std::string& aVertPath, const std::string& aFragPath ) {
-    if ( !aCore.myGfxRhiDevice ) {
-        throw std::runtime_error( "Vk_PostProcessPass: myGfxRhiDevice required for tonemap PSO" );
-    }
-    Rhi_Device& rhi = aCore.myGfxRhiDevice;
-
-    const std::vector< char > vertSpirv = LoadSpirvFile( aVertPath );
-    const std::vector< char > fragSpirv = LoadSpirvFile( aFragPath );
-    Rhi_ShaderModule          vert      = Rhi::DeviceCreateShaderModule( rhi, vertSpirv.data(), vertSpirv.size() );
-    Rhi_ShaderModule          frag      = Rhi::DeviceCreateShaderModule( rhi, fragSpirv.data(), fragSpirv.size() );
-    if ( !vert || !frag ) {
-        Rhi::DeviceDestroyShaderModule( rhi, vert );
-        Rhi::DeviceDestroyShaderModule( rhi, frag );
-        throw std::runtime_error( "Vk_PostProcessPass: tonemap shader module create failed" );
-    }
-
-    uint32_t sampleCount = 1;
-    switch ( aCore.mySwapchainCtx.myMSAASamples ) {
-    case VK_SAMPLE_COUNT_2_BIT:
-        sampleCount = 2;
-        break;
-    case VK_SAMPLE_COUNT_4_BIT:
-        sampleCount = 4;
-        break;
-    case VK_SAMPLE_COUNT_8_BIT:
-        sampleCount = 8;
-        break;
-    default:
-        sampleCount = 1;
-        break;
-    }
-
-    Rhi::GraphicsPipelineDesc desc{};
-    desc.myVertexShader           = vert;
-    desc.myFragmentShader         = frag;
-    desc.myLayout                 = RhiVulkan::PipelineLayoutAdopt( aLayout );
-    desc.myRenderPass             = RhiVulkan::RenderPassAdopt( aRenderPass );
-    desc.myColorAttachmentCount   = 1;
-    desc.mySampleCount            = sampleCount;
-    desc.myCullMode               = Rhi_CullMode::None;
-    desc.myDepthTestEnable        = false;
-    desc.myDepthWriteEnable       = false;
-    desc.myBlendEnable            = false;
-    desc.myDynamicViewportScissor = true;
-
-    if ( aCore.myPostProcessState.myRhiTonemapPipeline ) {
-        Rhi::DeviceDestroyPipeline( rhi, aCore.myPostProcessState.myRhiTonemapPipeline );
-        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
-    }
-    aCore.myPostProcessState.myRhiTonemapPipeline = Rhi::DeviceCreateGraphicsPipeline( rhi, desc );
-    Rhi::DeviceDestroyShaderModule( rhi, vert );
-    Rhi::DeviceDestroyShaderModule( rhi, frag );
-    if ( !aCore.myPostProcessState.myRhiTonemapPipeline ) {
-        throw std::runtime_error( "Vk_PostProcessPass: DeviceCreateGraphicsPipeline tonemap failed" );
-    }
-    aCore.myPostProcessState.myTonemapPipeline = RhiVulkan::PipelineGetVk( rhi, aCore.myPostProcessState.myRhiTonemapPipeline );
-    return aCore.myPostProcessState.myTonemapPipeline;
-}
-
 void DestroyHybridResolveRhi( Vk_Renderer& aCore ) {
     if ( !aCore.myGfxRhiDevice ) {
         aCore.myPostProcessState.myHybridFramebuffer    = VK_NULL_HANDLE;
@@ -307,382 +216,110 @@ void DestroyHybridResolveRhi( Vk_Renderer& aCore ) {
     aCore.myPostProcessState.myHybridRenderPass  = VK_NULL_HANDLE;
 }
 
-void UpdateTonemapDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_PostProcessState&    state = aCore.myPostProcessState;
-    const Gfx_PostSettings& post  = aCore.myPostSettings;
-
-    VkDescriptorImageInfo sceneInfo{};
-    sceneInfo.sampler     = state.mySceneSampler;
-    sceneInfo.imageView   = ( post.myTaaEnabled && state.myTaaResolved.ImageView() != VK_NULL_HANDLE ) ? state.myTaaResolved.ImageView() : state.mySceneColor.ImageView();
-    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo bloomInfo{};
-    bloomInfo.sampler     = state.mySceneSampler;
-    bloomInfo.imageView   = state.myBloomPing.ImageView();
-    bloomInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    std::array< VkWriteDescriptorSet, 2 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTonemapDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bloomInfo, 1, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateTaaResolveDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_PostProcessState& state = aCore.myPostProcessState;
-
-    VkDescriptorImageInfo sceneInfo{};
-    sceneInfo.sampler     = state.mySceneSampler;
-    sceneInfo.imageView   = state.mySceneColor.ImageView();
-    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    const uint32_t        readIndex = 1u - state.myTaaHistoryWriteIndex;
-    VkDescriptorImageInfo historyInfo{};
-    historyInfo.sampler     = state.mySceneSampler;
-    historyInfo.imageView   = state.myTaaHistory[ readIndex ].ImageView();
-    historyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo mvInfo{};
-    mvInfo.sampler     = state.mySceneSampler;
-    mvInfo.imageView   = aCore.myGBufferState.myMotionVector.ImageView();
-    mvInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo outInfo{};
-    outInfo.imageView   = state.myTaaResolved.ImageView();
-    outInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 4 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &historyInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &mvInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myTaaResolveDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outInfo, 3, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateBloomThresholdDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
-    Vk_PostProcessState& state = aCore.myPostProcessState;
-
-    VkDescriptorImageInfo sceneInfo{};
-    sceneInfo.sampler     = state.mySceneSampler;
-    sceneInfo.imageView   = state.mySceneColor.ImageView();
-    sceneInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo bloomOutInfo{};
-    bloomOutInfo.imageView   = state.myBloomPing.ImageView();
-    bloomOutInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    std::array< VkWriteDescriptorSet, 2 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myBloomThresholdDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &bloomOutInfo, 1, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void UpdateBloomBlurDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex, bool aHorizontal ) {
-    Vk_PostProcessState& state = aCore.myPostProcessState;
-
-    VkDescriptorImageInfo srcInfo{};
-    srcInfo.imageView   = aHorizontal ? state.myBloomPing.ImageView() : state.myBloomPong.ImageView();
-    srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorImageInfo dstInfo{};
-    dstInfo.imageView   = aHorizontal ? state.myBloomPong.ImageView() : state.myBloomPing.ImageView();
-    dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    VkDescriptorSet set = aHorizontal ? state.myBloomBlurHorizDescriptorSets[ aFrameIndex ] : state.myBloomBlurVertDescriptorSets[ aFrameIndex ];
-
-    std::array< VkWriteDescriptorSet, 2 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( set, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstInfo, 1, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-}
-
-void SyncComputePipelineMirrors( Vk_Renderer& aCore ) {
-    Vk_PostProcessState& state     = aCore.myPostProcessState;
-    Rhi_Device&          rhi       = aCore.myGfxRhiDevice;
-    state.myBloomThresholdPipeline = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myThresholdPipeline );
-    state.myBloomBlurPipeline      = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myBlurPipeline );
-    state.myTaaResolvePipeline     = RhiVulkan::PipelineGetVk( rhi, state.myComputeGfx.myTaaPipeline );
-}
-
-bool CreateGfxComputePipelines( Vk_Renderer& aCore ) {
+bool CreateGfxComputeResources( Vk_Renderer& aCore ) {
     if ( !aCore.myGfxRhiDevice ) {
         return false;
     }
     Vk_PostProcessState& state = aCore.myPostProcessState;
-    if ( state.myBloomThresholdPipelineLayout == VK_NULL_HANDLE || state.myBloomBlurPipelineLayout == VK_NULL_HANDLE || state.myTaaResolvePipelineLayout == VK_NULL_HANDLE ) {
-        return false;
+    if ( state.myGfx.myComputeReady ) {
+        return true;
     }
 
     const std::vector< char > thresholdSpv = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomThresholdSpv ) );
     const std::vector< char > blurSpv      = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kBloomBlurSpv ) );
     const std::vector< char > taaSpv       = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kTaaResolveSpv ) );
 
-    Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, state.myComputeGfx );
-
-    Gfx_PostProcessPass::ComputePipelinesInitDesc desc{};
+    Gfx_PostProcessPass::ComputeInitDesc desc{};
     desc.myThresholdSpirv      = thresholdSpv.data();
     desc.myThresholdSpirvBytes = thresholdSpv.size();
     desc.myBlurSpirv           = blurSpv.data();
     desc.myBlurSpirvBytes      = blurSpv.size();
     desc.myTaaSpirv            = taaSpv.data();
     desc.myTaaSpirvBytes       = taaSpv.size();
-    desc.myThresholdLayout     = RhiVulkan::PipelineLayoutAdopt( state.myBloomThresholdPipelineLayout );
-    desc.myBlurLayout          = RhiVulkan::PipelineLayoutAdopt( state.myBloomBlurPipelineLayout );
-    desc.myTaaLayout           = RhiVulkan::PipelineLayoutAdopt( state.myTaaResolvePipelineLayout );
-    if ( !Gfx_PostProcessPass::CreateComputePipelines( aCore.myGfxRhiDevice, desc, state.myComputeGfx ) ) {
+    desc.myFramesInFlight      = MAX_FRAMES_IN_FLIGHT;
+    return Gfx_PostProcessPass::CreateComputeResources( aCore.myGfxRhiDevice, desc, state.myGfx );
+}
+
+bool CreateGfxTonemapResources( Vk_Renderer& aCore ) {
+    if ( !aCore.myGfxRhiDevice || aCore.mySwapchainCtx.myRenderPass == VK_NULL_HANDLE ) {
         return false;
     }
+    Vk_PostProcessState& state = aCore.myPostProcessState;
 
-    SyncComputePipelineMirrors( aCore );
-    return true;
+    const std::vector< char > vertSpv = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv ) );
+    const std::vector< char > fragSpv = LoadSpirvFile( UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapFragSpv ) );
+
+    Gfx_PostProcessPass::TonemapInitDesc desc{};
+    desc.myVertSpirv      = vertSpv.data();
+    desc.myVertSpirvBytes = vertSpv.size();
+    desc.myFragSpirv      = fragSpv.data();
+    desc.myFragSpirvBytes = fragSpv.size();
+    desc.myRenderPass     = RhiVulkan::RenderPassAdopt( aCore.mySwapchainCtx.myRenderPass );
+    desc.mySampleCount    = SwapchainSampleCount( aCore );
+    desc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
+
+    return state.myGfx.myTonemapReady ? Gfx_PostProcessPass::CreateOrRecreateTonemapPipeline( aCore.myGfxRhiDevice, desc, state.myGfx )
+                                      : Gfx_PostProcessPass::CreateTonemapResources( aCore.myGfxRhiDevice, desc, state.myGfx );
 }
 
 void CreatePipelineResources( Vk_Renderer& aCore ) {
     if ( aCore.mySwapchainCtx.myRenderPass == VK_NULL_HANDLE ) {
         throw std::runtime_error( "Vk_PostProcessPass: swapchain render pass is required" );
     }
-
-    Vk_PostProcessState& state = aCore.myPostProcessState;
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter    = VK_FILTER_LINEAR;
-    samplerInfo.minFilter    = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.mySceneSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: failed to create sampler" );
-    }
-    const VkDevice  device  = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkSampler sampler = state.mySceneSampler;
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction( [ device, sampler ]() { vkDestroySampler( device, sampler, nullptr ); } );
-
-    const std::array< VkDescriptorSetLayoutBinding, 2 > tonemapBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
-    };
-    VkDescriptorSetLayoutCreateInfo tonemapLayoutInfo{};
-    tonemapLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    tonemapLayoutInfo.bindingCount = static_cast< uint32_t >( tonemapBindings.size() );
-    tonemapLayoutInfo.pBindings    = tonemapBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &tonemapLayoutInfo, nullptr, &state.myTonemapSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: tonemap descriptor layout failed" );
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_PostProcessPass: myGfxRhiDevice required for Gfx Init" );
     }
 
-    VkPushConstantRange tonemapPush{};
-    tonemapPush.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    tonemapPush.offset     = 0;
-    tonemapPush.size       = sizeof( TonemapPushConstants );
-
-    VkPipelineLayoutCreateInfo tonemapPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    tonemapPipelineLayoutInfo.setLayoutCount             = 1;
-    tonemapPipelineLayoutInfo.pSetLayouts                = &state.myTonemapSetLayout;
-    tonemapPipelineLayoutInfo.pushConstantRangeCount     = 1;
-    tonemapPipelineLayoutInfo.pPushConstantRanges        = &tonemapPush;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &tonemapPipelineLayoutInfo, nullptr, &state.myTonemapPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: tonemap pipeline layout failed" );
+    if ( !CreateGfxComputeResources( aCore ) ) {
+        throw std::runtime_error( "Vk_PostProcessPass: Gfx CreateComputeResources failed" );
     }
-
-    const std::array< VkDescriptorSetLayoutBinding, 2 > thresholdBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-    };
-    VkDescriptorSetLayoutCreateInfo thresholdLayoutInfo{};
-    thresholdLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    thresholdLayoutInfo.bindingCount = static_cast< uint32_t >( thresholdBindings.size() );
-    thresholdLayoutInfo.pBindings    = thresholdBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &thresholdLayoutInfo, nullptr, &state.myBloomThresholdSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: bloom threshold descriptor layout failed" );
+    if ( !CreateGfxTonemapResources( aCore ) ) {
+        throw std::runtime_error( "Vk_PostProcessPass: Gfx CreateTonemapResources failed" );
     }
-
-    VkPushConstantRange thresholdPush{};
-    thresholdPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    thresholdPush.offset     = 0;
-    thresholdPush.size       = sizeof( BloomThresholdPushConstants );
-
-    VkPipelineLayoutCreateInfo thresholdPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    thresholdPipelineLayoutInfo.setLayoutCount             = 1;
-    thresholdPipelineLayoutInfo.pSetLayouts                = &state.myBloomThresholdSetLayout;
-    thresholdPipelineLayoutInfo.pushConstantRangeCount     = 1;
-    thresholdPipelineLayoutInfo.pPushConstantRanges        = &thresholdPush;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &thresholdPipelineLayoutInfo, nullptr, &state.myBloomThresholdPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: bloom threshold pipeline layout failed" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 2 > blurBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-    };
-    VkDescriptorSetLayoutCreateInfo blurLayoutInfo{};
-    blurLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    blurLayoutInfo.bindingCount = static_cast< uint32_t >( blurBindings.size() );
-    blurLayoutInfo.pBindings    = blurBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurLayoutInfo, nullptr, &state.myBloomBlurSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: bloom blur descriptor layout failed" );
-    }
-
-    VkPushConstantRange blurPush{};
-    blurPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    blurPush.offset     = 0;
-    blurPush.size       = sizeof( BloomBlurPushConstants );
-
-    VkPipelineLayoutCreateInfo blurPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    blurPipelineLayoutInfo.setLayoutCount             = 1;
-    blurPipelineLayoutInfo.pSetLayouts                = &state.myBloomBlurSetLayout;
-    blurPipelineLayoutInfo.pushConstantRangeCount     = 1;
-    blurPipelineLayoutInfo.pPushConstantRanges        = &blurPush;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &blurPipelineLayoutInfo, nullptr, &state.myBloomBlurPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: bloom blur pipeline layout failed" );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 4 > taaBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-    };
-    VkDescriptorSetLayoutCreateInfo taaLayoutInfo{};
-    taaLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    taaLayoutInfo.bindingCount = static_cast< uint32_t >( taaBindings.size() );
-    taaLayoutInfo.pBindings    = taaBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &taaLayoutInfo, nullptr, &state.myTaaResolveSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: TAA resolve descriptor layout failed" );
-    }
-
-    VkPushConstantRange taaPush{};
-    taaPush.stageFlags                               = VK_SHADER_STAGE_COMPUTE_BIT;
-    taaPush.offset                                   = 0;
-    taaPush.size                                     = sizeof( TaaResolvePushConstants );
-    VkPipelineLayoutCreateInfo taaPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    taaPipelineLayoutInfo.setLayoutCount             = 1;
-    taaPipelineLayoutInfo.pSetLayouts                = &state.myTaaResolveSetLayout;
-    taaPipelineLayoutInfo.pushConstantRangeCount     = 1;
-    taaPipelineLayoutInfo.pPushConstantRanges        = &taaPush;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &taaPipelineLayoutInfo, nullptr, &state.myTaaResolvePipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: TAA resolve pipeline layout failed" );
-    }
-
-    // Per frame: tonemap(1) + taa(1) + threshold(1) + blurH(1) + blurV(1) storage images — match Vk_AoPass pool sizing.
-    VkDescriptorPoolSize poolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 6 ) },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 6 ) },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( std::size( poolSizes ) );
-    poolInfo.pPoolSizes    = poolSizes;
-    poolInfo.maxSets       = static_cast< uint32_t >( MAX_FRAMES_IN_FLIGHT * 5 );
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_PostProcessPass: descriptor pool failed" );
-    }
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = state.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-
-        allocInfo.pSetLayouts = &state.myTonemapSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTonemapDescriptorSets[ i ] ),
-                                          "Vk_PostProcessPass: tonemap descriptor set alloc" );
-
-        allocInfo.pSetLayouts = &state.myTaaResolveSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myTaaResolveDescriptorSets[ i ] ),
-                                          "Vk_PostProcessPass: TAA resolve descriptor set alloc" );
-
-        allocInfo.pSetLayouts = &state.myBloomThresholdSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomThresholdDescriptorSets[ i ] ),
-                                          "Vk_PostProcessPass: bloom threshold descriptor set alloc" );
-
-        allocInfo.pSetLayouts = &state.myBloomBlurSetLayout;
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurHorizDescriptorSets[ i ] ),
-                                          "Vk_PostProcessPass: bloom blur H descriptor set alloc" );
-        UtilVulkanResult::ThrowOnFailure( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myBloomBlurVertDescriptorSets[ i ] ),
-                                          "Vk_PostProcessPass: bloom blur V descriptor set alloc" );
-    }
-
-    // Pipelines are built in RebuildResources (Init always calls it; also on resize).
 }
 
 void RebuildResources( Vk_Renderer& aCore ) {
     if ( aCore.myRhi.myDeviceCtx.myDevice == VK_NULL_HANDLE || aCore.mySwapchainCtx.mySwapChainExtent.width == 0 ) {
         return;
     }
+    if ( !aCore.myGfxRhiDevice ) {
+        throw std::runtime_error( "Vk_PostProcessPass: myGfxRhiDevice required for RebuildResources" );
+    }
 
-    // Extent-scoped only (RP/FB). Sampler + descriptor pool live for pass lifetime — never flush them here.
+    // Extent-scoped only (RP/FB). Sampler + compute/tonemap layouts live for pass lifetime — never destroy them here.
     DestroyHybridResolveRhi( aCore );
     aCore.myPostProcessState.myDeletionQueue.flush();
     Vk_PostProcessPassDetail::ResetImageLayouts();
 
-    Vk_PostProcessState& state = aCore.myPostProcessState;
-    DestroyTexture( aCore, state.mySceneColor );
-    DestroyTexture( aCore, state.myTaaResolved );
-    DestroyTexture( aCore, state.myTaaHistory[ 0 ] );
-    DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
-    DestroyTexture( aCore, state.myBloomPing );
-    DestroyTexture( aCore, state.myBloomPong );
-    state.myTaaHistoryReady      = false;
-    state.myTaaHistoryWriteIndex = 0u;
+    Vk_PostProcessState& state         = aCore.myPostProcessState;
+    state.myGfx.myTaaHistoryReady      = false;
+    state.myGfx.myTaaHistoryWriteIndex = 0u;
 
-    CreateSceneColorImage( aCore );
-    CreateTaaImages( aCore );
-    const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
-    CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPing, bloomExtent );
-    CreateBloomImage( aCore, aCore.myPostProcessState.myBloomPong, bloomExtent );
+    if ( !CreateOrRefreshImages( aCore ) ) {
+        throw std::runtime_error( "Vk_PostProcessPass: Gfx CreateOrRecreateImages failed" );
+    }
 
     CreateHybridRenderPass( aCore );
     CreateHybridFramebuffer( aCore );
 
     const uint32_t width  = aCore.mySwapchainCtx.mySwapChainExtent.width;
     const uint32_t height = aCore.mySwapchainCtx.mySwapChainExtent.height;
-    UtilLogger::Info( "POST", "HDR scene color: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=R16G16B16A16_SFLOAT" );
+    UtilLogger::Info( "POST", "HDR scene color: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " format=R16G16B16A16_SFLOAT (Gfx)" );
 
-    if ( aCore.myPostProcessState.myRhiTonemapPipeline ) {
-        Rhi::DeviceDestroyPipeline( aCore.myGfxRhiDevice, aCore.myPostProcessState.myRhiTonemapPipeline );
-        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    if ( state.myGfx.mySetsAllocated ) {
+        UpdateComputeDescriptors( aCore );
     }
-    else if ( aCore.myPostProcessState.myTonemapPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( aCore.myRhi.myDeviceCtx.myDevice, aCore.myPostProcessState.myTonemapPipeline, nullptr );
-        aCore.myPostProcessState.myTonemapPipeline = VK_NULL_HANDLE;
+    if ( state.myGfx.myTonemapReady ) {
+        UpdateTonemapDescriptors( aCore );
     }
-    if ( aCore.myGfxRhiDevice && ( aCore.myPostProcessState.myTaaResolvePipeline != VK_NULL_HANDLE || aCore.myPostProcessState.myComputeGfx.myPipelinesReady ) ) {
-        Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, aCore.myPostProcessState.myComputeGfx );
-        aCore.myPostProcessState.myTaaResolvePipeline     = VK_NULL_HANDLE;
-        aCore.myPostProcessState.myBloomThresholdPipeline = VK_NULL_HANDLE;
-        aCore.myPostProcessState.myBloomBlurPipeline      = VK_NULL_HANDLE;
-    }
-
-    // Descriptor sets are allocated in CreatePipelineResources; skip until pool exists (Init order).
-    if ( aCore.myPostProcessState.myDescriptorPool != VK_NULL_HANDLE ) {
-        for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-            UpdateTaaResolveDescriptorSet( aCore, i );
-            UpdateTonemapDescriptorSet( aCore, i );
-            UpdateBloomThresholdDescriptorSet( aCore, i );
-            UpdateBloomBlurDescriptorSet( aCore, i, true );
-            UpdateBloomBlurDescriptorSet( aCore, i, false );
-        }
-    }
-
-    if ( aCore.myPostProcessState.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
-        const std::string tonemapVertPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapVertSpv );
-        const std::string tonemapFragPath = UtilLoader::ResolvePath( aCore.EngineConfig(), kTonemapFragSpv );
-        aCore.myPostProcessState.myTonemapPipeline =
-            BuildTonemapPipeline( aCore, aCore.mySwapchainCtx.myRenderPass, aCore.myPostProcessState.myTonemapPipelineLayout, tonemapVertPath, tonemapFragPath );
-    }
-    if ( aCore.myPostProcessState.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
-        if ( !CreateGfxComputePipelines( aCore ) ) {
-            throw std::runtime_error( "Vk_PostProcessPass: Gfx compute pipeline create failed" );
-        }
+    if ( !CreateGfxTonemapResources( aCore ) ) {
+        throw std::runtime_error( "Vk_PostProcessPass: Gfx CreateOrRecreateTonemapPipeline failed" );
     }
 }
 
 void RecordBloom( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameIndex ) {
     Vk_PostProcessState&    state = aCore.myPostProcessState;
+    const auto&             gfx   = state.myGfx;
     const Gfx_PostSettings& post  = aCore.myPostSettings;
     if ( !post.myBloomEnabled ) {
         return;
@@ -691,16 +328,16 @@ void RecordBloom( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameInde
     const VkExtent2D bloomExtent = BloomExtent( aCore.mySwapchainCtx.mySwapChainExtent );
 
     Gfx_PostProcessPass::BloomGpu gpu{};
-    gpu.myThresholdPipeline = RhiVulkan::PipelineAdopt( state.myBloomThresholdPipeline );
-    gpu.myThresholdLayout   = RhiVulkan::PipelineLayoutAdopt( state.myBloomThresholdPipelineLayout );
-    gpu.myThresholdSet      = RhiVulkan::DescriptorSetAdopt( state.myBloomThresholdDescriptorSets[ aFrameIndex ] );
-    gpu.myBlurPipeline      = RhiVulkan::PipelineAdopt( state.myBloomBlurPipeline );
-    gpu.myBlurLayout        = RhiVulkan::PipelineLayoutAdopt( state.myBloomBlurPipelineLayout );
-    gpu.myBlurHorizSet      = RhiVulkan::DescriptorSetAdopt( state.myBloomBlurHorizDescriptorSets[ aFrameIndex ] );
-    gpu.myBlurVertSet       = RhiVulkan::DescriptorSetAdopt( state.myBloomBlurVertDescriptorSets[ aFrameIndex ] );
-    gpu.mySceneColor        = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myBloomPing         = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPing.Image(), state.myBloomPing.ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myBloomPong         = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPong.Image(), state.myBloomPong.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myThresholdPipeline = gfx.myThresholdPipeline;
+    gpu.myThresholdLayout   = gfx.myThresholdLayout;
+    gpu.myThresholdSet      = gfx.myThresholdSets[ aFrameIndex ];
+    gpu.myBlurPipeline      = gfx.myBlurPipeline;
+    gpu.myBlurLayout        = gfx.myBlurLayout;
+    gpu.myBlurHorizSet      = gfx.myBlurHorizSets[ aFrameIndex ];
+    gpu.myBlurVertSet       = gfx.myBlurVertSets[ aFrameIndex ];
+    gpu.mySceneColor        = gfx.mySceneColor;
+    gpu.myBloomPing         = gfx.myBloomPing;
+    gpu.myBloomPong         = gfx.myBloomPong;
 
     Rhi_ImageLayout sceneLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
     Rhi_ImageLayout pingLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gBloomPingLayout );
@@ -719,40 +356,35 @@ void RecordBloom( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameInde
     Vk_PostProcessPassDetail::gSceneColorLayout = Vk_FrameCmd::ImageLayoutToVk( sceneLayout );
     Vk_PostProcessPassDetail::gBloomPingLayout  = Vk_FrameCmd::ImageLayoutToVk( pingLayout );
     Vk_PostProcessPassDetail::gBloomPongLayout  = Vk_FrameCmd::ImageLayoutToVk( pongLayout );
-
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPing );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPong );
 }
 
 void RecordTaaResolve( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFrameIndex ) {
     Vk_PostProcessState&    state = aCore.myPostProcessState;
+    auto&                   gfx   = state.myGfx;
     const Gfx_PostSettings& post  = aCore.myPostSettings;
     if ( !post.myTaaEnabled ) {
-        state.myTaaHistoryReady = false;
+        gfx.myTaaHistoryReady = false;
         return;
     }
 
     if ( !aCore.myTemporalState.myHistoryValid ) {
-        state.myTaaHistoryReady = false;
+        gfx.myTaaHistoryReady = false;
     }
 
-    const uint32_t writeIndex = state.myTaaHistoryWriteIndex;
+    const uint32_t writeIndex = gfx.myTaaHistoryWriteIndex;
     const uint32_t readIndex  = 1u - writeIndex;
-    UpdateTaaResolveDescriptorSet( aCore, aFrameIndex );
+    UpdateComputeDescriptors( aCore, aFrameIndex );
 
     const VkExtent2D extent = aCore.mySwapchainCtx.mySwapChainExtent;
 
     Gfx_PostProcessPass::TaaGpu gpu{};
-    gpu.myPipeline   = RhiVulkan::PipelineAdopt( state.myTaaResolvePipeline );
-    gpu.myLayout     = RhiVulkan::PipelineLayoutAdopt( state.myTaaResolvePipelineLayout );
-    gpu.mySet        = RhiVulkan::DescriptorSetAdopt( state.myTaaResolveDescriptorSets[ aFrameIndex ] );
-    gpu.mySceneColor = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myResolved   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaResolved.Image(), state.myTaaResolved.ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myHistoryRead =
-        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaHistory[ readIndex ].Image(), state.myTaaHistory[ readIndex ].ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myHistoryWrite =
-        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myTaaHistory[ writeIndex ].Image(), state.myTaaHistory[ writeIndex ].ImageView(), kPostSceneColorFormat, 1 );
+    gpu.myPipeline     = gfx.myTaaPipeline;
+    gpu.myLayout       = gfx.myTaaLayout;
+    gpu.mySet          = gfx.myTaaSets[ aFrameIndex ];
+    gpu.mySceneColor   = gfx.mySceneColor;
+    gpu.myResolved     = gfx.myTaaResolved;
+    gpu.myHistoryRead  = ( readIndex == 0u ) ? gfx.myTaaHistory0 : gfx.myTaaHistory1;
+    gpu.myHistoryWrite = ( writeIndex == 0u ) ? gfx.myTaaHistory0 : gfx.myTaaHistory1;
 
     Rhi_ImageLayout sceneLayout     = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
     Rhi_ImageLayout resolvedLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gTaaResolvedLayout );
@@ -763,7 +395,7 @@ void RecordTaaResolve( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFram
     input.myWidth              = extent.width;
     input.myHeight             = extent.height;
     input.myPush.historyBlend  = post.myTaaBlend;
-    input.myPush.historyValid  = ( aCore.myTemporalState.myHistoryValid && state.myTaaHistoryReady ) ? 1.0f : 0.0f;
+    input.myPush.historyValid  = ( aCore.myTemporalState.myHistoryValid && gfx.myTaaHistoryReady ) ? 1.0f : 0.0f;
     input.myPush.varianceGamma = post.myTaaVarianceGamma;
     input.myPush.sharpen       = post.myTaaSharpen;
     input.mySceneLayout        = &sceneLayout;
@@ -777,13 +409,8 @@ void RecordTaaResolve( Vk_Renderer& aCore, Rhi_CommandList& aCmd, uint32_t aFram
     Vk_PostProcessPassDetail::gTaaResolvedLayout               = Vk_FrameCmd::ImageLayoutToVk( resolvedLayout );
     Vk_PostProcessPassDetail::gTaaHistoryLayouts[ readIndex ]  = Vk_FrameCmd::ImageLayoutToVk( histReadLayout );
     Vk_PostProcessPassDetail::gTaaHistoryLayouts[ writeIndex ] = Vk_FrameCmd::ImageLayoutToVk( histWriteLayout );
-    state.myTaaHistoryWriteIndex                               = 1u - state.myTaaHistoryWriteIndex;
-    state.myTaaHistoryReady                                    = true;
-
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myResolved );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myHistoryRead );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myHistoryWrite );
+    gfx.myTaaHistoryWriteIndex                                 = 1u - gfx.myTaaHistoryWriteIndex;
+    gfx.myTaaHistoryReady                                      = true;
 }
 
 }  // namespace
@@ -806,67 +433,12 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
 
-    Vk_PostProcessState& state  = aCore.myPostProcessState;
-    const VkDevice       device = aCore.myRhi.myDeviceCtx.myDevice;
-    if ( state.myRhiTonemapPipeline ) {
-        Rhi::DeviceDestroyPipeline( aCore.myGfxRhiDevice, state.myRhiTonemapPipeline );
-        state.myTonemapPipeline = VK_NULL_HANDLE;
-    }
-    else if ( state.myTonemapPipeline != VK_NULL_HANDLE ) {
-        vkDestroyPipeline( device, state.myTonemapPipeline, nullptr );
-        state.myTonemapPipeline = VK_NULL_HANDLE;
-    }
-    if ( aCore.myGfxRhiDevice && ( state.myTaaResolvePipeline != VK_NULL_HANDLE || state.myComputeGfx.myPipelinesReady ) ) {
-        Gfx_PostProcessPass::DestroyComputePipelines( aCore.myGfxRhiDevice, state.myComputeGfx );
-        state.myTaaResolvePipeline     = VK_NULL_HANDLE;
-        state.myBloomThresholdPipeline = VK_NULL_HANDLE;
-        state.myBloomBlurPipeline      = VK_NULL_HANDLE;
-    }
-    if ( state.myTonemapPipelineLayout != VK_NULL_HANDLE ) {
-        vkDestroyPipelineLayout( device, state.myTonemapPipelineLayout, nullptr );
-        state.myTonemapPipelineLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myTaaResolvePipelineLayout != VK_NULL_HANDLE ) {
-        vkDestroyPipelineLayout( device, state.myTaaResolvePipelineLayout, nullptr );
-        state.myTaaResolvePipelineLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomThresholdPipelineLayout != VK_NULL_HANDLE ) {
-        vkDestroyPipelineLayout( device, state.myBloomThresholdPipelineLayout, nullptr );
-        state.myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomBlurPipelineLayout != VK_NULL_HANDLE ) {
-        vkDestroyPipelineLayout( device, state.myBloomBlurPipelineLayout, nullptr );
-        state.myBloomBlurPipelineLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myTonemapSetLayout != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorSetLayout( device, state.myTonemapSetLayout, nullptr );
-        state.myTonemapSetLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myTaaResolveSetLayout != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorSetLayout( device, state.myTaaResolveSetLayout, nullptr );
-        state.myTaaResolveSetLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomThresholdSetLayout != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorSetLayout( device, state.myBloomThresholdSetLayout, nullptr );
-        state.myBloomThresholdSetLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myBloomBlurSetLayout != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorSetLayout( device, state.myBloomBlurSetLayout, nullptr );
-        state.myBloomBlurSetLayout = VK_NULL_HANDLE;
-    }
-    if ( state.myDescriptorPool != VK_NULL_HANDLE ) {
-        vkDestroyDescriptorPool( device, state.myDescriptorPool, nullptr );
-        state.myDescriptorPool = VK_NULL_HANDLE;
-    }
-
+    Vk_PostProcessState& state = aCore.myPostProcessState;
     state.myDeletionQueue.flush();
     DestroyHybridResolveRhi( aCore );
-    DestroyTexture( aCore, state.mySceneColor );
-    DestroyTexture( aCore, state.myTaaResolved );
-    DestroyTexture( aCore, state.myTaaHistory[ 0 ] );
-    DestroyTexture( aCore, state.myTaaHistory[ 1 ] );
-    DestroyTexture( aCore, state.myBloomPing );
-    DestroyTexture( aCore, state.myBloomPong );
+    if ( aCore.myGfxRhiDevice ) {
+        Gfx_PostProcessPass::Destroy( aCore.myGfxRhiDevice, state.myGfx );
+    }
     state.myInitialized = false;
     Vk_PostProcessPassDetail::ResetImageLayouts();
 }
@@ -909,16 +481,16 @@ void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aI
     const Gfx_PostSettings& post   = aCore.myPostSettings;
     const VkExtent2D        extent = aCore.mySwapchainCtx.mySwapChainExtent;
 
-    UpdateTonemapDescriptorSet( aCore, aFrameIndex );
+    UpdateTonemapDescriptors( aCore, aFrameIndex );
 
     Gfx_PostProcessPass::TonemapGpu gpu{};
-    gpu.myPipeline    = RhiVulkan::PipelineAdopt( state.myTonemapPipeline );
-    gpu.myLayout      = RhiVulkan::PipelineLayoutAdopt( state.myTonemapPipelineLayout );
-    gpu.mySet         = RhiVulkan::DescriptorSetAdopt( state.myTonemapDescriptorSets[ aFrameIndex ] );
+    gpu.myPipeline    = state.myGfx.myTonemapPipeline;
+    gpu.myLayout      = state.myGfx.myTonemapLayout;
+    gpu.mySet         = state.myGfx.myTonemapSets[ aFrameIndex ];
     gpu.myRenderPass  = RhiVulkan::RenderPassAdopt( aCore.mySwapchainCtx.myRenderPass );
     gpu.myFramebuffer = RhiVulkan::FramebufferAdopt( aCore.mySwapchainCtx.mySwapChainFrameBuffers[ aImageIndex ] );
-    gpu.mySceneColor  = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.mySceneColor.Image(), state.mySceneColor.ImageView(), kPostSceneColorFormat, 1 );
-    gpu.myBloomPing   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myBloomPing.Image(), state.myBloomPing.ImageView(), kPostSceneColorFormat, 1 );
+    gpu.mySceneColor  = state.myGfx.mySceneColor;
+    gpu.myBloomPing   = state.myGfx.myBloomPing;
 
     Rhi_ImageLayout sceneLayout = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gSceneColorLayout );
     Rhi_ImageLayout pingLayout  = Vk_FrameCmd::ImageLayoutFromVk( Vk_PostProcessPassDetail::gBloomPingLayout );
@@ -940,9 +512,6 @@ void RecordPost( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aI
 
     Vk_PostProcessPassDetail::gSceneColorLayout = Vk_FrameCmd::ImageLayoutToVk( sceneLayout );
     Vk_PostProcessPassDetail::gBloomPingLayout  = Vk_FrameCmd::ImageLayoutToVk( pingLayout );
-
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.mySceneColor );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myBloomPing );
 }
 
 }  // namespace Vk_PostProcessPass

@@ -1,7 +1,7 @@
 # Plan — Gfx/Rhi ownership completion (retire facades + Init)
 
-**Status:** Open (roadmap) — **queue #1** (2026-07-22)  
-**Related:** Closed [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) (E0–E5 Records) · [`EngineArchitecture.md`](EngineArchitecture.md) · Wishlist S21 · [`Active-Plan.md`](Active-Plan.md)
+**Status:** Closed (2026-07-24)  
+**Related:** Closed [`gfx-rhi-pass-migration_Plan.md`](gfx-rhi-pass-migration_Plan.md) (E0–E5 Records) · [`EngineArchitecture.md`](../EngineArchitecture.md) · Wishlist S21 · [`Active-Plan.md`](../Active-Plan.md) · Progress [`gfx-rhi-ownership-completion_Progress.md`](gfx-rhi-ownership-completion_Progress.md)
 
 ## Problem
 
@@ -26,9 +26,9 @@ Goal: finish ownership so Gfx records **and** creates through Rhi; delete per-pa
 |-------|--------|------|
 | **O1** | Peel FG GBuffer/hybrid Begin/End into Gfx plan executor (former E4.6f) | Smoke + G0-validation; FG no longer owns those Begin/End — **Done 2026-07-23** |
 | **O2** | Expand Rhi **create** surface: compute + graphics RP/FB/PSO + buffer descriptor update/map | GfxTests + Verify-CI — **Done 2026-07-23** |
-| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid/ClusterBuild **full**; AO/Soft/SSR **pipeline+images**; ShadowMap **resources**; Deferred/DDGI/Post **PSO create**; descriptor writes + Post layouts/images still RC |
+| **O3** | Move pass **Init** into `Gfx_*Pass` (Rhi-only); RC keeps backend map | DepthPyramid/ClusterBuild **full**; AO/Soft/SSR **pipeline+images**; Post **images+compute+tonemap**; ShadowMap **resources**; Deferred/DDGI **full (layouts+pool+sets+sampler+PSO+atlas images)** — **Done 2026-07-24** |
 | **O4** | Delete `Vk_*_Record.cpp` facades; FG/executor calls Gfx with Rhi handles + plain DTOs | **Done 2026-07-23** — all Record TUs deleted (Post/Shadow/Deferred+DDGI included) |
-| **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Soft/SSR/AO descriptors in Gfx; Post descriptor writes + layouts/images still RC |
+| **O5** | Retire empty/`Init`-only `Vk_*Pass.cpp` shells; state lives on Gfx or RC resource tables as designed | Soft/SSR/AO/Post/Deferred/DDGI descriptors+Init in Gfx; Record→myGfx; Sync mirrors dropped (Soft/SSR/AO/ShadowMap included); Architecture migration note locked — **Done 2026-07-24** |
 
 **Pilot order (suggested):** O1 first (unblocks clean Record scope) → O2 foundation → O3/O4 on one compute pass (e.g. DepthPyramid or AO) → fan out → O5.
 

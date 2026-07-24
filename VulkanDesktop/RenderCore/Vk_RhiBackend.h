@@ -29,6 +29,7 @@ void CommandListBindVk( Rhi_CommandList& aList, VkCommandBuffer aCommandBuffer )
 [[nodiscard]] Rhi_PipelineLayout      PipelineLayoutAdopt( VkPipelineLayout aLayout );
 [[nodiscard]] Rhi_DescriptorSet       DescriptorSetAdopt( VkDescriptorSet aSet );
 [[nodiscard]] Rhi_DescriptorSetLayout DescriptorSetLayoutAdopt( VkDescriptorSetLayout aLayout );
+[[nodiscard]] Rhi_Sampler             SamplerAdopt( VkSampler aSampler );
 [[nodiscard]] Rhi_RenderPass          RenderPassAdopt( VkRenderPass aRenderPass );
 [[nodiscard]] Rhi_Framebuffer         FramebufferAdopt( VkFramebuffer aFramebuffer );
 // Registers a non-owned image/view on aDevice so barriers / TextureGetVk* work.

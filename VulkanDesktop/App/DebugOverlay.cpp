@@ -130,7 +130,7 @@ void BuildEngineDebugWindow( const Util_EngineConfig& aConfig, DebugUIState& aDe
                 UtilPostProcessPanel::Actions postActions{};
                 UtilPostProcessPanel::BuildContents( aCore.RenderFeatures().myHybridDeferred, aPostSettings, postActions );
                 if ( postActions.myClearTaaHistoryReady ) {
-                    aCore.myPostProcessState.myTaaHistoryReady = false;
+                    aCore.myPostProcessState.myGfx.myTaaHistoryReady = false;
                 }
                 if ( postActions.myRequestTemporalManualReset ) {
                     Vk_Temporal::RequestReset( aCore, Vk_TemporalResetFlag::Manual );

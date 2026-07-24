@@ -12,9 +12,9 @@ namespace {
 
     void InvalidatePassHistoryReady( Vk_Renderer& aCore ) {
         // Pass-owned history textures stay allocated; clear "buffer ready" so consumers skip blend this frame.
-        aCore.myAoState.myTemporalHistoryReady     = false;
-        aCore.mySsrState.myHistoryReady            = false;
-        aCore.myPostProcessState.myTaaHistoryReady = false;
+        aCore.myAoState.myTemporalHistoryReady           = false;
+        aCore.mySsrState.myHistoryReady                  = false;
+        aCore.myPostProcessState.myGfx.myTaaHistoryReady = false;
     }
 
 }  // namespace

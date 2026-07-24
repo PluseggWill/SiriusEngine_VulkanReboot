@@ -216,9 +216,7 @@
 
 ## S21 — Render lab + RHI WSI *(parallel)*
 
-**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) · Records done: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md)
-
-**Promoted to Active-Plan #1** (not staged here): FG Begin/End peel · Rhi create · Init→Gfx · delete `Vk_*_Record` / pass Init — see [`gfx-rhi-ownership-completion_Plan.md`](gfx-rhi-ownership-completion_Plan.md).
+**Plan:** [`vulkan-rhi-hardening-epic_Plan.md`](vulkan-rhi-hardening-epic_Plan.md) · Records: [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) · Ownership: [`gfx-rhi-ownership-completion_Plan.md`](Archived/plans/gfx-rhi-ownership-completion_Plan.md) *(closed 2026-07-24)*
 
 - [ ] Presets; GPU timestamps; benchmark runbook; screenshots; FG transient RT pool.
 - [ ] Bindless layout codegen; troubleshooting; licenses.

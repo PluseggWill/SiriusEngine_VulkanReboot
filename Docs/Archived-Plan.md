@@ -48,6 +48,7 @@ Completed work from [`Active-Plan.md`](Active-Plan.md). Per-task logs: [`Archive
 | **ABH** | 2026-07-21 | Platform host peel; RenderContract independence; `Gfx_RenderCamera` + view resolve; Gfx demo/permutation cleanup | [`architecture-boundary-hardening_Plan.md`](Archived/plans/architecture-boundary-hardening_Plan.md) |
 | **MOD** | 2026-07-21 | Hot-path DTOs; Loader/ImGui/Platform peel; panel DTOs; Gfx path APIs; EngineConfig TU split; DeferredLighting Record peel | [`architecture-modularity-peel_Plan.md`](Archived/plans/architecture-modularity-peel_Plan.md) |
 | **gfx-rhi** | 2026-07-22 | Opaque Rhi + HybridDeferred Records in Gfx (E0–E5); Init/`Vk_*_Record` facades remain; FG Begin/End peel follow-up | [`gfx-rhi-pass-migration_Plan.md`](Archived/plans/gfx-rhi-pass-migration_Plan.md) |
+| **gfx-rhi-ownership** | 2026-07-24 | O1–O5: FG Begin/End; Rhi create; Init→Gfx; delete `Vk_*_Record`; thin RC shells + Architecture lock | [`gfx-rhi-ownership-completion_Plan.md`](Archived/plans/gfx-rhi-ownership-completion_Plan.md) |
 
 Lighting stage epics (closed): Stage 1 [`forward-rendering-epic_Plan.md`](Archived/plans/forward-rendering-epic_Plan.md) · Stage 2 [`hybrid-deferred-epic_Plan.md`](Archived/plans/hybrid-deferred-epic_Plan.md) · Stage 3 [`ddgi-lighting-epic_Plan.md`](Archived/plans/ddgi-lighting-epic_Plan.md).
 

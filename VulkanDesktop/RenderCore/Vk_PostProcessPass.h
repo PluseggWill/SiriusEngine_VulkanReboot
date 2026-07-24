@@ -1,11 +1,10 @@
 #pragma once
 
-#include <array>
-
 #include "../Gfx/Gfx_PostProcessPass.h"
+
 #include "../Rhi/Rhi_Handles.h"
+
 #include "Vk_DataStruct.h"
-#include "Vk_FrameLimits.h"
 #include "Vk_Types.h"
 
 struct VkCommandBuffer_T;
@@ -15,46 +14,14 @@ class Vk_Renderer;
 constexpr VkFormat kPostSceneColorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
 // HDR scene color + hybrid resolve RP/FB + tonemap/bloom (extent-sized; recreated on resize).
+// GPU resources live in myGfx; this shell keeps WSI hybrid RP/FB + Init/Record orchestration.
 struct Vk_PostProcessState {
-    Vk_TextureResource mySceneColor{};
-    Vk_TextureResource myTaaResolved{};
-    Vk_TextureResource myTaaHistory[ 2 ]{};
-    uint32_t           myTaaHistoryWriteIndex = 0u;
-    // False until at least one resolve has been copied into history (avoids sampling UNDEFINED on TAA toggle-on).
-    bool               myTaaHistoryReady = false;
-    Vk_TextureResource myBloomPing{};
-    Vk_TextureResource myBloomPong{};
-
-    Gfx_PostProcessPass::ComputePassState myComputeGfx{};
+    Gfx_PostProcessPass::PassState myGfx{};
 
     VkRenderPass    myHybridRenderPass  = VK_NULL_HANDLE;
     VkFramebuffer   myHybridFramebuffer = VK_NULL_HANDLE;
     Rhi_RenderPass  myRhiHybridRenderPass{};
     Rhi_Framebuffer myRhiHybridFramebuffer{};
-    VkSampler       mySceneSampler = VK_NULL_HANDLE;
-
-    VkPipeline            myTonemapPipeline = VK_NULL_HANDLE;
-    Rhi_Pipeline          myRhiTonemapPipeline{};
-    VkPipelineLayout      myTonemapPipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myTonemapSetLayout      = VK_NULL_HANDLE;
-
-    VkPipeline            myTaaResolvePipeline       = VK_NULL_HANDLE;
-    VkPipelineLayout      myTaaResolvePipelineLayout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myTaaResolveSetLayout      = VK_NULL_HANDLE;
-
-    VkPipeline            myBloomThresholdPipeline       = VK_NULL_HANDLE;
-    VkPipeline            myBloomBlurPipeline            = VK_NULL_HANDLE;
-    VkPipelineLayout      myBloomThresholdPipelineLayout = VK_NULL_HANDLE;
-    VkPipelineLayout      myBloomBlurPipelineLayout      = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myBloomThresholdSetLayout      = VK_NULL_HANDLE;
-    VkDescriptorSetLayout myBloomBlurSetLayout           = VK_NULL_HANDLE;
-    VkDescriptorPool      myDescriptorPool               = VK_NULL_HANDLE;
-
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTonemapDescriptorSets{};
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myTaaResolveDescriptorSets{};
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomThresholdDescriptorSets{};
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurHorizDescriptorSets{};
-    std::array< VkDescriptorSet, MAX_FRAMES_IN_FLIGHT > myBloomBlurVertDescriptorSets{};
 
     Vk_DeletionQueue myDeletionQueue;
     bool             myInitialized = false;

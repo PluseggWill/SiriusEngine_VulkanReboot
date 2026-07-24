@@ -1,4 +1,4 @@
-// Module: Vk_ClusterBuildPass — thin loader + Vk mirrors over Gfx_ClusterBuildPass Init/Record.
+// Module: Vk_ClusterBuildPass — SPIR-V load + Init/Record orchestration over Gfx_ClusterBuildPass.
 #include "Vk_ClusterBuildPass.h"
 
 #include "../Gfx/Gfx_ClusterBuildPass.h"
@@ -7,6 +7,7 @@
 #include "../Util/Util_Logger.h"
 
 #include "Vk_FrameCmd.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 
@@ -43,42 +44,6 @@ void WriteSunLightFromEnvironment( Gpu_ClusterLight& aOut, const Gpu_Environment
     std::memcpy( aOut.color, glm::value_ptr( glm::vec4( sunCol, 1.0f ) ), sizeof( float ) * 4 );
 }
 
-void ClearVkMirrors( Vk_ClusterBuildState& aState ) {
-    aState.myComputePipeline     = VK_NULL_HANDLE;
-    aState.myPipelineLayout      = VK_NULL_HANDLE;
-    aState.myDescriptorSetLayout = VK_NULL_HANDLE;
-    aState.myDescriptorPool      = VK_NULL_HANDLE;
-    aState.myLightsBuffer        = {};
-    aState.myLightsMapped        = nullptr;
-    for ( Vk_AllocatedBuffer& buf : aState.myClusterListBuffers ) {
-        buf = {};
-    }
-    for ( VkDescriptorSet& set : aState.myDescriptorSets ) {
-        set = VK_NULL_HANDLE;
-    }
-    aState.myClusterCount = 0;
-}
-
-void SyncVkMirrors( Vk_Renderer& aCore ) {
-    Vk_ClusterBuildState& state = aCore.myClusterBuildState;
-    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
-    const auto&           gfx   = state.myGfx;
-
-    state.myComputePipeline     = RhiVulkan::PipelineGetVk( rhi, gfx.myPipeline );
-    state.myPipelineLayout      = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myLayout );
-    state.myDescriptorSetLayout = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.mySetLayout );
-    state.myDescriptorPool      = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
-
-    state.myLightsBuffer.myBuffer = RhiVulkan::BufferGetVk( rhi, gfx.myLightsBuffer );
-    state.myLightsMapped          = gfx.myLightsMapped;
-    state.myClusterCount          = gfx.myClusterCount;
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        state.myClusterListBuffers[ i ].myBuffer = RhiVulkan::BufferGetVk( rhi, gfx.myClusterListBuffers[ i ] );
-        state.myDescriptorSets[ i ]              = RhiVulkan::DescriptorSetGetVk( rhi, gfx.mySets[ i ] );
-    }
-}
-
 bool CreateOrRefreshLists( Vk_Renderer& aCore ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
     Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
@@ -93,17 +58,13 @@ bool CreateOrRefreshLists( Vk_Renderer& aCore ) {
     listsDesc.myWidth          = width;
     listsDesc.myHeight         = height;
     listsDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
-    const bool ok              = Gfx_ClusterBuildPass::CreateOrRecreateLists( rhi, listsDesc, state.myGfx );
-    if ( !ok ) {
-        ClearVkMirrors( state );
+    if ( !Gfx_ClusterBuildPass::CreateOrRecreateLists( rhi, listsDesc, state.myGfx ) ) {
         return false;
     }
 
-    SyncVkMirrors( aCore );
-
-    const uint64_t listBytes = static_cast< uint64_t >( state.myClusterCount ) * sizeof( Gpu_ClusterLightList );
-    UtilLogger::Info( "CLUSTER", "Cluster lists: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " clusters=" + std::to_string( state.myClusterCount )
-                                     + " bytes/list/frame=" + std::to_string( listBytes ) );
+    const uint64_t listBytes = static_cast< uint64_t >( state.myGfx.myClusterCount ) * sizeof( Gpu_ClusterLightList );
+    UtilLogger::Info( "CLUSTER", "Cluster lists: extent=" + std::to_string( width ) + "x" + std::to_string( height )
+                                     + " clusters=" + std::to_string( state.myGfx.myClusterCount ) + " bytes/list/frame=" + std::to_string( listBytes ) );
     return true;
 }
 
@@ -121,7 +82,6 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myGfxRhiDevice ) {
         Gfx_ClusterBuildPass::Destroy( aCore.myGfxRhiDevice, aCore.myClusterBuildState.myGfx );
     }
-    ClearVkMirrors( aCore.myClusterBuildState );
     aCore.myClusterBuildState.myInitialized = false;
 }
 
@@ -159,7 +119,6 @@ void Init( Vk_Renderer& aCore ) {
     }
     if ( !CreateOrRefreshLists( aCore ) ) {
         Gfx_ClusterBuildPass::Destroy( aCore.myGfxRhiDevice, aCore.myClusterBuildState.myGfx );
-        ClearVkMirrors( aCore.myClusterBuildState );
         throw std::runtime_error( "Vk_ClusterBuildPass: Gfx CreateOrRecreateLists failed" );
     }
 
@@ -169,14 +128,14 @@ void Init( Vk_Renderer& aCore ) {
 
 void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_ClusterBuildState& state = aCore.myClusterBuildState;
-    if ( !state.myInitialized || state.myClusterCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
+    if ( !state.myInitialized || state.myGfx.myClusterCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
         return;
     }
 
     static bool sDispatchLoggedOnce = false;
 
-    if ( state.myLightsMapped != nullptr ) {
-        auto* lights = static_cast< Gpu_ClusterLight* >( state.myLightsMapped );
+    if ( state.myGfx.myLightsMapped != nullptr ) {
+        auto* lights = static_cast< Gpu_ClusterLight* >( state.myGfx.myLightsMapped );
         WriteSunLightFromEnvironment( lights[ 0 ], aCore.myEnvironmentData );
     }
 
@@ -188,7 +147,7 @@ void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
     Gfx_ClusterBuildPass::GpuResources gpu = Gfx_ClusterBuildPass::MakeGpuResources( state.myGfx, aFrameIndex );
 
     Gfx_ClusterBuildPass::RecordInput input{};
-    input.clusterCount = state.myClusterCount;
+    input.clusterCount = state.myGfx.myClusterCount;
     input.lightCount   = Gfx_ClusterLighting::kMaxLights;
     input.debugLabels  = aCore.AreCommandDebugLabelsEnabled();
 
@@ -196,7 +155,7 @@ void RecordDispatch( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_
 
     if ( !sDispatchLoggedOnce ) {
         UtilLogger::Info( "CLUSTER",
-                          "ClusterBuild dispatch: clusters=" + std::to_string( state.myClusterCount ) + " lights=" + std::to_string( Gfx_ClusterLighting::kMaxLights ) );
+                          "ClusterBuild dispatch: clusters=" + std::to_string( state.myGfx.myClusterCount ) + " lights=" + std::to_string( Gfx_ClusterLighting::kMaxLights ) );
         sDispatchLoggedOnce = true;
     }
 }

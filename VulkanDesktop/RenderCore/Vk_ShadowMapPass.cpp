@@ -1,4 +1,4 @@
-// Module: Vk_ShadowMapPass — directional shadow depth map (unculled caster list, Khronos compare).
+// Module: Vk_ShadowMapPass — SPIR-V load + Init/Record orchestration over Gfx_ShadowMapPass.
 #include "Vk_ShadowMapPass.h"
 
 #include "../Gfx/Gfx_LightingMath.h"
@@ -48,22 +48,6 @@ std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     return buffer;
 }
 
-void SyncVkMirrors( Vk_Renderer& aCore ) {
-    Vk_ShadowMapState& state = aCore.myShadowMapState;
-    Rhi_Device&        rhi   = aCore.myGfxRhiDevice;
-    const auto&        gfx   = state.myGfx;
-
-    state.myDepth             = {};
-    state.myDepth.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myDepth );
-    state.myDepth.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myDepth );
-    state.myRenderPass        = RhiVulkan::RenderPassGetVk( rhi, gfx.myRenderPass );
-    state.myFramebuffer       = RhiVulkan::FramebufferGetVk( rhi, gfx.myFramebuffer );
-    state.myPipeline          = RhiVulkan::PipelineGetVk( rhi, gfx.myPipeline );
-    state.myPipelineLayout    = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myLayout );
-    state.myCompareSampler    = RhiVulkan::SamplerGetVk( rhi, gfx.myCompareSampler );
-    state.myDepthReadSampler  = RhiVulkan::SamplerGetVk( rhi, gfx.myDepthReadSampler );
-}
-
 void CreateShadowResources( Vk_Renderer& aCore ) {
     if ( !aCore.myGfxRhiDevice ) {
         throw std::runtime_error( "Vk_ShadowMapPass: myGfxRhiDevice required for Gfx Init" );
@@ -91,9 +75,12 @@ void CreateShadowResources( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_ShadowMapPass: Gfx CreateResources failed" );
     }
 
-    SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE",
                       "ShadowMap directional pass created (" + std::to_string( Vk_ShadowMapState::kMapSize ) + "x" + std::to_string( Vk_ShadowMapState::kMapSize ) + ")." );
+}
+
+VkImage ShadowDepthImage( Vk_Renderer& aCore ) {
+    return RhiVulkan::TextureGetVkImage( aCore.myGfxRhiDevice, aCore.myShadowMapState.myGfx.myDepth );
 }
 
 VkImageMemoryBarrier MakeShadowDepthBarrier( VkImage aImage, VkImageLayout aOldLayout, VkImageLayout aNewLayout, VkAccessFlags aSrcAccess, VkAccessFlags aDstAccess ) {
@@ -108,26 +95,26 @@ VkImageMemoryBarrier MakeShadowDepthBarrier( VkImage aImage, VkImageLayout aOldL
     return barrier;
 }
 
-void CmdTransitionShadowDepth( Vk_ShadowMapState& aState, VkCommandBuffer aCommandBuffer, VkImageLayout aNewLayout, VkPipelineStageFlags aDstStageMask,
-                               VkAccessFlags aDstAccess ) {
-    if ( aState.myDepthLayout == aNewLayout && aDstAccess == 0 ) {
+void CmdTransitionShadowDepth( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, VkImageLayout aNewLayout, VkPipelineStageFlags aDstStageMask, VkAccessFlags aDstAccess ) {
+    Vk_ShadowMapState& state = aCore.myShadowMapState;
+    if ( state.myDepthLayout == aNewLayout && aDstAccess == 0 ) {
         return;
     }
 
     VkPipelineStageFlags srcStage  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkAccessFlags        srcAccess = 0;
-    if ( aState.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ) {
+    if ( state.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ) {
         srcStage  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         srcAccess = VK_ACCESS_SHADER_READ_BIT;
     }
-    else if ( aState.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
+    else if ( state.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
         srcStage  = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         srcAccess = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     }
 
-    const VkImageMemoryBarrier barrier = MakeShadowDepthBarrier( aState.myDepth.Image(), aState.myDepthLayout, aNewLayout, srcAccess, aDstAccess );
+    const VkImageMemoryBarrier barrier = MakeShadowDepthBarrier( ShadowDepthImage( aCore ), state.myDepthLayout, aNewLayout, srcAccess, aDstAccess );
     vkCmdPipelineBarrier( aCommandBuffer, srcStage, aDstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier );
-    aState.myDepthLayout = aNewLayout;
+    state.myDepthLayout = aNewLayout;
 }
 
 }  // namespace
@@ -144,19 +131,12 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myGfxRhiDevice ) {
         Gfx_ShadowMapPass::DestroyResources( aCore.myGfxRhiDevice, aCore.myShadowMapState.myGfx );
     }
-    aCore.myShadowMapState.myDepth            = {};
-    aCore.myShadowMapState.myRenderPass       = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myFramebuffer      = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myPipeline         = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myPipelineLayout   = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myCompareSampler   = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myDepthReadSampler = VK_NULL_HANDLE;
-    aCore.myShadowMapState.myInitialized      = false;
-    aCore.myShadowMapState.myDepthLayout      = VK_IMAGE_LAYOUT_UNDEFINED;
+    aCore.myShadowMapState.myInitialized = false;
+    aCore.myShadowMapState.myDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
 void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer ) {
-    if ( !aCore.myShadowMapState.myInitialized ) {
+    if ( !aCore.myShadowMapState.myInitialized || !aCore.myGfxRhiDevice ) {
         return;
     }
 
@@ -164,8 +144,7 @@ void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuff
     const VkPipelineStageFlags shaderStages = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 
     if ( state.myDepthLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
-        // Shadow pass skipped (disabled / below horizon) — layout must still be valid for bound samplers.
-        CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
+        CmdTransitionShadowDepth( aCore, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
         return;
     }
 
@@ -175,14 +154,14 @@ void CmdBarrierForDeferredRead( Vk_Renderer& aCore, VkCommandBuffer aCommandBuff
     }
 
     if ( state.myDepthLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ) {
-        const VkImageMemoryBarrier barrier =
-            MakeShadowDepthBarrier( state.myDepth.Image(), state.myDepthLayout, state.myDepthLayout, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
+        const VkImageMemoryBarrier barrier = MakeShadowDepthBarrier( ShadowDepthImage( aCore ), state.myDepthLayout, state.myDepthLayout,
+                                                                     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT );
         vkCmdPipelineBarrier( aCommandBuffer, VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, shaderStages, 0, 0, nullptr, 0, nullptr,
                               1, &barrier );
         return;
     }
 
-    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
+    CmdTransitionShadowDepth( aCore, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, shaderStages, VK_ACCESS_SHADER_READ_BIT );
 }
 
 void Init( Vk_Renderer& aCore ) {
@@ -217,7 +196,7 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_P
     state.myDepthBiasConstant = shadowSetup.myDepthBiasConstant;
     state.myDepthBiasSlope    = shadowSetup.myDepthBiasSlope;
 
-    CmdTransitionShadowDepth( state, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    CmdTransitionShadowDepth( aCore, aCommandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                               VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT );
 
     std::vector< Gfx_ShadowMapPass::DrawItem > draws;
@@ -240,12 +219,13 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, const Gfx_P
         return;
     }
 
+    const auto&                     gfx = state.myGfx;
     Gfx_ShadowMapPass::GpuResources gpu{};
-    gpu.myPipeline    = RhiVulkan::PipelineAdopt( state.myPipeline );
-    gpu.myLayout      = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
+    gpu.myPipeline    = gfx.myPipeline;
+    gpu.myLayout      = gfx.myLayout;
     gpu.myObjectSet   = RhiVulkan::DescriptorSetAdopt( aCore.myFrameCtx.myFrameDatas[ aCore.myFrameCtx.myCurrentFrame ].myObjectDescriptor );
-    gpu.myRenderPass  = RhiVulkan::RenderPassAdopt( state.myRenderPass );
-    gpu.myFramebuffer = RhiVulkan::FramebufferAdopt( state.myFramebuffer );
+    gpu.myRenderPass  = gfx.myRenderPass;
+    gpu.myFramebuffer = gfx.myFramebuffer;
 
     Gfx_ShadowMapPass::RecordInput input{};
     input.myLightViewProj     = state.myLightViewProj;

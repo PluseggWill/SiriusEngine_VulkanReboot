@@ -2,6 +2,9 @@
 
 #include "../Rhi/Rhi_Device.h"
 
+#include <algorithm>
+#include <array>
+
 namespace {
 
 bool CreateOneCompute( Rhi_Device& aDevice, const void* aSpirv, size_t aBytes, Rhi_PipelineLayout aLayout, Rhi_Pipeline& aOut ) {
@@ -20,28 +23,246 @@ bool CreateOneCompute( Rhi_Device& aDevice, const void* aSpirv, size_t aBytes, R
     return static_cast< bool >( aOut );
 }
 
+bool CreateComputeLayout( Rhi_Device& aDevice, Rhi_DescriptorSetLayout aSetLayout, uint32_t aPushBytes, Rhi_PipelineLayout& aOut ) {
+    Rhi::PushConstantRangeDesc push{};
+    push.myStages      = Rhi_ShaderStage::Compute;
+    push.myOffsetBytes = 0;
+    push.mySizeBytes   = aPushBytes;
+
+    Rhi::PipelineLayoutDesc layoutDesc{};
+    layoutDesc.mySetLayouts     = &aSetLayout;
+    layoutDesc.mySetLayoutCount = 1;
+    layoutDesc.myPushRanges     = &push;
+    layoutDesc.myPushRangeCount = 1;
+    aOut                        = Rhi::DeviceCreatePipelineLayout( aDevice, layoutDesc );
+    return static_cast< bool >( aOut );
+}
+
+Rhi_Texture CreateHdrTexture( Rhi_Device& aDevice, uint32_t aWidth, uint32_t aHeight, Rhi_ImageUsage aUsage ) {
+    Rhi::TextureDesc desc{};
+    desc.myWidth  = aWidth;
+    desc.myHeight = aHeight;
+    desc.myFormat = Rhi_Format::RGBA16_Sfloat;
+    desc.myUsage  = aUsage;
+    desc.myMemory = Rhi_MemoryUsage::GpuOnly;
+    return Rhi::DeviceCreateTexture( aDevice, desc );
+}
+
+void DestroyImagesOnly( Rhi_Device& aDevice, Gfx_PostProcessPass::PassState& aState ) {
+    Rhi::DeviceDestroyTexture( aDevice, aState.mySceneColor );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myTaaResolved );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myTaaHistory0 );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myTaaHistory1 );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myBloomPing );
+    Rhi::DeviceDestroyTexture( aDevice, aState.myBloomPong );
+    aState.myWidth       = 0;
+    aState.myHeight      = 0;
+    aState.myBloomWidth  = 0;
+    aState.myBloomHeight = 0;
+    aState.myImagesReady = false;
+}
+
 }  // namespace
 
 namespace Gfx_PostProcessPass {
 
-bool CreateComputePipelines( Rhi_Device& aDevice, const ComputePipelinesInitDesc& aDesc, ComputePassState& aState ) {
-    if ( aState.myPipelinesReady ) {
+void DestroyComputeResources( Rhi_Device& aDevice, PassState& aState );
+
+bool CreateOrRecreateImages( Rhi_Device& aDevice, const ImageInitDesc& aDesc, PassState& aState ) {
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || aDesc.myWidth == 0 || aDesc.myHeight == 0 ) {
+        return false;
+    }
+    const uint32_t bloomW = std::max( 1u, aDesc.myWidth / 2u );
+    const uint32_t bloomH = std::max( 1u, aDesc.myHeight / 2u );
+    if ( aState.myImagesReady && aState.myWidth == aDesc.myWidth && aState.myHeight == aDesc.myHeight && aState.myBloomWidth == bloomW && aState.myBloomHeight == bloomH ) {
         return true;
     }
-    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) ) {
+
+    DestroyImagesOnly( aDevice, aState );
+
+    const Rhi_ImageUsage sceneUsage    = Rhi_ImageUsage::ColorAttachment | Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage | Rhi_ImageUsage::TransferSrc;
+    const Rhi_ImageUsage resolvedUsage = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage | Rhi_ImageUsage::TransferSrc;
+    const Rhi_ImageUsage historyUsage  = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage | Rhi_ImageUsage::TransferDst | Rhi_ImageUsage::TransferSrc;
+    const Rhi_ImageUsage bloomUsage    = Rhi_ImageUsage::Sampled | Rhi_ImageUsage::Storage;
+
+    aState.mySceneColor  = CreateHdrTexture( aDevice, aDesc.myWidth, aDesc.myHeight, sceneUsage );
+    aState.myTaaResolved = CreateHdrTexture( aDevice, aDesc.myWidth, aDesc.myHeight, resolvedUsage );
+    aState.myTaaHistory0 = CreateHdrTexture( aDevice, aDesc.myWidth, aDesc.myHeight, historyUsage );
+    aState.myTaaHistory1 = CreateHdrTexture( aDevice, aDesc.myWidth, aDesc.myHeight, historyUsage );
+    aState.myBloomPing   = CreateHdrTexture( aDevice, bloomW, bloomH, bloomUsage );
+    aState.myBloomPong   = CreateHdrTexture( aDevice, bloomW, bloomH, bloomUsage );
+
+    if ( !aState.mySceneColor || !aState.myTaaResolved || !aState.myTaaHistory0 || !aState.myTaaHistory1 || !aState.myBloomPing || !aState.myBloomPong ) {
+        DestroyImagesOnly( aDevice, aState );
         return false;
     }
-    if ( !CreateOneCompute( aDevice, aDesc.myThresholdSpirv, aDesc.myThresholdSpirvBytes, aDesc.myThresholdLayout, aState.myThresholdPipeline )
-         || !CreateOneCompute( aDevice, aDesc.myBlurSpirv, aDesc.myBlurSpirvBytes, aDesc.myBlurLayout, aState.myBlurPipeline )
-         || !CreateOneCompute( aDevice, aDesc.myTaaSpirv, aDesc.myTaaSpirvBytes, aDesc.myTaaLayout, aState.myTaaPipeline ) ) {
-        DestroyComputePipelines( aDevice, aState );
-        return false;
-    }
-    aState.myPipelinesReady = true;
+
+    aState.myWidth       = aDesc.myWidth;
+    aState.myHeight      = aDesc.myHeight;
+    aState.myBloomWidth  = bloomW;
+    aState.myBloomHeight = bloomH;
+    aState.myImagesReady = true;
     return true;
 }
 
-void DestroyComputePipelines( Rhi_Device& aDevice, ComputePassState& aState ) {
+void DestroyImages( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyImagesOnly( aDevice, aState );
+}
+
+bool CreateComputeResources( Rhi_Device& aDevice, const ComputeInitDesc& aDesc, PassState& aState ) {
+    if ( aState.myComputeReady ) {
+        return true;
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || aDesc.myThresholdSpirv == nullptr || aDesc.myThresholdSpirvBytes == 0 || aDesc.myBlurSpirv == nullptr
+         || aDesc.myBlurSpirvBytes == 0 || aDesc.myTaaSpirv == nullptr || aDesc.myTaaSpirvBytes == 0 ) {
+        return false;
+    }
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 2 > thresholdBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           thresholdLayoutDesc{};
+    thresholdLayoutDesc.myBindings     = thresholdBindings.data();
+    thresholdLayoutDesc.myBindingCount = static_cast< uint32_t >( thresholdBindings.size() );
+    aState.myThresholdSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, thresholdLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 2 > blurBindings = { {
+        { 0, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           blurLayoutDesc{};
+    blurLayoutDesc.myBindings     = blurBindings.data();
+    blurLayoutDesc.myBindingCount = static_cast< uint32_t >( blurBindings.size() );
+    aState.myBlurSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, blurLayoutDesc );
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 4 > taaBindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 2, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Compute },
+        { 3, Rhi_DescriptorType::StorageImage, 1, Rhi_ShaderStage::Compute },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           taaLayoutDesc{};
+    taaLayoutDesc.myBindings     = taaBindings.data();
+    taaLayoutDesc.myBindingCount = static_cast< uint32_t >( taaBindings.size() );
+    aState.myTaaSetLayout        = Rhi::DeviceCreateDescriptorSetLayout( aDevice, taaLayoutDesc );
+
+    if ( !aState.myThresholdSetLayout || !aState.myBlurSetLayout || !aState.myTaaSetLayout
+         || !CreateComputeLayout( aDevice, aState.myThresholdSetLayout, 16, aState.myThresholdLayout )
+         || !CreateComputeLayout( aDevice, aState.myBlurSetLayout, 8, aState.myBlurLayout )
+         || !CreateComputeLayout( aDevice, aState.myTaaSetLayout, sizeof( TaaPush ), aState.myTaaLayout ) ) {
+        DestroyComputeResources( aDevice, aState );
+        return false;
+    }
+
+    if ( !CreateOneCompute( aDevice, aDesc.myThresholdSpirv, aDesc.myThresholdSpirvBytes, aState.myThresholdLayout, aState.myThresholdPipeline )
+         || !CreateOneCompute( aDevice, aDesc.myBlurSpirv, aDesc.myBlurSpirvBytes, aState.myBlurLayout, aState.myBlurPipeline )
+         || !CreateOneCompute( aDevice, aDesc.myTaaSpirv, aDesc.myTaaSpirvBytes, aState.myTaaLayout, aState.myTaaPipeline ) ) {
+        DestroyComputeResources( aDevice, aState );
+        return false;
+    }
+
+    Rhi::SamplerDesc samplerDesc{};
+    samplerDesc.myMagFilter = Rhi_Filter::Linear;
+    samplerDesc.myMinFilter = Rhi_Filter::Linear;
+    samplerDesc.myAddressU  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressV  = Rhi_AddressMode::ClampToEdge;
+    samplerDesc.myAddressW  = Rhi_AddressMode::ClampToEdge;
+    aState.mySceneSampler   = Rhi::DeviceCreateSampler( aDevice, samplerDesc );
+    if ( !aState.mySceneSampler ) {
+        DestroyComputeResources( aDevice, aState );
+        return false;
+    }
+
+    const uint32_t                                 frames    = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const std::array< Rhi::DescriptorPoolSize, 2 > poolSizes = { {
+        { Rhi_DescriptorType::CombinedImageSampler, frames * 8u },
+        { Rhi_DescriptorType::StorageImage, frames * 6u },
+    } };
+    Rhi::DescriptorPoolDesc                        poolDesc{};
+    poolDesc.myMaxSets       = frames * 4u;
+    poolDesc.myPoolSizes     = poolSizes.data();
+    poolDesc.myPoolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    aState.myPool            = Rhi::DeviceCreateDescriptorPool( aDevice, poolDesc );
+    if ( !aState.myPool ) {
+        DestroyComputeResources( aDevice, aState );
+        return false;
+    }
+
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        aState.myThresholdSets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myThresholdSetLayout );
+        aState.myBlurHorizSets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+        aState.myBlurVertSets[ i ]  = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myBlurSetLayout );
+        aState.myTaaSets[ i ]       = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myPool, aState.myTaaSetLayout );
+        if ( !aState.myThresholdSets[ i ] || !aState.myBlurHorizSets[ i ] || !aState.myBlurVertSets[ i ] || !aState.myTaaSets[ i ] ) {
+            DestroyComputeResources( aDevice, aState );
+            return false;
+        }
+    }
+    aState.mySetsAllocated = true;
+    aState.myComputeReady  = true;
+    return true;
+}
+
+void UpdateComputeDescriptors( Rhi_Device& aDevice, const DescriptorUpdateDesc& aDesc, PassState& aState ) {
+    if ( !aState.mySetsAllocated || !aState.myImagesReady || !aState.mySceneSampler ) {
+        return;
+    }
+
+    const uint32_t    frames      = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const Rhi_Texture historyRead = ( aDesc.myTaaHistoryReadIndex % 2u == 0u ) ? aState.myTaaHistory0 : aState.myTaaHistory1;
+    const uint32_t    begin       = ( aDesc.myFrameIndex == 0xffffffffu ) ? 0u : aDesc.myFrameIndex;
+    const uint32_t    end         = ( aDesc.myFrameIndex == 0xffffffffu ) ? frames : ( aDesc.myFrameIndex + 1u );
+    if ( begin >= frames || begin >= end ) {
+        return;
+    }
+
+    for ( uint32_t i = begin; i < end && i < frames; ++i ) {
+        const std::array< Rhi::DescriptorImageWrite, 2 > threshold = { {
+            { aState.myThresholdSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, aState.mySceneColor, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myThresholdSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.myBloomPing, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, threshold.data(), static_cast< uint32_t >( threshold.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 2 > blurH = { {
+            { aState.myBlurHorizSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.myBloomPing, Rhi_ImageLayout::General },
+            { aState.myBlurHorizSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.myBloomPong, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurH.data(), static_cast< uint32_t >( blurH.size() ) );
+
+        const std::array< Rhi::DescriptorImageWrite, 2 > blurV = { {
+            { aState.myBlurVertSets[ i ], 0, Rhi_DescriptorType::StorageImage, {}, aState.myBloomPong, Rhi_ImageLayout::General },
+            { aState.myBlurVertSets[ i ], 1, Rhi_DescriptorType::StorageImage, {}, aState.myBloomPing, Rhi_ImageLayout::General },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, blurV.data(), static_cast< uint32_t >( blurV.size() ) );
+
+        if ( aDesc.myMotionVector ) {
+            const std::array< Rhi::DescriptorImageWrite, 4 > taa = { {
+                { aState.myTaaSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, aState.mySceneColor, Rhi_ImageLayout::ShaderReadOnly },
+                { aState.myTaaSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, historyRead, Rhi_ImageLayout::ShaderReadOnly },
+                { aState.myTaaSets[ i ], 2, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, aDesc.myMotionVector, Rhi_ImageLayout::ShaderReadOnly },
+                { aState.myTaaSets[ i ], 3, Rhi_DescriptorType::StorageImage, {}, aState.myTaaResolved, Rhi_ImageLayout::General },
+            } };
+            Rhi::DeviceUpdateDescriptorImages( aDevice, taa.data(), static_cast< uint32_t >( taa.size() ) );
+        }
+    }
+}
+
+void DestroyComputeResources( Rhi_Device& aDevice, PassState& aState ) {
+    for ( auto& set : aState.myThresholdSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurHorizSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myBlurVertSets ) {
+        set = {};
+    }
+    for ( auto& set : aState.myTaaSets ) {
+        set = {};
+    }
+    aState.mySetsAllocated = false;
+
     if ( aState.myThresholdPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myThresholdPipeline );
     }
@@ -51,7 +272,193 @@ void DestroyComputePipelines( Rhi_Device& aDevice, ComputePassState& aState ) {
     if ( aState.myTaaPipeline ) {
         Rhi::DeviceDestroyPipeline( aDevice, aState.myTaaPipeline );
     }
-    aState.myPipelinesReady = false;
+    if ( aState.myThresholdLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myThresholdLayout );
+    }
+    if ( aState.myBlurLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myBlurLayout );
+    }
+    if ( aState.myTaaLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myTaaLayout );
+    }
+    if ( aState.myPool ) {
+        Rhi::DeviceDestroyDescriptorPool( aDevice, aState.myPool );
+    }
+    if ( aState.myThresholdSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myThresholdSetLayout );
+    }
+    if ( aState.myBlurSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myBlurSetLayout );
+    }
+    if ( aState.myTaaSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myTaaSetLayout );
+    }
+    if ( aState.mySceneSampler ) {
+        Rhi::DeviceDestroySampler( aDevice, aState.mySceneSampler );
+    }
+    aState.myComputeReady = false;
+}
+
+void DestroyTonemapResources( Rhi_Device& aDevice, PassState& aState ) {
+    for ( auto& set : aState.myTonemapSets ) {
+        set = {};
+    }
+    if ( aState.myTonemapPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myTonemapPipeline );
+    }
+    if ( aState.myTonemapLayout ) {
+        Rhi::DeviceDestroyPipelineLayout( aDevice, aState.myTonemapLayout );
+    }
+    if ( aState.myTonemapPool ) {
+        Rhi::DeviceDestroyDescriptorPool( aDevice, aState.myTonemapPool );
+    }
+    if ( aState.myTonemapSetLayout ) {
+        Rhi::DeviceDestroyDescriptorSetLayout( aDevice, aState.myTonemapSetLayout );
+    }
+    aState.myTonemapReady         = false;
+    aState.myTonemapPipelineReady = false;
+}
+
+bool CreateTonemapResources( Rhi_Device& aDevice, const TonemapInitDesc& aDesc, PassState& aState ) {
+    if ( aState.myTonemapReady ) {
+        return CreateOrRecreateTonemapPipeline( aDevice, aDesc, aState );
+    }
+    if ( !Rhi::DeviceHasLogicalDevice( aDevice ) || !aState.mySceneSampler ) {
+        return false;
+    }
+
+    const std::array< Rhi::DescriptorSetLayoutBinding, 2 > bindings = { {
+        { 0, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Fragment },
+        { 1, Rhi_DescriptorType::CombinedImageSampler, 1, Rhi_ShaderStage::Fragment },
+    } };
+    Rhi::DescriptorSetLayoutDesc                           layoutDesc{};
+    layoutDesc.myBindings     = bindings.data();
+    layoutDesc.myBindingCount = static_cast< uint32_t >( bindings.size() );
+    aState.myTonemapSetLayout = Rhi::DeviceCreateDescriptorSetLayout( aDevice, layoutDesc );
+    if ( !aState.myTonemapSetLayout ) {
+        DestroyTonemapResources( aDevice, aState );
+        return false;
+    }
+
+    Rhi::PushConstantRangeDesc push{};
+    push.myStages      = Rhi_ShaderStage::Fragment;
+    push.myOffsetBytes = 0;
+    push.mySizeBytes   = sizeof( TonemapPush );
+
+    Rhi::PipelineLayoutDesc pipeLayoutDesc{};
+    pipeLayoutDesc.mySetLayouts     = &aState.myTonemapSetLayout;
+    pipeLayoutDesc.mySetLayoutCount = 1;
+    pipeLayoutDesc.myPushRanges     = &push;
+    pipeLayoutDesc.myPushRangeCount = 1;
+    aState.myTonemapLayout          = Rhi::DeviceCreatePipelineLayout( aDevice, pipeLayoutDesc );
+    if ( !aState.myTonemapLayout ) {
+        DestroyTonemapResources( aDevice, aState );
+        return false;
+    }
+
+    const uint32_t                                 frames    = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const std::array< Rhi::DescriptorPoolSize, 1 > poolSizes = { {
+        { Rhi_DescriptorType::CombinedImageSampler, frames * 2u },
+    } };
+    Rhi::DescriptorPoolDesc                        poolDesc{};
+    poolDesc.myMaxSets       = frames;
+    poolDesc.myPoolSizes     = poolSizes.data();
+    poolDesc.myPoolSizeCount = static_cast< uint32_t >( poolSizes.size() );
+    aState.myTonemapPool     = Rhi::DeviceCreateDescriptorPool( aDevice, poolDesc );
+    if ( !aState.myTonemapPool ) {
+        DestroyTonemapResources( aDevice, aState );
+        return false;
+    }
+
+    for ( uint32_t i = 0; i < frames; ++i ) {
+        aState.myTonemapSets[ i ] = Rhi::DeviceAllocateDescriptorSet( aDevice, aState.myTonemapPool, aState.myTonemapSetLayout );
+        if ( !aState.myTonemapSets[ i ] ) {
+            DestroyTonemapResources( aDevice, aState );
+            return false;
+        }
+    }
+
+    aState.myTonemapReady = true;
+    return CreateOrRecreateTonemapPipeline( aDevice, aDesc, aState );
+}
+
+bool CreateOrRecreateTonemapPipeline( Rhi_Device& aDevice, const TonemapInitDesc& aDesc, PassState& aState ) {
+    if ( !aState.myTonemapReady || !aState.myTonemapLayout || !aDesc.myRenderPass || aDesc.myVertSpirv == nullptr || aDesc.myVertSpirvBytes == 0
+         || aDesc.myFragSpirv == nullptr || aDesc.myFragSpirvBytes == 0 ) {
+        return false;
+    }
+
+    if ( aState.myTonemapPipeline ) {
+        Rhi::DeviceDestroyPipeline( aDevice, aState.myTonemapPipeline );
+        aState.myTonemapPipelineReady = false;
+    }
+
+    Rhi_ShaderModule vert = Rhi::DeviceCreateShaderModule( aDevice, aDesc.myVertSpirv, aDesc.myVertSpirvBytes );
+    Rhi_ShaderModule frag = Rhi::DeviceCreateShaderModule( aDevice, aDesc.myFragSpirv, aDesc.myFragSpirvBytes );
+    if ( !vert || !frag ) {
+        Rhi::DeviceDestroyShaderModule( aDevice, vert );
+        Rhi::DeviceDestroyShaderModule( aDevice, frag );
+        return false;
+    }
+
+    Rhi::GraphicsPipelineDesc pipeDesc{};
+    pipeDesc.myVertexShader           = vert;
+    pipeDesc.myFragmentShader         = frag;
+    pipeDesc.myLayout                 = aState.myTonemapLayout;
+    pipeDesc.myRenderPass             = aDesc.myRenderPass;
+    pipeDesc.myColorAttachmentCount   = 1;
+    pipeDesc.mySampleCount            = aDesc.mySampleCount > 0 ? aDesc.mySampleCount : 1u;
+    pipeDesc.myCullMode               = Rhi_CullMode::None;
+    pipeDesc.myDepthTestEnable        = false;
+    pipeDesc.myDepthWriteEnable       = false;
+    pipeDesc.myBlendEnable            = false;
+    pipeDesc.myDynamicViewportScissor = true;
+
+    aState.myTonemapPipeline = Rhi::DeviceCreateGraphicsPipeline( aDevice, pipeDesc );
+    Rhi::DeviceDestroyShaderModule( aDevice, vert );
+    Rhi::DeviceDestroyShaderModule( aDevice, frag );
+    if ( !aState.myTonemapPipeline ) {
+        return false;
+    }
+
+    aState.myTonemapPipelineReady = true;
+    return true;
+}
+
+void UpdateTonemapDescriptors( Rhi_Device& aDevice, const TonemapDescriptorUpdateDesc& aDesc, PassState& aState ) {
+    if ( !aState.myTonemapReady || !aState.myImagesReady || !aState.mySceneSampler ) {
+        return;
+    }
+
+    const uint32_t    frames = aDesc.myFramesInFlight > 0u ? aDesc.myFramesInFlight : kMaxFramesInFlight;
+    const Rhi_Texture scene  = ( aDesc.myUseTaaResolved && aState.myTaaResolved ) ? aState.myTaaResolved : aState.mySceneColor;
+    const uint32_t    begin  = ( aDesc.myFrameIndex == 0xffffffffu ) ? 0u : aDesc.myFrameIndex;
+    const uint32_t    end    = ( aDesc.myFrameIndex == 0xffffffffu ) ? frames : ( aDesc.myFrameIndex + 1u );
+    if ( begin >= frames || begin >= end || !scene || !aState.myBloomPing ) {
+        return;
+    }
+
+    for ( uint32_t i = begin; i < end && i < frames; ++i ) {
+        const std::array< Rhi::DescriptorImageWrite, 2 > writes = { {
+            { aState.myTonemapSets[ i ], 0, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, scene, Rhi_ImageLayout::ShaderReadOnly },
+            { aState.myTonemapSets[ i ], 1, Rhi_DescriptorType::CombinedImageSampler, aState.mySceneSampler, aState.myBloomPing, Rhi_ImageLayout::ShaderReadOnly },
+        } };
+        Rhi::DeviceUpdateDescriptorImages( aDevice, writes.data(), static_cast< uint32_t >( writes.size() ) );
+    }
+}
+
+void Destroy( Rhi_Device& aDevice, PassState& aState ) {
+    DestroyImages( aDevice, aState );
+    DestroyTonemapResources( aDevice, aState );
+    DestroyComputeResources( aDevice, aState );
+}
+
+bool CreateComputePipelines( Rhi_Device& aDevice, const ComputePipelinesInitDesc& aDesc, ComputePassState& aState ) {
+    return CreateComputeResources( aDevice, aDesc, aState );
+}
+
+void DestroyComputePipelines( Rhi_Device& aDevice, ComputePassState& aState ) {
+    DestroyComputeResources( aDevice, aState );
 }
 
 }  // namespace Gfx_PostProcessPass

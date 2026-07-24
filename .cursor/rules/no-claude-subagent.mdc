@@ -1,0 +1,24 @@
+---
+description: Never launch Claude Task/subagents; do the work in the parent agent.
+alwaysApply: true
+---
+
+# No Claude subagents
+
+**Never** use the Task tool (or any subagent launcher) with a Claude model.
+
+Banned model slugs include any `claude-*` id, for example:
+
+- `claude-fable-5-thinking-high`
+- `claude-opus-4-8-thinking-high`
+- `claude-sonnet-5-thinking-high`
+
+## Do instead
+
+- Implement, explore, and edit **in the parent agent** (this session).
+- Prefer Grep / Read / Shell / direct edits over spawning a Claude worker.
+- If parallel Task agents are truly needed, use a **non-Claude** model only, and never two agents writing the same files.
+
+## Why
+
+Claude subagents have caused mid-edit races and API-mismatch breakages in this repo; keep ownership of files in one agent.

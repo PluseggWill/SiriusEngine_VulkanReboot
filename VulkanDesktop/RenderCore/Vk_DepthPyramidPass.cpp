@@ -1,14 +1,14 @@
-// Module: Vk_DepthPyramidPass — thin loader + Vk mirrors over Gfx_DepthPyramidPass Init/Record.
+// Module: Vk_DepthPyramidPass — SPIR-V load + Init/Record orchestration over Gfx_DepthPyramidPass.
 #include "Vk_DepthPyramidPass.h"
 
 #include "../Gfx/Gfx_DepthPyramidPass.h"
 
 static_assert( kHiZMaxMipLevels == Gfx_DepthPyramidPass::kMaxMipLevels, "Hi-Z mip cap must match Gfx_DepthPyramidPass" );
-static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_DepthPyramidPass::kMaxFramesInFlight ), "Gfx_DepthPyramidPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 #include "../Util/Util_Loader.h"
 #include "../Util/Util_Logger.h"
 #include "Vk_FrameCmd.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 
@@ -16,6 +16,8 @@ static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_DepthPyramidPass:
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_DepthPyramidPass::kMaxFramesInFlight ), "Gfx_DepthPyramidPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 namespace {
 
@@ -31,36 +33,6 @@ std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     file.seekg( 0 );
     file.read( buffer.data(), static_cast< std::streamsize >( fileSize ) );
     return buffer;
-}
-
-void ClearVkMirrors( Vk_DepthPyramidState& aState ) {
-    aState.myComputePipeline = VK_NULL_HANDLE;
-    aState.myDepthSampler    = VK_NULL_HANDLE;
-    aState.myPyramidSampler  = VK_NULL_HANDLE;
-    aState.myPyramid         = {};
-    for ( VkImageView& view : aState.myMipViews ) {
-        view = VK_NULL_HANDLE;
-    }
-    aState.myMipLevelCount = 0;
-}
-
-void SyncVkMirrors( Vk_Renderer& aCore ) {
-    Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
-    Rhi_Device&           rhi   = aCore.myGfxRhiDevice;
-    const auto&           gfx   = state.myGfx;
-
-    state.myComputePipeline = RhiVulkan::PipelineGetVk( rhi, gfx.myPipeline );
-    state.myDepthSampler    = RhiVulkan::SamplerGetVk( rhi, gfx.myDepthSampler );
-    state.myPyramidSampler  = RhiVulkan::SamplerGetVk( rhi, gfx.myPyramidSampler );
-
-    state.myPyramid             = {};
-    state.myPyramid.Image()     = RhiVulkan::TextureGetVkImage( rhi, gfx.myPyramid );
-    state.myPyramid.ImageView() = RhiVulkan::TextureGetVkView( rhi, gfx.myPyramid );
-    state.myMipLevelCount       = gfx.myMipLevelCount;
-
-    for ( uint32_t mip = 0; mip < kHiZMaxMipLevels; ++mip ) {
-        state.myMipViews[ mip ] = ( mip < gfx.myMipLevelCount ) ? RhiVulkan::TextureGetVkView( rhi, gfx.myMipViews[ mip ] ) : VK_NULL_HANDLE;
-    }
 }
 
 bool CreateOrRefreshImage( Vk_Renderer& aCore ) {
@@ -83,12 +55,10 @@ bool CreateOrRefreshImage( Vk_Renderer& aCore ) {
     const bool ok              = Gfx_DepthPyramidPass::CreateOrRecreateImage( rhi, imageDesc, state.myGfx );
     Rhi::DeviceDestroyTexture( rhi, depthTex );
     if ( !ok ) {
-        ClearVkMirrors( state );
         return false;
     }
 
-    SyncVkMirrors( aCore );
-    UtilLogger::Info( "HIZ", "Depth pyramid: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " mips=" + std::to_string( state.myMipLevelCount )
+    UtilLogger::Info( "HIZ", "Depth pyramid: extent=" + std::to_string( width ) + "x" + std::to_string( height ) + " mips=" + std::to_string( state.myGfx.myMipLevelCount )
                                  + " (mip0=full-res copy)" );
     return true;
 }
@@ -107,7 +77,6 @@ void Destroy( Vk_Renderer& aCore ) {
     if ( aCore.myGfxRhiDevice ) {
         Gfx_DepthPyramidPass::Destroy( aCore.myGfxRhiDevice, aCore.myDepthPyramidState.myGfx );
     }
-    ClearVkMirrors( aCore.myDepthPyramidState );
     aCore.myDepthPyramidState.myInitialized = false;
 }
 
@@ -145,7 +114,6 @@ void Init( Vk_Renderer& aCore ) {
     }
     if ( !CreateOrRefreshImage( aCore ) ) {
         Gfx_DepthPyramidPass::Destroy( aCore.myGfxRhiDevice, aCore.myDepthPyramidState.myGfx );
-        ClearVkMirrors( aCore.myDepthPyramidState );
         throw std::runtime_error( "Vk_DepthPyramidPass: Gfx CreateOrRecreateImage failed" );
     }
 
@@ -155,7 +123,7 @@ void Init( Vk_Renderer& aCore ) {
 
 void RecordBuild( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DepthPyramidState& state = aCore.myDepthPyramidState;
-    if ( !state.myInitialized || state.myMipLevelCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
+    if ( !state.myInitialized || state.myGfx.myMipLevelCount == 0 || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !aCore.myGfxRhiDevice ) {
         return;
     }
 
@@ -181,15 +149,8 @@ void RecordBuild( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t a
     Gfx_DepthPyramidPass::Record( frameCmd.Get(), gpu, input );
 }
 
-VkImageView GetMipView( const Vk_Renderer& aCore, uint32_t aMipLevel ) {
-    if ( aMipLevel >= aCore.myDepthPyramidState.myMipLevelCount || aMipLevel >= kHiZMaxMipLevels ) {
-        return VK_NULL_HANDLE;
-    }
-    return aCore.myDepthPyramidState.myMipViews[ aMipLevel ];
-}
-
 uint32_t GetMipLevelCount( const Vk_Renderer& aCore ) {
-    return aCore.myDepthPyramidState.myMipLevelCount;
+    return aCore.myDepthPyramidState.myGfx.myMipLevelCount;
 }
 
 }  // namespace Vk_DepthPyramidPass

@@ -1,5 +1,7 @@
 // Module: Vk_DeferredLightingPass — FG v0 clustered deferred resolve to swapchain.
-// Set 0: G-buffer samplers + ClusterBuild SSBOs (lights, per-frame cluster lists).
+// Set 0: G-buffer samplers + ClusterBuild SSBOs (lights, per-frame cluster lists). Layouts/pool/sets/sampler
+// and the DDGI atlas now live in Gfx_DeferredLightingPass / Gfx_DdgiPass; this TU keeps SPIR-V load, Vk
+// mirrors, cross-pass TextureAdopt/BufferAdopt, and Record orchestration (push constants, DDGI CPU state).
 #include "Vk_DeferredLightingPass.h"
 
 #include "../Gfx/Gfx_AoMethod.h"
@@ -13,7 +15,7 @@
 #include "Vk_AoPass.h"
 #include "Vk_DepthPyramidPass.h"
 #include "Vk_FrameCmd.h"
-#include "Vk_Initializer.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_PostProcessPass.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
@@ -24,12 +26,15 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
-#include <array>
 #include <cstring>
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_DeferredLightingPass::kMaxFramesInFlight ),
+               "Gfx_DeferredLightingPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
+static_assert( MAX_FRAMES_IN_FLIGHT <= static_cast< int >( Gfx_DdgiPass::kMaxFramesInFlight ), "Gfx_DdgiPass frame slots must cover MAX_FRAMES_IN_FLIGHT" );
 
 namespace {
 
@@ -49,11 +54,8 @@ std::vector< char > LoadSpirvBytes( const std::string& aPath ) {
     return buffer;
 }
 
-void SyncPipelineMirrors( Vk_Renderer& aCore ) {
-    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
-    state.myPipeline                = RhiVulkan::PipelineGetVk( rhi, state.myDeferredGfx.myPipeline );
-    state.myDdgiProbeUpdatePipeline = RhiVulkan::PipelineGetVk( rhi, state.myDdgiGfx.myPipeline );
+void ClearDdgiCpu( Vk_DeferredLightingState& aState ) {
+    aState.myDdgiAtlasReadable = false;
 }
 
 bool CreateGfxPipelines( Vk_Renderer& aCore ) {
@@ -74,9 +76,9 @@ bool CreateGfxPipelines( Vk_Renderer& aCore ) {
     deferredDesc.myVertSpirvBytes = deferredVert.size();
     deferredDesc.myFragSpirv      = deferredFrag.data();
     deferredDesc.myFragSpirvBytes = deferredFrag.size();
-    deferredDesc.myLayout         = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
     deferredDesc.myRenderPass     = aCore.myPostProcessState.myRhiHybridRenderPass;
     deferredDesc.mySampleCount    = 1;  // hybrid resolve color attachment is single-sample
+    deferredDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
     if ( !Gfx_DeferredLightingPass::CreatePipeline( rhi, deferredDesc, state.myDeferredGfx ) ) {
         return false;
     }
@@ -86,195 +88,160 @@ bool CreateGfxPipelines( Vk_Renderer& aCore ) {
 
     Gfx_DdgiPass::DestroyPipeline( rhi, state.myDdgiGfx );
     Gfx_DdgiPass::PipelineInitDesc ddgiDesc{};
-    ddgiDesc.mySpirvCode  = ddgiSpv.data();
-    ddgiDesc.mySpirvBytes = ddgiSpv.size();
-    ddgiDesc.myLayout     = RhiVulkan::PipelineLayoutAdopt( state.myDdgiProbeUpdatePipelineLayout );
+    ddgiDesc.mySpirvCode      = ddgiSpv.data();
+    ddgiDesc.mySpirvBytes     = ddgiSpv.size();
+    ddgiDesc.myFramesInFlight = MAX_FRAMES_IN_FLIGHT;
     if ( !Gfx_DdgiPass::CreatePipeline( rhi, ddgiDesc, state.myDdgiGfx ) ) {
         Gfx_DeferredLightingPass::DestroyPipeline( rhi, state.myDeferredGfx );
         return false;
     }
 
-    SyncPipelineMirrors( aCore );
+    UtilLogger::Info( "PIPELINE", "DeferredLighting graphics + DDGI compute pipelines created (Gfx)." );
     return true;
 }
 
-void DestroyDdgiAtlas( Vk_Renderer& aCore ) {
+// Atlas layout: width = probeCountX * probeCountY, height = probeCountZ.
+bool CreateOrRefreshDdgiImages( Vk_Renderer& aCore ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    if ( state.myDdgiProbeIrradianceAtlas.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( aCore.myRhi.myDeviceCtx.myDevice, state.myDdgiProbeIrradianceAtlas.ImageView(), nullptr );
-        state.myDdgiProbeIrradianceAtlas.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( state.myDdgiProbeIrradianceAtlas.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( aCore.myRhi.myDeviceCtx.myAllocator, state.myDdgiProbeIrradianceAtlas.Image(), state.myDdgiProbeIrradianceAtlas.Allocation() );
-        state.myDdgiProbeIrradianceAtlas.AllocImage() = {};
-    }
-    if ( state.myDdgiProbeVisibilityAtlas.ImageView() != VK_NULL_HANDLE ) {
-        vkDestroyImageView( aCore.myRhi.myDeviceCtx.myDevice, state.myDdgiProbeVisibilityAtlas.ImageView(), nullptr );
-        state.myDdgiProbeVisibilityAtlas.ImageView() = VK_NULL_HANDLE;
-    }
-    if ( state.myDdgiProbeVisibilityAtlas.Image() != VK_NULL_HANDLE ) {
-        vmaDestroyImage( aCore.myRhi.myDeviceCtx.myAllocator, state.myDdgiProbeVisibilityAtlas.Image(), state.myDdgiProbeVisibilityAtlas.Allocation() );
-        state.myDdgiProbeVisibilityAtlas.AllocImage() = {};
-    }
-}
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
 
-void CreateDdgiAtlas( Vk_Renderer& aCore ) {
-    DestroyDdgiAtlas( aCore );
-    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    state.myDdgiProbeCountX         = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountX );
-    state.myDdgiProbeCountY         = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountY );
-    state.myDdgiProbeCountZ         = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountZ );
-    state.myDdgiTotalProbeCount     = state.myDdgiProbeCountX * state.myDdgiProbeCountY * state.myDdgiProbeCountZ;
+    // Always rebuild: probe counts may have changed and the CPU-side history must reset with the atlas.
+    Gfx_DdgiPass::DestroyImages( rhi, state.myDdgiGfx );
 
-    const VkExtent2D atlasExtent{ state.myDdgiProbeCountX * state.myDdgiProbeCountY, state.myDdgiProbeCountZ };
-    aCore.CreateImage( atlasExtent, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
-                       1, VK_SAMPLE_COUNT_1_BIT, state.myDdgiProbeIrradianceAtlas.AllocImage() );
-    state.myDdgiProbeIrradianceAtlas.ImageView() = aCore.CreateImageView( state.myDdgiProbeIrradianceAtlas.Image(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT );
+    state.myDdgiProbeCountX     = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountX );
+    state.myDdgiProbeCountY     = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountY );
+    state.myDdgiProbeCountZ     = std::max( 1u, aCore.myLightingSettings.myDdgiProbeCountZ );
+    state.myDdgiTotalProbeCount = state.myDdgiProbeCountX * state.myDdgiProbeCountY * state.myDdgiProbeCountZ;
 
-    aCore.CreateImage( atlasExtent, VK_FORMAT_R16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY, 1,
-                       VK_SAMPLE_COUNT_1_BIT, state.myDdgiProbeVisibilityAtlas.AllocImage() );
-    state.myDdgiProbeVisibilityAtlas.ImageView() = aCore.CreateImageView( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT );
-    // Deferred always samples these as SHADER_READ_ONLY (even when DDGI is off) — leave UNDEFINED and validation fails.
-    aCore.TransitionImageLayout( state.myDdgiProbeIrradianceAtlas.Image(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                 1 );
-    aCore.TransitionImageLayout( state.myDdgiProbeVisibilityAtlas.Image(), VK_FORMAT_R16_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1 );
+    Gfx_DdgiPass::ImageInitDesc imageDesc{};
+    imageDesc.myProbeCountX = state.myDdgiProbeCountX;
+    imageDesc.myProbeCountY = state.myDdgiProbeCountY;
+    imageDesc.myProbeCountZ = state.myDdgiProbeCountZ;
+    if ( !Gfx_DdgiPass::CreateOrRecreateImages( rhi, imageDesc, state.myDdgiGfx ) ) {
+        return false;
+    }
+
     state.myDdgiAtlasReadable     = false;
     state.myDdgiHistoryForceReset = true;
     state.myDdgiPrevVolumeCenter  = aCore.myLightingSettings.myDdgiVolumeCenter;
     state.myDdgiPrevVolumeExtents = aCore.myLightingSettings.myDdgiVolumeExtents;
     state.myDdgiPrevCameraEye     = aCore.myPrimaryCamera.myEye;
+    return true;
 }
 
-// Per in-flight frame: cluster-list SSBO differs; G-buffer views refresh on resize.
+// Deferred binding 13 (aoMap) selection: contact-soft ping > raw AO > 1x1 fallback contact.
+// All three sources are already Gfx-owned Rhi_Texture — no Vk adopt required.
+Rhi_Texture SelectDeferredContactTexture( const Vk_Renderer& aCore ) {
+    const Gfx_AoSettings&       aoSettings = aCore.myAoSettings;
+    const Vk_ShadowAoSoftState& softState  = aCore.myShadowAoSoftState;
+
+    if ( aoSettings.myContactSoftEnabled && softState.myInitialized ) {
+        return softState.myGfx.mySoftPing;
+    }
+    if ( aoSettings.myEnabled && aCore.myAoState.myInitialized ) {
+        return aCore.myAoState.myGfx.myAoRaw;
+    }
+    if ( softState.myInitialized ) {
+        return softState.myGfx.myFallbackContact;
+    }
+    return {};
+}
+
+// Per in-flight frame: cluster-list SSBO differs; G-buffer/IBL/shadow views refresh on resize.
 void UpdateDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !state.myDeferredGfx.mySetsAllocated ) {
+        return;
+    }
 
-    // Validation rejects null imageView on COMBINED_IMAGE_SAMPLER; use albedo when a feature target is absent.
-    const VkImageView safeView = aCore.myGBufferState.myAlbedo.ImageView();
-    auto              orSafe   = [ safeView ]( VkImageView aView ) { return aView != VK_NULL_HANDLE ? aView : safeView; };
+    // Temporary adopts for cross-pass Vk_TextureResource-backed resources (G-buffer, shadow map, IBL).
+    Rhi_Texture albedoTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myAlbedo.Image(), aCore.myGBufferState.myAlbedo.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
+    Rhi_Texture normalTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture worldPosTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture depthTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myDepth.Image(), aCore.myGBufferState.myDepth.ImageView(), aCore.FindDepthFormat(), 1 );
+    Rhi_Texture motionVectorTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myMotionVector.Image(), aCore.myGBufferState.myMotionVector.ImageView(), VK_FORMAT_R16G16_SFLOAT, 1 );
 
-    VkDescriptorImageInfo albedoInfo{};
-    albedoInfo.sampler     = state.myGBufferSampler;
-    albedoInfo.imageView   = aCore.myGBufferState.myAlbedo.ImageView();
-    albedoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Rhi_Texture irradianceTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myIblResourcesState.myIrradiance.Image(), aCore.myIblResourcesState.myIrradiance.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
+    Rhi_Texture prefilterTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myIblResourcesState.myPrefilter.Image(), aCore.myIblResourcesState.myPrefilter.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
+    Rhi_Texture skyTex = RhiVulkan::TextureAdopt( rhi, aCore.myIblResourcesState.mySky.Image(), aCore.myIblResourcesState.mySky.ImageView(), VK_FORMAT_R8G8B8A8_SRGB, 1 );
+    Rhi_Texture brdfLutTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myIblResourcesState.myBrdfLut.Image(), aCore.myIblResourcesState.myBrdfLut.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
 
-    VkDescriptorImageInfo normalInfo{};
-    normalInfo.sampler     = state.myGBufferSampler;
-    normalInfo.imageView   = aCore.myGBufferState.myNormalRoughness.ImageView();
-    normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const Rhi_Sampler iblCubemapSampler = RhiVulkan::SamplerAdopt( aCore.myIblResourcesState.myCubemapSampler );
+    const Rhi_Sampler brdfLutSampler    = RhiVulkan::SamplerAdopt( aCore.myIblResourcesState.myBrdfLutSampler );
 
-    VkDescriptorImageInfo worldPosInfo{};
-    worldPosInfo.sampler     = state.myGBufferSampler;
-    worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-    worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    const Rhi_Buffer lightingGlobalsBuf = RhiVulkan::BufferAdopt( aCore.myLightingGlobalsBuffer.myBuffer );
 
-    VkDescriptorBufferInfo lightsInfo{};
-    lightsInfo.buffer = aCore.myClusterBuildState.myLightsBuffer.myBuffer;
-    lightsInfo.offset = 0;
-    lightsInfo.range  = sizeof( Gpu_ClusterLight ) * Gfx_ClusterLighting::kMaxLights;
+    Gfx_DeferredLightingPass::DescriptorUpdateDesc desc{};
+    desc.myFrameIndex                 = aFrameIndex;
+    desc.myAlbedo                     = albedoTex;
+    desc.myNormalRoughness            = normalTex;
+    desc.myWorldPos                   = worldPosTex;
+    desc.myDepth                      = depthTex;
+    desc.myLightsBuffer               = aCore.myClusterBuildState.myGfx.myLightsBuffer;
+    desc.myLightsRangeBytes           = sizeof( Gpu_ClusterLight ) * Gfx_ClusterLighting::kMaxLights;
+    desc.myClusterListBuffer          = aCore.myClusterBuildState.myGfx.myClusterListBuffers[ aFrameIndex ];
+    desc.myLightingGlobals            = lightingGlobalsBuf;
+    desc.myLightingGlobalsOffsetBytes = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * aFrameIndex;
+    desc.myLightingGlobalsRangeBytes  = sizeof( Gpu_LightingGlobals );
+    desc.myShadowDepth                = aCore.myShadowMapState.myGfx.myDepth;
+    desc.myShadowCompareSampler       = aCore.myShadowMapState.myGfx.myCompareSampler;
+    desc.myShadowDepthRead            = aCore.myShadowMapState.myGfx.myDepth;
+    desc.myShadowDepthReadSampler     = aCore.myShadowMapState.myGfx.myDepthReadSampler;
+    desc.myIrradianceIbl              = irradianceTex;
+    desc.myPrefilterIbl               = prefilterTex;
+    desc.myBrdfLut                    = brdfLutTex;
+    desc.myIblCubemapSampler          = iblCubemapSampler;
+    desc.myBrdfLutSampler             = brdfLutSampler;
+    desc.mySky                        = skyTex;
+    desc.myAo                         = SelectDeferredContactTexture( aCore );
+    desc.myHiZ                        = aCore.myDepthPyramidState.myGfx.myPyramid;
+    desc.myHiZSampler                 = aCore.myDepthPyramidState.myGfx.myPyramidSampler;
+    desc.myDdgiIrradiance             = state.myDdgiGfx.myIrradianceAtlas;
+    desc.myDdgiVisibility             = state.myDdgiGfx.myVisibilityAtlas;
+    desc.mySsr                        = aCore.mySsrState.myGfx.mySsrOutput;
+    desc.myBentNormal                 = aCore.myAoState.myGfx.myBentNormalHalf;
+    desc.myMotionVector               = motionVectorTex;
+    desc.myFallback                   = albedoTex;
+    Gfx_DeferredLightingPass::UpdateDescriptors( rhi, desc, state.myDeferredGfx );
 
-    VkDescriptorBufferInfo listsInfo{};
-    listsInfo.buffer = aCore.myClusterBuildState.myClusterListBuffers[ aFrameIndex ].myBuffer;
-    listsInfo.offset = 0;
-    listsInfo.range  = VK_WHOLE_SIZE;
+    Rhi::DeviceDestroyTexture( rhi, albedoTex );
+    Rhi::DeviceDestroyTexture( rhi, normalTex );
+    Rhi::DeviceDestroyTexture( rhi, worldPosTex );
+    Rhi::DeviceDestroyTexture( rhi, depthTex );
+    Rhi::DeviceDestroyTexture( rhi, motionVectorTex );
+    Rhi::DeviceDestroyTexture( rhi, irradianceTex );
+    Rhi::DeviceDestroyTexture( rhi, prefilterTex );
+    Rhi::DeviceDestroyTexture( rhi, skyTex );
+    Rhi::DeviceDestroyTexture( rhi, brdfLutTex );
+}
 
-    VkDescriptorImageInfo depthInfo{};
-    depthInfo.sampler     = state.myGBufferSampler;
-    depthInfo.imageView   = aCore.myGBufferState.myDepth.ImageView();
-    depthInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+void UpdateDdgiDescriptors( Vk_Renderer& aCore ) {
+    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || !state.myDdgiGfx.mySetsAllocated ) {
+        return;
+    }
 
-    VkDescriptorBufferInfo lightingGlobalsInfo{};
-    lightingGlobalsInfo.buffer = aCore.myLightingGlobalsBuffer.myBuffer;
-    lightingGlobalsInfo.offset = aCore.PadUniformBufferSize( sizeof( Gpu_LightingGlobals ) ) * aFrameIndex;
-    lightingGlobalsInfo.range  = sizeof( Gpu_LightingGlobals );
+    Rhi_Texture worldPosTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+    Rhi_Texture normalTex =
+        RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
 
-    VkDescriptorImageInfo shadowInfo{};
-    shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
-    shadowInfo.imageView   = orSafe( aCore.myShadowMapState.myDepth.ImageView() );
-    shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    Gfx_DdgiPass::DescriptorUpdateDesc desc{};
+    desc.myFramesInFlight  = MAX_FRAMES_IN_FLIGHT;
+    desc.myWorldPos        = worldPosTex;
+    desc.myNormalRoughness = normalTex;
+    Gfx_DdgiPass::UpdateDescriptors( rhi, desc, state.myDdgiGfx );
 
-    VkDescriptorImageInfo irradianceInfo{};
-    irradianceInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    irradianceInfo.imageView   = orSafe( aCore.myIblResourcesState.myIrradiance.ImageView() );
-    irradianceInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo prefilterInfo{};
-    prefilterInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    prefilterInfo.imageView   = orSafe( aCore.myIblResourcesState.myPrefilter.ImageView() );
-    prefilterInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo brdfLutInfo{};
-    brdfLutInfo.sampler     = aCore.myIblResourcesState.myBrdfLutSampler;
-    brdfLutInfo.imageView   = orSafe( aCore.myIblResourcesState.myBrdfLut.ImageView() );
-    brdfLutInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo skyInfo{};
-    skyInfo.sampler     = aCore.myIblResourcesState.myCubemapSampler;
-    skyInfo.imageView   = orSafe( aCore.myIblResourcesState.mySky.ImageView() );
-    skyInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo shadowDepthReadInfo{};
-    shadowDepthReadInfo.sampler     = aCore.myShadowMapState.myDepthReadSampler;
-    shadowDepthReadInfo.imageView   = orSafe( aCore.myShadowMapState.myDepth.ImageView() );
-    shadowDepthReadInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo aoInfo{};
-    aoInfo.sampler     = state.myGBufferSampler;
-    aoInfo.imageView   = orSafe( Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore ) );
-    aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo hiZInfo{};
-    hiZInfo.sampler     = aCore.myDepthPyramidState.myPyramidSampler;
-    hiZInfo.imageView   = orSafe( aCore.myDepthPyramidState.myPyramid.ImageView() );
-    hiZInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo ddgiProbeInfo{};
-    ddgiProbeInfo.sampler     = state.myGBufferSampler;
-    ddgiProbeInfo.imageView   = orSafe( state.myDdgiProbeIrradianceAtlas.ImageView() );
-    ddgiProbeInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo ddgiVisibilityInfo{};
-    ddgiVisibilityInfo.sampler     = state.myGBufferSampler;
-    ddgiVisibilityInfo.imageView   = orSafe( state.myDdgiProbeVisibilityAtlas.ImageView() );
-    ddgiVisibilityInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo ssrInfo{};
-    ssrInfo.sampler     = state.myGBufferSampler;
-    ssrInfo.imageView   = orSafe( Vk_SsrPass::GetOutputImageView( aCore ) );
-    ssrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkDescriptorImageInfo bentInfo{};
-    bentInfo.sampler     = state.myGBufferSampler;
-    bentInfo.imageView   = orSafe( Vk_AoPass::GetBentNormalHalfView( aCore ) );
-    bentInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    VkDescriptorImageInfo mvInfo{};
-    mvInfo.sampler     = state.myGBufferSampler;
-    mvInfo.imageView   = aCore.myGBufferState.myMotionVector.ImageView();
-    mvInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    std::array< VkWriteDescriptorSet, 20 > writes = {
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &albedoInfo, 0, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 1, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &lightsInfo, 2, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &listsInfo, 3, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &depthInfo, 4, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightingGlobalsInfo, 5, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowInfo, 6, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &irradianceInfo, 7, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &prefilterInfo, 8, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &brdfLutInfo, 9, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyInfo, 10, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &shadowDepthReadInfo, 11, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 12, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &hiZInfo, 14, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiProbeInfo, 15, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ddgiVisibilityInfo, 16, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &ssrInfo, 17, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &bentInfo, 18, 1 ),
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &mvInfo, 19, 1 ),
-    };
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
+    Rhi::DeviceDestroyTexture( rhi, worldPosTex );
+    Rhi::DeviceDestroyTexture( rhi, normalTex );
 }
 
 void CreatePipelineResources( Vk_Renderer& aCore ) {
@@ -282,209 +249,17 @@ void CreatePipelineResources( Vk_Renderer& aCore ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: PostProcess hybrid resolve render pass is required" );
     }
 
-    Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-
-    const std::array< VkDescriptorSetLayoutBinding, 20 > bindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 5 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 6 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 7 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 8 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 9 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 10 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 11 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 12 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 13 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 14 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 15 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 16 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 17 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 18 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 19 ),
-    };
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast< uint32_t >( bindings.size() );
-    layoutInfo.pBindings    = bindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &layoutInfo, nullptr, &state.mySetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor set layout" );
-    }
-
-    VkPushConstantRange pushRange{};
-    pushRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushRange.offset     = 0;
-    pushRange.size       = sizeof( Gpu_DeferredLightingPushConstants );
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    pipelineLayoutInfo.setLayoutCount             = 1;
-    pipelineLayoutInfo.pSetLayouts                = &state.mySetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount     = 1;
-    pipelineLayoutInfo.pPushConstantRanges        = &pushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &pipelineLayoutInfo, nullptr, &state.myPipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create pipeline layout" );
-    }
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter               = VK_FILTER_LINEAR;
-    samplerInfo.minFilter               = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW            = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.anisotropyEnable        = VK_FALSE;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    if ( vkCreateSampler( aCore.myRhi.myDeviceCtx.myDevice, &samplerInfo, nullptr, &state.myGBufferSampler ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create sampler" );
-    }
-
-    std::array< VkDescriptorPoolSize, 3 > poolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 20 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT * 2 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
-    };
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast< uint32_t >( poolSizes.size() );
-    poolInfo.pPoolSizes    = poolSizes.data();
-    poolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &poolInfo, nullptr, &state.myDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create descriptor pool" );
-    }
-
-    // Atlases must exist before UpdateDescriptorSet — bindings 15/16 reject null imageView.
-    CreateDdgiAtlas( aCore );
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool     = state.myDescriptorPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts        = &state.mySetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocInfo, &state.myDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_DeferredLightingPass: failed to allocate descriptor set" );
-        }
-        UpdateDescriptorSet( aCore, i );
-    }
-
-    const std::array< VkDescriptorSetLayoutBinding, 4 > ddgiBindings = {
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 2 ),
-        VkInit::DescriptorSetLayoutBindingCreateInfo( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 3 ),
-    };
-    VkDescriptorSetLayoutCreateInfo ddgiLayoutInfo{};
-    ddgiLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    ddgiLayoutInfo.bindingCount = static_cast< uint32_t >( ddgiBindings.size() );
-    ddgiLayoutInfo.pBindings    = ddgiBindings.data();
-    if ( vkCreateDescriptorSetLayout( aCore.myRhi.myDeviceCtx.myDevice, &ddgiLayoutInfo, nullptr, &state.myDdgiProbeSetLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe set layout" );
-    }
-
-    VkPushConstantRange ddgiPushRange{};
-    ddgiPushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    // Must match DdgiProbeUpdate.comp / RecordDdgiProbeUpdate push (7 x vec4 = 112 bytes).
-    ddgiPushRange.size = sizeof( uint32_t ) * 8 + sizeof( float ) * 20;
-
-    VkPipelineLayoutCreateInfo ddgiPipelineLayoutInfo = VkInit::Pipeline_LayoutCreateInfo();
-    ddgiPipelineLayoutInfo.setLayoutCount             = 1;
-    ddgiPipelineLayoutInfo.pSetLayouts                = &state.myDdgiProbeSetLayout;
-    ddgiPipelineLayoutInfo.pushConstantRangeCount     = 1;
-    ddgiPipelineLayoutInfo.pPushConstantRanges        = &ddgiPushRange;
-    if ( vkCreatePipelineLayout( aCore.myRhi.myDeviceCtx.myDevice, &ddgiPipelineLayoutInfo, nullptr, &state.myDdgiProbeUpdatePipelineLayout ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe pipeline layout" );
-    }
-
-    std::array< VkDescriptorPoolSize, 2 > ddgiPoolSizes = {
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, MAX_FRAMES_IN_FLIGHT * 2 },
-        VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT * 2 },
-    };
-    VkDescriptorPoolCreateInfo ddgiPoolInfo{};
-    ddgiPoolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    ddgiPoolInfo.poolSizeCount = static_cast< uint32_t >( ddgiPoolSizes.size() );
-    ddgiPoolInfo.pPoolSizes    = ddgiPoolSizes.data();
-    ddgiPoolInfo.maxSets       = MAX_FRAMES_IN_FLIGHT;
-    if ( vkCreateDescriptorPool( aCore.myRhi.myDeviceCtx.myDevice, &ddgiPoolInfo, nullptr, &state.myDdgiProbeDescriptorPool ) != VK_SUCCESS ) {
-        throw std::runtime_error( "Vk_DeferredLightingPass: failed to create DDGI probe descriptor pool" );
-    }
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        VkDescriptorSetAllocateInfo allocDdgi{};
-        allocDdgi.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocDdgi.descriptorPool     = state.myDdgiProbeDescriptorPool;
-        allocDdgi.descriptorSetCount = 1;
-        allocDdgi.pSetLayouts        = &state.myDdgiProbeSetLayout;
-        if ( vkAllocateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, &allocDdgi, &state.myDdgiProbeDescriptorSets[ i ] ) != VK_SUCCESS ) {
-            throw std::runtime_error( "Vk_DeferredLightingPass: failed to allocate DDGI probe descriptor set" );
-        }
-        VkDescriptorImageInfo outProbe{};
-        outProbe.imageView   = state.myDdgiProbeIrradianceAtlas.ImageView();
-        outProbe.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        VkDescriptorImageInfo outVisibility{};
-        outVisibility.imageView   = state.myDdgiProbeVisibilityAtlas.ImageView();
-        outVisibility.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        VkDescriptorImageInfo worldPosInfo{};
-        worldPosInfo.sampler     = state.myGBufferSampler;
-        worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-        worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        VkDescriptorImageInfo normalInfo{};
-        normalInfo.sampler                           = state.myGBufferSampler;
-        normalInfo.imageView                         = aCore.myGBufferState.myNormalRoughness.ImageView();
-        normalInfo.imageLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        std::array< VkWriteDescriptorSet, 4 > writes = {
-            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 ),
-            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outVisibility, 1, 1 ),
-            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2, 1 ),
-            VkInit::DescriptorSetWriteCreateInfo( state.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 3, 1 ),
-        };
-        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-    }
-
     if ( !CreateGfxPipelines( aCore ) ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: Gfx pipeline create failed" );
     }
+    if ( !CreateOrRefreshDdgiImages( aCore ) ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: Gfx DDGI CreateOrRecreateImages failed" );
+    }
 
-    // DDGI atlases are owned by DestroyDdgiAtlas (called from Destroy / RecreateForExtent), not this queue —
-    // capturing atlas handles here would double-free after resize and previously leaked the irradiance atlas.
-    const VkDevice              device                  = aCore.myRhi.myDeviceCtx.myDevice;
-    const VkPipelineLayout      pipelineLayout          = state.myPipelineLayout;
-    const VkDescriptorSetLayout setLayout               = state.mySetLayout;
-    const VkDescriptorPool      descriptorPool          = state.myDescriptorPool;
-    const VkSampler             sampler                 = state.myGBufferSampler;
-    const VkPipelineLayout      ddgiProbePipelineLayout = state.myDdgiProbeUpdatePipelineLayout;
-    const VkDescriptorSetLayout ddgiProbeSetLayout      = state.myDdgiProbeSetLayout;
-    const VkDescriptorPool      ddgiProbeDescriptorPool = state.myDdgiProbeDescriptorPool;
-    // DDGI compute pipeline is destroyed in Destroy(); do not capture it here (avoids double-free).
-    aCore.myRhi.myDeviceCtx.myDeletionQueue.pushFunction(
-        [ device, pipelineLayout, setLayout, descriptorPool, sampler, ddgiProbePipelineLayout, ddgiProbeSetLayout, ddgiProbeDescriptorPool ]() {
-            if ( pipelineLayout != VK_NULL_HANDLE ) {
-                vkDestroyPipelineLayout( device, pipelineLayout, nullptr );
-            }
-            if ( setLayout != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorSetLayout( device, setLayout, nullptr );
-            }
-            if ( descriptorPool != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorPool( device, descriptorPool, nullptr );
-            }
-            if ( sampler != VK_NULL_HANDLE ) {
-                vkDestroySampler( device, sampler, nullptr );
-            }
-            if ( ddgiProbePipelineLayout != VK_NULL_HANDLE ) {
-                vkDestroyPipelineLayout( device, ddgiProbePipelineLayout, nullptr );
-            }
-            if ( ddgiProbeSetLayout != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorSetLayout( device, ddgiProbeSetLayout, nullptr );
-            }
-            if ( ddgiProbeDescriptorPool != VK_NULL_HANDLE ) {
-                vkDestroyDescriptorPool( device, ddgiProbeDescriptorPool, nullptr );
-            }
-        } );
-
-    UtilLogger::Info( "PIPELINE", "DeferredLighting graphics pipeline created." );
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        UpdateDescriptorSet( aCore, i );
+    }
+    UpdateDdgiDescriptors( aCore );
 }
 
 Gpu_DeferredLightingPushConstants BuildPushConstants( const Vk_Renderer& aCore ) {
@@ -548,23 +323,20 @@ Gpu_DeferredLightingPushConstants BuildPushConstants( const Vk_Renderer& aCore )
 
 void UpdateAoDescriptorBinding( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    if ( aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE ) {
+    Rhi_Device&               rhi   = aCore.myGfxRhiDevice;
+    if ( !rhi || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !state.myDeferredGfx.mySetsAllocated ) {
         return;
     }
 
-    VkImageView contactView = Vk_ShadowAoSoftPass::GetDeferredContactMapView( aCore );
-    if ( contactView == VK_NULL_HANDLE ) {
-        contactView = aCore.myGBufferState.myAlbedo.ImageView();
-    }
+    Rhi_Texture albedoTex = RhiVulkan::TextureAdopt( rhi, aCore.myGBufferState.myAlbedo.Image(), aCore.myGBufferState.myAlbedo.ImageView(), VK_FORMAT_R8G8B8A8_UNORM, 1 );
 
-    VkDescriptorImageInfo aoInfo{};
-    aoInfo.sampler     = state.myGBufferSampler;
-    aoInfo.imageView   = contactView;
-    aoInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    Gfx_DeferredLightingPass::AoBindingUpdateDesc desc{};
+    desc.myFrameIndex = aFrameIndex;
+    desc.myAo         = SelectDeferredContactTexture( aCore );
+    desc.myFallback   = albedoTex;
+    Gfx_DeferredLightingPass::UpdateAoBinding( rhi, desc, state.myDeferredGfx );
 
-    const VkWriteDescriptorSet write =
-        VkInit::DescriptorSetWriteCreateInfo( state.myDescriptorSets[ aFrameIndex ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &aoInfo, 13, 1 );
-    vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, 1, &write, 0, nullptr );
+    Rhi::DeviceDestroyTexture( rhi, albedoTex );
 }
 
 }  // namespace
@@ -579,19 +351,11 @@ void Destroy( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
     if ( aCore.myGfxRhiDevice ) {
-        Gfx_DeferredLightingPass::DestroyPipeline( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDeferredGfx );
-        Gfx_DdgiPass::DestroyPipeline( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDdgiGfx );
+        Gfx_DeferredLightingPass::Destroy( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDeferredGfx );
+        Gfx_DdgiPass::Destroy( aCore.myGfxRhiDevice, aCore.myDeferredLightingState.myDdgiGfx );
     }
-    DestroyDdgiAtlas( aCore );
-    aCore.myDeferredLightingState.myDescriptorSets                = {};
-    aCore.myDeferredLightingState.myDdgiProbeDescriptorSets       = {};
-    aCore.myDeferredLightingState.myPipeline                      = VK_NULL_HANDLE;
-    aCore.myDeferredLightingState.myDdgiProbeUpdatePipeline       = VK_NULL_HANDLE;
-    aCore.myDeferredLightingState.myDdgiProbeUpdatePipelineLayout = VK_NULL_HANDLE;
-    aCore.myDeferredLightingState.myDdgiProbeSetLayout            = VK_NULL_HANDLE;
-    aCore.myDeferredLightingState.myDdgiProbeDescriptorPool       = VK_NULL_HANDLE;
-    aCore.myDeferredLightingState.myDdgiAtlasReadable             = false;
-    aCore.myDeferredLightingState.myInitialized                   = false;
+    ClearDdgiCpu( aCore.myDeferredLightingState );
+    aCore.myDeferredLightingState.myInitialized = false;
 }
 
 void RecreateForExtent( Vk_Renderer& aCore ) {
@@ -602,39 +366,19 @@ void RecreateForExtent( Vk_Renderer& aCore ) {
         vkDeviceWaitIdle( aCore.myRhi.myDeviceCtx.myDevice );
     }
 
-    DestroyDdgiAtlas( aCore );
-    CreateDdgiAtlas( aCore );
-    aCore.myDeferredLightingState.myDdgiUpdateCursor = 0u;
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        UpdateDescriptorSet( aCore, i );
-        VkDescriptorImageInfo outProbe{};
-        outProbe.imageView   = aCore.myDeferredLightingState.myDdgiProbeIrradianceAtlas.ImageView();
-        outProbe.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        VkDescriptorImageInfo outVisibility{};
-        outVisibility.imageView   = aCore.myDeferredLightingState.myDdgiProbeVisibilityAtlas.ImageView();
-        outVisibility.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        VkDescriptorImageInfo worldPosInfo{};
-        worldPosInfo.sampler     = aCore.myDeferredLightingState.myGBufferSampler;
-        worldPosInfo.imageView   = aCore.myGBufferState.myWorldPosition.ImageView();
-        worldPosInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        VkDescriptorImageInfo normalInfo{};
-        normalInfo.sampler                           = aCore.myDeferredLightingState.myGBufferSampler;
-        normalInfo.imageView                         = aCore.myGBufferState.myNormalRoughness.ImageView();
-        normalInfo.imageLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        std::array< VkWriteDescriptorSet, 4 > writes = {
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outProbe, 0, 1 ),
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &outVisibility, 1, 1 ),
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &worldPosInfo, 2,
-                                                  1 ),
-            VkInit::DescriptorSetWriteCreateInfo( aCore.myDeferredLightingState.myDdgiProbeDescriptorSets[ i ], VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalInfo, 3, 1 ),
-        };
-        vkUpdateDescriptorSets( aCore.myRhi.myDeviceCtx.myDevice, static_cast< uint32_t >( writes.size() ), writes.data(), 0, nullptr );
-    }
-
     if ( !CreateGfxPipelines( aCore ) ) {
         throw std::runtime_error( "Vk_DeferredLightingPass: Gfx pipeline recreate failed" );
     }
+
+    aCore.myDeferredLightingState.myDdgiUpdateCursor = 0u;
+    if ( !CreateOrRefreshDdgiImages( aCore ) ) {
+        throw std::runtime_error( "Vk_DeferredLightingPass: Gfx DDGI CreateOrRecreateImages failed" );
+    }
+
+    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
+        UpdateDescriptorSet( aCore, i );
+    }
+    UpdateDdgiDescriptors( aCore );
 }
 
 void Init( Vk_Renderer& aCore ) {
@@ -651,15 +395,15 @@ void Init( Vk_Renderer& aCore ) {
     if ( !aCore.myGfxRhiDevice ) {
         throw std::runtime_error( "Vk_DeferredLightingPass::Init requires myGfxRhiDevice" );
     }
-    UtilLogger::Info( "FG", "Vk_DeferredLightingPass::Init." );
+    UtilLogger::Info( "FG", "Vk_DeferredLightingPass::Init (Gfx create)." );
     CreatePipelineResources( aCore );
     aCore.myDeferredLightingState.myInitialized = true;
 }
 
 void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aFrameIndex ) {
     Vk_DeferredLightingState& state = aCore.myDeferredLightingState;
-    if ( !state.myInitialized || !aCore.myLightingSettings.myDdgiEnabled || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || state.myDdgiProbeUpdatePipeline == VK_NULL_HANDLE
-         || state.myDdgiProbeDescriptorSets[ aFrameIndex ] == VK_NULL_HANDLE || !aCore.myGfxRhiDevice ) {
+    if ( !state.myInitialized || !aCore.myLightingSettings.myDdgiEnabled || aFrameIndex >= MAX_FRAMES_IN_FLIGHT || !state.myDdgiGfx.myPipeline
+         || !state.myDdgiGfx.mySets[ aFrameIndex ] || !aCore.myGfxRhiDevice ) {
         return;
     }
     if ( state.myDdgiTotalProbeCount == 0u ) {
@@ -691,13 +435,11 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     }
 
     Gfx_DdgiPass::GpuResources gpu{};
-    gpu.myPipeline        = RhiVulkan::PipelineAdopt( state.myDdgiProbeUpdatePipeline );
-    gpu.myLayout          = RhiVulkan::PipelineLayoutAdopt( state.myDdgiProbeUpdatePipelineLayout );
-    gpu.mySet             = RhiVulkan::DescriptorSetAdopt( state.myDdgiProbeDescriptorSets[ aFrameIndex ] );
-    gpu.myIrradianceAtlas = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myDdgiProbeIrradianceAtlas.Image(), state.myDdgiProbeIrradianceAtlas.ImageView(),
-                                                     VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
-    gpu.myVisibilityAtlas =
-        RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, state.myDdgiProbeVisibilityAtlas.Image(), state.myDdgiProbeVisibilityAtlas.ImageView(), VK_FORMAT_R16_SFLOAT, 1 );
+    gpu.myPipeline        = state.myDdgiGfx.myPipeline;
+    gpu.myLayout          = state.myDdgiGfx.myLayout;
+    gpu.mySet             = state.myDdgiGfx.mySets[ aFrameIndex ];
+    gpu.myIrradianceAtlas = state.myDdgiGfx.myIrradianceAtlas;
+    gpu.myVisibilityAtlas = state.myDdgiGfx.myVisibilityAtlas;
 
     Gfx_DdgiPass::RecordInput input{};
     input.myPush        = push;
@@ -706,9 +448,6 @@ void RecordDdgiProbeUpdate( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, 
     input.myDebugLabels = aCore.AreCommandDebugLabelsEnabled();
 
     Gfx_DdgiPass::RecordProbeUpdate( frameCmd.Get(), gpu, input );
-
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myIrradianceAtlas );
-    Rhi::DeviceDestroyTexture( aCore.myGfxRhiDevice, gpu.myVisibilityAtlas );
 
     state.myDdgiAtlasReadable     = true;
     state.myDdgiHistoryForceReset = false;
@@ -737,9 +476,9 @@ void RecordDraw( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t aF
     }
 
     Gfx_DeferredLightingPass::GpuResources gpu{};
-    gpu.myPipeline = RhiVulkan::PipelineAdopt( state.myPipeline );
-    gpu.myLayout   = RhiVulkan::PipelineLayoutAdopt( state.myPipelineLayout );
-    gpu.mySet      = RhiVulkan::DescriptorSetAdopt( state.myDescriptorSets[ aFrameIndex ] );
+    gpu.myPipeline = state.myDeferredGfx.myPipeline;
+    gpu.myLayout   = state.myDeferredGfx.myLayout;
+    gpu.mySet      = state.myDeferredGfx.mySets[ aFrameIndex ];
 
     Gfx_DeferredLightingPass::RecordInput input{};
     input.myPush        = BuildPushConstants( aCore );

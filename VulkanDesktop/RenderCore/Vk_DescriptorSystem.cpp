@@ -5,6 +5,7 @@
 #include "Vk_Initializer.h"
 #include "Vk_Renderer.h"
 #include "Vk_ResourceContext.h"
+#include "Vk_RhiBackend.h"
 #include "Vk_ShaderEffectMeta.h"
 
 #include "../Gfx/Gfx_LightingGlobals.h"
@@ -352,8 +353,8 @@ void Vk_DescriptorSystem::CreateDescriptorSets( Vk_Renderer& aCore ) {
     }
 
     VkDescriptorImageInfo shadowInfo{};
-    shadowInfo.sampler     = aCore.myShadowMapState.myCompareSampler;
-    shadowInfo.imageView   = aCore.myShadowMapState.myDepth.ImageView();
+    shadowInfo.sampler     = RhiVulkan::SamplerGetVk( aCore.myGfxRhiDevice, aCore.myShadowMapState.myGfx.myCompareSampler );
+    shadowInfo.imageView   = RhiVulkan::TextureGetVkView( aCore.myGfxRhiDevice, aCore.myShadowMapState.myGfx.myDepth );
     shadowInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo irradianceInfo{};

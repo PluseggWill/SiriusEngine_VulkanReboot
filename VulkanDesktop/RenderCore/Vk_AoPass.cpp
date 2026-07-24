@@ -1,5 +1,4 @@
-// Module: Vk_AoPass — pluggable screen-space AO (Classic SSAO, HBAO+, GTAO).
-// Outputs linear R8 myAoRaw; ShadowAoSoft and deferred read via GetRawAoImageView().
+// Module: Vk_AoPass — SPIR-V load + Init/Record orchestration over Gfx_AoPass.
 #include "Vk_AoPass.h"
 
 #include "Vk_AoPassInternal.h"
@@ -11,6 +10,7 @@
 #include "../Util/Util_Logger.h"
 
 #include "Vk_FrameCmd.h"
+#include "Vk_FrameLimits.h"
 #include "Vk_Renderer.h"
 #include "Vk_RhiBackend.h"
 
@@ -50,79 +50,6 @@ VkExtent2D HalfExtent( uint32_t aWidth, uint32_t aHeight ) {
     return { std::max( 1u, ( aWidth + 1u ) / 2u ), std::max( 1u, ( aHeight + 1u ) / 2u ) };
 }
 
-void ClearVkMirrors( Vk_AoState& aState ) {
-    aState.myClassicPipeline        = VK_NULL_HANDLE;
-    aState.myHbaoPipeline           = VK_NULL_HANDLE;
-    aState.myGtaoPipeline           = VK_NULL_HANDLE;
-    aState.myUpsamplePipeline       = VK_NULL_HANDLE;
-    aState.myBlurPipeline           = VK_NULL_HANDLE;
-    aState.myTemporalPipeline       = VK_NULL_HANDLE;
-    aState.myClassicPipelineLayout  = VK_NULL_HANDLE;
-    aState.myHalfResPipelineLayout  = VK_NULL_HANDLE;
-    aState.myUpsamplePipelineLayout = VK_NULL_HANDLE;
-    aState.myBlurPipelineLayout     = VK_NULL_HANDLE;
-    aState.myTemporalPipelineLayout = VK_NULL_HANDLE;
-    aState.myClassicSetLayout       = VK_NULL_HANDLE;
-    aState.myHalfResSetLayout       = VK_NULL_HANDLE;
-    aState.myUpsampleSetLayout      = VK_NULL_HANDLE;
-    aState.myBlurSetLayout          = VK_NULL_HANDLE;
-    aState.myTemporalSetLayout      = VK_NULL_HANDLE;
-    aState.myDescriptorPool         = VK_NULL_HANDLE;
-    aState.myGBufferSampler         = VK_NULL_HANDLE;
-    aState.myAoRaw                  = {};
-    aState.myAoHalf                 = {};
-    aState.myBentNormalHalf         = {};
-    aState.myAoBlur                 = {};
-    aState.myAoHistory[ 0 ]         = {};
-    aState.myAoHistory[ 1 ]         = {};
-}
-
-void SyncTextureMirror( Rhi_Device& aRhi, Rhi_Texture aTexture, Vk_TextureResource& aOut ) {
-    aOut.Image()     = RhiVulkan::TextureGetVkImage( aRhi, aTexture );
-    aOut.ImageView() = RhiVulkan::TextureGetVkView( aRhi, aTexture );
-}
-
-void SyncVkMirrors( Vk_Renderer& aCore ) {
-    Vk_AoState& state = aCore.myAoState;
-    Rhi_Device& rhi   = aCore.myGfxRhiDevice;
-    const auto& gfx   = state.myGfx;
-
-    state.myClassicPipeline        = RhiVulkan::PipelineGetVk( rhi, gfx.myClassicPipeline );
-    state.myHbaoPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myHbaoPipeline );
-    state.myGtaoPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myGtaoPipeline );
-    state.myUpsamplePipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myUpsamplePipeline );
-    state.myBlurPipeline           = RhiVulkan::PipelineGetVk( rhi, gfx.myBlurPipeline );
-    state.myTemporalPipeline       = RhiVulkan::PipelineGetVk( rhi, gfx.myTemporalPipeline );
-    state.myClassicPipelineLayout  = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myClassicLayout );
-    state.myHalfResPipelineLayout  = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myHalfResLayout );
-    state.myUpsamplePipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myUpsampleLayout );
-    state.myBlurPipelineLayout     = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myBlurLayout );
-    state.myTemporalPipelineLayout = RhiVulkan::PipelineLayoutGetVk( rhi, gfx.myTemporalLayout );
-    state.myClassicSetLayout       = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myClassicSetLayout );
-    state.myHalfResSetLayout       = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myHalfResSetLayout );
-    state.myUpsampleSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myUpsampleSetLayout );
-    state.myBlurSetLayout          = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myBlurSetLayout );
-    state.myTemporalSetLayout      = RhiVulkan::DescriptorSetLayoutGetVk( rhi, gfx.myTemporalSetLayout );
-    state.myDescriptorPool         = RhiVulkan::DescriptorPoolGetVk( rhi, gfx.myPool );
-    state.myGBufferSampler         = RhiVulkan::SamplerGetVk( rhi, gfx.myGBufferSampler );
-
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        state.myClassicDescriptorSets[ i ]   = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myClassicSets[ i ] );
-        state.myHalfResDescriptorSets[ i ]   = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myHalfResSets[ i ] );
-        state.myUpsampleDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myUpsampleSets[ i ] );
-        state.myBlurHorizDescriptorSets[ i ] = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurHorizSets[ i ] );
-        state.myBlurVertDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myBlurVertSets[ i ] );
-        state.myTemporalDescriptorSets[ i ]  = RhiVulkan::DescriptorSetGetVk( rhi, gfx.myTemporalSets[ i ] );
-    }
-
-    SyncTextureMirror( rhi, gfx.myAoRaw, state.myAoRaw );
-    SyncTextureMirror( rhi, gfx.myAoHalf, state.myAoHalf );
-    SyncTextureMirror( rhi, gfx.myBentNormalHalf, state.myBentNormalHalf );
-    SyncTextureMirror( rhi, gfx.myAoBlur, state.myAoBlur );
-    SyncTextureMirror( rhi, gfx.myAoHistory0, state.myAoHistory[ 0 ] );
-    SyncTextureMirror( rhi, gfx.myAoHistory1, state.myAoHistory[ 1 ] );
-}
-
 bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
     Vk_AoState& state = aCore.myAoState;
     Rhi_Device& rhi   = aCore.myGfxRhiDevice;
@@ -141,7 +68,6 @@ bool CreateOrRefreshImages( Vk_Renderer& aCore ) {
         return false;
     }
 
-    SyncVkMirrors( aCore );
     Vk_AoPassDetail::gBentHalfLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     UtilLogger::Info( "AO", "targets: full=" + std::to_string( width ) + "x" + std::to_string( height ) + " half=" + std::to_string( HalfExtent( width, height ).width ) + "x"
                                 + std::to_string( HalfExtent( width, height ).height ) + " format=R8_UNORM (Gfx)" );
@@ -179,7 +105,6 @@ void CreatePipelines( Vk_Renderer& aCore ) {
     if ( !Gfx_AoPass::CreatePipelines( aCore.myGfxRhiDevice, pipeDesc, aCore.myAoState.myGfx ) ) {
         throw std::runtime_error( "Vk_AoPass: Gfx CreatePipelines failed" );
     }
-    SyncVkMirrors( aCore );
     UtilLogger::Info( "PIPELINE", "AO compute pipelines created (Classic SSAO, HBAO+, GTAO, upsample, blur) — Gfx." );
 }
 
@@ -258,7 +183,6 @@ void UpdateAllDescriptorSets( Vk_Renderer& aCore ) {
     Rhi::DeviceDestroyTexture( rhi, normalTex );
     Rhi::DeviceDestroyTexture( rhi, worldPosTex );
     Rhi::DeviceDestroyTexture( rhi, motionTex );
-    SyncVkMirrors( aCore );
 }
 
 void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
@@ -277,7 +201,6 @@ void UpdateTemporalDescriptorSet( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
     Gfx_AoPass::UpdateTemporalDescriptors( rhi, desc, state.myGfx, aFrameIndex );
 
     Rhi::DeviceDestroyTexture( rhi, motionTex );
-    SyncVkMirrors( aCore );
 }
 
 }  // namespace
@@ -293,15 +216,6 @@ void Destroy( Vk_Renderer& aCore ) {
     }
     if ( aCore.myGfxRhiDevice ) {
         Gfx_AoPass::Destroy( aCore.myGfxRhiDevice, aCore.myAoState.myGfx );
-    }
-    ClearVkMirrors( aCore.myAoState );
-    for ( uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i ) {
-        aCore.myAoState.myClassicDescriptorSets[ i ]   = VK_NULL_HANDLE;
-        aCore.myAoState.myHalfResDescriptorSets[ i ]   = VK_NULL_HANDLE;
-        aCore.myAoState.myUpsampleDescriptorSets[ i ]  = VK_NULL_HANDLE;
-        aCore.myAoState.myBlurHorizDescriptorSets[ i ] = VK_NULL_HANDLE;
-        aCore.myAoState.myBlurVertDescriptorSets[ i ]  = VK_NULL_HANDLE;
-        aCore.myAoState.myTemporalDescriptorSets[ i ]  = VK_NULL_HANDLE;
     }
     aCore.myAoState.myTemporalReadIndex    = 0u;
     aCore.myAoState.myTemporalHistoryReady = false;
@@ -335,27 +249,12 @@ void Init( Vk_Renderer& aCore ) {
     CreatePipelines( aCore );
     if ( !CreateOrRefreshImages( aCore ) ) {
         Gfx_AoPass::Destroy( aCore.myGfxRhiDevice, aCore.myAoState.myGfx );
-        ClearVkMirrors( aCore.myAoState );
         throw std::runtime_error( "Vk_AoPass: Gfx CreateOrRecreateImages failed" );
     }
     UpdateAllDescriptorSets( aCore );
     aCore.myAoState.myTemporalReadIndex    = 0u;
     aCore.myAoState.myTemporalHistoryReady = false;
     aCore.myAoState.myInitialized          = true;
-}
-
-VkImageView GetRawAoImageView( const Vk_Renderer& aCore ) {
-    if ( aCore.myAoState.myInitialized ) {
-        return aCore.myAoState.myAoRaw.ImageView();
-    }
-    return VK_NULL_HANDLE;
-}
-
-VkImageView GetBentNormalHalfView( const Vk_Renderer& aCore ) {
-    if ( aCore.myAoState.myInitialized && aCore.myAoState.myBentNormalHalf.ImageView() != VK_NULL_HANDLE ) {
-        return aCore.myAoState.myBentNormalHalf.ImageView();
-    }
-    return VK_NULL_HANDLE;
 }
 
 void NoteRawAoLayout( VkImageLayout aLayout ) {
@@ -380,50 +279,44 @@ namespace {
         UpdateTemporalDescriptorSet( *static_cast< Vk_Renderer* >( aUser ), aFrameIndex );
     }
 
-    Gfx_AoPass::GpuResources BuildAoGpuResources( Vk_Renderer& aCore, Rhi_Device& aRhiDevice, uint32_t aFrameIndex ) {
-        Vk_AoState&              state = aCore.myAoState;
+    Gfx_AoPass::GpuResources BuildAoGpuResources( Vk_Renderer& aCore, uint32_t aFrameIndex ) {
+        const auto&              gfx = aCore.myAoState.myGfx;
         Gfx_AoPass::GpuResources gpu{};
 
-        gpu.myClassicPipeline  = RhiVulkan::PipelineAdopt( state.myClassicPipeline );
-        gpu.myHbaoPipeline     = RhiVulkan::PipelineAdopt( state.myHbaoPipeline );
-        gpu.myGtaoPipeline     = RhiVulkan::PipelineAdopt( state.myGtaoPipeline );
-        gpu.myUpsamplePipeline = RhiVulkan::PipelineAdopt( state.myUpsamplePipeline );
-        gpu.myBlurPipeline     = RhiVulkan::PipelineAdopt( state.myBlurPipeline );
-        gpu.myTemporalPipeline = RhiVulkan::PipelineAdopt( state.myTemporalPipeline );
+        gpu.myClassicPipeline  = gfx.myClassicPipeline;
+        gpu.myHbaoPipeline     = gfx.myHbaoPipeline;
+        gpu.myGtaoPipeline     = gfx.myGtaoPipeline;
+        gpu.myUpsamplePipeline = gfx.myUpsamplePipeline;
+        gpu.myBlurPipeline     = gfx.myBlurPipeline;
+        gpu.myTemporalPipeline = gfx.myTemporalPipeline;
 
-        gpu.myClassicLayout  = RhiVulkan::PipelineLayoutAdopt( state.myClassicPipelineLayout );
-        gpu.myHalfResLayout  = RhiVulkan::PipelineLayoutAdopt( state.myHalfResPipelineLayout );
-        gpu.myUpsampleLayout = RhiVulkan::PipelineLayoutAdopt( state.myUpsamplePipelineLayout );
-        gpu.myBlurLayout     = RhiVulkan::PipelineLayoutAdopt( state.myBlurPipelineLayout );
-        gpu.myTemporalLayout = RhiVulkan::PipelineLayoutAdopt( state.myTemporalPipelineLayout );
+        gpu.myClassicLayout  = gfx.myClassicLayout;
+        gpu.myHalfResLayout  = gfx.myHalfResLayout;
+        gpu.myUpsampleLayout = gfx.myUpsampleLayout;
+        gpu.myBlurLayout     = gfx.myBlurLayout;
+        gpu.myTemporalLayout = gfx.myTemporalLayout;
 
-        gpu.myClassicSet   = RhiVulkan::DescriptorSetAdopt( state.myClassicDescriptorSets[ aFrameIndex ] );
-        gpu.myHalfResSet   = RhiVulkan::DescriptorSetAdopt( state.myHalfResDescriptorSets[ aFrameIndex ] );
-        gpu.myUpsampleSet  = RhiVulkan::DescriptorSetAdopt( state.myUpsampleDescriptorSets[ aFrameIndex ] );
-        gpu.myBlurHorizSet = RhiVulkan::DescriptorSetAdopt( state.myBlurHorizDescriptorSets[ aFrameIndex ] );
-        gpu.myBlurVertSet  = RhiVulkan::DescriptorSetAdopt( state.myBlurVertDescriptorSets[ aFrameIndex ] );
-        gpu.myTemporalSet  = RhiVulkan::DescriptorSetAdopt( state.myTemporalDescriptorSets[ aFrameIndex ] );
+        gpu.myClassicSet   = gfx.myClassicSets[ aFrameIndex ];
+        gpu.myHalfResSet   = gfx.myHalfResSets[ aFrameIndex ];
+        gpu.myUpsampleSet  = gfx.myUpsampleSets[ aFrameIndex ];
+        gpu.myBlurHorizSet = gfx.myBlurHorizSets[ aFrameIndex ];
+        gpu.myBlurVertSet  = gfx.myBlurVertSets[ aFrameIndex ];
+        gpu.myTemporalSet  = gfx.myTemporalSets[ aFrameIndex ];
 
-        gpu.myAoRaw           = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoRaw.Image(), state.myAoRaw.ImageView(), VK_FORMAT_R8_UNORM, 1 );
-        gpu.myAoHalf          = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHalf.Image(), state.myAoHalf.ImageView(), VK_FORMAT_R8_UNORM, 1 );
-        gpu.myBentNormalHalf  = RhiVulkan::TextureAdopt( aRhiDevice, state.myBentNormalHalf.Image(), state.myBentNormalHalf.ImageView(), VK_FORMAT_R8G8_UNORM, 1 );
-        gpu.myAoBlur          = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoBlur.Image(), state.myAoBlur.ImageView(), VK_FORMAT_R8_UNORM, 1 );
-        gpu.myAoHistory0      = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHistory[ 0 ].Image(), state.myAoHistory[ 0 ].ImageView(), VK_FORMAT_R8_UNORM, 1 );
-        gpu.myAoHistory1      = RhiVulkan::TextureAdopt( aRhiDevice, state.myAoHistory[ 1 ].Image(), state.myAoHistory[ 1 ].ImageView(), VK_FORMAT_R8_UNORM, 1 );
-        gpu.myGBufferNormal   = RhiVulkan::TextureAdopt( aRhiDevice, aCore.myGBufferState.myNormalRoughness.Image(), aCore.myGBufferState.myNormalRoughness.ImageView(),
-                                                         VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
-        gpu.myGBufferWorldPos = RhiVulkan::TextureAdopt( aRhiDevice, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(),
+        gpu.myAoRaw           = gfx.myAoRaw;
+        gpu.myAoHalf          = gfx.myAoHalf;
+        gpu.myBentNormalHalf  = gfx.myBentNormalHalf;
+        gpu.myAoBlur          = gfx.myAoBlur;
+        gpu.myAoHistory0      = gfx.myAoHistory0;
+        gpu.myAoHistory1      = gfx.myAoHistory1;
+        gpu.myGBufferNormal   = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, aCore.myGBufferState.myNormalRoughness.Image(),
+                                                         aCore.myGBufferState.myNormalRoughness.ImageView(), VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
+        gpu.myGBufferWorldPos = RhiVulkan::TextureAdopt( aCore.myGfxRhiDevice, aCore.myGBufferState.myWorldPosition.Image(), aCore.myGBufferState.myWorldPosition.ImageView(),
                                                          VK_FORMAT_R16G16B16A16_SFLOAT, 1 );
         return gpu;
     }
 
     void ReleaseAdoptedAoTextures( Rhi_Device& aRhiDevice, Gfx_AoPass::GpuResources& aGpu ) {
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoRaw );
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHalf );
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myBentNormalHalf );
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoBlur );
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHistory0 );
-        Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myAoHistory1 );
         Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myGBufferNormal );
         Rhi::DeviceDestroyTexture( aRhiDevice, aGpu.myGBufferWorldPos );
     }
@@ -447,7 +340,7 @@ void RecordCompute( Vk_Renderer& aCore, VkCommandBuffer aCommandBuffer, uint32_t
         return;
     }
 
-    Gfx_AoPass::GpuResources gpu = BuildAoGpuResources( aCore, aCore.myGfxRhiDevice, aFrameIndex );
+    Gfx_AoPass::GpuResources gpu = BuildAoGpuResources( aCore, aFrameIndex );
 
     Gfx_AoPass::LayoutState layouts{};
     layouts.myAoRaw    = AoToRhiLayout( Vk_AoPassDetail::gAoRawLayout );

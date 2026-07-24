@@ -84,6 +84,7 @@ struct ImageInitDesc {
 
 struct DescriptorUpdateDesc {
     uint32_t    myFramesInFlight = kMaxFramesInFlight;
+    uint32_t    myFrameIndex     = 0xffffffffu;  // 0xffffffff = all frames; else only that slot
     Rhi_Texture myGBufferDepth{};
     Rhi_Texture myGBufferNormal{};
     Rhi_Texture myGBufferWorldPos{};

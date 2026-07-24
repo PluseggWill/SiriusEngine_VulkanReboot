@@ -1929,6 +1929,12 @@ Rhi_DescriptorSetLayout DescriptorSetLayoutAdopt( VkDescriptorSetLayout aLayout 
     return out;
 }
 
+Rhi_Sampler SamplerAdopt( VkSampler aSampler ) {
+    Rhi_Sampler out;
+    out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aSampler ) );
+    return out;
+}
+
 Rhi_RenderPass RenderPassAdopt( VkRenderPass aRenderPass ) {
     Rhi_RenderPass out;
     out.myId = static_cast< uint64_t >( reinterpret_cast< uintptr_t >( aRenderPass ) );
